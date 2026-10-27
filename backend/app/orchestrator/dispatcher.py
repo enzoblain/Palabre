@@ -158,6 +158,8 @@ class Orchestrator:
             if result is not None:
                 await self._save_session(s, employee_id, scope, result.session_id)
                 log.info("%s: run finished (%s turns)", employee.name, result.num_turns)
+                if result.is_error:
+                    error = result.text or "claude reported an error"
             await self._finish(s, run_id, wakeup_ids, ok=result is not None and not result.is_error, error=error, result=result)
 
     async def _finish(

@@ -15,7 +15,10 @@ from app.mcp_server.server import SERVER_NAME
 log = logging.getLogger(__name__)
 
 # Only these variables reach the agent: no database URL, GitHub token or API key.
-ENV_ALLOWLIST = ("PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR", "CLAUDE_CODE_OAUTH_TOKEN")
+ENV_ALLOWLIST = (
+    "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR",
+    "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
+)  # fmt: skip
 
 
 class ClaudeRunError(RuntimeError):
@@ -130,5 +133,5 @@ async def run_claude(spec: RunSpec) -> RunResult:
         cost_usd=data.get("total_cost_usd"),
     )
     if result.is_error:
-        log.warning("%s: run ended with an error (%s)", spec.author_name, data.get("subtype"))
+        log.warning("%s: run ended with an error: %s", spec.author_name, result.text or data.get("subtype"))
     return result

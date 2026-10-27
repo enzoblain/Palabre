@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-palabre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-palabre}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        EXTRA_APT_PACKAGES: ${EXTRA_APT_PACKAGES:-}
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-palabre}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-palabre}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PALABRE_PORT:-8000}:8000"
+    volumes:
+      # Repositories and worktrees, Claude sessions, run files
+      - palabre-data:/data
+    # Leaves running agents time to stop cleanly
+    stop_grace_period: 60s
+
+volumes:
+  pgdata:
+  palabre-data:

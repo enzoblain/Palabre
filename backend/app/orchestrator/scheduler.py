@@ -15,6 +15,8 @@ from app.services import emit_event
 log = logging.getLogger(__name__)
 
 INTERVAL_S = 30
+# The daily only happens within this window after DAILY_TIME (not at 11 pm after a restart)
+DAILY_WINDOW = timedelta(hours=1)
 
 
 def _aware(dt: datetime) -> datetime:
@@ -35,8 +37,12 @@ async def run_scheduler() -> None:
 
 
 async def _daily(s: AsyncSession) -> None:
+    if not settings.daily_time:
+        return
     now = datetime.now().astimezone()  # Local time of the container (TZ)
-    if not settings.daily_time or now.weekday() >= 5 or now.strftime("%H:%M") < settings.daily_time:
+    hour, minute = map(int, settings.daily_time.split(":"))
+    daily_at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if now.weekday() >= 5 or not daily_at <= now < daily_at + DAILY_WINDOW:
         return
     start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
     for project_id in list(await s.scalars(select(Project.id))):
