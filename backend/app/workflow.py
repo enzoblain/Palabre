@@ -9,9 +9,9 @@ from sqlalchemy.orm import selectinload
 
 from app import github
 from app.company.team import load_catalog
-from app.config import settings
 from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
 from app.services import WorkflowError, emit_event, post_message
+from app.worktrees import repo_dir
 
 MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -19,10 +19,6 @@ EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 def mode_process(mode: str) -> dict:
     return load_catalog()["modes"][mode]["process"]
-
-
-def repo_path(project: Project) -> str:
-    return str(settings.projects_dir / f"project-{project.id}" / "repo")
 
 
 async def get_task(s: AsyncSession, project_id: int, task_id: int) -> Task:
@@ -268,7 +264,7 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     task = await get_task(s, project_id, task_id)
     if not task.branch:
         raise WorkflowError(f"Task #{task.id} has no branch yet")
-    repo = repo_path(project)
+    repo = repo_dir(project)
     try:
         await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
     except github.GitHubError:
@@ -347,7 +343,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
             blockers.append(ci)
     if process["docs_required"]:
         files = (
-            await github.git(repo_path(project), "diff", "--name-only", f"origin/{project.default_branch}...{task.branch}")
+            await github.git(repo_dir(project), "diff", "--name-only", f"origin/{project.default_branch}...{task.branch}")
         ).split()
         if not any(PurePosixPath(f).name.upper().startswith("CHANGELOG") for f in files):
             blockers.append("the changelog was not updated")

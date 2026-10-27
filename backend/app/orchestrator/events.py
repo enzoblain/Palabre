@@ -1,0 +1,82 @@
+"""Turns events into wakeups: who must run, and in which context."""
+
+from datetime import UTC, datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.company.team import load_catalog
+from app.models import Conversation, Employee, Event, Room, Task, Wakeup
+from app.orchestrator.prompts import reason_for
+
+# Events that make the assignee work on the task (task run) rather than talk
+TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested"}
+BATCH_SIZE = 200
+
+
+def wakes_on(employee: Employee, event_type: str) -> bool:
+    roles = load_catalog()["roles"]
+    return any(event_type in roles[r]["wakes_on"] for r in employee.roles)
+
+
+async def _targets(s: AsyncSession, event: Event) -> list[Employee]:
+    if event.target_employee_id is not None:
+        employee = await s.get(Employee, event.target_employee_id)
+        return [employee] if employee else []
+    employees = await s.scalars(select(Employee).where(Employee.project_id == event.project_id))
+    if event.target_role is not None:
+        return [e for e in employees if event.target_role in e.roles]
+    # Broadcast: everyone whose position reacts to this event (catalog: wakes_on)
+    return [e for e in employees if wakes_on(e, event.type)]
+
+
+async def _conversation_id(s: AsyncSession, event: Event, task: Task | None) -> int | None:
+    if conversation_id := event.payload.get("conversation_id"):
+        return conversation_id
+    if task is not None:
+        return task.conversation_id
+    room_q = select(Room.id).where(Room.project_id == event.project_id)
+    if room_id := event.payload.get("room_id"):
+        room_q = room_q.where(Room.id == room_id)
+    return await s.scalar(
+        select(Conversation.id)
+        .where(Conversation.room_id.in_(room_q))
+        .order_by(Conversation.id.desc())
+        .limit(1)
+    )
+
+
+async def expand_events(s: AsyncSession) -> int:
+    """Resolve pending events into wakeups. Events for the boss stay for the UI."""
+    events = list(
+        await s.scalars(
+            select(Event)
+            .where(
+                Event.processed_at.is_(None),
+                (Event.target_role.is_(None)) | (Event.target_role != "boss"),
+            )
+            .order_by(Event.id)
+            .limit(BATCH_SIZE)
+        )
+    )
+    for event in events:
+        task = await s.get(Task, event.payload["task_id"]) if "task_id" in event.payload else None
+        conversation_id = await _conversation_id(s, event, task)
+        reason = reason_for(event.type, event.payload)
+        for employee in await _targets(s, event):
+            is_task_run = event.type in TASK_EVENTS and task is not None and task.assignee_id == employee.id
+            if not is_task_run and conversation_id is None:
+                continue
+            s.add(
+                Wakeup(
+                    employee_id=employee.id,
+                    event_type=event.type,
+                    kind="task" if is_task_run else "conversation",
+                    conversation_id=None if is_task_run else conversation_id,
+                    task_id=task.id if is_task_run else None,
+                    reason=reason,
+                )
+            )
+        event.processed_at = datetime.now(UTC)
+    await s.commit()
+    return len(events)

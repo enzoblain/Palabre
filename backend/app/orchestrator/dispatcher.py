@@ -1,0 +1,298 @@
+"""Runs the wakeups: at most one run per employee, and a global limit (shared subscription)."""
+
+import asyncio
+import logging
+import time
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app import services
+from app.company.team import render_system_prompt
+from app.config import settings
+from app.db import SessionLocal
+from app.github import GitHubError
+from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
+from app.models import AgentRun, AgentSession, Employee, Project, Task, TaskStatus, Wakeup
+from app.orchestrator.events import expand_events
+from app.orchestrator.prompts import OPERATING_RULES, task_rules, wake_prompt
+from app.orchestrator.scheduler import run_scheduler
+from app.projects import team_of
+from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, run_claude
+from app.worktrees import prepare_worktree, repo_dir, sync_repo
+
+log = logging.getLogger(__name__)
+
+# Conversation runs may read the code, never change it: edits only happen in task worktrees
+READ_ONLY_TOOLS = ["Glob", "Grep", "Read"]
+RUNNABLE_TASK_STATUSES = {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}
+REPO_SYNC_INTERVAL_S = 60
+
+
+class SkipRun(Exception):
+    """The wakeup is no longer relevant (task done, guard tripped, ...)."""
+
+
+class Orchestrator:
+    def __init__(self) -> None:
+        self._loops: list[asyncio.Task] = []
+        self._runs: dict[int, asyncio.Task] = {}  # employee id → its current run
+        self._repo_synced_at: dict[int, float] = {}
+        self._throttled_at: dict[int, datetime] = {}
+
+    async def start(self) -> None:
+        async with SessionLocal() as s:
+            # Runs interrupted by a restart are done again
+            await s.execute(
+                update(Wakeup)
+                .where(Wakeup.started_at.is_not(None), Wakeup.finished_at.is_(None))
+                .values(started_at=None)
+            )
+            await s.commit()
+        self._loops = [
+            asyncio.create_task(self._loop(), name="orchestrator"),
+            asyncio.create_task(run_scheduler(), name="scheduler"),
+        ]
+
+    async def stop(self) -> None:
+        tasks = [*self._loops, *self._runs.values()]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _loop(self) -> None:
+        while True:
+            try:
+                async with SessionLocal() as s:
+                    await expand_events(s)
+                await self._dispatch()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Orchestrator iteration failed")
+            await asyncio.sleep(settings.poll_interval_s)
+
+    async def _dispatch(self) -> None:
+        free = settings.max_concurrent_agents - len(self._runs)
+        if free <= 0:
+            return
+        batches: list[tuple[int, list[int]]] = []
+        async with SessionLocal() as s:
+            pending: dict[int, list[Wakeup]] = {}
+            for w in await s.scalars(select(Wakeup).where(Wakeup.started_at.is_(None)).order_by(Wakeup.id)):
+                if w.employee_id not in self._runs:
+                    pending.setdefault(w.employee_id, []).append(w)
+            now = datetime.now(UTC)
+            for employee_id, wakeups in list(pending.items())[:free]:
+                # One run per context: every pending reason for the same conversation/task at once
+                first = wakeups[0]
+                batch = [w for w in wakeups if (w.kind, w.conversation_id, w.task_id) == (first.kind, first.conversation_id, first.task_id)]  # fmt: skip
+                for w in batch:
+                    w.started_at = now
+                batches.append((employee_id, [w.id for w in batch]))
+            await s.commit()
+
+        for employee_id, wakeup_ids in batches:
+            run = asyncio.create_task(self._run(employee_id, wakeup_ids), name=f"run-employee-{employee_id}")
+            self._runs[employee_id] = run
+            run.add_done_callback(lambda _, e=employee_id: self._runs.pop(e, None))
+
+    async def _run(self, employee_id: int, wakeup_ids: list[int]) -> None:
+        # Phase 1: prepare (short DB session)
+        async with SessionLocal() as s:
+            wakeups = list(await s.scalars(select(Wakeup).where(Wakeup.id.in_(wakeup_ids)).order_by(Wakeup.id)))
+            employee = await s.get(Employee, employee_id)
+            first = wakeups[0]
+            run = AgentRun(
+                employee_id=employee_id,
+                kind=first.kind,
+                conversation_id=first.conversation_id,
+                task_id=first.task_id,
+                reasons=[w.reason for w in wakeups],
+            )
+            s.add(run)
+            await s.commit()
+            run_id = run.id
+            try:
+                spec, scope = await self._prepare(s, employee, wakeups, run_id)
+            except SkipRun as exc:
+                await self._finish(s, run_id, wakeup_ids, error=f"skipped: {exc}")
+                return
+            except (GitHubError, ClaudeRunError) as exc:
+                log.error("%s: could not prepare the run: %s", employee.name, exc)
+                await self._finish(s, run_id, wakeup_ids, ok=False, error=str(exc))
+                return
+            except Exception as exc:
+                log.exception("%s: could not prepare the run", employee.name)
+                await self._finish(s, run_id, wakeup_ids, ok=False, error=repr(exc))
+                return
+
+        # Phase 2: run claude (no DB session held for the whole run)
+        log.info("%s: %s run started (%s)", employee.name, first.kind, scope)
+        result: RunResult | None = None
+        error: str | None = None
+        try:
+            try:
+                result = await run_claude(spec)
+            except SessionNotFound:
+                log.warning("%s: session to resume is gone, starting a new one", employee.name)
+                spec.resume_session_id = None
+                result = await run_claude(spec)
+        except asyncio.CancelledError:
+            raise  # Shutdown: the wakeups stay started-but-unfinished and are redone on restart
+        except ClaudeRunError as exc:
+            error = str(exc)
+            log.error("%s: run failed: %s", employee.name, exc)
+        except Exception as exc:
+            error = repr(exc)
+            log.exception("%s: run crashed", employee.name)
+
+        # Phase 3: record
+        async with SessionLocal() as s:
+            if result is not None:
+                await self._save_session(s, employee_id, scope, result.session_id)
+                log.info("%s: run finished (%s turns)", employee.name, result.num_turns)
+            await self._finish(s, run_id, wakeup_ids, ok=result is not None and not result.is_error, error=error, result=result)
+
+    async def _finish(
+        self,
+        s: AsyncSession,
+        run_id: int,
+        wakeup_ids: list[int],
+        *,
+        ok: bool | None = None,
+        error: str | None = None,
+        result: RunResult | None = None,
+    ) -> None:
+        now = datetime.now(UTC)
+        run = await s.get(AgentRun, run_id)
+        run.finished_at, run.ok, run.error = now, ok, error
+        if result is not None:
+            run.claude_session_id, run.num_turns, run.cost_usd = result.session_id, result.num_turns, result.cost_usd
+        await s.execute(update(Wakeup).where(Wakeup.id.in_(wakeup_ids)).values(finished_at=now))
+        await s.commit()
+
+    # --- Preparing a run -----------------------------------------------------------
+
+    async def _prepare(
+        self, s: AsyncSession, employee: Employee, wakeups: list[Wakeup], run_id: int
+    ) -> tuple[RunSpec, str]:
+        project = await s.scalar(
+            select(Project).where(Project.id == employee.project_id).options(selectinload(Project.employees))
+        )
+        team = team_of(project)
+        member = next(m for m in team.employees if m.name == employee.name)
+        system_prompt = render_system_prompt(team, member, services.boss_display_name()) + "\n\n" + OPERATING_RULES
+        headers = {"Authorization": f"Bearer {employee.mcp_token}"}
+        first = wakeups[0]
+
+        if first.kind == "task":
+            task = await s.get(Task, first.task_id)
+            await self._check_task(s, project, employee, task, wakeups)
+            branch, path = await prepare_worktree(project, task)
+            task.branch, task.worktree_path, task.status = branch, str(path), TaskStatus.in_progress
+            await s.commit()
+            scope = f"task:{task.id}"
+            spec = RunSpec(
+                author_name=employee.name,
+                system_prompt=system_prompt + "\n\n" + task_rules(task),
+                prompt=wake_prompt([w.reason for w in wakeups]),
+                cwd=path,
+                mcp_headers=headers | {"X-Palabre-Task": str(task.id)},
+                mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=True)),
+                claude_tools=claude_tools_for(employee.permissions),
+                model=employee.model,
+            )
+        else:
+            await self._check_rate(s, project, first.conversation_id, run_id)
+            scope = f"conversation:{first.conversation_id}"
+            spec = RunSpec(
+                author_name=employee.name,
+                system_prompt=system_prompt,
+                prompt=wake_prompt([w.reason for w in wakeups]),
+                cwd=await self._main_checkout(project),
+                mcp_headers=headers | {"X-Palabre-Conversation": str(first.conversation_id)},
+                mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
+                claude_tools=READ_ONLY_TOOLS if claude_tools_for(employee.permissions) else [],
+                model=employee.model,
+            )
+
+        spec.resume_session_id = await s.scalar(
+            select(AgentSession.claude_session_id).where(
+                AgentSession.employee_id == employee.id, AgentSession.scope == scope
+            )
+        )
+        return spec, scope
+
+    async def _main_checkout(self, project: Project):
+        """The project's main checkout, refreshed at most every REPO_SYNC_INTERVAL_S.
+        Always the same directory: claude sessions are tied to their working directory."""
+        if time.monotonic() - self._repo_synced_at.get(project.id, float("-inf")) > REPO_SYNC_INTERVAL_S:
+            try:
+                await sync_repo(project)
+                self._repo_synced_at[project.id] = time.monotonic()
+            except GitHubError:
+                if not (repo_dir(project) / ".git").exists():
+                    raise
+                log.warning("Project %s: could not refresh the repository, using the last state", project.id)
+        return repo_dir(project)
+
+    async def _check_task(
+        self, s: AsyncSession, project: Project, employee: Employee, task: Task | None, wakeups: list[Wakeup]
+    ) -> None:
+        if task is None or task.assignee_id != employee.id:
+            raise SkipRun("the task is no longer assigned to this employee")
+        if task.status not in RUNNABLE_TASK_STATUSES:
+            raise SkipRun(f"the task is {task.status.value}")
+        if task.depends_on:
+            statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
+            if any(st != TaskStatus.done for st in statuses):
+                raise SkipRun("the task is waiting for other tasks")
+        types = {w.event_type for w in wakeups}
+        if (
+            "changes_requested" in types
+            and "task_assigned" not in types
+            and task.review_round >= settings.max_review_rounds
+        ):
+            services.emit_event(
+                s, project.id, "review_rounds_exceeded",
+                {"task_id": task.id, "rounds": task.review_round, "conversation_id": task.conversation_id},
+                role="lead",
+            )  # fmt: skip
+            await s.commit()
+            raise SkipRun(f"{task.review_round} review rounds: the lead has to step in")
+
+    async def _check_rate(self, s: AsyncSession, project: Project, conversation_id: int, run_id: int) -> None:
+        since = datetime.now(UTC) - timedelta(hours=1)
+        runs = await s.scalar(
+            select(func.count())
+            .select_from(AgentRun)
+            .where(
+                AgentRun.conversation_id == conversation_id,
+                AgentRun.started_at >= since,
+                AgentRun.id != run_id,
+            )
+        )
+        if runs < settings.max_runs_per_conversation_hour:
+            return
+        last = self._throttled_at.get(conversation_id)
+        if last is None or last < since:
+            services.emit_event(
+                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "runs": runs}, role="boss"
+            )
+            await s.commit()
+            self._throttled_at[conversation_id] = datetime.now(UTC)
+        raise SkipRun(f"{runs} runs in this conversation within an hour")
+
+    async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str) -> None:
+        session = await s.get(AgentSession, (employee_id, scope))
+        if session is None:
+            s.add(AgentSession(employee_id=employee_id, scope=scope, claude_session_id=session_id))
+        else:
+            session.claude_session_id = session_id
+        await s.commit()
+
+
+orchestrator = Orchestrator()

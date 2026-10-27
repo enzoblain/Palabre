@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import models  # noqa: F401 (registers tables)
+from app.config import settings
 from app.db import Base, engine
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
 from app.mcp_server.server import mcp
+from app.orchestrator.dispatcher import orchestrator
 
 # Mounted under /mcp, so the endpoint path inside the sub-app is "/".
 # host=127.0.0.1 keeps DNS rebinding protection: agents run in the backend container.
@@ -21,7 +23,12 @@ async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with mcp.session_manager.run():
-        yield
+        if settings.orchestrator_enabled:
+            await orchestrator.start()
+        try:
+            yield
+        finally:
+            await orchestrator.stop()
     await engine.dispose()
 
 

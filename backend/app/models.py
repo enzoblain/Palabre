@@ -160,6 +160,8 @@ class Conversation(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(300))
+    # Last message id the scribe was woken up for (conversation_idle)
+    idle_notified_message_id: Mapped[int] = mapped_column(BigInteger, default=0)
     created_at: Mapped[datetime] = created_at_column()
 
 
@@ -256,3 +258,61 @@ class Event(Base):
     target_role: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[datetime] = created_at_column()
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- Orchestration -----------------------------------------------------------------
+
+
+class Wakeup(Base):
+    """An event resolved to one employee: a run they still have to do.
+
+    kind "conversation": a turn in `conversation_id`; kind "task": work on `task_id`.
+    """
+
+    __tablename__ = "wakeups"
+    __table_args__ = (Index("ix_wakeups_pending", "started_at", "employee_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"))
+    event_type: Mapped[str] = mapped_column(String(50))
+    kind: Mapped[str] = mapped_column(String(20))
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = created_at_column()
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentSession(Base):
+    """Claude session of an employee for a scope ("conversation:<id>" or "task:<id>"),
+    reused with --resume."""
+
+    __tablename__ = "agent_sessions"
+
+    employee_id: Mapped[int] = mapped_column(
+        ForeignKey("employees.id", ondelete="CASCADE"), primary_key=True
+    )
+    scope: Mapped[str] = mapped_column(String(50), primary_key=True)
+    claude_session_id: Mapped[str] = mapped_column(String(100))
+    updated_at: Mapped[datetime] = updated_at_column()
+
+
+class AgentRun(Base):
+    """One `claude -p` execution, for monitoring and rate limits."""
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
+    reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
+    started_at: Mapped[datetime] = created_at_column()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ok: Mapped[bool | None]
+    error: Mapped[str | None] = mapped_column(Text)
+    claude_session_id: Mapped[str | None] = mapped_column(String(100))
+    num_turns: Mapped[int | None]
+    cost_usd: Mapped[float | None]
