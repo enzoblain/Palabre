@@ -17,6 +17,7 @@ REASONS: dict[str, str] = {
     "pr_merged": "Task #{task_id} was merged ({pr_url}). Do what your position requires after a merge, if anything.",
     "bug_reported": "A {severity} bug was reported as task #{task_id}. Triage it: assign it with assign_task, or cancel it with update_task.",
     "escalation": "{from} escalated something to you (message #{message_id}). Read it and decide.",
+    "boss_message": "The boss posted in the conversation (message #{message_id}). Read it and react according to your position.",
     "objective_set": "The boss set the objective of this room. Read it with get_room_context and act according to your position.",
     "decision_changed": "The boss {status} decision #{decision_id}. Take it into account.",
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",

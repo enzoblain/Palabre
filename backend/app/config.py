@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://palabre:palabre@localhost:5432/palabre"
+    # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
+    admin_token: str
     # Name of the person using Palabre (the CEO), set by the user.
     boss_name: str = ""
     # Used by the backend only (push, pull requests, merges). Never given to agents.

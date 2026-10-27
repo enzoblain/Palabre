@@ -42,6 +42,10 @@ class Orchestrator:
         self._repo_synced_at: dict[int, float] = {}
         self._throttled_at: dict[int, datetime] = {}
 
+    @property
+    def running_employee_ids(self) -> list[int]:
+        return sorted(self._runs)
+
     async def start(self) -> None:
         async with SessionLocal() as s:
             # Runs interrupted by a restart are done again

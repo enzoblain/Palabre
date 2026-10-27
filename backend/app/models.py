@@ -85,7 +85,9 @@ class Project(Base):
     employees: Mapped[list[Employee]] = relationship(
         back_populates="project", cascade="all, delete-orphan", order_by="Employee.id"
     )
-    rooms: Mapped[list[Room]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    rooms: Mapped[list[Room]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", order_by="Room.id"
+    )
 
 
 class Employee(Base):
@@ -316,3 +318,5 @@ class AgentRun(Base):
     claude_session_id: Mapped[str | None] = mapped_column(String(100))
     num_turns: Mapped[int | None]
     cost_usd: Mapped[float | None]
+
+    employee: Mapped[Employee] = relationship()

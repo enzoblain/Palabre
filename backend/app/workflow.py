@@ -95,7 +95,7 @@ async def create_task(
     project_id: int,
     room_id: int,
     conversation_id: int,
-    author: Employee,
+    author: Employee | None,
     title: str,
     description: str,
     acceptance_criteria: list[str],
@@ -111,7 +111,7 @@ async def create_task(
         description=description,
         acceptance_criteria=acceptance_criteria,
         depends_on=depends_on,
-        created_by_id=author.id,
+        created_by_id=author.id if author else None,
     )
     if assignee:
         task.assignee_id = (await find_employee(s, project_id, assignee)).id
@@ -350,12 +350,15 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     return blockers
 
 
-async def merge_task(s: AsyncSession, project_id: int, task_id: int, author: Employee) -> Task:
+async def merge_task(
+    s: AsyncSession, project_id: int, task_id: int, author: Employee | None, force: bool = False
+) -> Task:
+    """Merge a task's PR. author None = the boss, who may `force` past the merge rules."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review or task.pr_number is None:
         raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged")
-    if blockers := await merge_blockers(s, project, task):
+    if not force and (blockers := await merge_blockers(s, project, task)):
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
 
     await github.merge_pull_request(github.repo_slug(project.repo_url), task.pr_number, f"[#{task.id}] {task.title}")
