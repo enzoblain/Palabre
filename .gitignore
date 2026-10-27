@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local databases
+*.db
+*.sqlite3
+
+# OS
+.DS_Store

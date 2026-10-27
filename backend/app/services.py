@@ -1,0 +1,217 @@
+"""Conversation, room document, notes and events. Shared by the MCP server and the API."""
+
+import re
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.config import settings
+from app.models import (
+    Decision,
+    DecisionStatus,
+    Employee,
+    Event,
+    Message,
+    Note,
+    OpenQuestion,
+    Room,
+    Task,
+    TaskStatus,
+)
+
+MENTION_RE = re.compile(r"@([\w-]+)")
+BOSS_ALIASES = {"boss", "ceo"}
+
+
+class WorkflowError(Exception):
+    """A rule of the company was not respected; the message is shown to the agent."""
+
+
+def boss_display_name() -> str:
+    return settings.boss_name or "Boss"
+
+
+def emit_event(
+    s: AsyncSession,
+    project_id: int,
+    type: str,
+    payload: dict | None = None,
+    *,
+    employee_id: int | None = None,
+    role: str | None = None,
+) -> None:
+    s.add(
+        Event(
+            project_id=project_id,
+            type=type,
+            payload=payload or {},
+            target_employee_id=employee_id,
+            target_role=role,
+        )
+    )
+
+
+# --- Messages ----------------------------------------------------------------------
+
+
+async def get_messages(
+    s: AsyncSession, conversation_id: int, since_id: int | None = None, limit: int = 50
+) -> list[Message]:
+    q = select(Message).where(Message.conversation_id == conversation_id)
+    if since_id is not None:
+        q = q.where(Message.id > since_id).order_by(Message.id).limit(limit)
+        return list(await s.scalars(q))
+    # Without a cursor: the last `limit` messages, in chronological order
+    q = q.order_by(Message.id.desc()).limit(limit)
+    return list(reversed(list(await s.scalars(q))))
+
+
+async def last_message_id(s: AsyncSession, conversation_id: int) -> int:
+    return await s.scalar(
+        select(func.coalesce(func.max(Message.id), 0)).where(Message.conversation_id == conversation_id)
+    )
+
+
+async def post_message(
+    s: AsyncSession, project_id: int, conversation_id: int, content: str, author: Employee | None
+) -> Message:
+    """Post a message (author None = the boss) and wake up everyone @mentioned."""
+    msg = Message(
+        conversation_id=conversation_id,
+        employee_id=author.id if author else None,
+        author_name=author.name if author else boss_display_name(),
+        content=content,
+    )
+    s.add(msg)
+    await s.flush()
+
+    mentioned = {m.lower() for m in MENTION_RE.findall(content)}
+    if mentioned:
+        payload = {"conversation_id": conversation_id, "message_id": msg.id}
+        boss_names = BOSS_ALIASES | ({settings.boss_name.lower()} if settings.boss_name else set())
+        if mentioned & boss_names:
+            emit_event(s, project_id, "mention", payload, role="boss")
+        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        for employee in employees:
+            if employee.name.lower() in mentioned and (author is None or employee.id != author.id):
+                emit_event(s, project_id, "mention", payload, employee_id=employee.id)
+
+    await s.commit()
+    await s.refresh(msg)
+    return msg
+
+
+# --- Room document -----------------------------------------------------------------
+
+
+async def room_context(s: AsyncSession, room_id: int) -> dict:
+    room = await s.scalar(select(Room).where(Room.id == room_id).options(selectinload(Room.members)))
+    decisions = list(await s.scalars(select(Decision).where(Decision.room_id == room_id).order_by(Decision.id)))
+    questions = await s.scalars(
+        select(OpenQuestion)
+        .where(OpenQuestion.room_id == room_id, OpenQuestion.resolved.is_(False))
+        .order_by(OpenQuestion.id)
+    )
+    tasks = await s.scalars(
+        select(Task)
+        .where(Task.room_id == room_id, Task.status != TaskStatus.cancelled)
+        .options(selectinload(Task.assignee))
+        .order_by(Task.id)
+    )
+    return {
+        "room": room.name,
+        "objective": room.objective,
+        "summary": room.summary,
+        "boss": boss_display_name(),
+        "members": [{"name": e.name, "title": e.title} for e in room.members],
+        "decisions": {
+            status.value: [
+                {"id": d.id, "title": d.title, "rationale": d.rationale, "proposed_by": d.proposed_by}
+                for d in decisions
+                if d.status == status
+            ]
+            for status in DecisionStatus
+        },
+        "open_questions": [
+            {"id": q.id, "question": q.question, "asked_by": q.asked_by} for q in questions
+        ],
+        "who_does_what": [
+            {
+                "task_id": t.id,
+                "title": t.title,
+                "kind": t.kind.value,
+                "status": t.status.value,
+                "assignee": t.assignee.name if t.assignee else None,
+            }
+            for t in tasks
+        ],
+    }
+
+
+async def add_decision(
+    s: AsyncSession, project_id: int, room_id: int, title: str, rationale: str, author: Employee
+) -> Decision:
+    decision = Decision(room_id=room_id, title=title, rationale=rationale, proposed_by=author.name)
+    s.add(decision)
+    await s.flush()
+    emit_event(s, project_id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
+    await s.commit()
+    return decision
+
+
+async def update_summary(s: AsyncSession, room_id: int, summary: str) -> None:
+    room = await s.get(Room, room_id)
+    room.summary = summary
+    await s.commit()
+
+
+async def add_question(s: AsyncSession, room_id: int, question: str, author: Employee) -> OpenQuestion:
+    q = OpenQuestion(room_id=room_id, question=question, asked_by=author.name)
+    s.add(q)
+    await s.commit()
+    return q
+
+
+async def resolve_question(s: AsyncSession, room_id: int, question_id: int, answer: str) -> None:
+    q = await s.get(OpenQuestion, question_id)
+    if q is None or q.room_id != room_id:
+        raise WorkflowError(f"No open question #{question_id} in this room")
+    q.answer = answer
+    q.resolved = True
+    await s.commit()
+
+
+# --- Notes and escalation ----------------------------------------------------------
+
+
+async def read_notes(s: AsyncSession, employee_id: int) -> str:
+    note = await s.get(Note, employee_id)
+    return note.content if note else ""
+
+
+async def write_notes(s: AsyncSession, employee_id: int, content: str, append: bool) -> str:
+    note = await s.get(Note, employee_id)
+    if note is None:
+        note = Note(employee_id=employee_id, content="")
+        s.add(note)
+    note.content = f"{note.content.rstrip()}\n{content}".strip() if append else content
+    await s.commit()
+    return note.content
+
+
+async def escalate(
+    s: AsyncSession, project_id: int, conversation_id: int, author: Employee, to: str, reason: str
+) -> Message:
+    target = "boss" if to == "boss" else "lead"
+    label = boss_display_name() if target == "boss" else "the lead"
+    msg = await post_message(s, project_id, conversation_id, f"⚠️ Escalation to {label}: {reason}", author)
+    emit_event(
+        s,
+        project_id,
+        "escalation",
+        {"conversation_id": conversation_id, "message_id": msg.id, "from": author.name},
+        role=target,
+    )
+    await s.commit()
+    return msg
