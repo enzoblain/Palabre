@@ -90,6 +90,8 @@ class Project(Base):
     # investigate `topic` (repo_url is then empty)
     kind: Mapped[str] = mapped_column(String(20), default="company", server_default="company")
     topic: Mapped[str | None] = mapped_column(Text)
+    # Research: where the current question stands (orchestrator/research.py)
+    research_phase: Mapped[str | None] = mapped_column(String(20))
     # Mode (catalog.toml) and the seed the team was drawn with
     mode: Mapped[str] = mapped_column(String(50))
     seed: Mapped[int] = mapped_column(BigInteger)

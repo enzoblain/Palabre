@@ -108,7 +108,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       go(`/p/${p.id}`);
     }} />;
   } else if (route.name === "settings") {
-    main = <Settings settings={settings} projects={projects} onSaved={setSettings} onDisconnect={onDisconnect} />;
+    main = <Settings settings={settings} projects={projects} onSaved={setSettings}
+      onProjectsChanged={() => { reloadProjects(); refreshNotifications(); }} onDisconnect={onDisconnect} />;
   } else if (route.name === "report") {
     if (error) main = <p className="error center">{error}</p>;
     else if (project) main = <DocumentView project={project} onDecided={refreshNotifications} />;

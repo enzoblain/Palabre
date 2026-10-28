@@ -16,6 +16,8 @@ from app.api.schemas import (
 )
 from app.company.team import kind_of_mode, load_catalog, render_system_prompt
 from app.models import Employee, Project
+from app.orchestrator.dispatcher import orchestrator
+from app.worktrees import remove_project_files
 from app.services import boss_display_name
 
 router = APIRouter(tags=["projects"])
@@ -86,8 +88,15 @@ async def get_project(project_id: int, s: SessionDep):
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(project_id: int, s: SessionDep):
-    await s.delete(await get_or_404(s, Project, project_id))
+    """Delete a project and all its data: agents (their running work is stopped), rooms,
+    messages, tasks, notes, files on disk and Claude sessions. The GitHub repository is
+    left as it is."""
+    project = await get_or_404(s, Project, project_id)
+    employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project_id)))
+    await orchestrator.cancel_runs(employee_ids)
+    await s.delete(project)
     await s.commit()
+    await remove_project_files(project_id)
 
 
 @router.put("/projects/{project_id}/mode", response_model=ProjectDetail)

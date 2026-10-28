@@ -8,6 +8,7 @@ const doFetch: typeof fetch = inTauri ? tauriFetch : window.fetch.bind(window);
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
 export type ProjectKind = "company" | "research";
+export type ResearchPhase = "research" | "debate" | "conclusion" | "report" | "done";
 
 export type Project = {
   id: number;
@@ -15,6 +16,8 @@ export type Project = {
   // "company": a software company on a GitHub repository; "research": peers on a topic
   kind: ProjectKind;
   topic: string | null;
+  // Research: where the current question stands
+  research_phase: ResearchPhase | null;
   repo_url: string;
   default_branch: string;
   mode: string;
@@ -251,6 +254,7 @@ export const api = {
 
   listProjects: () => call<Project[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   createProject: (body: {
     name: string;
     repo_url?: string;
@@ -263,6 +267,7 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
+  researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
   notifications: () => call<Notification[]>("/notifications?unread_only=true&limit=200"),

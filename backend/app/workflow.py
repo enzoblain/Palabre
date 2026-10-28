@@ -209,8 +209,10 @@ async def _commits_ahead(project: Project, task: Task) -> int:
 
 
 async def submit_for_review(
-    s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool
+    s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
+    message: str = "",
 ) -> Task:
+    """summary: the pull request description; message: what the author tells the team."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.assignee_id != author.id:
@@ -256,11 +258,8 @@ async def submit_for_review(
         emit_event(s, project_id, "pr_ready", payload, role="qa")
     if process["security_gate"] and task.sensitive:
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
-    await post_message(
-        s, project_id, task.conversation_id,
-        f"Task #{task.id} « {task.title} » is ready for review: {task.pr_url}\n\n{summary}",
-        author,
-    )  # fmt: skip
+    # In the author's own words, with the link
+    await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task
 
 
@@ -356,9 +355,10 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
 
 
 async def merge_task(
-    s: AsyncSession, project_id: int, task_id: int, author: Employee | None, force: bool = False
+    s: AsyncSession, project_id: int, task_id: int, author: Employee | None, force: bool = False, message: str = ""
 ) -> Task:
-    """Merge a task's PR. author None = the boss, who may `force` past the merge rules."""
+    """Merge a task's PR. author None = the boss, who may `force` past the merge rules.
+    message: what the author tells the team (the PR link is added)."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review or task.pr_number is None:
@@ -381,5 +381,6 @@ async def merge_task(
             if all(st == TaskStatus.done for st in statuses):
                 emit_event(s, project_id, "task_unblocked", {"task_id": other.id}, employee_id=other.assignee_id)
 
-    await post_message(s, project_id, task.conversation_id, f"Merged task #{task.id} « {task.title} »: {task.pr_url}", author)
+    if author is not None:  # The boss merging from the app needs no announcement
+        await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task

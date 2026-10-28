@@ -1,11 +1,33 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type Notification, type ProjectDetail, type Room, api } from "../api";
+import { ApiError, type Conversation, type EmployeeStatus, type Message, type Notification, type ProjectDetail, type ResearchPhase, type Room, api } from "../api";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
 import { HashIcon, SendIcon } from "./Icons";
 import { Markdown, bossNames, mentionsAny } from "./Markdown";
 
 const POLL_MS = 2000;
+const PHASE_POLL_MS = 4000;
+const PHASES: { key: ResearchPhase; label: string }[] = [
+  { key: "research", label: "Research" },
+  { key: "debate", label: "Debate" },
+  { key: "conclusion", label: "Conclusion" },
+  { key: "report", label: "Report" },
+];
+
+/** Where the research question stands: research → debate → conclusion → report. */
+function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: number }) {
+  const current = phase === "done" ? PHASES.length : PHASES.findIndex((p) => p.key === phase);
+  return (
+    <div className="phase-bar">
+      {PHASES.map((p, i) => (
+        <span key={p.key} className={`phase${i < current ? " past" : i === current ? " current" : ""}`}>
+          {i < current ? "✓ " : ""}{p.label}
+        </span>
+      ))}
+      {phase === "done" && <a className="phase-done" href={`#/p/${projectId}/report`}>Read the report →</a>}
+    </div>
+  );
+}
 
 export function ConversationView({ conversation, room, project, statuses, bossName, notifications, onNotificationsRead }: {
   conversation: Conversation;
@@ -31,6 +53,9 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
   const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
   const isGeneral = project.rooms[0]?.id === room.id;
+  const research = project.kind === "research";
+  const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
+  usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
   const myNames = bossNames(bossName);
 
   function append(incoming: Message[]) {
@@ -128,6 +153,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {conversation.title && <span className="muted">· {conversation.title}</span>}
         <span className="conv-members muted">{room.members.length} members</span>
       </header>
+      {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 
       <div className="messages" ref={listRef} onScroll={onScroll}>
         {messages === null && <p className="muted center">Loading…</p>}
@@ -182,7 +208,11 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
       {error && <p className="error composer-error">{error}</p>}
       <div className="composer">
         <textarea ref={inputRef} rows={1} value={draft}
-          placeholder={empty && isGeneral ? "Describe the project to your team…" : `Message #${room.name} as ${bossName || "the CEO"}`}
+          placeholder={
+            research
+              ? "Ask the group a question, or @mention someone…"
+              : empty && isGeneral ? "Describe the project to your team…" : `Message #${room.name} as ${bossName || "the CEO"}`
+          }
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {

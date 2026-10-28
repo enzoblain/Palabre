@@ -479,7 +479,7 @@ deliverables = ["Map of the topic", "Key sources"]
 escalation = "The topic is too broad or ambiguous → ask the boss to narrow it."
 success = "The group knows what the topic covers and where to look."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.skeptic]
 title = "Skeptic"
@@ -495,7 +495,7 @@ deliverables = ["Source checks", "Counter-evidence"]
 escalation = "The evidence is evenly split → say so, and let the boss decide what to keep."
 success = "No conclusion rests on a weak or unchecked source."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.analyst]
 title = "Data analyst"
@@ -511,7 +511,7 @@ deliverables = ["Key figures", "Comparisons"]
 escalation = "No reliable data exists → say so plainly."
 success = "The group's conclusions are backed by figures when figures exist."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.specialist]
 title = "Domain specialist"
@@ -527,7 +527,7 @@ deliverables = ["Technical explanations", "Specialized sources"]
 escalation = "The question needs expertise beyond public sources → tell the boss."
 success = "The group understands how things work, not only what is said about them."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.contrarian]
 title = "Devil's advocate"
@@ -543,7 +543,7 @@ deliverables = ["Objections", "Alternative hypotheses"]
 escalation = "An objection stays unanswered → make sure it ends up in the open questions."
 success = "Every conclusion has faced its best counter-argument."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.practitioner]
 title = "Practitioner"
@@ -559,7 +559,7 @@ deliverables = ["Case studies", "Practical implications"]
 escalation = "The theory and the field disagree → put both in front of the group."
 success = "The conclusions say what they mean in practice."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.historian]
 title = "Historian"
@@ -575,7 +575,7 @@ deliverables = ["Timeline", "Precedents"]
 escalation = "The history is disputed → present the versions and their sources."
 success = "The group knows where the topic comes from."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.ethicist]
 title = "Ethics & impact"
@@ -591,7 +591,7 @@ deliverables = ["Impact assessment", "Risks"]
 escalation = "A conclusion could be harmful if misused → tell the boss."
 success = "The conclusions come with their risks and limits."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.forecaster]
 title = "Forecaster"
@@ -607,7 +607,7 @@ deliverables = ["Scenarios", "Indicators to watch"]
 escalation = "The future is genuinely unknowable here → say so."
 success = "The boss knows what could happen next and how to notice it."
 permissions = ["conversation", "research", "propose_decision"]
-wakes_on = ["boss_message", "mention", "decision_changed"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 [research.roles.rapporteur]
 title = "Rapporteur"
@@ -623,7 +623,7 @@ deliverables = ["The research report"]
 escalation = "The group cannot agree → write both positions in the report and tell the boss."
 success = "The boss can read the report alone and get the answer, its evidence and its limits."
 permissions = ["conversation", "research", "propose_decision", "edit_room_document"]
-wakes_on = ["boss_message", "mention", "decision_changed", "conversation_idle"]
+wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 # --- Research modes (group size) -----------------------------------------------------
 

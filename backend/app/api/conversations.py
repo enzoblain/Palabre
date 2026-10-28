@@ -7,6 +7,7 @@ from app import services
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut
 from app.models import Conversation, Employee, Event, Project, Room
+from app.orchestrator.research import start_question
 
 router = APIRouter(tags=["conversations"])
 
@@ -46,7 +47,7 @@ async def list_messages(
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
 async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     """Post as the boss. @mentioned employees are woken up; without any mention, the
-    lead is (a company) or every peer (a research group)."""
+    lead is (a company), or the group starts researching it (a research group)."""
     conversation = await get_or_404(s, Conversation, conversation_id)
     room = await get_or_404(s, Room, conversation.room_id)
     message = await services.post_message(s, room.project_id, conversation_id, body.content, None)
@@ -58,12 +59,15 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
         )
     )
     if mentioned is None:
-        # A company's lead answers for the team; in a research group, every peer may
         project = await get_or_404(s, Project, room.project_id)
-        services.emit_event(
-            s, room.project_id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id},
-            role="lead" if project.kind == "company" else None,
-        )  # fmt: skip
+        if project.kind == "research":
+            # A new question for the group: it goes through the research phases again
+            start_question(s, project, conversation_id, message.id)
+        else:
+            services.emit_event(
+                s, room.project_id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id},
+                role="lead",
+            )  # fmt: skip
     # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
     await s.execute(
         update(Event)

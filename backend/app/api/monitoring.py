@@ -130,6 +130,13 @@ async def team_status(project_id: int, s: SessionDep):
     return statuses
 
 
+@router.get("/projects/{project_id}/research-phase")
+async def research_phase(project_id: int, s: SessionDep) -> dict:
+    """Where the current research question stands (null for a company)."""
+    project = await get_or_404(s, Project, project_id)
+    return {"phase": project.research_phase}
+
+
 @router.get("/orchestrator", response_model=OrchestratorStatus)
 async def orchestrator_status(s: SessionDep):
     pending = await s.scalar(select(func.count()).select_from(Wakeup).where(Wakeup.started_at.is_(None)))

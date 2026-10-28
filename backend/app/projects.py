@@ -12,6 +12,7 @@ from app import github, services
 from app.company.team import Employee as TeamMember
 from app.company.team import Team, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for, reroll_employee
 from app.models import Conversation, Employee, Project, Room
+from app.orchestrator.research import start_question
 from app.services import WorkflowError
 
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
@@ -68,12 +69,12 @@ async def create_project(
 
 async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
     """The topic becomes the objective of the general room and the boss's first message,
-    which wakes the whole group up."""
+    which starts the research (phase 1)."""
     room = project.rooms[0]
     room.objective = topic
     conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
     message = await services.post_message(s, project.id, conversation_id, topic, None)
-    services.emit_event(s, project.id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id})
+    start_question(s, project, conversation_id, message.id)
     await s.commit()
 
 

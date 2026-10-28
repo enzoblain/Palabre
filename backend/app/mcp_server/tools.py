@@ -7,7 +7,7 @@ from mcp.server.mcpserver import Context
 from app import services, toolchains, workflow
 from app.db import SessionLocal
 from app.mcp_server.server import current_caller, tool
-from app.models import Employee
+from app.models import Employee, Project
 
 # --- Conversation (everyone) -------------------------------------------------------
 
@@ -35,12 +35,19 @@ async def read_messages(ctx: Context, since_id: int | None = None, limit: int = 
     ]
 
 
+async def _check_chat(s, project_id: int, content: str) -> None:
+    project = await s.get(Project, project_id)
+    services.check_chat_message(content, project.kind)
+
+
 @tool
 async def send_message(ctx: Context, content: str) -> dict:
-    """Post a message in the current conversation, signed with your name.
+    """Post a message in the current conversation, signed with your name: a short chat
+    message, like you would send a colleague (a long or report-like one is refused).
     Mention colleagues with @Name (or @boss) to get their attention."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, content)
         me = await s.get(Employee, c.employee_id)
         msg = await services.post_message(s, c.project_id, c.conversation_id, content, me)
     return {"id": msg.id}
@@ -92,6 +99,7 @@ async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lea
     `reason` is posted in the conversation as a message to them: write it as you would say it."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, reason)
         me = await s.get(Employee, c.employee_id)
         msg = await services.escalate(s, c.project_id, c.conversation_id, me, to, reason)
     return {"message_id": msg.id}
@@ -197,25 +205,27 @@ async def update_task(
 
 @tool
 async def report_progress(ctx: Context, message: str) -> dict:
-    """Post a progress update about your current task in the team conversation."""
+    """Tell the team how your task is going, in a short chat message."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
-        msg = await services.post_message(
-            s, c.project_id, c.conversation_id, f"[task #{c.task_id}] {message}", me
-        )
+        msg = await services.post_message(s, c.project_id, c.conversation_id, message, me)
     return {"id": msg.id}
 
 
 @tool
-async def submit_for_review(ctx: Context, summary: str, sensitive: bool = False) -> dict:
+async def submit_for_review(ctx: Context, summary: str, message: str, sensitive: bool = False) -> dict:
     """Submit your current task for review: your branch is pushed and a pull request is
     opened (or updated). Commit your work first.
+    summary: the pull request description (as detailed as needed).
+    message: what you tell the team in the chat, in a sentence or two (the PR link is added).
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
-        task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive)
+        task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive, message)
         return workflow.task_summary(task)
 
 
@@ -298,14 +308,16 @@ async def resolve_question(ctx: Context, question_id: int, answer: str) -> dict:
 
 
 @tool
-async def merge_task(ctx: Context, task_id: int) -> dict:
+async def merge_task(ctx: Context, task_id: int, message: str) -> dict:
     """Merge a task's pull request (always a squash merge: one commit on the default
     branch). Refused, with the reasons, until every rule of the company's mode is met
-    (approvals, QA, security, CI, changelog)."""
+    (approvals, QA, security, CI, changelog).
+    message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
-        return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me))
+        return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me, message=message))
 
 
 # --- Toolchains (lead, devops) -------------------------------------------------------

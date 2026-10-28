@@ -4,10 +4,11 @@ import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 
-export function Settings({ settings, projects, onSaved, onDisconnect }: {
+export function Settings({ settings, projects, onSaved, onProjectsChanged, onDisconnect }: {
   settings: AppSettings;
   projects: Project[];
   onSaved: (settings: AppSettings) => void;
+  onProjectsChanged: () => void;
   onDisconnect: () => void;
 }) {
   const bossName = settings.boss_name;
@@ -44,6 +45,7 @@ export function Settings({ settings, projects, onSaved, onDisconnect }: {
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
+      <Projects projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
         <h2>Server</h2>
         <p className="muted">Connected to <code>{getConnection()?.server}</code></p>
@@ -136,6 +138,59 @@ function ClaudeAccounts({ count, projects }: { count: number; projects: Project[
           </div>
         );
       })}
+    </section>
+  );
+}
+
+function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () => void }) {
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove(project: Project) {
+    setDeleting(project.id);
+    setError(null);
+    try {
+      await api.deleteProject(project.id);
+      setConfirming(null);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Projects</h2>
+      <p className="muted">
+        Deleting a project removes its agents, conversations, tasks, reports and files on the server.
+        A GitHub repository is left as it is.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {projects.length === 0 && <p className="muted">No project.</p>}
+      <ul className="project-list">
+        {projects.map((p) => (
+          <li key={p.id}>
+            <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
+            <span className="truncate project-list-name">
+              {p.name} <span className="muted">· {p.kind === "research" ? "research" : p.mode}</span>
+            </span>
+            {confirming === p.id ? (
+              <span className="row confirm-delete">
+                <span className="error">Delete it and all its data?</span>
+                <button className="btn btn-small" onClick={() => setConfirming(null)} disabled={deleting === p.id}>Cancel</button>
+                <button className="btn btn-small btn-danger" onClick={() => remove(p)} disabled={deleting === p.id}>
+                  {deleting === p.id ? "Deleting…" : "Delete for good"}
+                </button>
+              </span>
+            ) : (
+              <button className="btn btn-small" onClick={() => setConfirming(p.id)}>Delete</button>
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -236,7 +236,8 @@ def _render_personality(employee: Employee, personality: dict) -> str:
         lines.append(f"- {axis['label']} ({intensity}): {pole}.")
     lines += [f"- {q}" for q in employee.quirks]
     lines.append(
-        f"Communication style: {employee.style['verbosity']}, tone {employee.style['tone']}."
+        f"Communication style: {employee.style['verbosity']}, tone {employee.style['tone']}"
+        " (in the chat, even detailed stays a few sentences)."
     )
     lines.append("Your personality shapes your opinions, never your mission: you always do your job.")
     return "\n".join(lines)

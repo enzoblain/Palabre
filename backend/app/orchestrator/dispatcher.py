@@ -62,6 +62,13 @@ class Orchestrator:
             asyncio.create_task(run_scheduler(), name="scheduler"),
         ]
 
+    async def cancel_runs(self, employee_ids: list[int]) -> None:
+        """Stop the runs of these employees now (their project is being deleted)."""
+        runs = [self._runs[e] for e in employee_ids if e in self._runs]
+        for run in runs:
+            run.cancel()
+        await asyncio.gather(*runs, return_exceptions=True)
+
     async def stop(self) -> None:
         tasks = [*self._loops, *self._runs.values()]
         for task in tasks:

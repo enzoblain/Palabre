@@ -21,6 +21,14 @@ from app.models import (
 )
 
 MENTION_RE = re.compile(r"@([\w-]+)")
+
+# What a chat message from an agent may look like (the boss is free). Links count by
+# their text, code blocks not at all: sources and snippets are welcome.
+CHAT_MAX_CHARS = {"company": 450, "research": 700}
+CHAT_MAX_LIST_ITEMS = 4
+_CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
+_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+", re.M)
 BOSS_ALIASES = {"boss", "ceo"}
 
 
@@ -71,6 +79,28 @@ def boss_display_name() -> str:
 def team_language() -> str:
     """The language the employees speak and write in."""
     return _app_settings["language"]
+
+
+def check_chat_message(content: str, kind: str) -> None:
+    """Refuse what nobody writes in a team chat, and say how to fix it."""
+    text = _LINK_RE.sub(lambda m: m.group(1) or "link", _CODE_BLOCK_RE.sub("", content)).strip()
+    problems = []
+    if "**" in text or "__" in text:
+        problems.append("no bold")
+    if re.search(r"^\s*#{1,6}\s", text, re.M):
+        problems.append("no headings")
+    if len(_LIST_ITEM_RE.findall(text)) > CHAT_MAX_LIST_ITEMS:
+        problems.append(f"no list of more than {CHAT_MAX_LIST_ITEMS} items")
+    limit = CHAT_MAX_CHARS.get(kind, CHAT_MAX_CHARS["company"])
+    if len(text) > limit:
+        problems.append(f"at most {limit} characters (this one has {len(text)})")
+    if problems:
+        raise WorkflowError(
+            "Not sent: this reads like a report, not a chat message (" + "; ".join(problems) + "). "
+            "Say it the way you would to a colleague, in a sentence or two. Split it into several short "
+            "messages if you have several things to say, and put long content (plans, specs, evidence) "
+            "in a task, a decision or the room document."
+        )
 
 
 def emit_event(

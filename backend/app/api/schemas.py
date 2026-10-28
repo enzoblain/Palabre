@@ -100,6 +100,8 @@ class ProjectOut(ORM):
     name: str
     kind: str
     topic: str | None
+    # Research: research, debate, conclusion, report or done
+    research_phase: str | None
     repo_url: str
     default_branch: str
     mode: str
