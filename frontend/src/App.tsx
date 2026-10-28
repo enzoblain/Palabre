@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type AppSettings, type Connection, type EmployeeStatus, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
@@ -56,6 +56,66 @@ function useProject(projectId: number | null) {
   return { project: project?.detail.id === projectId ? project : null, error };
 }
 
+const UNREAD_POLL_MS = 4000;
+const seenKey = (conversationId: number) => `palabre.seen.${conversationId}`;
+
+/** Unread messages per conversation since the CEO's last visit; the open conversation is always read. */
+function useUnread(project: ProjectState | null, activeConversation: number | null) {
+  const [unread, setUnread] = useState<Record<number, number>>({});
+  // Per conversation: last message id fetched, last id the CEO saw, and ids of unseen messages from others
+  const state = useRef<Record<number, { last: number; seen: number | null; fresh: number[] }>>({});
+  const activeRef = useRef(activeConversation);
+  activeRef.current = activeConversation;
+  const projectId = project?.detail.id;
+  useEffect(() => {
+    state.current = {};
+    setUnread({});
+  }, [projectId]);
+  const publish = () =>
+    setUnread(Object.fromEntries(Object.entries(state.current).map(([id, s]) => [id, s.fresh.length])));
+  const markRead = (id: number) => {
+    const s = state.current[id];
+    if (!s) return;
+    s.fresh = [];
+    s.seen = s.last;
+    localStorage.setItem(seenKey(id), String(s.last));
+  };
+  useEffect(() => {
+    if (activeConversation === null) return;
+    markRead(activeConversation);
+    publish();
+  }, [activeConversation]);
+  const conversations = project ? Object.values(project.conversations).flat() : [];
+  usePolling(
+    project ? async () => {
+      await Promise.all(conversations.map(async (c) => {
+        const s = (state.current[c.id] ??= {
+          last: 0,
+          seen: localStorage.getItem(seenKey(c.id)) === null ? null : Number(localStorage.getItem(seenKey(c.id))),
+          fresh: [],
+        });
+        const messages = await api.listMessages(c.id, s.last || undefined);
+        for (const m of messages) {
+          s.last = Math.max(s.last, m.id);
+          // Messages written by the CEO themself (no employee) are never unread
+          if (m.employee_id !== null && (s.seen === null || m.id > s.seen) && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+        }
+        // First visit ever: start from a clean slate rather than flag the whole history
+        if (s.seen === null) {
+          s.fresh = [];
+          s.seen = s.last;
+          localStorage.setItem(seenKey(c.id), String(s.last));
+        }
+        if (c.id === activeRef.current) markRead(c.id);
+      }));
+      publish();
+    } : null,
+    UNREAD_POLL_MS,
+    [projectId],
+  );
+  return unread;
+}
+
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const route = useRoute();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -103,6 +163,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     STATUS_POLL_MS,
     [projectId],
   );
+
+  const unread = useUnread(project, route.name === "project" ? route.conversationId : null);
 
   // Opening a project lands in the direction channel, where the CEO talks to the lead
   const conversationId = route.name === "project" ? route.conversationId : null;
@@ -153,7 +215,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
         {pending > 0 && <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>}
       </header>
       <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
-        claudeAccounts={claudeAccounts} pending={pending} />
+        claudeAccounts={claudeAccounts} pending={pending} unread={unread} />
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
       <main className="main">{main}</main>
     </div>
