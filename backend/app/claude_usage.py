@@ -12,6 +12,10 @@ from app.accounts import account_count, token_for
 
 log = logging.getLogger(__name__)
 
+# DEBUG traces of these libraries can include request/response headers, hence the bearer token
+for _name in ("httpx", "httpcore"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 TIMEOUT = 10
 CACHE_TTL = 60
@@ -40,6 +44,8 @@ class AccountUsage:
 
 # account number → (monotonic time, result); errors are cached too so a dead account is not hammered
 _cache: dict[int, tuple[float, AccountUsage]] = {}
+# One lock per account so concurrent refreshes make a single call to the endpoint
+_locks: dict[int, asyncio.Lock] = {}
 
 
 def _window(raw: object) -> Window | None:
@@ -88,16 +94,17 @@ async def _fetch(client: httpx.AsyncClient, account: int) -> AccountUsage:
 
 async def fetch_all() -> list[AccountUsage]:
     """Usage of every configured account, cached for a minute. One failing account does not affect the others."""
-    now = time.monotonic()
     accounts = range(1, account_count() + 1)
 
     async def one(client: httpx.AsyncClient, account: int) -> AccountUsage:
-        cached = _cache.get(account)
-        if cached and now - cached[0] < CACHE_TTL:
-            return cached[1]
-        result = await _fetch(client, account)
-        _cache[account] = (time.monotonic(), result)
-        return result
+        async with _locks.setdefault(account, asyncio.Lock()):
+            # Checked under the lock: a concurrent caller may have just filled the cache
+            cached = _cache.get(account)
+            if cached and time.monotonic() - cached[0] < CACHE_TTL:
+                return cached[1]
+            result = await _fetch(client, account)
+            _cache[account] = (time.monotonic(), result)
+            return result
 
     # In parallel: dead accounts must not add up their timeouts
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
