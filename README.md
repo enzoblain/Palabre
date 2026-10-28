@@ -81,6 +81,11 @@ already exists, or a version that differs from `frontend/package.json`, `tauri.c
 `Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
+The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
+shows every open one, and `close_pull_request` closes one with a comment and deletes its
+branch. It refuses a task's pull request (cancel the task instead) and the release one, and
+never deletes production, the team's branch or a fork's branch.
+
 ### Research group
 
 You give a topic instead of a repository. A group of peers of equal standing, each with

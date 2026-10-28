@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+### Highlights
+
+- **Outside pull requests**: the lead triages the PRs no task owns, such as Dependabot's. `list_pull_requests` shows every open PR with its task, and `close_pull_request` closes one with a comment and deletes its branch. A task's PR, the release PR, production, the team's branch and forks' branches are left alone.
+
+### Upgrading from 0.2.0
+
+- Nothing to do: the lead gets the two tools on restart.
+
 ## 0.2.0
 
 ### Highlights
