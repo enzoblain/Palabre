@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ApiError, type AppSettings, type Project, type ProjectDetail, api, getConnection } from "../api";
+import {
+  ApiError, type AppSettings, type Project, type ProjectDetail, type Usage, type UsageEntry, type UsagePeriod,
+  type UsageTotals, api,   getConnection,
+} from "../api";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
@@ -45,6 +48,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
+      <UsageSection />
       <Projects projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
         <h2>Server</h2>
@@ -238,5 +242,109 @@ function BranchField({ project, onChanged }: { project: Project; onChanged: () =
       <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? "Saving…" : "Save"}</button>
       {error && <span className="error">{error}</span>}
     </form>
+  );
+}
+
+const PERIODS: { key: UsagePeriod; label: string }[] = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "total", label: "Total" },
+];
+const number = new Intl.NumberFormat();
+
+function UsageSection() {
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<UsagePeriod>("week");
+  useEffect(() => {
+    api.getUsage().then(setUsage).catch((err) => setError(err instanceof ApiError ? err.message : String(err)));
+  }, []);
+
+  return (
+    <section className="panel">
+      <h2>Usage</h2>
+      <p className="muted">
+        Runs, tokens and estimated cost reported by Claude. Day is today (UTC), week the last 7 days.
+      </p>
+      <div className="row" role="group" aria-label="Period">
+        {PERIODS.map((p) => (
+          <button key={p.key} className={`btn btn-small${p.key === period ? " btn-primary" : ""}`}
+            aria-pressed={p.key === period} onClick={() => setPeriod(p.key)}>{p.label}</button>
+        ))}
+      </div>
+      {error && <p className="error">{error}</p>}
+      {!usage && !error && <p className="muted">Loading…</p>}
+      {usage && usage.total.runs === 0 && <p className="muted">No agent run yet: usage will show up here.</p>}
+      {usage && usage.total.runs > 0 && (
+        <>
+          <UsageTable title="By account" what="Account" period={period} entries={usage.accounts}
+            label={(e) => (e.id === null ? "Unknown" : `Account ${e.id}`)} />
+          <UsageTable title="By employee" what="Employee" period={period} entries={usage.employees}
+            label={(e) => e.name ?? `Employee ${e.id}`} />
+          <UsageTable title="By project" what="Project" period={period} entries={usage.projects}
+            label={(e) => e.name ?? `Project ${e.id}`} />
+          <UsageSummary totals={usage[period]} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function cost(t: UsageTotals) {
+  if (t.runs_without_cost >= t.runs) return "–";
+  return `${t.runs_without_cost > 0 ? "≥ " : ""}$${t.cost_usd.toFixed(2)}`;
+}
+
+function UsageSummary({ totals }: { totals: UsageTotals }) {
+  if (totals.runs_without_tokens === 0 && totals.runs_without_cost === 0) return null;
+  return (
+    <p className="muted">
+      {totals.runs_without_tokens} of {totals.runs} runs reported no tokens and {totals.runs_without_cost} no cost:
+      they are left out of the sums.
+    </p>
+  );
+}
+
+function UsageTable({ title, what, period, entries, label }: {
+  title: string;
+  what: string;
+  period: UsagePeriod;
+  entries: UsageEntry[];
+  label: (e: UsageEntry) => string;
+}) {
+  const rows = entries.filter((e) => e[period].runs > 0);
+  return (
+    <div className="usage-block">
+      <h3>{title}</h3>
+      {rows.length === 0 ? <p className="muted">No run over this period.</p> : (
+        <table className="usage-table">
+          <thead>
+            <tr>
+              <th scope="col">{what}</th>
+              <th scope="col" className="num">Runs</th>
+              <th scope="col" className="num">Input</th>
+              <th scope="col" className="num">Output</th>
+              <th scope="col" className="num">Cache</th>
+              <th scope="col" className="num">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((e) => {
+              const t = e[period];
+              return (
+                <tr key={e.id ?? "none"}>
+                  <th scope="row" className="truncate">{label(e)}</th>
+                  <td className="num">{number.format(t.runs)}</td>
+                  <td className="num">{number.format(t.input_tokens)}</td>
+                  <td className="num">{number.format(t.output_tokens)}</td>
+                  <td className="num">{number.format(t.cache_creation_tokens + t.cache_read_tokens)}</td>
+                  <td className="num">{cost(t)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
