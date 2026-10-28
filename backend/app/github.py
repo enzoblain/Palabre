@@ -100,6 +100,10 @@ async def branch_exists(repo: str, branch: str) -> bool:
     return True
 
 
+async def has_commits(repo: str) -> bool:
+    return bool(await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}))
+
+
 async def create_branch(repo: str, branch: str, from_branch: str) -> None:
     ref = await _api("GET", f"/repos/{repo}/git/ref/heads/{from_branch}")
     await _api("POST", f"/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": ref["object"]["sha"]})

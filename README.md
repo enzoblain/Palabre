@@ -43,8 +43,11 @@ Along the way the team holds a daily stand-up, records decisions in each room's 
 document, and asks you when something is yours to decide. Decisions and questions waiting
 for you land in your inbox.
 
-The team merges into the project's branch: point it at a `dev` branch in the settings, or
-let the lead do it. When a step is ready, the lead opens the pull request from `dev` to
+A new project works on a `dev` branch: it is created from the repository's default branch
+if missing (an empty repository keeps its default branch until its first commit), and every
+task's pull request targets it. Only a release reaches production. To switch an existing
+project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
+(`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull request from `dev` to
 `main` and you get it in your inbox: one click merges it, or reject it to close it. The
 lead never merges into the repository's default branch: that one is yours.
 
