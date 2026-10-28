@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # separated by "|": the employees are spread over the accounts.
     claude_code_oauth_tokens: str = ""
     claude_bin: str = "claude"
+    # Off by default: reading the quota of a `setup-token` account this way sends a real 1-token message
+    # with its token outside Claude Code, and counts against the quota (see README)
+    quota_probe_enabled: bool = False
+    quota_probe_model: str = "claude-haiku-5-5"
     # Turns per run: a conversation turn is short, work on a task can take long
     claude_max_turns: int = 30
     claude_task_max_turns: int = 100

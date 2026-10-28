@@ -131,6 +131,7 @@ async def test_real_format_end_to_end(monkeypatch):
 
 
 async def test_scope_error_falls_back_to_rate_limit_headers(monkeypatch):
+    monkeypatch.setattr(claude_usage.settings, "quota_probe_enabled", True)
     def handler(request):
         if request.url.path == "/api/oauth/usage":
             return httpx.Response(403, json=SCOPE_ERROR)
@@ -158,3 +159,16 @@ async def test_scope_error_without_fallback_is_readable(monkeypatch, caplog):
         out = await get_quota()
     assert "scope requirement user:profile" in out.accounts[0].error
     assert "secret" not in caplog.text and "secret" not in out.model_dump_json()
+
+
+async def test_probe_is_off_by_default(monkeypatch):
+    paths = []
+
+    def handler(request):
+        paths.append(request.url.path)
+        return httpx.Response(403, json=SCOPE_ERROR)
+
+    mock_api(monkeypatch, handler)
+    out = await get_quota()
+    assert set(paths) == {"/api/oauth/usage"}
+    assert "claude login" in out.accounts[0].error

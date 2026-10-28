@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import httpx
 
 from app.accounts import account_count, token_for
+from app.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -18,8 +19,6 @@ for _name in ("httpx", "httpcore"):
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 MESSAGES_URL = "https://api.anthropic.com/v1/messages"
-# Cheapest model for the fallback probe
-PROBE_MODEL = "claude-haiku-5-5"
 TIMEOUT = 10
 CACHE_TTL = 60
 
@@ -90,7 +89,7 @@ def _header_window(headers: httpx.Headers, name: str) -> Window | None:
 async def _probe(client: httpx.AsyncClient, account: int, headers: dict[str, str]) -> AccountUsage | None:
     """Fallback for tokens from `claude setup-token`, which only have the inference scope and are refused by the
     usage endpoint: a 1-token message carries the same 5h and week figures in its response headers."""
-    body = {"model": PROBE_MODEL, "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
+    body = {"model": settings.quota_probe_model, "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
     resp = await client.post(MESSAGES_URL, headers={**headers, "anthropic-version": "2023-06-01"}, json=body)
     session = _header_window(resp.headers, "5h")
     week = _header_window(resp.headers, "7d")
@@ -108,7 +107,10 @@ def _http_error(status: int, body: object) -> str:
     if status == 401:
         return "Token rejected (expired or revoked): run `claude setup-token` again" + (f" ({message})" if message else "")
     if status == 403:
-        return "Token not allowed to read usage" + (f" ({message})" if message else "")
+        return (
+            "This token cannot read usage (tokens from `claude setup-token` lack the user:profile scope): "
+            "use a token with that scope, e.g. from `claude login`" + (f" [{message}]" if message else "")
+        )
     if status == 429:
         return "Usage API rate-limited, retry in a minute"
     return f"Usage API answered HTTP {status}" + (f" ({message})" if message else "")
@@ -127,7 +129,7 @@ async def _fetch(client: httpx.AsyncClient, account: int) -> AccountUsage:
         resp = await client.get(USAGE_URL, headers=headers)
         if resp.status_code in (401, 403):
             # Not necessarily dead: setup-token tokens lack the profile scope the usage endpoint wants
-            probed = await _probe(client, account, headers)
+            probed = await _probe(client, account, headers) if settings.quota_probe_enabled else None
             if probed:
                 return probed
         resp.raise_for_status()

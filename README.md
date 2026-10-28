@@ -221,7 +221,12 @@ On first launch, set your name in the settings: it is the one your team calls yo
 shows in Claude Code: the 5-hour session, the week (all models) and the week per model,
 each with the percentage used and its reset time. It is read from Claude's OAuth usage
 endpoint with the account's token, which never leaves the backend, and cached for about a
-minute. An account that fails returns an `error` without affecting the others.
+minute. An account that fails returns an `error` without affecting the others. Tokens from
+`claude setup-token` lack the `user:profile` scope and are refused (403): the error says so.
+Setting `QUOTA_PROBE_ENABLED=true` makes the backend fall back, for those accounts, to a
+1-token message (`QUOTA_PROBE_MODEL`) whose rate-limit headers carry the figures. It is off by
+default because it uses the subscription token outside Claude Code and spends a little quota
+(and can start a 5-hour window on an idle account).
 `GET /settings/usage` is different: it only sums tokens and cost of the runs Palabre made.
 
 ## Tests
