@@ -94,7 +94,7 @@ Your personality and style below set your tone; these rules set the format."""
 
 LANGUAGE_RULE = """## Language
 Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
-Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
+Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
 
 def language_rule(language: str) -> str:

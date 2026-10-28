@@ -116,6 +116,10 @@ async def set_pull_request_base(repo: str, number: int, base: str) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"base": base})
 
 
+async def set_pull_request_title(repo: str, number: int, title: str) -> None:
+    await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"title": title})
+
+
 async def open_pull_request(repo: str, head: str, base: str, title: str, body: str) -> dict:
     return await _api(
         "POST", f"/repos/{repo}/pulls", json={"head": head, "base": base, "title": title, "body": body}

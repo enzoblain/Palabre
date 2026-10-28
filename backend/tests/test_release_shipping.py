@@ -46,6 +46,7 @@ def gh(monkeypatch):
 
     async def merge(repo, number, title, method="squash", sha=None):
         state.calls.append(("merge", number, method, sha))
+        state.merge_title = title
 
     async def tag_exists(repo, tag):
         return tag in state.tags
@@ -84,6 +85,7 @@ async def test_merge_release_merges_when_ci_is_green(gh):
     url, number = await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
     assert (url, number) == (PR["html_url"], 42)
     assert gh.calls == [("merge", 42, "merge", "pr-head")]
+    assert gh.merge_title == "chore(release): Checkout"
 
 
 @pytest.mark.parametrize("ci", ["CI failed: backend", "CI still running: tests", "no CI checks reported"])
@@ -122,6 +124,12 @@ async def test_merge_release_settles_the_release_the_boss_was_asked_about(gh, mo
 async def test_merge_release_checks_the_commit_it_pins(gh):
     await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
     assert gh.checked == ["pr-head"]
+
+
+async def test_settle_release_merge_commit_is_conventional(gh):
+    decision = Decision(id=3, room_id=1, title="Release: Checkout", pr_number=42)
+    await projects.settle_release(PROJECT, decision, True, sha="pr-head")
+    assert gh.merge_title == "chore(release): Checkout"
 
 
 # --- publish_version -------------------------------------------------------------------
