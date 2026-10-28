@@ -1,0 +1,116 @@
+"""Shared fixtures.
+
+No database: the business logic is tested against `FakeSession`, which serves in-memory
+objects to the `select(...)` calls of the code under test. This keeps the suite fast and
+free of extra dependencies (no Postgres, no SQLite driver). Code that really needs SQL
+should get its own strategy, discussed first.
+
+GitHub and git calls are replaced by `fake_github`, so nothing touches the network.
+"""
+
+import os
+from datetime import UTC, datetime
+from itertools import count
+from types import SimpleNamespace
+
+import pytest
+
+# Settings() requires it at import time
+os.environ.setdefault("ADMIN_TOKEN", "test-token")
+
+from app import github, workflow  # noqa: E402
+from app.models import TaskStatus, Verdict  # noqa: E402
+
+_ids = count(1)
+
+
+class FakeSession:
+    """Just enough of AsyncSession: `scalars()` returns the preloaded `scalar_results`
+    in order; every query of the code under test must be queued by the test.
+    The query itself is ignored: SQL filters (e.g. reviews of the current round) are not tested."""
+
+    def __init__(self, *scalar_results: list):
+        self.scalar_results = list(scalar_results)
+
+    async def scalars(self, _query):
+        return self.scalar_results.pop(0)
+
+
+def make_employee(name: str = "Alice", *roles: str) -> SimpleNamespace:
+    return SimpleNamespace(id=next(_ids), name=name, title=roles[0] if roles else "", roles=list(roles))
+
+
+def make_review(reviewer, verdict: Verdict, round: int = 1) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=next(_ids), reviewer=reviewer, reviewer_id=reviewer.id, verdict=verdict, round=round,
+        created_at=datetime.now(UTC),
+    )  # fmt: skip
+
+
+def make_project(mode: str = "enterprise") -> SimpleNamespace:
+    return SimpleNamespace(
+        id=next(_ids), mode=mode, repo_url="https://github.com/acme/app", default_branch="main"
+    )
+
+
+def make_task(**overrides) -> SimpleNamespace:
+    fields = dict(
+        id=next(_ids), status=TaskStatus.review, review_round=1, sensitive=False,
+        pr_number=42, branch="task/1-demo", assignee_id=None,
+    )  # fmt: skip
+    return SimpleNamespace(**(fields | overrides))
+
+
+@pytest.fixture
+def project():
+    return make_project()
+
+
+@pytest.fixture
+def task():
+    return make_task()
+
+
+@pytest.fixture
+def reviewer():
+    return make_employee("Karim", "reviewer")
+
+
+@pytest.fixture
+def qa():
+    return make_employee("Samuel", "qa")
+
+
+@pytest.fixture
+def security():
+    return make_employee("Noa", "security")
+
+
+@pytest.fixture
+def process(monkeypatch):
+    """Sets the merge gates of the mode under test, whatever the catalog says."""
+
+    def set_process(**gates):
+        full = dict(
+            required_approvals=1, qa_gate=False, security_gate=False, ci_required=False, docs_required=False
+        ) | gates
+        monkeypatch.setattr(workflow, "mode_process", lambda _mode: full)
+
+    return set_process
+
+
+@pytest.fixture
+def fake_github(monkeypatch):
+    """CI is green and the diff holds a changelog, unless the test changes it."""
+    state = SimpleNamespace(ci=None, changed_files=["app/x.py", "CHANGELOG.md"], git_calls=[])
+
+    async def checks_status(_repo, _number):
+        return state.ci
+
+    async def git(_cwd, *args, **_kwargs):
+        state.git_calls.append(args)
+        return "\n".join(state.changed_files)
+
+    monkeypatch.setattr(github, "checks_status", checks_status)
+    monkeypatch.setattr(github, "git", git)
+    return state

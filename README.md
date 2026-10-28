@@ -137,6 +137,18 @@ To reach it away from home, put the server on a private network such as
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
+## Tests
+
+Backend tests (pytest, no database or network needed):
+
+```sh
+cd backend && pip install -r requirements-dev.txt && python -m pytest
+```
+
+`tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
+`AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
+merge gates) and `fake_github` (replaces the GitHub and git calls).
+
 ## Configuration
 
 All optional, in `.env`:
