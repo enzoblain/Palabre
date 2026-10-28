@@ -26,7 +26,7 @@ REASONS: dict[str, str] = {
     "conversation_throttled": "The team talked too much in conversation #{conversation_id} within an hour: their chatter is paused there for the rest of the hour (work on tasks and reviews goes on). Step in if they are stuck.",
     "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
-    "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, tell them with @boss; otherwise reassign or split the task.",
+    "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, ask them with ask_ceo (or tell the lead); otherwise reassign or split the task.",
     "research_start": "Phase 1, research. The boss asked a question (message #{message_id}). Research it from your angle: search the web, read the sources, then post what you found in the chat, one finding per message with its link. Do not wait for the others and do not answer for the whole group.",
     "research_debate": "Phase 2, debate. Everyone has posted their first findings. Read them all. Challenge what looks weak or contradicts your sources, confirm what you could check, search again where it matters, and answer the people concerned with @Name.",
     "research_conclude": "Phase 3, conclusion. The debate has settled. In one short message, give your final answer to the boss's question, how sure you are, and the source that convinced you most. If you still disagree with someone, say on what.",

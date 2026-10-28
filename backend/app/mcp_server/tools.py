@@ -44,7 +44,7 @@ async def _check_chat(s, project_id: int, content: str) -> None:
 async def send_message(ctx: Context, content: str, channel: str | None = None) -> dict:
     """Post a message in the current conversation, signed with your name: a short chat
     message, like you would send a colleague (a long or report-like one is refused).
-    Mention colleagues with @Name (or @boss) to get their attention.
+    Mention colleagues with @Name to get their attention.
     channel: only the lead may name another channel (e.g. "direction") to relay there."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
