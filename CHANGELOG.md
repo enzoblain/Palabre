@@ -4,17 +4,17 @@
 
 ### Highlights
 
-- **Real Claude usage per model**: the settings Usage screen works like `/usage`, per account and per model, from the accounts' real usage.
+- **Real Claude usage per model**: the settings Usage screen works like `/usage`, per account and per model, read from Claude's OAuth usage endpoint and cached for about a minute.
 - **Lead wake-up on mergeable tasks**: the lead is woken up when a task can be merged, and reminded once if it waits too long. The orchestrator also announces its steps in the chat.
 
 ### Also in this release
 
-- System lines from "Palabre" now look like the boss's messages.
-- Usage tracking hardening: httpcore logs and a lock on the cache.
+- System lines from "Palabre" no longer look like the boss's messages: they show as muted platform announcements.
+- Usage tracking hardening: httpx/httpcore logs lowered to WARNING so request headers never reach the logs, and a lock on the usage cache.
 
 ### Upgrading from 0.2.2
 
-- Nothing to do: the `merge_ready_at` and `lead_reminded_at` task columns are added automatically at startup.
+- Nothing to do: the `merge_ready_at` and `lead_reminded_at` task columns and the `messages.is_system` column (NOT NULL, default false, so existing messages stay normal) are added automatically at startup.
 
 ## 0.2.2
 
