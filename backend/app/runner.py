@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import settings
+from app import toolchains
 from app.mcp_server.server import SERVER_NAME
 
 log = logging.getLogger(__name__)
@@ -59,6 +60,11 @@ def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
     if not oauth_token:
         raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+    # Toolchains the team installed (install_toolchain) come first in PATH
+    env["PATH"] = f"{toolchains.bin_dir()}:{env.get('PATH', os.defpath)}"
+    env |= toolchains.agent_env()
+    # Installing a toolchain is an MCP call that takes a while
+    env["MCP_TOOL_TIMEOUT"] = "600000"
     # Commits made by the agent are signed with its name
     email = re.sub(r"[^a-z0-9]+", ".", author_name.lower()).strip(".") + "@palabre.local"
     env |= {

@@ -23,6 +23,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "update_summary": {"edit_room_document"},
     "resolve_question": {"edit_room_document"},
     "merge_task": {"merge"},
+    "install_toolchain": {"manage_toolchains"},
 }
 
 # Only exposed during a task run (X-Palabre-Task header), on the caller's own task

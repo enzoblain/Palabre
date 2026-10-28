@@ -4,7 +4,7 @@ from typing import Literal
 
 from mcp.server.mcpserver import Context
 
-from app import services, workflow
+from app import services, toolchains, workflow
 from app.db import SessionLocal
 from app.mcp_server.server import current_caller, tool
 from app.models import Employee
@@ -306,3 +306,19 @@ async def merge_task(ctx: Context, task_id: int) -> dict:
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
         return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me))
+
+
+# --- Toolchains (lead, devops) -------------------------------------------------------
+
+
+@tool
+async def install_toolchain(ctx: Context, name: Literal["node", "go"], version: str = "") -> str:
+    """Install a toolchain for the whole team: every agent's commands can use it right
+    away, and it stays installed. Installing another version switches the team to it.
+    - node: Node.js with npm and npx. version: "lts" (default), "latest", "20", "20.11.1"
+    - go: version "stable" (default), "1.22", "1.22.3"
+    System packages (apt) cannot be installed this way: ask the boss for those."""
+    current_caller(ctx)
+    result = await toolchains.install(name, version)
+    commands = ", ".join(sorted(toolchains.installed()))
+    return f"{result}\nInstalled commands: {commands}"

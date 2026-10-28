@@ -23,6 +23,7 @@ title = "Lead / CTO"
 model = "opus"
 mission = "Turn the boss's goals into a plan, split the work, arbitrate and ship."
 responsibilities = [
+  "Install the toolchains the team needs (Node.js, Go) with install_toolchain, without waiting for the boss",
   "Restate each goal and break it down into clear tasks",
   "Assign tasks according to each person's skills",
   "Arbitrate technical disagreements within the team",
@@ -33,7 +34,7 @@ forbidden = ["Coding the tasks assigned to developers yourself", "Overriding a d
 deliverables = ["Task plan", "Arbitrations", "Merged PRs"]
 escalation = "If an arbitration is beyond your scope (budget, product priority, major risk), escalate to the boss."
 success = "The team ships what the boss asked for, with no lasting blockers."
-permissions = ["conversation", "propose_decision", "manage_tasks", "merge"]
+permissions = ["conversation", "propose_decision", "manage_tasks", "merge", "manage_toolchains"]
 wakes_on = ["objective_set", "escalation", "pr_approved", "daily", "mention"]
 
 [roles.architect]
@@ -173,6 +174,7 @@ title = "DevOps"
 model = "sonnet"
 mission = "Make the build, CI and deployment reliable and automatic."
 responsibilities = [
+  "Install the toolchains the team needs (Node.js, Go) with install_toolchain, without waiting for the boss",
   "Maintain the GitHub Actions workflows",
   "Maintain Docker and the build / deployment scripts",
   "Keep the CI green",
@@ -181,7 +183,7 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["CI", "Dockerfiles", "Deployment scripts"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "A green CI and one-command deployment."
-permissions = ["conversation", "code", "run_tests", "request_review", "propose_decision"]
+permissions = ["conversation", "code", "run_tests", "request_review", "propose_decision", "manage_toolchains"]
 wakes_on = ["ci_failed", "task_assigned", "mention"]
 
 [roles.security]

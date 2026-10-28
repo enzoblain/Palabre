@@ -41,6 +41,7 @@ OPERATING_RULES = """## How Palabre works
 - Your notebook (read_notes / write_notes) is how you remember things from one session to the next.
 - In a conversation you work in your own desk: a private copy of the repository (your current directory), with your position's tools. Read the code, run commands and tests, try things. To test a task's branch: `git checkout --detach <branch>` (the branch is in get_task). Your desk is reset to the default branch every time you are woken up, and nothing in it is ever pushed.
 - Never ask the boss for write or execution rights: your position's tools are all you get, and they are already allowed.
+- A missing toolchain (Node.js, Go) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git worktree, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
 RESEARCH_RULES = """## How Palabre works
@@ -85,7 +86,7 @@ You are working on task #{task_id} « {title} », in its own git worktree (your 
 - Start with get_task to read the description and acceptance criteria.
 - Stay within the task. Run the tests before submitting.
 - Your position's tools are allowed in your worktree: if you have Bash, you can run commands (python3, git, tests...) there.
-- The machine has git and Python 3. Other toolchains (Node.js...) are only there if the boss installed them: if one you need is missing, escalate to the boss instead of working around it.
+- The machine has git and Python 3. Node.js and Go are installed for the whole team by the lead or devops with install_toolchain: if one is missing, ask them (not the boss). Only system packages (apt) need the boss.
 - Commit your work with clear messages (`git commit`). Never push and never ask for git credentials: you have none, by design. submit_for_review pushes your branch and opens or updates the pull request.
 - To bring your branch up to date, rebase it on `origin/{default_branch}` (`git fetch` is not needed: the repository is kept up to date for you), then call submit_for_review again: it force-pushes your own task branch. Never work around it with `merge -s ours` or duplicated commits.
 - Post short progress updates with report_progress. If you are blocked, say so, or escalate.

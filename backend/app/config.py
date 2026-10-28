@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     projects_dir: Path = Path("/data/projects")
     # Temporary files of runs (MCP configs), kept outside the repositories
     runtime_dir: Path = Path("/data/runtime")
+    # Toolchains installed by the agents (install_toolchain), shared by the whole team
+    toolchains_dir: Path = Path("/data/toolchains")
 
     # Agents (`claude -p`, billed on Claude subscriptions). One token per account,
     # separated by "|": the employees are spread over the accounts.

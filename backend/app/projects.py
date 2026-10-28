@@ -185,3 +185,14 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
     await s.commit()
     return await load_project(s, project.id)
+
+
+async def refresh_permissions(s: AsyncSession) -> None:
+    """Permissions come from the roles: recompute them for every employee, so a change
+    in the catalog applies to existing teams too."""
+    roles = load_catalog()["roles"]
+    for employee in await s.scalars(select(Employee)):
+        permissions = sorted({p for r in employee.roles if r in roles for p in roles[r]["permissions"]})
+        if permissions != employee.permissions:
+            employee.permissions = permissions
+    await s.commit()
