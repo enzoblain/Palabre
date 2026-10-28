@@ -262,17 +262,20 @@ async def report_progress(ctx: Context, message: str) -> dict:
 
 
 @tool
-async def submit_for_review(ctx: Context, summary: str, message: str, sensitive: bool = False) -> dict:
+async def submit_for_review(ctx: Context, title: str, summary: str, message: str, sensitive: bool = False) -> dict:
     """Submit your current task for review: your branch is pushed and a pull request is
     opened (or updated). Commit your work first.
-    summary: the pull request description (as detailed as needed).
+    title: the pull request title and squash commit title, in English, Conventional Commits
+    format `type(scope): description`, for example `feat(usage): show real Claude usage per model`
+    (the task reference is added for you; refused if the format is not respected).
+    summary: the pull request description, in English (as detailed as needed).
     message: what you tell the team in the chat, in a sentence or two (the PR link is added).
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
-        task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive, message)
+        task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive, message, title)
         return workflow.task_summary(task)
 
 
@@ -292,7 +295,8 @@ async def review_task(
     ctx: Context, task_id: int, verdict: Literal["approve", "changes", "comment"], body: str
 ) -> dict:
     """Review a task waiting for review. Reference files and lines in the body
-    (e.g. `src/app.py:42 — ...`). Returns what still blocks the merge."""
+    (e.g. `src/app.py:42 — ...`). The body is posted on the GitHub PR: write it in English.
+    Returns what still blocks the merge."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
@@ -414,7 +418,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to
     accept it: a request in direction that merges it when they validate it. One release at a time.
-    title: what ships, e.g. "Checkout and order history".
+    title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
     summary: for the boss, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
@@ -436,7 +440,7 @@ async def merge_release(ctx: Context, title: str, summary: str, message: str) ->
     once the checks of a freshly opened PR are done), and the merge fails if the head moved
     meanwhile. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
     opinion first, use propose_release.
-    title: what ships, e.g. "Checkout and order history".
+    title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
     summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)

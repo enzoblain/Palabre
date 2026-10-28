@@ -1,6 +1,7 @@
 """Task lifecycle: creation, assignment, review and merge, with the mode's merge gates."""
 
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -244,11 +245,32 @@ async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: E
     return task
 
 
+CONVENTIONAL_TITLE = re.compile(
+    r"(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: [^\s(].*"
+)
+_TASK_REF = re.compile(r"\s*\(#\d+\)$")
+
+
+def conventional_title(title: str, task_id: int) -> str:
+    """The English Conventional Commits title of a task's PR and squash commit, with the task
+    reference last: `feat(usage): show real usage (#60)`. Raises WorkflowError if it does not follow the format."""
+    title = _TASK_REF.sub("", title.strip())
+    if len(title) > 100 or not CONVENTIONAL_TITLE.fullmatch(title) or not title.isascii():
+        raise WorkflowError(
+            f"Invalid title {title!r}: use an English Conventional Commits title of at most 100 ASCII characters, "
+            "`type(scope): description` with type among feat, fix, chore, docs, refactor, test, ci, perf, build, "
+            "style, revert; for example `feat(usage): show real Claude usage per model`. "
+            "The task reference is added for you."
+        )
+    return f"{title} (#{task_id})"
+
+
 async def submit_for_review(
     s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
-    message: str = "",
+    message: str = "", title: str = "",
 ) -> Task:
-    """summary: the pull request description; message: what the author tells the team."""
+    """summary: the pull request description; message: what the author tells the team;
+    title: the PR and squash commit title, in English Conventional Commits format."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.assignee_id != author.id:
@@ -257,8 +279,10 @@ async def submit_for_review(
         raise WorkflowError(f"Task #{task.id} is {task.status.value}, it cannot be submitted")
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet")
+    pr_title = conventional_title(title, task.id)
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
+    task.pr_title = pr_title
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
@@ -273,7 +297,7 @@ async def submit_for_review(
             repo,
             head=task.branch,
             base=project.default_branch,
-            title=f"[#{task.id}] {task.title}",
+            title=pr_title,
             body=(
                 f"{task.description}\n\n**Acceptance criteria**\n{criteria}\n\n"
                 f"**Summary from {author.name}**\n{summary}\n\n_Palabre task #{task.id}_"
@@ -459,7 +483,7 @@ async def merge_task(
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
 
     repo = github.repo_slug(project.repo_url)
-    await github.merge_pull_request(repo, task.pr_number, f"[#{task.id}] {task.title}")
+    await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})

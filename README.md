@@ -42,7 +42,12 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git branch and worktree, then opens a pull request.
+2. **A developer** works on the task in its own git branch (`task/<id>`) and worktree, then opens a pull request.
+   Everything that goes to GitHub is in English, whatever the team's language, in
+   [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
+   `submit_for_review` a title such as `feat(usage): show real Claude usage per model`, the backend
+   refuses a non-conforming one and adds the task reference (`... (#60)`). That title is the PR's and
+   the squash commit's. Review and QA comments and release notes are in English too.
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
