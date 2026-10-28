@@ -44,7 +44,8 @@ jobs:
         run: pip install --require-hashes -r requirements.txt
       - name: Install test dependencies
         if: steps.detect.outputs.run == 'true'
-        run: pip install --require-hashes -r requirements-dev.txt
+        # Both locks in one command: pip fails if they pin the same package differently
+        run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
       - name: pytest
         if: steps.detect.outputs.run == 'true'
         run: |
