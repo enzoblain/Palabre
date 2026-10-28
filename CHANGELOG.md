@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- Conventional Commits for everything that goes to GitHub: the developer gives `submit_for_review` an English title such as `feat(usage): show real Claude usage per model`, the backend refuses a non-conforming one and adds the task reference. That title is the PR's and the squash commit's.
+- Task branches follow the standard `<type>/<id>-<slug>` format (`feat/60-show-real-claude-usage`): the branch starts as `task/<id>` and is renamed at the first submission.
+- Semantic Versioning computed from the Conventional Commits merged since the last `vX.Y.Z` tag (`fix`/`perf` patch, `feat` minor, `!` or `BREAKING CHANGE` major, minor while in 0.x). The lead's and DevOps's prompts state the rule.
+- `fix_release`, a lead tool that resets the name and notes of a GitHub Release that came out wrong.
+- The `tasks.pr_title` column (nullable), added automatically at startup. Nothing to do when upgrading from 0.2.4.
+
+### Changed
+
+- Releases are named `Palabre vX.Y.Z` and carry the same download notes as the release workflow, in English; the release merge commit and PR title are conventional.
+- `close_pull_request` never deletes a branch named like a task's (`feat/12-foo`), and task cleanup handles both branch formats.
+- Audit of the standards: every backend module has a one-line docstring, and the README, CLAUDE.md and CHANGELOG follow the repository's conventions. The CHANGELOG is rewritten in Keep a Changelog format.
+
+### Fixed
+
+- The release notes, PR title and release merge commit are aligned, including on the decision path.
+- The v0.2.3 and v0.2.4 releases are renamed and their notes aligned with the previous releases.
+
 ## [0.2.4] - 2026-10-28
 
 ### Added
@@ -157,7 +178,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/enzoblain/Palabre/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/enzoblain/Palabre/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/enzoblain/Palabre/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/enzoblain/Palabre/compare/v0.2.1...v0.2.2
