@@ -330,7 +330,7 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     pr = await github.find_pull_request(repo, project.default_branch, production)
     if pr is None:
         try:
-            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+            pr = await github.open_pull_request(repo, project.default_branch, production, f"chore(release): {title}", summary)
         except github.GitHubError as exc:
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
@@ -350,7 +350,9 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
     team's branch and production keep the same history); rejected, it is closed."""
     repo = github.repo_slug(project.repo_url)
     if accepted:
-        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge", sha=sha)
+        await github.merge_pull_request(
+            repo, decision.pr_number, f"chore(release): {decision.title.removeprefix('Release: ')}", method="merge", sha=sha
+        )
     else:
         try:
             await github.close_pull_request(repo, decision.pr_number)
@@ -369,7 +371,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     pr = await github.find_pull_request(repo, project.default_branch, production)
     if pr is None:
         try:
-            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+            pr = await github.open_pull_request(repo, project.default_branch, production, f"chore(release): {title}", summary)
         except github.GitHubError as exc:
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None

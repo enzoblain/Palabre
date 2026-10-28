@@ -126,6 +126,12 @@ async def test_merge_release_checks_the_commit_it_pins(gh):
     assert gh.checked == ["pr-head"]
 
 
+async def test_settle_release_merge_commit_is_conventional(gh):
+    decision = Decision(id=3, room_id=1, title="Release: Checkout", pr_number=42)
+    await projects.settle_release(PROJECT, decision, True, sha="pr-head")
+    assert gh.merge_title == "chore(release): Checkout"
+
+
 # --- publish_version -------------------------------------------------------------------
 
 
