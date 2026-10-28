@@ -454,21 +454,36 @@ async def merge_release(ctx: Context, title: str, summary: str, message: str) ->
 
 
 @tool
-async def publish_version(ctx: Context, version: str, notes: str, message: str) -> dict:
+async def publish_version(ctx: Context, version: str, message: str) -> dict:
     """Tag the head of production (the default branch) vX.Y.Z and publish the GitHub Release
-    with its notes; the tag builds the images and the desktop app. Refused for a version that
+    (named "Palabre vX.Y.Z", with the standard download notes); the tag builds the images and the desktop app. Refused for a version that
     is not X.Y.Z, a tag that already exists, or a version that differs from the one in the
     repository's files (frontend/package.json, tauri.conf.json, Cargo.toml: the ones that exist),
     or when CI is not green on production's head. Merge a version bump first.
     version: e.g. "1.4.0".
-    notes: the release notes, in Markdown.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
-        url = await projects.publish_version(project, version, notes)
+        url = await projects.publish_version(project, version)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({url})", me)
+    return {"version": version.strip().removeprefix("v"), "release_url": url}
+
+
+@tool
+async def fix_release(ctx: Context, version: str, message: str) -> dict:
+    """Reset the name and notes of an existing GitHub Release to the standard ones
+    ("Palabre vX.Y.Z" and the download notes), e.g. after a release published with other text.
+    version: e.g. "0.2.3".
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        url = await projects.fix_release(project, version)
         await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({url})", me)
     return {"version": version.strip().removeprefix("v"), "release_url": url}
 

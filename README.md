@@ -85,8 +85,8 @@ repository's default branch: that one is yours.
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is
 green on it, whatever the company size, and only if the PR has not moved since (a task
 merged meanwhile makes GitHub refuse), and tells you in direction, with nothing to answer; `publish_version`
-tags the head of the default branch `vX.Y.Z` (CI must be green on it) and publishes the GitHub Release with its notes,
-which starts the release workflow. It refuses a version that is not `X.Y.Z`, a tag that
+tags the head of the default branch `vX.Y.Z` (CI must be green on it) and publishes the GitHub Release (named `Palabre vX.Y.Z`, with the same download notes as the release
+workflow), which starts that workflow; `fix_release` resets the name and notes of an existing release to those. It refuses a version that is not `X.Y.Z`, a tag that
 already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
 `Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
