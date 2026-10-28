@@ -127,6 +127,17 @@ You are working on task #{task_id} « {title} », in its own git worktree (your 
 - When the work is done and committed, call submit_for_review with an English Conventional Commits title (the task reference is added for you)."""
 
 
+ORIENTATION_RULE = """## Getting oriented
+The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
+
+BRANCH_RULE = "The team works on the branch `{branch}`."
+
+
+def orientation_rule(branch: str, first_run: bool = True) -> str:
+    """The full orientation costs tokens: only an employee's first run gets it."""
+    return (ORIENTATION_RULE if first_run else BRANCH_RULE).format(branch=branch)
+
+
 def task_rules(task: Task, default_branch: str) -> str:
     return TASK_RULES.format(task_id=task.id, title=task.title, branch=task.branch, default_branch=default_branch)
 

@@ -69,7 +69,7 @@ async def test_initial_commit_pushes_production_before_dev(repo, monkeypatch, tm
 
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(worktrees, "resolve_branch", github.resolve_branch)  # the fake of `repo`
-    project = SimpleNamespace(repo_url=URL, default_branch="dev")
+    project = SimpleNamespace(name="App", repo_url=URL, default_branch="dev")
     await worktrees._initial_commit(project, tmp_path)
     pushes = [a[-1] for a in calls if a[0] == "push"]
     assert pushes == ["main:refs/heads/main", "main:refs/heads/dev"]
@@ -116,3 +116,74 @@ async def test_research_project_is_untouched(repo, monkeypatch):
     project = await projects.create_project(Session(), name="R", repo_url="", mode=mode, default_branch="main", topic="x")
     assert project.default_branch == "main"
     assert repo.created == []
+
+
+@pytest.fixture
+def api(monkeypatch):
+    state = SimpleNamespace(repo={"default_branch": "main"}, branches=set())
+
+    async def _api(_method, path, **_kwargs):
+        if path.endswith("/branches"):
+            return [{"name": b} for b in state.branches][:1]
+        if "/branches/" in path:
+            name = path.rsplit("/", 1)[1]
+            if name not in state.branches:
+                raise github.GitHubError("GET failed: 404 not found")
+            return {"name": name}
+        return state.repo
+
+    monkeypatch.setattr(github, "_api", _api)
+    return state
+
+
+async def test_production_branch_is_the_github_default_main(api):
+    api.branches = {"main", "dev"}
+    assert await github.production_branch("acme/app") == "main"
+
+
+async def test_production_branch_is_the_github_default_master(api):
+    api.repo = {"default_branch": "master"}
+    api.branches = {"master"}
+    assert await github.resolve_branch("acme/app", "") == "master"
+
+
+async def test_production_branch_falls_back_to_master_then_main(api):
+    api.repo = {}
+    api.branches = {"master"}
+    assert await github.production_branch("acme/app") == "master"
+    api.branches = {"main", "master"}
+    assert await github.production_branch("acme/app") == "main"
+    api.branches = set()
+    assert await github.production_branch("acme/app") == "main"
+
+
+async def test_initial_commit_has_a_readme_and_gitignore(repo, monkeypatch, tmp_path):
+    calls = []
+
+    async def git(_cwd, *args, **_kwargs):
+        calls.append(args)
+        if args[0] == "rev-parse":
+            raise github.GitHubError("no ref")
+        return ""
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "resolve_branch", github.resolve_branch)
+    project = SimpleNamespace(name="App", repo_url=URL, default_branch="main")
+    await worktrees._initial_commit(project, tmp_path)
+    assert (tmp_path / "README.md").read_text().startswith("# App")
+    assert (tmp_path / ".gitignore").exists()
+    assert ("add", "README.md", ".gitignore") in calls
+    assert [a[-1] for a in calls if a[0] == "push"] == ["main:refs/heads/main"]
+
+
+def test_orientation_only_on_the_first_run():
+    from app.orchestrator.prompts import orientation_rule
+
+    first = orientation_rule("master")
+    assert "`master`" in first and "README" in first
+    later = orientation_rule("master", first_run=False)
+    assert "`master`" in later and "README" not in later
+
+
+async def test_working_branch_without_a_branch_resolves_production(repo):
+    assert await projects.working_branch(URL, "") == "dev"

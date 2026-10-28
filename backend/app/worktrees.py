@@ -76,9 +76,21 @@ async def _has_ref(repo: Path, ref: str) -> bool:
         return False
 
 
+INITIAL_GITIGNORE = """.env
+.venv/
+__pycache__/
+node_modules/
+.DS_Store
+"""
+
+
+def initial_readme(project: Project) -> str:
+    return f"# {project.name}\n\nProject started with Palabre. Describe the product and how to run it here.\n"
+
+
 async def _initial_commit(project: Project, repo: Path) -> None:
     """A brand-new GitHub repository has no commit: tasks need a branch to start from, so
-    an empty first commit is pushed. Production (the repository's default branch) comes
+    a first commit (minimal README and .gitignore) is pushed. Production (the repository's default branch) comes
     first, as the first branch pushed becomes the default; a working branch other than
     production (`dev`) then starts from the same commit."""
     branch = project.default_branch
@@ -86,9 +98,12 @@ async def _initial_commit(project: Project, repo: Path) -> None:
     # Already made by an attempt whose push failed: only the pushes are left
     if not await _has_ref(repo, f"refs/heads/{production}"):
         await git(repo, "checkout", "--quiet", "--orphan", production)
+        (repo / "README.md").write_text(initial_readme(project))
+        (repo / ".gitignore").write_text(INITIAL_GITIGNORE)
+        await git(repo, "add", "README.md", ".gitignore")
         await git(
             repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
-            "commit", "--quiet", "--allow-empty", "-m", "Initial commit",
+            "commit", "--quiet", "-m", "Initial commit",
         )  # fmt: skip
     for name in dict.fromkeys([production, branch]):
         await git(repo, "push", "--quiet", "origin", f"{production}:refs/heads/{name}", repo_url=project.repo_url)
