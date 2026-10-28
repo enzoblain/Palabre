@@ -136,6 +136,9 @@ class Room(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
+    # "direction": only the boss and the lead, the one place the boss may write;
+    # "team": the team's channels, which the boss reads but cannot write in
+    kind: Mapped[str] = mapped_column(String(20), default="team", server_default="team")
     # Shared document: objective and summary (decisions, questions and tasks are rows)
     objective: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")

@@ -229,3 +229,9 @@ async def test_middleware_passes_the_resolved_caller(monkeypatch):
     }
     await AgentAuthMiddleware(app)(scope, None, None)
     assert seen["caller"] is caller
+
+
+def test_only_the_lead_can_create_channels():
+    for role, cfg in load_catalog()["roles"].items():
+        has_it = "create_channel" in mcp_tools_for(cfg["permissions"], False)
+        assert has_it == (role == "lead"), role

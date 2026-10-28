@@ -29,6 +29,12 @@ async def load_room(s, room_id: int) -> Room:
     return room
 
 
+def check_not_direction(room: Room) -> None:
+    """The direction channel is fixed: the boss and the lead, for as long as the project lives."""
+    if room.kind == services.DIRECTION:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The direction channel cannot be changed this way")
+
+
 @router.get("/projects/{project_id}/rooms", response_model=list[RoomOut])
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
@@ -49,6 +55,8 @@ async def create_room(project_id: int, body: RoomIn, s: SessionDep):
     members = list(await s.scalars(q))
     if body.member_ids is not None and len(members) != len(set(body.member_ids)):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Some members are not employees of this project")
+    if body.name.strip().lower() == services.DIRECTION:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The direction channel is created with the project")
     room = Room(project_id=project_id, name=body.name, objective=body.objective, summary="", members=members)
     s.add(room)
     await s.flush()
@@ -79,13 +87,16 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
 
 @router.delete("/rooms/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room(room_id: int, s: SessionDep):
-    await s.delete(await get_or_404(s, Room, room_id))
+    room = await get_or_404(s, Room, room_id)
+    check_not_direction(room)
+    await s.delete(room)
     await s.commit()
 
 
 @router.put("/rooms/{room_id}/members/{employee_id}", response_model=RoomOut)
 async def add_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
+    check_not_direction(room)
     employee = await get_or_404(s, Employee, employee_id)
     if employee.project_id != room.project_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "This employee belongs to another project")
@@ -98,6 +109,7 @@ async def add_member(room_id: int, employee_id: int, s: SessionDep):
 @router.delete("/rooms/{room_id}/members/{employee_id}", response_model=RoomOut)
 async def remove_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
+    check_not_direction(room)
     room.members = [m for m in room.members if m.id != employee_id]
     await s.commit()
     return await load_room(s, room_id)

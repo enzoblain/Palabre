@@ -26,6 +26,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "merge_task": {"merge"},
     "set_working_branch": {"merge"},
     "propose_release": {"merge"},
+    "create_channel": {"manage_channels"},
     "install_toolchain": {"manage_toolchains"},
 }
 
