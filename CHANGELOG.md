@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - CI runs on every push, so task pull requests always have checks and no longer miss them.
+- Pull request titles and squash commits end with the pull request number instead of the task number, so the links in release notes point to the right PR.
 
 ## [0.3.0] - 2026-10-28
 
