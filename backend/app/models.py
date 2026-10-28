@@ -208,6 +208,8 @@ class Message(Base):
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     author_name: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text)
+    # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # A request to the boss ("decision", "release", "escalation", "question"), answered
     # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then
     request_kind: Mapped[str | None] = mapped_column(String(20))
@@ -249,7 +251,7 @@ class Task(Base):
     review_round: Mapped[int] = mapped_column(default=0)
     # When the lead was told every merge rule is met, and when it was reminded (once); reset on submission
     merge_ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    merge_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lead_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_column()
     updated_at: Mapped[datetime] = updated_at_column()
 

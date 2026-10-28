@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app import workflow
+from app import github, workflow
 from app.models import Message, Task
 from app.orchestrator import merge_watch
 
@@ -48,7 +48,7 @@ def events_of(session, type_):
 
 
 def reviewable(**fields):
-    return make_task(**({"merge_ready_at": None, "merge_reminded_at": None, "project_id": 1, "pr_url": "https://github.com/acme/app/pull/42"} | fields))
+    return make_task(**({"merge_ready_at": None, "lead_reminded_at": None, "project_id": 1, "pr_url": "https://github.com/acme/app/pull/42"} | fields))
 
 
 async def test_mergeable_task_wakes_the_lead(watch, project):
@@ -73,7 +73,6 @@ async def test_lead_is_woken_only_once(watch, project):
     await merge_watch.watch_mergeable_tasks(s)
     await merge_watch.watch_mergeable_tasks(s)
     assert len(events_of(s, "pr_approved")) == 1
-    assert not events_of(s, "merge_reminder")
 
 
 async def test_reminder_after_the_delay_then_never_again(watch, project, monkeypatch):
@@ -82,8 +81,8 @@ async def test_reminder_after_the_delay_then_never_again(watch, project, monkeyp
     s = WatchSession([task], project)
     await merge_watch.watch_mergeable_tasks(s)
     await merge_watch.watch_mergeable_tasks(s)
-    [event] = events_of(s, "merge_reminder")
-    assert event.target_role == "lead" and event.payload["minutes"] == 10
+    [event] = events_of(s, "pr_approved")
+    assert event.target_role == "lead" and "reminder" in event.payload["reviewer"]
 
 
 async def test_no_reminder_before_the_delay(watch, project):
@@ -117,3 +116,24 @@ async def test_mark_merge_ready_is_idempotent(project):
     await workflow.mark_merge_ready(s, task, "Karim")
     await workflow.mark_merge_ready(s, task, "Karim")
     assert len(events_of(s, "pr_approved")) == 1
+
+
+async def test_a_task_whose_rules_cannot_be_checked_does_not_stop_the_others(watch, project, monkeypatch):
+    broken, fine = reviewable(), reviewable()
+
+    async def blockers(_s, _project, task):
+        if task is broken:
+            raise github.GitHubError("boom")
+        return []
+
+    monkeypatch.setattr(workflow, "merge_blockers", blockers)
+    s = WatchSession([broken, fine], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    [event] = events_of(s, "pr_approved")
+    assert event.payload["task_id"] == fine.id and s.commits == 1
+
+
+async def test_system_line_is_not_a_boss_message():
+    s = WatchSession([], make_project())
+    await workflow.announce(s, make_task(title="Demo", conversation_id=7, pr_url=None), "Merged")
+    assert s.added[0].is_system is True

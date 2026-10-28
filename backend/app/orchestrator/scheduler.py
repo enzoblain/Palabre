@@ -34,8 +34,8 @@ async def run_scheduler() -> None:
                 await _daily(s)
                 await _idle_conversations(s)
                 await retry_failed_tasks(s)
-                await watch_mergeable_tasks(s)
                 await advance_research(s)
+                await watch_mergeable_tasks(s)
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -286,7 +286,7 @@ async def submit_for_review(
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
     task.review_round += 1
-    task.merge_ready_at = task.merge_reminded_at = None
+    task.merge_ready_at = task.lead_reminded_at = None
     task.sensitive = task.sensitive or sensitive
     process = mode_process(project.mode)
     payload = {"task_id": task.id, "pr_url": task.pr_url}
@@ -365,9 +365,9 @@ async def mark_merge_ready(s: AsyncSession, task: Task, by: str) -> None:
 
 async def remind_merge(s: AsyncSession, task: Task) -> None:
     """The task has been mergeable for too long: remind the lead, once."""
-    task.merge_reminded_at = datetime.now(UTC)
-    payload = {"task_id": task.id, "pr_url": task.pr_url, "minutes": settings.merge_reminder_minutes}
-    emit_event(s, task.project_id, "merge_reminder", payload, role="lead")
+    task.lead_reminded_at = datetime.now(UTC)
+    by = f"the team and has met every merge rule for {settings.merge_reminder_minutes} minutes (reminder)"
+    emit_event(s, task.project_id, "pr_approved", {"task_id": task.id, "reviewer": by}, role="lead")
 
 
 async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[str]:

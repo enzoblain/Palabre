@@ -14,7 +14,6 @@ REASONS: dict[str, str] = {
     "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task. File each bug with report_bug.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
-    "merge_reminder": "Task #{task_id} ({pr_url}) has met every merge rule for {minutes} minutes and is still not merged. Merge it with merge_task, or say what is holding it back.",
     "pr_merged": "Task #{task_id} was merged ({pr_url}). Do what your position requires after a merge, if anything.",
     "bug_reported": "A {severity} bug was reported as task #{task_id}. Triage it: assign it with assign_task, or cancel it with update_task.",
     "escalation": "{from} escalated something to you (message #{message_id}). Read it and decide.",

@@ -335,7 +335,8 @@ class Orchestrator:
         since = datetime.now(UTC) - timedelta(hours=1)
         last_boss_message = await s.scalar(
             select(func.max(Message.created_at)).where(
-                Message.conversation_id == conversation_id, Message.employee_id.is_(None)
+                Message.conversation_id == conversation_id, Message.employee_id.is_(None),
+                Message.is_system.is_(False),
             )
         )
         if last_boss_message is not None:

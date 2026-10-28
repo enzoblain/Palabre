@@ -50,7 +50,7 @@ From there the team works on its own:
 The platform keeps the lead on track. Every step of a task (pull request submitted, each
 review, QA or security verdict with its author, merge) is announced by a short "Palabre"
 line in the task's channel, with the link. As soon as a task meets every merge rule of the
-company's size (including a CI that turns green later), the lead is woken up to merge it,
+company's size, the lead is woken up to merge it,
 and reminded once if it is still not merged after `MERGE_REMINDER_MINUTES` (10 by default).
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend

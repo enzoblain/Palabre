@@ -194,7 +194,7 @@ async def post_message(
 async def post_system_message(s: AsyncSession, conversation_id: int, content: str) -> None:
     """A short automatic line (step of a task) from the platform itself. Not committed: the
     caller's transaction carries it. It mentions nobody, so it never wakes anyone up."""
-    s.add(Message(conversation_id=conversation_id, employee_id=None, author_name=SYSTEM_AUTHOR, content=content))
+    s.add(Message(conversation_id=conversation_id, employee_id=None, author_name=SYSTEM_AUTHOR, content=content, is_system=True))
     await s.flush()
 
 
