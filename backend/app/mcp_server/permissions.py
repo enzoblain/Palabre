@@ -26,6 +26,8 @@ MCP_TOOLS: dict[str, set[str]] = {
     "merge_task": {"merge"},
     "set_working_branch": {"merge"},
     "propose_release": {"merge"},
+    "merge_release": {"ship_release"},  # the lead alone delivers without waiting for the boss
+    "publish_version": {"ship_release"},
     "create_channel": {"manage_channels"},
     "ask_ceo": {"manage_channels"},  # the lead, who alone talks to the boss
     "install_toolchain": {"manage_toolchains"},

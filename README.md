@@ -72,6 +72,14 @@ request from `dev` to `main` and asks you in direction: Validate merges it, Reje
 it, Nuance leaves it open for the lead to rework. The lead never merges into the
 repository's default branch: that one is yours.
 
+The lead can also deliver alone. `merge_release` merges the release pull request once CI is
+green on it (like a task) and tells you in direction, with nothing to answer; `publish_version`
+tags the head of the default branch `vX.Y.Z` and publishes the GitHub Release with its notes,
+which starts the release workflow. It refuses a version that is not `X.Y.Z`, a tag that
+already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
+`Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
+the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
+
 ### Research group
 
 You give a topic instead of a repository. A group of peers of equal standing, each with
