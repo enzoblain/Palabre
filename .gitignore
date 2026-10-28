@@ -12,5 +12,11 @@ venv/
 *.db
 *.sqlite3
 
+# Desktop app (Tauri)
+node_modules/
+frontend/dist/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+
 # OS
 .DS_Store

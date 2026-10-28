@@ -6,8 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.models import (
+    AppSetting,
     Decision,
     DecisionStatus,
     Employee,
@@ -28,8 +28,34 @@ class WorkflowError(Exception):
     """A rule of the company was not respected; the message is shown to the agent."""
 
 
+# Loaded from the database at startup, changed from the UI's settings page
+_boss_name = ""
+
+
+async def load_app_settings(s: AsyncSession) -> None:
+    global _boss_name
+    row = await s.get(AppSetting, "boss_name")
+    _boss_name = row.value if row else ""
+
+
+def boss_name() -> str:
+    """The name the user gave in the settings (empty until they do)."""
+    return _boss_name
+
+
 def boss_display_name() -> str:
-    return settings.boss_name or "Boss"
+    return _boss_name or "Boss"
+
+
+async def set_boss_name(s: AsyncSession, name: str) -> None:
+    global _boss_name
+    row = await s.get(AppSetting, "boss_name")
+    if row is None:
+        s.add(AppSetting(key="boss_name", value=name))
+    else:
+        row.value = name
+    await s.commit()
+    _boss_name = name
 
 
 def emit_event(
@@ -89,7 +115,7 @@ async def post_message(
     mentioned = {m.lower() for m in MENTION_RE.findall(content)}
     if mentioned:
         payload = {"conversation_id": conversation_id, "message_id": msg.id}
-        boss_names = BOSS_ALIASES | ({settings.boss_name.lower()} if settings.boss_name else set())
+        boss_names = BOSS_ALIASES | ({_boss_name.lower()} if _boss_name else set())
         if mentioned & boss_names:
             emit_event(s, project_id, "mention", payload, role="boss")
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))

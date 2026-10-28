@@ -27,7 +27,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${PALABRE_PORT:-8000}:8000"
+      - "${PALABRE_PORT:-2710}:8000"
     volumes:
       # Repositories and worktrees, Claude sessions, run files
       - palabre-data:/data

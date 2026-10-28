@@ -33,12 +33,32 @@ async def create_project(
     project.employees = [
         Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)) for member in team.employees
     ]
-    room = Room(project=project, name="general", members=list(project.employees))
-    s.add_all([project, room])
-    await s.flush()
-    s.add(Conversation(room_id=room.id, title="Kickoff"))
+    s.add(project)
+    await _open_channels(s, project)
     await s.commit()
     return project
+
+
+def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]:
+    roles = set(channel["roles"])
+    return [e for e in employees if "*" in roles or roles & set(e.roles)]
+
+
+async def _open_channels(s: AsyncSession, project: Project) -> None:
+    """Create the catalog's channels the company is big enough for (each with a first
+    conversation). Channels that already exist are left alone."""
+    existing = {room.name for room in project.rooms}
+    groups = [{e.name for e in room.members} for room in project.rooms]
+    for channel in load_catalog()["channels"]:
+        members = _channel_members(channel, project.employees)
+        names = {e.name for e in members}
+        if channel["name"] in existing or len(members) < 2 or names in groups:
+            continue
+        room = Room(project=project, name=channel["name"], members=members)
+        s.add(room)
+        await s.flush()
+        s.add(Conversation(room_id=room.id, title="Kickoff"))
+        groups.append(names)
 
 
 def team_of(project: Project) -> Team:
@@ -108,11 +128,14 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         taken.add(member.name)
         hired.append(Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)))
 
-    for room in project.rooms:
+    channels = {c["name"]: c for c in load_catalog()["channels"]}
+    for i, room in enumerate(project.rooms):
         room.members = [m for m in room.members if m not in remaining]
-    if project.rooms:
-        project.rooms[0].members.extend(hired)  # Newcomers join the general room
+        # Newcomers join the general room and the channels of their roles
+        channel = channels.get(room.name)
+        room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
     project.mode = mode
+    await _open_channels(s, project)  # A bigger company gets the channels it lacked
     await s.commit()
     return await load_project(s, project.id)

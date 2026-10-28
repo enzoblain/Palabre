@@ -70,6 +70,15 @@ room_members = Table(
 )
 
 
+class AppSetting(Base):
+    """Settings changed from the UI (e.g. the boss's name)."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+
+
 class Project(Base):
     __tablename__ = "projects"
 

@@ -38,8 +38,34 @@ async def _sync_repo(project: Project) -> Path:
         await git(repo.parent, "clone", "--quiet", project.repo_url, str(repo), repo_url=project.repo_url)
     else:
         await git(repo, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
-    await git(repo, "checkout", "--quiet", "--force", "--detach", f"origin/{project.default_branch}")
+    branch = project.default_branch
+    if not await _has_ref(repo, f"refs/remotes/origin/{branch}"):
+        if (await git(repo, "branch", "--remotes")).strip():
+            raise GitHubError(f"The branch '{branch}' does not exist on GitHub (project's default branch)")
+        await _initial_commit(project, repo)
+    await git(repo, "checkout", "--quiet", "--force", "--detach", f"refs/remotes/origin/{branch}")
     return repo
+
+
+async def _has_ref(repo: Path, ref: str) -> bool:
+    try:
+        await git(repo, "rev-parse", "--verify", "--quiet", ref)
+        return True
+    except GitHubError:
+        return False
+
+
+async def _initial_commit(project: Project, repo: Path) -> None:
+    """A brand-new GitHub repository has no commit: tasks need a default branch to start
+    from, so an empty first commit is pushed."""
+    branch = project.default_branch
+    await git(repo, "checkout", "--quiet", "--orphan", branch)
+    await git(
+        repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
+        "commit", "--quiet", "--allow-empty", "-m", "Initial commit",
+    )  # fmt: skip
+    await git(repo, "push", "--quiet", "origin", f"HEAD:refs/heads/{branch}", repo_url=project.repo_url)
+    await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
 
 
 def branch_name(task: Task) -> str:

@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401 (registers tables)
-from app.api import catalog, conversations, monitoring, projects, rooms, tasks
+from app import services
+from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.config import settings
-from app.db import Base, engine
+from app.db import Base, SessionLocal, engine
 from app.github import GitHubError
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
@@ -27,6 +29,8 @@ async def lifespan(_: FastAPI):
     # TODO: Alembic migrations
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with SessionLocal() as s:
+        await services.load_app_settings(s)
     async with mcp.session_manager.run():
         if settings.orchestrator_enabled:
             await orchestrator.start()
@@ -38,6 +42,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Palabre", lifespan=lifespan)
+# The API is authenticated by a bearer token, not cookies: any origin may call it
+app.add_middleware(
+    CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 @app.get("/health")
@@ -56,7 +64,10 @@ async def github_error(_: Request, exc: GitHubError) -> JSONResponse:
 
 
 # REST API for the boss
-for router in (catalog.router, projects.router, rooms.router, conversations.router, tasks.router, monitoring.router):
+for router in (
+    app_settings.router, catalog.router, projects.router, rooms.router, conversations.router, tasks.router,
+    monitoring.router,
+):
     app.include_router(router, prefix="/api", dependencies=[Depends(require_admin)])
 
 

@@ -231,6 +231,28 @@ success = "A newcomer can install and use the project with the docs alone."
 permissions = ["conversation", "edit_docs", "read_code", "request_review"]
 wakes_on = ["pr_merged", "mention"]
 
+# --- Channels ----------------------------------------------------------------------
+# Rooms created with every project. A channel gathers the employees holding one of its
+# roles ("*": everyone). It is skipped when it would have fewer than 2 members or the
+# same members as a channel above it (small companies). Employees called into another
+# room by the workflow or a mention join it.
+
+[[channels]]
+name = "general"
+roles = ["*"]
+
+[[channels]]
+name = "engineering"
+roles = ["lead", "architect", "dev", "dev_backend", "dev_frontend", "reviewer", "devops", "security", "scribe"]
+
+[[channels]]
+name = "product"
+roles = ["lead", "product_owner", "designer", "qa", "tech_writer", "scribe"]
+
+[[channels]]
+name = "quality"
+roles = ["lead", "reviewer", "qa", "security", "scribe"]
+
 # --- Modes (company size) ----------------------------------------------------------
 # seats: one seat = one employee; several roles on a seat = combined roles.
 

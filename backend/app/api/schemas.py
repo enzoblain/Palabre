@@ -13,6 +13,10 @@ def _name_of(value: Any) -> Any:
     return getattr(value, "name", value)
 
 
+class AppSettings(BaseModel):
+    boss_name: str = Field(max_length=100)
+
+
 # --- Employees ---------------------------------------------------------------------
 
 
@@ -252,6 +256,21 @@ class RunOut(ORM):
     cost_usd: float | None
 
     _employee_name = field_validator("employee", mode="before")(_name_of)
+
+
+class EmployeeStatus(BaseModel):
+    """working: a run is in progress; waiting: woken up, about to run; resting: nothing
+    to do; offline: the orchestrator is disabled."""
+
+    employee_id: int
+    name: str
+    title: str
+    status: Literal["working", "waiting", "resting", "offline"]
+    # What the current run is about
+    kind: str | None = None
+    conversation_id: int | None = None
+    task_id: int | None = None
+    since: datetime | None = None
 
 
 class OrchestratorStatus(BaseModel):

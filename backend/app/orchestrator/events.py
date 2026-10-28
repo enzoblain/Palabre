@@ -2,11 +2,11 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.company.team import load_catalog
-from app.models import Conversation, Employee, Event, Room, Task, Wakeup
+from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_members
 from app.orchestrator.prompts import reason_for
 
 # Events that make the assignee work on the task (task run) rather than talk
@@ -46,6 +46,15 @@ async def _conversation_id(s: AsyncSession, event: Event, task: Task | None) -> 
     )
 
 
+async def _room_of(s: AsyncSession, conversation_id: int | None) -> tuple[int | None, set[int]]:
+    """The conversation's room and the ids of its members."""
+    if conversation_id is None:
+        return None, set()
+    room_id = await s.scalar(select(Conversation.room_id).where(Conversation.id == conversation_id))
+    members = await s.scalars(select(room_members.c.employee_id).where(room_members.c.room_id == room_id))
+    return room_id, set(members)
+
+
 async def expand_events(s: AsyncSession) -> int:
     """Resolve pending events into wakeups. Events for the boss stay for the UI."""
     events = list(
@@ -63,10 +72,15 @@ async def expand_events(s: AsyncSession) -> int:
         task = await s.get(Task, event.payload["task_id"]) if "task_id" in event.payload else None
         conversation_id = await _conversation_id(s, event, task)
         reason = reason_for(event.type, event.payload)
+        room_id, members = await _room_of(s, conversation_id)
         for employee in await _targets(s, event):
             is_task_run = event.type in TASK_EVENTS and task is not None and task.assignee_id == employee.id
-            if not is_task_run and conversation_id is None:
-                continue
+            if not is_task_run and room_id is None:
+                continue  # No conversation to talk in (or it was deleted)
+            if not is_task_run and employee.id not in members:
+                # Called into a room they are not in (a review, a mention...): they join it
+                await s.execute(insert(room_members).values(room_id=room_id, employee_id=employee.id))
+                members.add(employee.id)
             s.add(
                 Wakeup(
                     employee_id=employee.id,

@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://palabre:palabre@localhost:5432/palabre"
     # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
     admin_token: str
-    # Name of the person using Palabre (the CEO), set by the user.
-    boss_name: str = ""
+    # Origins allowed to call the API from a browser (the desktop app's dev server)
+    cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
     github_token: str | None = None
     projects_dir: Path = Path("/data/projects")
