@@ -26,6 +26,8 @@ MCP_TOOLS: dict[str, set[str]] = {
     "merge_task": {"merge"},
     "set_working_branch": {"merge"},
     "propose_release": {"merge"},
+    "list_pull_requests": {"merge"},
+    "close_pull_request": {"merge"},  # outside PRs (Dependabot, humans) and their branch
     "merge_release": {"ship_release"},  # the lead alone delivers without waiting for the boss
     "publish_version": {"ship_release"},
     "create_channel": {"manage_channels"},

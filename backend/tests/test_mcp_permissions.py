@@ -13,7 +13,7 @@ from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_
 
 CONVERSATION_TOOLS = {name for name, perms in MCP_TOOLS.items() if perms == {"conversation"}}
 SHIP_TOOLS = {"merge_release", "publish_version"}
-MERGE_TOOLS = {"merge_task", "set_working_branch", "propose_release"} | SHIP_TOOLS
+MERGE_TOOLS = {"merge_task", "set_working_branch", "propose_release", "list_pull_requests", "close_pull_request"} | SHIP_TOOLS
 MANAGE_TOOLS = {"create_task", "assign_task", "update_task"}
 REVIEW_TOOLS = {"review_task"}
 

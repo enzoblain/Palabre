@@ -384,6 +384,31 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
 
 
 @tool
+async def list_pull_requests(ctx: Context) -> list[dict]:
+    """The repository's open pull requests. task_id is null for one no task owns
+    (Dependabot, a human): those you can close with close_pull_request."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        return await projects.open_pull_requests(s, await projects.load_project(s, c.project_id))
+
+
+@tool
+async def close_pull_request(ctx: Context, number: int, reason: str, message: str) -> dict:
+    """Close a pull request no task owns (e.g. Dependabot) and delete its branch. A task's
+    PR is closed by cancelling the task; the release PR is the boss's to reject.
+    reason: posted as a comment on the PR, e.g. "Not needed: we stay on v4".
+    message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        result = await projects.close_outside_pull_request(s, project, number, reason)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({result['url']})", me)
+    return result
+
+
+@tool
 async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to

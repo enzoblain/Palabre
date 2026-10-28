@@ -156,6 +156,15 @@ async def find_pull_request(repo: str, head: str, base: str) -> dict | None:
     return pulls[0] if pulls else None
 
 
+async def list_pull_requests(repo: str) -> list[dict]:
+    """The repository's open PRs, newest first (at most 100)."""
+    return await _api("GET", f"/repos/{repo}/pulls", params={"state": "open", "per_page": 100})
+
+
+async def get_pull_request(repo: str, number: int) -> dict:
+    return await _api("GET", f"/repos/{repo}/pulls/{number}")
+
+
 async def close_pull_request(repo: str, number: int) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"state": "closed"})
 

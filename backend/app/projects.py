@@ -440,6 +440,55 @@ async def publish_version(project: Project, version: str, notes: str) -> str:
     return release["html_url"]
 
 
+async def open_pull_requests(s: AsyncSession, project: Project) -> list[dict]:
+    """The repository's open PRs, each with the task it belongs to (None for an outside one,
+    e.g. from Dependabot or a human)."""
+    repo = github.repo_slug(project.repo_url)
+    by_number = dict(
+        (await s.execute(select(Task.pr_number, Task.id).where(Task.project_id == project.id, Task.pr_number.is_not(None)))).all()
+    )
+    return [
+        {
+            "number": pr["number"],
+            "title": pr["title"],
+            "author": pr["user"]["login"],
+            "head": pr["head"]["ref"],
+            "base": pr["base"]["ref"],
+            "url": pr["html_url"],
+            "task_id": by_number.get(pr["number"]),
+        }
+        for pr in await github.list_pull_requests(repo)
+    ]
+
+
+async def close_outside_pull_request(s: AsyncSession, project: Project, number: int, reason: str) -> dict:
+    """Close a PR that no task owns (Dependabot, a human) with `reason` as a comment, and
+    delete its branch when it lives in the repository. A task's PR goes through its task,
+    the release PR through the boss; production and the team's branch are never deleted."""
+    repo = github.repo_slug(project.repo_url)
+    task_id = await s.scalar(select(Task.id).where(Task.project_id == project.id, Task.pr_number == number))
+    if task_id is not None:
+        raise WorkflowError(f"PR #{number} is task #{task_id}'s: cancel the task (update_task) instead")
+    pr = await github.get_pull_request(repo, number)
+    if pr["state"] != "open":
+        raise WorkflowError(f"PR #{number} is already {'merged' if pr.get('merged') else 'closed'}")
+    head = pr["head"]["ref"]
+    production = await github.resolve_branch(repo, "")
+    if head == project.default_branch:
+        raise WorkflowError(f"PR #{number} is the release PR ({head} into {production}): only the boss rejects it")
+    if not reason.strip():
+        raise WorkflowError("Say why the PR is closed")
+    await github.comment_pull_request(repo, number, reason.strip())
+    await github.close_pull_request(repo, number)
+    # A fork's branch is not ours; branches tasks or the team work on are left alone
+    own = (pr["head"].get("repo") or {}).get("full_name", "").lower() == repo.lower()
+    protected = {production, project.default_branch, github.WORKING_BRANCH}
+    deleted = own and head not in protected and not head.startswith("task/")
+    if deleted:
+        await github.delete_branch(repo, head)
+    return {"number": number, "url": pr["html_url"], "branch_deleted": head if deleted else None}
+
+
 async def settle_decision(
     s: AsyncSession,
     decision: Decision,
