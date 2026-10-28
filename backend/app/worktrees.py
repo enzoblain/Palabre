@@ -124,7 +124,7 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
         if path.exists():
             await git(repo, "worktree", "remove", "--force", str(path))
         await git(repo, "worktree", "prune")
-        if task.branch:
+        if task.branch and task.branch.startswith("task/"):
             try:
                 await git(repo, "branch", "-D", task.branch)
             except GitHubError:
