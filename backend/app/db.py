@@ -1,3 +1,5 @@
+"""Database engine, sessions and schema setup."""
+
 from collections.abc import AsyncIterator
 
 from sqlalchemy import Connection, inspect

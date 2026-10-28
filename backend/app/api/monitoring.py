@@ -1,3 +1,5 @@
+"""REST endpoints for monitoring runs, usage and activity."""
+
 from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload

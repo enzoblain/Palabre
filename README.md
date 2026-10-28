@@ -42,7 +42,13 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git branch and worktree, then opens a pull request.
+2. **A developer** works on the task in its own git worktree, then opens a pull request. The branch starts as `task/<id>` and, at the first
+   `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
+   Everything that goes to GitHub is in English, whatever the team's language, in
+   [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
+   `submit_for_review` a title such as `feat(usage): show real Claude usage per model`, the backend
+   refuses a non-conforming one and adds the task reference (`... (#60)`). That title is the PR's and
+   the squash commit's. Review and QA comments and release notes are in English too (release notes keep the standard text, not Conventional Commits bullets).
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
@@ -58,7 +64,7 @@ head SHA with the result (green, or the failing checks) and a "Palabre" line is 
 team's first channel. Green means `merge_release`, then `publish_version`.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
-closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
+closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
@@ -85,8 +91,11 @@ repository's default branch: that one is yours.
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is
 green on it, whatever the company size, and only if the PR has not moved since (a task
 merged meanwhile makes GitHub refuse), and tells you in direction, with nothing to answer; `publish_version`
-tags the head of the default branch `vX.Y.Z` (CI must be green on it) and publishes the GitHub Release with its notes,
-which starts the release workflow. It refuses a version that is not `X.Y.Z`, a tag that
+tags the head of the default branch `vX.Y.Z` (CI must be green on it) and publishes the GitHub Release (named `Palabre vX.Y.Z`, with the same download notes as the release
+workflow), which starts that workflow; `fix_release` resets the name and notes of an existing release to those. Versions follow [Semantic Versioning 2.0.0](https://semver.org), computed from the
+Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` the minor,
+a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
+wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
 already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
 `Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
@@ -94,7 +103,7 @@ the catalog); `propose_release` and Validate stay available when the lead wants 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
 shows every open one, and `close_pull_request` closes one with a comment and deletes its
 branch. It refuses a task's pull request (cancel the task instead) and the release one, and
-never deletes production, the team's branch or a fork's branch.
+never deletes production, the team's branch or a fork's branch, nor a branch named like a task's (`feat/12-foo`).
 
 ### Research group
 
@@ -277,7 +286,7 @@ To check the frontend (TypeScript typecheck, then Vite build), run `npm run chec
 Roles, company sizes, research angles and personalities are all defined in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
 
-To publish a release, push a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
+The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64
 (`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
 every system, attached to the release.

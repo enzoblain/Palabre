@@ -114,7 +114,7 @@ async def test_validating_a_decision_validates_it():
 async def test_nuancing_a_decision_leaves_it_proposed():
     decision = _decision()
     s = _objects(_request("decision", decision.id), decision)
-    await projects.answer_request(s, 5, RequestAnswer.nuanced, "Plutôt Valkey")
+    await projects.answer_request(s, 5, RequestAnswer.nuanced, "Rather Valkey")
     assert decision.status == DecisionStatus.proposed and decision.decided_at is None
 
 
@@ -156,7 +156,7 @@ async def test_rejecting_a_release_closes_its_pull_request(release):
 async def test_nuancing_a_release_keeps_the_pull_request_open(release):
     decision = _decision(pr_number=42)
     s = _objects(_request("release", decision.id), decision)
-    message = await projects.answer_request(s, 5, RequestAnswer.nuanced, "Attends le fix du login")
+    message = await projects.answer_request(s, 5, RequestAnswer.nuanced, "Wait for the login fix")
     assert release == []
     assert decision.status == DecisionStatus.rejected  # dropped, so the lead can propose it again
     assert message.request_status == "nuanced"
@@ -190,7 +190,7 @@ async def test_add_decision_asks_the_boss_in_direction():
 async def test_escalating_to_the_boss_is_a_request_in_direction():
     dev = make_employee("Léa", "dev_backend")
     s = FakeSession()
-    msg = await services.escalate(s, 1, 4, dev, "boss", "Budget cloud à arbitrer")
+    msg = await services.escalate(s, 1, 4, dev, "boss", "Cloud budget to decide")
     assert msg.conversation_id == 9 and msg.request_kind == "escalation" and msg.request_status == "pending"
     assert s.events == []
 

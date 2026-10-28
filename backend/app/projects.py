@@ -330,7 +330,7 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     pr = await github.find_pull_request(repo, project.default_branch, production)
     if pr is None:
         try:
-            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+            pr = await github.open_pull_request(repo, project.default_branch, production, f"chore(release): {title}", summary)
         except github.GitHubError as exc:
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
@@ -350,7 +350,9 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
     team's branch and production keep the same history); rejected, it is closed."""
     repo = github.repo_slug(project.repo_url)
     if accepted:
-        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge", sha=sha)
+        await github.merge_pull_request(
+            repo, decision.pr_number, f"chore(release): {decision.title.removeprefix('Release: ')}", method="merge", sha=sha
+        )
     else:
         try:
             await github.close_pull_request(repo, decision.pr_number)
@@ -369,7 +371,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     pr = await github.find_pull_request(repo, project.default_branch, production)
     if pr is None:
         try:
-            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+            pr = await github.open_pull_request(repo, project.default_branch, production, f"chore(release): {title}", summary)
         except github.GitHubError as exc:
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
@@ -393,7 +395,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
         )  # fmt: skip
         await s.commit()
     else:
-        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge", sha=head_sha)
+        await github.merge_pull_request(repo, pr["number"], f"chore(release): {title}", method="merge", sha=head_sha)
     project.main_ci_watch = True  # The scheduler tells the lead when CI on production ends
     await s.commit()
     return pr["html_url"], pr["number"]
@@ -408,14 +410,12 @@ VERSION_FILES = {
 }
 
 
-async def publish_version(project: Project, version: str, notes: str) -> str:
+async def publish_version(project: Project, version: str) -> str:
     """Tag the head of production with vX.Y.Z and publish the GitHub Release (the tag starts
     release.yml). Refused for a malformed version, an existing tag or files at another version."""
     version = version.strip().removeprefix("v")
     if not SEMVER_RE.match(version):
         raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
-    if not notes.strip():
-        raise WorkflowError("A release needs notes")
     tag = f"v{version}"
     repo = github.repo_slug(project.repo_url)
     if await github.tag_exists(repo, tag):
@@ -438,7 +438,22 @@ async def publish_version(project: Project, version: str, notes: str) -> str:
             mismatches.append(f"{path} says {found}")
     if mismatches:
         raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")
-    release = await github.create_release(repo, tag, sha, notes.strip())
+    release = await github.create_release(repo, tag, sha)
+    return release["html_url"]
+
+
+async def fix_release(project: Project, version: str) -> str:
+    """Reset the name and notes of an existing release to the standard ones."""
+    version = version.strip().removeprefix("v")
+    if not SEMVER_RE.match(version):
+        raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
+    repo = github.repo_slug(project.repo_url)
+    if not await github.tag_exists(repo, f"v{version}"):
+        raise WorkflowError(f"The tag v{version} does not exist")
+    try:
+        release = await github.update_release(repo, f"v{version}")
+    except github.GitHubError as exc:
+        raise WorkflowError(f"v{version} has no release to fix: {exc}") from exc
     return release["html_url"]
 
 
@@ -485,7 +500,7 @@ async def close_outside_pull_request(s: AsyncSession, project: Project, number: 
     # A fork's branch is not ours; branches tasks or the team work on are left alone
     own = (pr["head"].get("repo") or {}).get("full_name", "").lower() == repo.lower()
     protected = {production, project.default_branch, github.WORKING_BRANCH}
-    deleted = own and head not in protected and not head.startswith("task/")
+    deleted = own and head not in protected and not github.is_task_branch_name(head)
     if deleted:
         await github.delete_branch(repo, head)
     return {"number": number, "url": pr["html_url"], "branch_deleted": head if deleted else None}

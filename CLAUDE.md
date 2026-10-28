@@ -41,7 +41,7 @@ Details: [Tests](README.md#tests).
 
 ## Conventions
 
-- Everything in the repo (code, comments, docs, commit messages) is in English.
+- Everything in the repo (code, comments, docs) is in English. So is everything that goes to GitHub (commit messages, PR titles and descriptions, review comments, release notes). Commits and PR titles use Conventional Commits (`feat(scope): ...`); release notes keep the standard text of `release.yml`; see [How it works](README.md#how-it-works). Versions follow Semantic Versioning 2.0.0, computed from the Conventional Commits since the last `vX.Y.Z` tag (`fix`/`perf` patch, `feat` minor, `!` or `BREAKING CHANGE` major, minor while in 0.x); see [How it works](README.md#how-it-works). The chat and tasks stay in the team's language.
 - Each backend module starts with a one-line docstring saying what it is for; keep that style, and comments short and about the why.
 - Async everywhere on the backend; no blocking calls in request or orchestrator paths.
 - Permissions live in the catalog and `mcp_server/permissions.py`: a new MCP tool must be listed there.

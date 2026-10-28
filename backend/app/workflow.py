@@ -1,6 +1,7 @@
 """Task lifecycle: creation, assignment, review and merge, with the mode's merge gates."""
 
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -13,7 +14,7 @@ from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
 from app.services import WorkflowError, emit_event, post_message, post_system_message
-from app.worktrees import remove_task_worktree, repo_dir
+from app.worktrees import final_branch_name, remove_task_worktree, rename_branch, repo_dir
 
 MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -244,11 +245,32 @@ async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: E
     return task
 
 
+CONVENTIONAL_TITLE = re.compile(
+    r"(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: [^\s(].*"
+)
+_TASK_REF = re.compile(r"\s*\(#\d+\)$")
+
+
+def conventional_title(title: str, task_id: int) -> str:
+    """The English Conventional Commits title of a task's PR and squash commit, with the task
+    reference last: `feat(usage): show real usage (#60)`. Raises WorkflowError if it does not follow the format."""
+    title = _TASK_REF.sub("", title.strip())
+    if len(title) > 100 or not CONVENTIONAL_TITLE.fullmatch(title) or not title.isascii():
+        raise WorkflowError(
+            f"Invalid title {title!r}: use an English Conventional Commits title of at most 100 ASCII characters, "
+            "`type(scope): description` with type among feat, fix, chore, docs, refactor, test, ci, perf, build, "
+            "style, revert; for example `feat(usage): show real Claude usage per model`. "
+            "The task reference is added for you."
+        )
+    return f"{title} (#{task_id})"
+
+
 async def submit_for_review(
     s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
-    message: str = "",
+    message: str = "", title: str = "",
 ) -> Task:
-    """summary: the pull request description; message: what the author tells the team."""
+    """summary: the pull request description; message: what the author tells the team;
+    title: the PR and squash commit title, in English Conventional Commits format."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.assignee_id != author.id:
@@ -257,8 +279,13 @@ async def submit_for_review(
         raise WorkflowError(f"Task #{task.id} is {task.status.value}, it cannot be submitted")
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet")
+    pr_title = conventional_title(title, task.id)
+    if task.pr_number is None and github.is_task_branch_name(task.branch):
+        # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
+        await rename_branch(task, final_branch_name(pr_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
+    task.pr_title = pr_title
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
@@ -273,7 +300,7 @@ async def submit_for_review(
             repo,
             head=task.branch,
             base=project.default_branch,
-            title=f"[#{task.id}] {task.title}",
+            title=pr_title,
             body=(
                 f"{task.description}\n\n**Acceptance criteria**\n{criteria}\n\n"
                 f"**Summary from {author.name}**\n{summary}\n\n_Palabre task #{task.id}_"
@@ -281,6 +308,7 @@ async def submit_for_review(
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
     else:
+        await github.set_pull_request_title(repo, task.pr_number, pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
     task.status = TaskStatus.review
@@ -410,7 +438,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
 
 def is_task_branch(project: Project, branch: str | None) -> bool:
     """Only a task's own branch may be deleted: never the default branch, `dev` or a release."""
-    return bool(branch) and branch.startswith("task/") and branch not in {project.default_branch, github.WORKING_BRANCH}
+    return github.is_task_branch_name(branch) and branch not in {project.default_branch, github.WORKING_BRANCH}
 
 
 async def clean_up_task(project: Project, task: Task) -> None:
@@ -459,7 +487,7 @@ async def merge_task(
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
 
     repo = github.repo_slug(project.repo_url)
-    await github.merge_pull_request(repo, task.pr_number, f"[#{task.id}] {task.title}")
+    await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})

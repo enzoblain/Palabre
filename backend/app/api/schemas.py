@@ -1,3 +1,5 @@
+"""Pydantic models of the REST API."""
+
 import re
 from datetime import datetime
 from typing import Annotated, Any, Literal

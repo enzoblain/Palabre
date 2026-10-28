@@ -1,3 +1,5 @@
+"""REST endpoints for conversations and their messages."""
+
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status

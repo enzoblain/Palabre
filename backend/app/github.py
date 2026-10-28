@@ -16,6 +16,14 @@ REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
 # A branch name we accept: no spaces, "..", leading "-" or trailing "/" or "."
 BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$"
+# A task's own branch: the legacy `task/<id>...` or `<type>/<id>-<slug>`, type as in Conventional Commits
+TASK_BRANCH_RE = re.compile(
+    r"(task|feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)/\d+(-[a-z0-9]+)*"
+)
+
+
+def is_task_branch_name(branch: str | None) -> bool:
+    return bool(branch) and TASK_BRANCH_RE.fullmatch(branch) is not None
 
 
 class GitHubError(RuntimeError):
@@ -114,6 +122,10 @@ async def create_branch(repo: str, branch: str, from_branch: str) -> None:
 
 async def set_pull_request_base(repo: str, number: int, base: str) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"base": base})
+
+
+async def set_pull_request_title(repo: str, number: int, title: str) -> None:
+    await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"title": title})
 
 
 async def open_pull_request(repo: str, head: str, base: str, title: str, body: str) -> dict:
@@ -223,10 +235,38 @@ async def branch_head(repo: str, branch: str) -> str:
     return (await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}"))["commit"]["sha"]
 
 
-async def create_release(repo: str, tag: str, sha: str, notes: str) -> dict:
+def release_name(tag: str) -> str:
+    """The title of a release, as release.yml and the hand-made releases wrote it."""
+    return f"Palabre {tag}"
+
+
+def release_notes(repo: str, tag: str) -> str:
+    """The body of a release, the same text as release.yml (keep both in step)."""
+    owner = repo.split("/")[0].lower()
+    return "\n".join([
+        "Desktop app: download the file for your system below.",
+        "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
+        "- Windows: `.msi` or `-setup.exe`.",
+        "- Linux: `.AppImage`, `.deb` or `.rpm`.",
+        "",
+        f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see the README).",
+    ])  # fmt: skip
+
+
+async def create_release(repo: str, tag: str, sha: str) -> dict:
     """Tag `sha` and publish the GitHub Release for it, in one call. The tag push starts release.yml."""
     return await _api(
         "POST",
         f"/repos/{repo}/releases",
-        json={"tag_name": tag, "target_commitish": sha, "name": tag, "body": notes},
+        json={"tag_name": tag, "target_commitish": sha, "name": release_name(tag), "body": release_notes(repo, tag)},
+    )
+
+
+async def update_release(repo: str, tag: str) -> dict:
+    """Reset the name and notes of the existing release of `tag` to the standard ones."""
+    release = await _api("GET", f"/repos/{repo}/releases/tags/{quote(tag, safe='')}")
+    return await _api(
+        "PATCH",
+        f"/repos/{repo}/releases/{release['id']}",
+        json={"name": release_name(tag), "body": release_notes(repo, tag)},
     )

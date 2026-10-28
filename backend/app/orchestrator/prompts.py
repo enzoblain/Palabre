@@ -93,7 +93,17 @@ What it sounds like (the team writes in its own language; these show the tone, n
 Your personality and style below set your tone; these rules set the format."""
 
 LANGUAGE_RULE = """## Language
-Write in {language}: your messages, tasks, reviews, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions."""
+Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
+Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
+
+VERSION_RULE = """## Versions
+Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
+
+VERSION_ROLES = {"lead", "devops"}
+
+
+def version_rule(roles: list[str]) -> str | None:
+    return VERSION_RULE if VERSION_ROLES & set(roles) else None
 
 
 def language_rule(language: str) -> str:
@@ -106,10 +116,10 @@ You are working on task #{task_id} « {title} », in its own git worktree (your 
 - Stay within the task. Run the tests before submitting.
 - Your position's tools are allowed in your worktree: if you have Bash, you can run commands (python3, git, tests...) there.
 - The machine has git and Python 3. Node.js and Go are installed for the whole team by the lead or devops with install_toolchain: if one is missing, ask them (not the boss). Only system packages (apt) need the boss.
-- Commit your work with clear messages (`git commit`). Never push and never ask for git credentials: you have none, by design. submit_for_review pushes your branch and opens or updates the pull request.
-- To bring your branch up to date, rebase it on `origin/{default_branch}` (`git fetch` is not needed: the repository is kept up to date for you), then call submit_for_review again: it force-pushes your own task branch. Never work around it with `merge -s ours` or duplicated commits.
+- Commit your work with clear messages in English, in Conventional Commits format (`git commit`). Never push and never ask for git credentials: you have none, by design. submit_for_review renames your branch to `<type>/<id>-<slug>` from your title on the first submission, pushes it and opens or updates the pull request.
+- To bring your branch up to date, rebase it on `origin/{default_branch}` (`git fetch` is not needed: the repository is kept up to date for you), then call submit_for_review again (with the title): it force-pushes your own task branch. Never work around it with `merge -s ours` or duplicated commits.
 - Post short progress updates with report_progress. If you are blocked, say so, or escalate.
-- When the work is done and committed, call submit_for_review."""
+- When the work is done and committed, call submit_for_review with an English Conventional Commits title (the task reference is added for you)."""
 
 
 def task_rules(task: Task, default_branch: str) -> str:
