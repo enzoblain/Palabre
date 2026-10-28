@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 
@@ -17,6 +17,9 @@ for _name in ("httpx", "httpcore"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+MESSAGES_URL = "https://api.anthropic.com/v1/messages"
+# Cheapest model for the fallback probe
+PROBE_MODEL = "claude-haiku-5-5"
 TIMEOUT = 10
 CACHE_TTL = 60
 
@@ -71,19 +74,73 @@ def parse(account: int, data: object) -> AccountUsage:
     )
 
 
+def _header_window(headers: httpx.Headers, name: str) -> Window | None:
+    """One window from the unified rate-limit headers: utilization is a 0-1 fraction, reset is epoch seconds."""
+    try:
+        used = float(headers[f"anthropic-ratelimit-unified-{name}-utilization"])
+    except (KeyError, ValueError):
+        return None
+    try:
+        resets_at = datetime.fromtimestamp(float(headers[f"anthropic-ratelimit-unified-{name}-reset"]), UTC)
+    except (KeyError, ValueError, OverflowError, OSError):
+        resets_at = None
+    return Window(used_percent=used * 100, resets_at=resets_at)
+
+
+async def _probe(client: httpx.AsyncClient, account: int, headers: dict[str, str]) -> AccountUsage | None:
+    """Fallback for tokens from `claude setup-token`, which only have the inference scope and are refused by the
+    usage endpoint: a 1-token message carries the same 5h and week figures in its response headers."""
+    body = {"model": PROBE_MODEL, "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
+    resp = await client.post(MESSAGES_URL, headers={**headers, "anthropic-version": "2023-06-01"}, json=body)
+    session = _header_window(resp.headers, "5h")
+    week = _header_window(resp.headers, "7d")
+    if not (session or week):
+        log.warning("Rate-limit probe answered %s without usage headers for account %s", resp.status_code, account)
+        return None
+    return AccountUsage(account, session=session, week=week)
+
+
+def _http_error(status: int, body: object) -> str:
+    """Readable reason for a refused call; only the API's own error message is kept, never the request."""
+    message = ""
+    if isinstance(body, dict) and isinstance(body.get("error"), dict):
+        message = str(body["error"].get("message") or "")[:200]
+    if status == 401:
+        return "Token rejected (expired or revoked): run `claude setup-token` again" + (f" ({message})" if message else "")
+    if status == 403:
+        return "Token not allowed to read usage" + (f" ({message})" if message else "")
+    if status == 429:
+        return "Usage API rate-limited, retry in a minute"
+    return f"Usage API answered HTTP {status}" + (f" ({message})" if message else "")
+
+
 async def _fetch(client: httpx.AsyncClient, account: int) -> AccountUsage:
     token = token_for(account)
     if not token:
         return AccountUsage(account, error="No token for this account")
-    headers = {"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+        "User-Agent": "claude-code/2.1.0",
+    }
     try:
         resp = await client.get(USAGE_URL, headers=headers)
+        if resp.status_code in (401, 403):
+            # Not necessarily dead: setup-token tokens lack the profile scope the usage endpoint wants
+            probed = await _probe(client, account, headers)
+            if probed:
+                return probed
         resp.raise_for_status()
         return parse(account, resp.json())
     except httpx.HTTPStatusError as exc:
         # Status only: never log the request, it carries the token
-        log.warning("Usage API answered %s for account %s", exc.response.status_code, account)
-        return AccountUsage(account, error=f"Usage API answered HTTP {exc.response.status_code}")
+        status = exc.response.status_code
+        log.warning("Usage API answered %s for account %s", status, account)
+        try:
+            body = exc.response.json()
+        except ValueError:
+            body = None
+        return AccountUsage(account, error=_http_error(status, body))
     except httpx.TimeoutException:
         log.warning("Usage API timed out for account %s", account)
         return AccountUsage(account, error="Usage API timed out")

@@ -59,7 +59,7 @@ async def test_failing_account_does_not_break_others(monkeypatch, caplog):
     mock_api(monkeypatch, handler)
     with caplog.at_level(logging.DEBUG):
         out = await get_quota()
-    assert "401" in out.accounts[0].error and out.accounts[0].session is None
+    assert "rejected" in out.accounts[0].error and out.accounts[0].session is None
     assert out.accounts[1].error is None and out.accounts[1].session
     assert "secret" not in caplog.text and "secret" not in out.model_dump_json()
 
@@ -105,3 +105,56 @@ async def test_concurrent_refreshes_call_endpoint_once_per_account(monkeypatch):
 def test_http_libraries_never_log_at_debug():
     for name in ("httpx", "httpcore"):
         assert not logging.getLogger(name).isEnabledFor(logging.DEBUG)
+
+
+# Real shape of the usage endpoint's answer (extra keys included)
+REAL_PAYLOAD = {
+    "five_hour": {"utilization": 37.0, "resets_at": "2026-10-28T23:00:00.123456+00:00"},
+    "seven_day": {"utilization": 12.0, "resets_at": "2026-11-03T08:00:00.123456+00:00"},
+    "seven_day_oauth_apps": None,
+    "seven_day_opus": None,
+    "seven_day_sonnet": {"utilization": 4.0, "resets_at": "2026-11-03T08:00:00.123456+00:00"},
+    "iguana_necktie": None,
+    "extra_usage": {"is_enabled": False, "monthly_limit": None, "used_credits": None, "utilization": None},
+}
+SCOPE_ERROR = {
+    "type": "error",
+    "error": {"type": "permission_error", "message": "OAuth token does not meet scope requirement user:profile"},
+}
+
+
+async def test_real_format_end_to_end(monkeypatch):
+    mock_api(monkeypatch, lambda request: httpx.Response(200, json=REAL_PAYLOAD))
+    a = (await get_quota()).accounts[0]
+    assert (a.session.used_percent, a.week.used_percent) == (37.0, 12.0)
+    assert [m.model for m in a.models] == ["sonnet"]
+
+
+async def test_scope_error_falls_back_to_rate_limit_headers(monkeypatch):
+    def handler(request):
+        if request.url.path == "/api/oauth/usage":
+            return httpx.Response(403, json=SCOPE_ERROR)
+        assert request.headers["authorization"].startswith("Bearer secret-")
+        return httpx.Response(
+            200,
+            json={"type": "message"},
+            headers={
+                "anthropic-ratelimit-unified-5h-utilization": "0.37",
+                "anthropic-ratelimit-unified-5h-reset": "1793228400",
+                "anthropic-ratelimit-unified-7d-utilization": "0.12",
+                "anthropic-ratelimit-unified-7d-reset": "1793865600",
+            },
+        )
+
+    mock_api(monkeypatch, handler)
+    a = (await get_quota()).accounts[0]
+    assert a.error is None and a.session.used_percent == pytest.approx(37) and a.week.used_percent == pytest.approx(12)
+    assert a.session.resets_at.year == 2026
+
+
+async def test_scope_error_without_fallback_is_readable(monkeypatch, caplog):
+    mock_api(monkeypatch, lambda request: httpx.Response(403, json=SCOPE_ERROR))
+    with caplog.at_level(logging.DEBUG):
+        out = await get_quota()
+    assert "scope requirement user:profile" in out.accounts[0].error
+    assert "secret" not in caplog.text and "secret" not in out.model_dump_json()

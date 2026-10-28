@@ -283,6 +283,7 @@ function QuotaSection() {
             <p className="error" role="alert">Usage unavailable: {a.error}</p>
           ) : (
             <>
+              {!a.session && !a.week && <p className="muted">The usage API returned no figures for this account.</p>}
               <QuotaBar label="Current session (5h)" window={a.session} />
               <QuotaBar label="Current week (all models)" window={a.week} />
               {a.models.map((m) => <QuotaBar key={m.model} label={`Current week (${m.model})`} window={m} />)}
