@@ -59,7 +59,8 @@ function useProject(projectId: number | null) {
 const UNREAD_POLL_MS = 4000;
 const seenKey = (conversationId: number) => `palabre.seen.${conversationId}`;
 
-/** Unread messages per conversation since the CEO's last visit; the open conversation is always read. */
+/** Unread messages per direction conversation since the CEO's last visit; the open conversation is always read.
+ * Team channels get no count: the CEO only follows them, and the live dot is enough there. */
 function useUnread(project: ProjectState | null, activeConversation: number | null) {
   const [unread, setUnread] = useState<Record<number, number>>({});
   // Per conversation: last message id fetched, last id the CEO saw, and ids of unseen messages from others
@@ -85,7 +86,9 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
     markRead(activeConversation);
     publish();
   }, [activeConversation]);
-  const conversations = project ? Object.values(project.conversations).flat() : [];
+  const conversations = project
+    ? project.detail.rooms.filter((r) => r.kind === "direction").flatMap((r) => project.conversations[r.id] ?? [])
+    : [];
   usePolling(
     project ? async () => {
       await Promise.all(conversations.map(async (c) => {
