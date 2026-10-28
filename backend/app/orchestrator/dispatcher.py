@@ -147,6 +147,7 @@ class Orchestrator:
                 conversation_id=first.conversation_id,
                 task_id=first.task_id,
                 reasons=[w.reason for w in wakeups],
+                account=self._run_accounts.get(employee_id),
             )
             s.add(run)
             await s.commit()
@@ -209,6 +210,8 @@ class Orchestrator:
         run.finished_at, run.ok, run.error = now, ok, error
         if result is not None:
             run.claude_session_id, run.num_turns, run.cost_usd = result.session_id, result.num_turns, result.cost_usd
+            run.input_tokens, run.output_tokens = result.input_tokens, result.output_tokens
+            run.cache_creation_tokens, run.cache_read_tokens = result.cache_creation_tokens, result.cache_read_tokens
         await s.execute(update(Wakeup).where(Wakeup.id.in_(wakeup_ids)).values(finished_at=now))
         await s.commit()
         if ok is False and run.task_id is not None and run.kind == "task":
