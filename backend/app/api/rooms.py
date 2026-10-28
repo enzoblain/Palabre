@@ -1,3 +1,5 @@
+"""REST endpoints for rooms and their shared document."""
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload

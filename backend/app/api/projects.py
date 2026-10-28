@@ -1,3 +1,5 @@
+"""REST endpoints for projects."""
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
