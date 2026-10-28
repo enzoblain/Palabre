@@ -98,7 +98,9 @@ export function Inbox({ project, notifications, bossName, onChanged }: {
                 {n.decision?.status === "proposed" && (
                   <>
                     <button className="btn btn-small btn-primary" disabled={busy === n.id}
-                      onClick={() => run(n, () => api.decide(n.decision!.id, "validated"))}>Validate</button>
+                      onClick={() => run(n, () => api.decide(n.decision!.id, "validated"))}>
+                      {n.decision.pr_number ? `Merge PR #${n.decision.pr_number}` : "Validate"}
+                    </button>
                     <button className="btn btn-small" disabled={busy === n.id}
                       onClick={() => run(n, () => api.decide(n.decision!.id, "rejected"))}>Reject</button>
                   </>

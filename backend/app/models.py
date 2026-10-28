@@ -157,6 +157,9 @@ class Decision(Base):
         str_enum(DecisionStatus), default=DecisionStatus.proposed
     )
     proposed_by: Mapped[str] = mapped_column(String(100))
+    # A release: the PR from the team's branch to production, merged when the boss validates
+    pr_number: Mapped[int | None] = mapped_column(Integer)
+    pr_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = created_at_column()
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

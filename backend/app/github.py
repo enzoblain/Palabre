@@ -128,12 +128,23 @@ async def delete_branch(repo: str, branch: str) -> None:
             raise
 
 
-async def merge_pull_request(repo: str, number: int, title: str) -> None:
+async def merge_pull_request(repo: str, number: int, title: str, method: str = "squash") -> None:
     await _api(
         "PUT",
         f"/repos/{repo}/pulls/{number}/merge",
-        json={"merge_method": "squash", "commit_title": title},
+        json={"merge_method": method, "commit_title": title},
     )
+
+
+async def find_pull_request(repo: str, head: str, base: str) -> dict | None:
+    """The open PR from `head` to `base`, if there is one."""
+    owner = repo.split("/")[0]
+    pulls = await _api("GET", f"/repos/{repo}/pulls", params={"head": f"{owner}:{head}", "base": base, "state": "open"})
+    return pulls[0] if pulls else None
+
+
+async def close_pull_request(repo: str, number: int) -> None:
+    await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"state": "closed"})
 
 
 async def checks_status(repo: str, number: int) -> str | None:

@@ -101,6 +101,9 @@ export type Decision = {
   rationale: string;
   status: "proposed" | "validated" | "rejected";
   proposed_by: string;
+  // A release: validating it merges this PR into production
+  pr_number: number | null;
+  pr_url: string | null;
   created_at: string;
   decided_at: string | null;
 };

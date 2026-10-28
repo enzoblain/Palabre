@@ -349,6 +349,24 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
     return {"branch": project.default_branch}
 
 
+@tool
+async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
+    """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
+    request from it to production (the repository's default branch) and ask the boss to
+    accept it: they merge it with one click from their inbox. One release at a time.
+    title: what ships, e.g. "Checkout and order history".
+    summary: for the boss, in Markdown: what changes for users, what was tested, known limits.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        decision = await projects.propose_release(s, project, c.room_id, title.strip(), summary.strip(), me)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({decision.pr_url})", me)
+    return {"decision_id": decision.id, "pr_url": decision.pr_url, "status": "waiting for the boss"}
+
+
 # --- Toolchains (lead, devops) -------------------------------------------------------
 
 

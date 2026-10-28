@@ -78,7 +78,9 @@ export function DocumentView({ project, onDecided }: { project: ProjectState; on
             </div>
             {d.rationale && <Markdown content={d.rationale} />}
             <div className="row">
-              <button className="btn btn-small btn-primary" onClick={() => decide(d, "validated")}>Validate</button>
+              <button className="btn btn-small btn-primary" onClick={() => decide(d, "validated")}>
+                {d.pr_number ? `Merge PR #${d.pr_number}` : "Validate"}
+              </button>
               <button className="btn btn-small" onClick={() => decide(d, "rejected")}>Reject</button>
             </div>
           </div>

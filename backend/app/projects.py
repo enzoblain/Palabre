@@ -15,7 +15,7 @@ from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
     reroll_employee,
 )  # fmt: skip
-from app.models import Conversation, Employee, Project, Room, Task, TaskStatus
+from app.models import Conversation, Decision, DecisionStatus, Employee, Project, Room, Task, TaskStatus
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
 from app.worktrees import sync_repo
@@ -231,6 +231,54 @@ async def change_branch(s: AsyncSession, project: Project, branch: str, by: Empl
     await s.commit()
     await sync_repo(project)
     return await load_project(s, project.id)
+
+
+async def propose_release(s: AsyncSession, project: Project, room_id: int, title: str, summary: str, by: Employee) -> Decision:
+    """Open the PR from the team's branch to production (the repository's default branch)
+    and ask the boss to accept it: a decision that merges the PR once validated."""
+    repo = github.repo_slug(project.repo_url)
+    production = await github.resolve_branch(repo, "")
+    if project.default_branch == production:
+        raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
+    pending = await s.scalar(
+        select(Decision).where(
+            Decision.room_id.in_(select(Room.id).where(Room.project_id == project.id)),
+            Decision.pr_number.is_not(None),
+            Decision.status == DecisionStatus.proposed,
+        )
+    )
+    if pending is not None:
+        raise WorkflowError(f"A release is already waiting for the boss: {pending.title} ({pending.pr_url})")
+    pr = await github.find_pull_request(repo, project.default_branch, production)
+    if pr is None:
+        try:
+            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+        except github.GitHubError as exc:
+            if "No commits between" in str(exc):
+                raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
+            raise
+    decision = Decision(
+        room_id=room_id, title=f"Release: {title}", proposed_by=by.name, pr_number=pr["number"], pr_url=pr["html_url"],
+        rationale=f"Merge `{project.default_branch}` into `{production}`: [PR #{pr['number']}]({pr['html_url']})\n\n{summary}",
+    )  # fmt: skip
+    s.add(decision)
+    await s.flush()
+    services.emit_event(s, project.id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
+    await s.commit()
+    return decision
+
+
+async def settle_release(project: Project, decision: Decision, accepted: bool) -> None:
+    """The boss's answer to a release: accepted, its PR is merged (a merge commit, so the
+    team's branch and production keep the same history); rejected, it is closed."""
+    repo = github.repo_slug(project.repo_url)
+    if accepted:
+        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge")
+    else:
+        try:
+            await github.close_pull_request(repo, decision.pr_number)
+        except github.GitHubError:
+            pass  # Already closed or merged on GitHub
 
 
 async def refresh_permissions(s: AsyncSession) -> None:

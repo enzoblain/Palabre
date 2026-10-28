@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
-from app import services
+from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import (
     DecisionOut,
@@ -125,9 +125,15 @@ async def get_document(room_id: int, s: SessionDep) -> dict:
 
 @router.patch("/decisions/{decision_id}", response_model=DecisionOut)
 async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
-    """Validate or reject a decision proposed by an employee."""
+    """Validate or reject a decision proposed by an employee. A release is merged into
+    production when validated (and stays proposed if GitHub refuses), closed when rejected."""
     decision = await get_or_404(s, Decision, decision_id)
     room = await get_or_404(s, Room, decision.room_id)
+    if decision.pr_number is not None and decision.status == DecisionStatus.proposed:
+        try:
+            await projects.settle_release(await get_or_404(s, Project, room.project_id), decision, body.status == "validated")
+        except github.GitHubError as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"GitHub refused the merge: {exc}") from None
     decision.status = DecisionStatus(body.status)
     decision.decided_at = datetime.now(UTC)
     payload = {"decision_id": decision.id, "status": body.status, "room_id": room.id}

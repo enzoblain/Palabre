@@ -43,9 +43,10 @@ Along the way the team holds a daily stand-up, records decisions in each room's 
 document, and asks you when something is yours to decide. Decisions and questions waiting
 for you land in your inbox.
 
-The team merges into the project's branch: point it at a `dev` branch in the settings and
-merge `dev` into `main` yourself when a step is ready. The lead can move the team between
-working branches, but never to the repository's default branch: that one is yours.
+The team merges into the project's branch: point it at a `dev` branch in the settings, or
+let the lead do it. When a step is ready, the lead opens the pull request from `dev` to
+`main` and you get it in your inbox: one click merges it, or reject it to close it. The
+lead never merges into the repository's default branch: that one is yours.
 
 ### Research group
 

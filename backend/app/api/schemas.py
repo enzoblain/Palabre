@@ -169,6 +169,8 @@ class DecisionOut(ORM):
     rationale: str
     status: str
     proposed_by: str
+    pr_number: int | None = None
+    pr_url: str | None = None
     created_at: datetime
     decided_at: datetime | None
 
