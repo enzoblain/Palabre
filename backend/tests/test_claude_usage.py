@@ -1,5 +1,6 @@
 """Claude quota usage: parsing, per-account errors, cache and token hygiene (usage API mocked)."""
 
+import asyncio
 import logging
 
 import httpx
@@ -85,3 +86,21 @@ async def test_cache(monkeypatch):
     await get_quota()
     await get_quota()
     assert len(calls) == 2  # one per account, second call served from cache
+
+
+async def test_concurrent_refreshes_call_endpoint_once_per_account(monkeypatch):
+    calls = []
+
+    async def handler(request):
+        calls.append(request.headers["authorization"])
+        await asyncio.sleep(0.05)
+        return httpx.Response(200, json=PAYLOAD)
+
+    mock_api(monkeypatch, handler)
+    await asyncio.gather(*(claude_usage.fetch_all() for _ in range(5)))
+    assert sorted(calls) == ["Bearer secret-one", "Bearer secret-two"]
+
+
+def test_http_libraries_never_log_at_debug():
+    for name in ("httpx", "httpcore"):
+        assert not logging.getLogger(name).isEnabledFor(logging.DEBUG)
