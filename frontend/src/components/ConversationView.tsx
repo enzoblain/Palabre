@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError, type Conversation, type EmployeeStatus, type Message, type Notification, type ProjectDetail, type ResearchPhase, type Room, api } from "../api";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
@@ -29,6 +29,77 @@ function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: numbe
   );
 }
 
+/** One message. Memoized: re-parsing every message's Markdown on each render made typing slow. */
+const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames }: {
+  message: Message;
+  grouped: boolean;
+  title: string | undefined;
+  selfNames: string[];
+}) {
+  const boss = m.employee_id === null;
+  const forMe = !boss && mentionsAny(m.content, selfNames);
+  return (
+    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${forMe ? " mentions-me" : ""}`}>
+      <div className="message-avatar">{!grouped && <Avatar name={m.author_name} boss={boss} size={34} />}</div>
+      <div className="message-main">
+        {!grouped && (
+          <div className="message-meta">
+            <strong>{m.author_name}</strong>
+            <span className="muted">{boss ? "CEO" : title}</span>
+            <time className="muted">{formatTime(m.created_at)}</time>
+          </div>
+        )}
+        <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>
+      </div>
+    </div>
+  );
+});
+
+/** The message box. It keeps the draft to itself, so typing only re-renders the box. */
+function Composer({ placeholder, onSend }: { placeholder: string; onSend: (content: string) => Promise<boolean> }) {
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => inputRef.current?.focus(), []);
+
+  // Click on a teammate in the sidebar → "@Name " in the composer
+  useEffect(() => {
+    const onMention = (e: Event) => {
+      const name = (e as CustomEvent<string>).detail;
+      setDraft((d) => `${d}${d && !d.endsWith(" ") ? " " : ""}@${name} `);
+      inputRef.current?.focus();
+    };
+    window.addEventListener(MENTION_EVENT, onMention);
+    return () => window.removeEventListener(MENTION_EVENT, onMention);
+  }, []);
+
+  async function send() {
+    const content = draft.trim();
+    if (!content || sending) return;
+    setSending(true);
+    if (await onSend(content)) setDraft("");
+    setSending(false);
+    inputRef.current?.focus();
+  }
+
+  return (
+    <div className="composer">
+      <textarea ref={inputRef} rows={1} value={draft} placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            send();
+          }
+        }} />
+      <button className="icon-btn send" onClick={send} disabled={!draft.trim() || sending} aria-label="Send">
+        <SendIcon />
+      </button>
+    </div>
+  );
+}
+
 export function ConversationView({ conversation, room, project, statuses, bossName, notifications, onNotificationsRead }: {
   conversation: Conversation;
   room: Room;
@@ -40,11 +111,8 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
   onNotificationsRead: () => void;
 }) {
   const [messages, setMessages] = useState<Message[] | null>(null);
-  const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
   const lastId = useRef<number | undefined>(undefined);
   const currentId = useRef(conversation.id);
@@ -56,7 +124,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
   const research = project.kind === "research";
   const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
   usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
-  const myNames = bossNames(bossName);
+  const myNames = useMemo(() => bossNames(bossName), [bossName]);
 
   function append(incoming: Message[]) {
     if (!incoming.length) return;
@@ -72,8 +140,6 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
     setMessages(null);
     lastId.current = undefined;
     stickToBottom.current = true;
-    setDraft("");
-    inputRef.current?.focus();
   }, [conversation.id]);
 
   usePolling(
@@ -92,17 +158,6 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
     [conversation.id],
   );
 
-  // Click on a teammate in the sidebar → "@Name " in the composer
-  useEffect(() => {
-    const onMention = (e: Event) => {
-      const name = (e as CustomEvent<string>).detail;
-      setDraft((d) => `${d}${d && !d.endsWith(" ") ? " " : ""}@${name} `);
-      inputRef.current?.focus();
-    };
-    window.addEventListener(MENTION_EVENT, onMention);
-    return () => window.removeEventListener(MENTION_EVENT, onMention);
-  }, []);
-
   useLayoutEffect(() => {
     const el = listRef.current;
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
@@ -113,22 +168,17 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
     if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   }
 
-  async function send() {
-    const content = draft.trim();
-    if (!content || sending) return;
-    setSending(true);
+  async function send(content: string): Promise<boolean> {
     setError(null);
     try {
       const message = await api.postMessage(conversation.id, content);
       stickToBottom.current = true;
       append([message]);
-      setDraft("");
       if (throttled) onNotificationsRead(); // Posting lifted the pause
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setSending(false);
-      inputRef.current?.focus();
+      return false;
     }
   }
 
@@ -175,25 +225,9 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         )}
         {messages?.map((m, i) => {
           const prev = messages[i - 1];
-          const grouped = prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
-          const author = m.employee_id !== null ? employees.get(m.employee_id) : undefined;
-          const boss = m.employee_id === null;
-          const forMe = !boss && mentionsAny(m.content, myNames);
-          return (
-            <div key={m.id} className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${forMe ? " mentions-me" : ""}`}>
-              <div className="message-avatar">{!grouped && <Avatar name={m.author_name} boss={boss} size={34} />}</div>
-              <div className="message-main">
-                {!grouped && (
-                  <div className="message-meta">
-                    <strong>{m.author_name}</strong>
-                    <span className="muted">{boss ? "CEO" : author?.title}</span>
-                    <time className="muted">{formatTime(m.created_at)}</time>
-                  </div>
-                )}
-                <div className="message-body"><Markdown content={m.content} selfNames={myNames} /></div>
-              </div>
-            </div>
-          );
+          const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
+          const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
+          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
         })}
       </div>
 
@@ -206,24 +240,12 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {busyHere.length > 0 && `${busyHere.map((s) => s.name).join(", ")} ${busyHere.length > 1 ? "are" : "is"} thinking…`}
       </div>
       {error && <p className="error composer-error">{error}</p>}
-      <div className="composer">
-        <textarea ref={inputRef} rows={1} value={draft}
-          placeholder={
-            research
-              ? "Ask the group a question, or @mention someone…"
-              : empty && isGeneral ? "Describe the project to your team…" : `Message #${room.name} as ${bossName || "the CEO"}`
-          }
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              send();
-            }
-          }} />
-        <button className="icon-btn send" onClick={send} disabled={!draft.trim() || sending} aria-label="Send">
-          <SendIcon />
-        </button>
-      </div>
+      <Composer key={conversation.id} onSend={send}
+        placeholder={
+          research
+            ? "Ask the group a question, or @mention someone…"
+            : empty && isGeneral ? "Describe the project to your team…" : `Message #${room.name} as ${bossName || "the CEO"}`
+        } />
     </div>
   );
 }
