@@ -67,25 +67,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inbox: what used to wait in it is now a request in `#direction`, converted on the first startup.
 - The `/notifications` API: clients that use it will break.
 
+### Upgrading from 0.1.x
+
+- Existing projects stay on their current branch. Switching to `dev` is not automatic: use the settings or `set_working_branch`.
+- The CEO can only write in `#direction`; a direction channel is created at startup for every existing project.
+- Whatever was waiting in the inbox is converted into requests on the first startup.
+- Clients of the removed `/notifications` API must be updated.
+
 ## [0.1.10] - 2026-10-28
-
-## [0.1.9] - 2026-10-28
-
-## [0.1.8] - 2026-10-28
-
-## [0.1.7] - 2026-10-28
-
-## [0.1.6] - 2026-10-28
 
 ### Fixed
 
-- The server failing to start.
+- Repositories are cloned over HTTPS even when given an SSH URL.
+
+## [0.1.9] - 2026-10-28
+
+### Added
+
+- The lead can propose a release that the boss merges in one click.
+
+## [0.1.8] - 2026-10-28
+
+### Fixed
+
+- Typing in the message box is fast again.
+
+### Changed
+
+- The README now explains what Palabre is and how it works.
+
+## [0.1.7] - 2026-10-28
+
+### Added
+
+- The lead can move the team to a working branch.
+
+### Fixed
+
+- The server failing to start in 0.1.6.
+
+## [0.1.6] - 2026-10-28
+
+### Added
+
+- Optional `updater` container for automatic updates.
+- The boss can change the branch a project works from.
 
 ## [0.1.5] - 2026-10-28
 
+### Added
+
+- QA can record their verdict with `review_task`.
+
 ## [0.1.4] - 2026-10-28
 
+### Fixed
+
+- A new project uses the repository's default branch.
+
 ## [0.1.3] - 2026-10-28
+
+### Added
+
+- The boss can choose the research rapporteur; it is drawn at random otherwise.
 
 ## [0.1.2] - 2026-10-28
 
@@ -99,7 +143,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - In a browser, the connect screen asks for the token only.
 
+### Removed
+
+- The former single-account `CLAUDE_CODE_OAUTH_TOKEN` setting.
+
 ## [0.1.1] - 2026-10-28
+
+### Changed
+
+- Task branches are deleted after merge.
 
 ## [0.1.0] - 2026-10-28
 
