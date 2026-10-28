@@ -48,6 +48,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [names, setNames] = useState<string[]>([]);
   // First name → Claude account chosen by hand; the others are spread automatically
   const [accounts, setAccounts] = useState<Record<string, number>>({});
+  // Research: the peer who writes the report (null: drawn at random)
+  const [rapporteur, setRapporteur] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,6 +77,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   function draw(forMode: string) {
     setTeam(null);
     setAccounts({});
+    setRapporteur(null);
     api.previewTeam(forMode).then(setTeam).catch((err) => setError(String(err.message ?? err)));
   }
   // Only once the modes of the current kind are known (the mode resets with the kind)
@@ -96,7 +99,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
       const project = await api.createProject({
         name: name.trim(),
         mode,
-        ...(research ? { topic: topic.trim() } : { repo_url: repoUrl.trim(), default_branch: branch.trim() || "main" }),
+        ...(research ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur } : { repo_url: repoUrl.trim(), default_branch: branch.trim() || "main" }),
         seed: team.seed,
         accounts: custom ? {} : accounts,
         ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
@@ -201,7 +204,9 @@ export function NewProject({ claudeAccounts, onCreated }: {
                 <Avatar name={member.name} size={36} />
                 <div>
                   <div className="member-name">{member.name} <span className="badge">{member.model}</span></div>
-                  <div className="member-title">{member.title}</div>
+                  <div className="member-title">
+                    {member.title}{research && member.name === rapporteur && " + Rapporteur"}
+                  </div>
                   <div className="chips">
                     {traitChips(member, personality).map((chip) => (
                       <span key={chip.text} className={`chip${chip.strong ? " chip-strong" : ""}`}>{chip.text}</span>
@@ -220,7 +225,19 @@ export function NewProject({ claudeAccounts, onCreated }: {
         ) : (
           <p className="muted">Drawing a team…</p>
         )}
+        {research && team && (
+          <label className="narrow">
+            Rapporteur
+            <select value={rapporteur ?? ""} onChange={(e) => setRapporteur(e.target.value || null)}>
+              <option value="">Drawn at random</option>
+              {team.employees.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+            </select>
+          </label>
+        )}
           </>
+        )}
+        {research && custom && custom.length > 0 && !custom.some((m) => m.roles.includes("rapporteur")) && (
+          <p className="muted">Nobody has the Rapporteur role: one of them will be drawn at random to write the report.</p>
         )}
         {problems.map((problem) => <p key={problem} className="error">{problem}</p>)}
       </section>

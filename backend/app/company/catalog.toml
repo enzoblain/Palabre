@@ -626,15 +626,17 @@ permissions = ["conversation", "research", "propose_decision", "edit_room_docume
 wakes_on = ["research_start", "research_debate", "research_conclude", "mention", "decision_changed"]
 
 # --- Research modes (group size) -----------------------------------------------------
+# The rapporteur is not a seat: one peer takes the role on top of their own angle, chosen
+# by the boss or drawn at random (see appoint_rapporteur)
 
 [research.modes.duo]
 label = "Duo"
 seats = [
-  { roles = ["explorer", "rapporteur"] },
+  { roles = ["explorer"] },
   { roles = ["skeptic"] },
 ]
 rules = [
-  "Two peers: one explores and keeps the report, the other challenges.",
+  "Two peers: one explores, the other challenges.",
   "Converge quickly: propose conclusions as soon as the evidence is there.",
 ]
 process = {}
@@ -646,7 +648,7 @@ seats = [
   { roles = ["skeptic"] },
   { roles = ["analyst"] },
   { roles = ["contrarian"] },
-  { roles = ["practitioner", "rapporteur"] },
+  { roles = ["practitioner"] },
 ]
 rules = [
   "Five peers with different angles: split the work, then confront the findings.",
@@ -666,10 +668,9 @@ seats = [
   { roles = ["historian"] },
   { roles = ["ethicist"] },
   { roles = ["forecaster"] },
-  { roles = ["rapporteur"] },
 ]
 rules = [
-  "Ten peers: every angle of the topic has someone on it.",
+  "Nine peers: every angle of the topic has someone on it.",
   "Do not all answer everything: speak when your angle has something to add.",
   "A conclusion is proposed once nobody has an unanswered objection left.",
 ]

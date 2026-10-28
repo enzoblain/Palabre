@@ -87,6 +87,8 @@ class ProjectIn(BaseModel):
     repo_url: str = ""
     # Research: what the group investigates (posted as your first message)
     topic: str | None = Field(default=None, max_length=10000)
+    # Research: the peer who writes the report (a name); none: drawn at random
+    rapporteur: str | None = None
     default_branch: str = "main"
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically

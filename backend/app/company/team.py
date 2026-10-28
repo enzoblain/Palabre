@@ -127,6 +127,37 @@ def custom_employee(
     return member
 
 
+RAPPORTEUR = "rapporteur"
+
+
+def appoint_rapporteur(employees: list[Employee], name: str | None = None) -> None:
+    """A research group has a rapporteur on top of their own angle: the peer the boss
+    chose, else whoever already has the role (team built by hand), else one drawn at random."""
+    holders = [e for e in employees if RAPPORTEUR in e.roles]
+    if name is not None:
+        chosen = next((e for e in employees if e.name == name), None)
+        if chosen is None:
+            raise ValueError(f"No peer named {name} to be the rapporteur")
+    elif holders or not employees:
+        return
+    else:
+        chosen = random.SystemRandom().choice(employees)
+    for e in holders:
+        # A peer who is only the rapporteur keeps the role: they would have none left
+        if e is not chosen and len(e.roles) > 1:
+            _set_roles(e, [r for r in e.roles if r != RAPPORTEUR])
+    if RAPPORTEUR not in chosen.roles:
+        _set_roles(chosen, [*chosen.roles, RAPPORTEUR])
+
+
+def _set_roles(employee: Employee, role_keys: list[str]) -> None:
+    """New roles, with the title and permissions they give (personality and model kept)."""
+    roles = [load_catalog()["roles"][k] for k in role_keys]
+    employee.roles = list(role_keys)
+    employee.title = " + ".join(r["title"] for r in roles)
+    employee.permissions = sorted({p for r in roles for p in r["permissions"]})
+
+
 def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee:
     """Redraw one employee's personality (roles and name are kept)."""
     catalog = load_catalog()

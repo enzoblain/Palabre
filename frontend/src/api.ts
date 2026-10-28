@@ -261,6 +261,7 @@ export const api = {
     name: string;
     repo_url?: string;
     topic?: string;
+    rapporteur?: string | null;
     mode: string;
     default_branch?: string;
     seed: number;

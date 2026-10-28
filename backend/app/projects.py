@@ -10,7 +10,10 @@ from sqlalchemy.orm import selectinload
 
 from app import github, services
 from app.company.team import Employee as TeamMember
-from app.company.team import Team, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for, reroll_employee
+from app.company.team import (
+    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
+    reroll_employee,
+)  # fmt: skip
 from app.models import Conversation, Employee, Project, Room
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
@@ -29,10 +32,12 @@ async def create_project(
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,
     topic: str | None = None,
+    rapporteur: str | None = None,
     kind: str | None = None,
 ) -> Project:
     """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
-    A research project (research mode) has a `topic` and no repository."""
+    A research project (research mode) has a `topic` and no repository, and a `rapporteur`
+    (a peer's name; none: drawn at random, unless the team built by hand has one)."""
     kind = kind_of_mode(mode)
     if kind == "company":
         github.repo_slug(repo_url)  # GitHub URLs only
@@ -51,6 +56,11 @@ async def create_project(
         team = Team(mode=mode, seed=seed, process=dict(load_catalog()["modes"][mode]["process"]), employees=members)
     else:
         team = generate_team(mode, seed)
+    if kind == "research":
+        try:
+            appoint_rapporteur(team.employees, rapporteur)
+        except ValueError as exc:
+            raise WorkflowError(str(exc)) from None
     project = Project(
         name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
         kind=kind, topic=topic if kind == "research" else None,
@@ -162,7 +172,8 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     kept: list[Employee] = []
     hired: list[Employee] = []
     for member in new_team.employees:
-        match = next((e for e in remaining if e.roles == member.roles), None)
+        # The rapporteur is not a seat: they keep their own angle's seat
+        match = next((e for e in remaining if [r for r in e.roles if r != RAPPORTEUR] == member.roles), None)
         if match is not None:
             remaining.remove(match)
             kept.append(match)
@@ -182,6 +193,8 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         channel = channels.get(room.name)
         room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
+    if project.kind == "research":
+        appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur
     project.mode = mode
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
     await s.commit()
