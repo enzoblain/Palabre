@@ -174,7 +174,7 @@ pip-compile --generate-hashes --strip-extras --upgrade-package pytest requiremen
 ```
 
 Always compile `requirements.in` first: the dev file is constrained by it, so both stay on the same
-versions. Compile on Linux with Python 3.12 (as the image and the CI): platform markers can differ elsewhere and commit the `.in` and `.txt` files together.
+versions. Compile on Linux with Python 3.12 (as the image and the CI): platform markers can differ elsewhere. Commit the `.in` and `.txt` files together.
 Installs use `pip install --require-hashes -r ...`.
 
 ## Configuration
