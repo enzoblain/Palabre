@@ -21,7 +21,7 @@ class FakeSession:
         self.team, self.direction_id = list(team), direction_id
         self.added, self.executed = [], []
 
-    async def get(self, model, id_):
+    async def get(self, model, id_, **_kwargs):
         return self.objects.get((model, id_))
 
     async def scalars(self, _query):
@@ -203,3 +203,27 @@ async def test_a_research_group_has_no_direction_to_ask_in():
 async def test_unknown_request_kind_is_refused():
     with pytest.raises(services.WorkflowError):
         await services.ask_boss(FakeSession(), 1, LEAD, "x", "chitchat")
+
+
+async def test_migration_turns_what_waited_in_the_inbox_into_requests():
+    decision = _decision()
+    room = Room(id=2, project_id=1, name="direction", kind="direction")
+    escalated = Message(id=6, conversation_id=4, author_name="Léa", content="Budget ?")
+    event = Event(type="escalation", target_role="boss", payload={"message_id": 6})
+
+    class Migrating(FakeSession):
+        results = iter([[event], [decision], [LEAD]])
+
+        scalar_results = iter([None, 9])  # not asked yet, then the direction conversation
+
+        async def scalars(self, _query):
+            return next(self.results)
+
+        async def scalar(self, _query):
+            return next(self.scalar_results)
+
+    s = Migrating(escalated, room, direction_id=9)
+    await projects.migrate_inbox(s)
+    assert (escalated.request_kind, escalated.request_status) == ("escalation", "pending")
+    (asked,) = [o for o in s.added if isinstance(o, Message)]
+    assert (asked.request_kind, asked.request_decision_id) == ("decision", decision.id)

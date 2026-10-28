@@ -6,7 +6,7 @@ import secrets
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,7 +17,7 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    Conversation, Decision, DecisionStatus, Employee, Message, Project, RequestAnswer, Room, Task, TaskStatus,
+    Conversation, Decision, DecisionStatus, Employee, Event, Message, Project, RequestAnswer, Room, Task, TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
@@ -151,6 +151,37 @@ async def ensure_all_directions(s: AsyncSession) -> None:
     """Existing companies get their direction channel (their rooms stay team channels)."""
     for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
         await ensure_direction(s, await load_project(s, project_id))
+    await s.commit()
+
+
+async def migrate_inbox(s: AsyncSession) -> None:
+    """The inbox is gone: what waited in it becomes requests in direction, then its
+    notifications (events for the boss) are purged. Safe to run at every startup."""
+    escalations = await s.scalars(
+        select(Event).where(Event.target_role == "boss", Event.type == "escalation", Event.processed_at.is_(None))
+    )
+    for event in escalations:
+        message = await s.get(Message, event.payload.get("message_id"))
+        if message is not None and message.request_kind is None:
+            message.request_kind, message.request_status = "escalation", "pending"
+    pending = await s.scalars(select(Decision).where(Decision.status == DecisionStatus.proposed))
+    for decision in pending:
+        asked = await s.scalar(select(Message.id).where(Message.request_decision_id == decision.id).limit(1))
+        room = await s.get(Room, decision.room_id)
+        if asked is not None or room is None:
+            continue
+        employees = list(await s.scalars(select(Employee).where(Employee.project_id == room.project_id)))
+        author = next(
+            (e for e in employees if e.name == decision.proposed_by), next((e for e in employees if "lead" in e.roles), None)
+        )
+        if author is None:
+            continue
+        kind = "release" if decision.pr_number is not None else "decision"
+        text = f"{'Release' if kind == 'release' else 'Decision'} to validate: {decision.title}"
+        if decision.pr_url:
+            text += f" ({decision.pr_url})"
+        await services.ask_boss(s, room.project_id, author, text, kind, decision.id)
+    await s.execute(delete(Event).where(Event.target_role == "boss"))
     await s.commit()
 
 
@@ -362,7 +393,7 @@ async def settle_decision(
 async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer, comment: str = "") -> Message:
     """The boss answers a request of the lead, once. The answer is stored on the message and
     wakes the lead up with it; a request about a decision or a release settles it too."""
-    message = await s.get(Message, message_id)
+    message = await s.get(Message, message_id, with_for_update=True)  # two clicks: one answer
     if message is None or message.request_kind is None:
         raise WorkflowError(f"Message #{message_id} does not ask anything")
     if message.request_status != "pending":
@@ -384,6 +415,7 @@ async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer
         payload = {
             "conversation_id": message.conversation_id, "message_id": message.id,
             "answer": answer.value, "comment": comment or "(no comment)", "request": message.request_kind,
+            "asked_by": message.author_name,
         }  # fmt: skip
         services.emit_event(s, room.project_id, "ceo_answer", payload, employee_id=lead.id)
     await s.commit()

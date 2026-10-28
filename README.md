@@ -53,7 +53,9 @@ what waits for you in the direction channel as a request, a message with three a
 Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
 Proposed decisions, releases and escalations to the boss become such requests on their own,
-and the lead can ask for anything else with `ask_ceo`.
+and the lead can ask for anything else with `ask_ceo`. A research group has no direction
+channel: its decisions are only in the room document. On upgrade, what waited in the old
+inbox is turned into requests in direction.
 
 A new project works on a `dev` branch, created from the repository's default branch if
 missing (an empty repository gets `main` then `dev` from its first commit), and every
@@ -61,7 +63,8 @@ task's pull request targets it. Only a release reaches production. To switch an 
 project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
 (`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
 request from `dev` to `main` and asks you in direction: Validate merges it, Reject closes
-it, Nuance leaves it open for the lead to rework. The lead never merges into the repository's default branch: that one is yours.
+it, Nuance leaves it open for the lead to rework. The lead never merges into the
+repository's default branch: that one is yours.
 
 ### Research group
 
