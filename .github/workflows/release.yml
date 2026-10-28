@@ -52,6 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       id: ${{ steps.create.outputs.id }}
+      body: ${{ steps.create.outputs.body }}
     steps:
       - id: create
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -63,6 +64,8 @@ jobs:
             try {
               const { data } = await github.rest.repos.getReleaseByTag({ owner, repo: context.repo.repo, tag });
               core.setOutput("id", data.id);
+              // Kept so that `notes` can restore it: publish_version wrote the changes in it
+              core.setOutput("body", data.body || "");
               return;
             } catch (error) {
               if (error.status !== 404) throw error;
@@ -82,6 +85,7 @@ jobs:
               ].join("\n"),
             });
             core.setOutput("id", data.id);
+            core.setOutput("body", data.body || "");
 
   desktop-app:
     needs: release
@@ -126,3 +130,38 @@ jobs:
           projectPath: frontend
           releaseId: ${{ needs.release.outputs.id }}
           args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+
+  # The builds must not leave the release without its changes: put back the body the release
+  # had before them if it lost the changes or the download text (keep in step with github.py)
+  notes:
+    needs: [release, desktop-app]
+    if: ${{ always() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BODY_BEFORE: ${{ needs.release.outputs.body }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const release_id = Number("${{ needs.release.outputs.id }}");
+            const marker = "Desktop app: download the file for your system below.";
+            const tag = context.ref.replace("refs/tags/", "");
+            const download = [
+              marker,
+              "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
+              "- Windows: `.msi` or `-setup.exe`.",
+              "- Linux: `.AppImage`, `.deb` or `.rpm`.",
+              "",
+              `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see the README).`,
+            ].join("\n");
+            const { data } = await github.rest.repos.getRelease({ owner, repo, release_id });
+            const before = process.env.BODY_BEFORE || "";
+            // Changes are what comes before the download text; keep whichever side still has them
+            const changesOf = (body) => body.split(marker)[0].trim();
+            const changes = changesOf(data.body || "") || changesOf(before);
+            const body = changes ? `${changes}\n\n${download}` : download;
+            if (body !== (data.body || "")) {
+              await github.rest.repos.updateRelease({ owner, repo, release_id, body });
+            }
