@@ -39,10 +39,10 @@ jobs:
           else echo "No requirements-dev.txt: backend tests skipped"; fi
       # Always installed, so the pip cache folder exists even when the tests are skipped
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements.txt
       - name: Install test dependencies
         if: steps.detect.outputs.run == 'true'
-        run: pip install -r requirements-dev.txt
+        run: pip install --require-hashes -r requirements-dev.txt
       - name: pytest
         if: steps.detect.outputs.run == 'true'
         run: |

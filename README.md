@@ -142,12 +142,40 @@ On first launch, set your name in the settings: it is the one your team calls yo
 Backend tests (pytest, no database or network needed):
 
 ```sh
-cd backend && pip install -r requirements-dev.txt && python -m pytest
+cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
 merge gates) and `fake_github` (replaces the GitHub and git calls).
+
+## Dependencies
+
+Backend dependencies are frozen with [pip-tools](https://pip-tools.readthedocs.io) (versions and
+hashes). Edit the readable `.in` files, never the generated `requirements*.txt`:
+
+- `backend/requirements.in`: runtime dependencies (installed in the Docker image)
+- `backend/requirements-dev.in`: test dependencies, on top of the runtime ones
+
+pip-tools is a dev tool: it is not in the image. Install it where you work (`pip install pip-tools`),
+then from `backend/`:
+
+```sh
+# Add a dependency: put it in the right .in file, then regenerate both files
+pip-compile --generate-hashes --strip-extras requirements.in
+pip-compile --generate-hashes --strip-extras requirements-dev.in
+
+# Upgrade one runtime package (or --upgrade for all of them)
+pip-compile --generate-hashes --strip-extras --upgrade-package fastapi requirements.in
+pip-compile --generate-hashes --strip-extras requirements-dev.in
+
+# Upgrade a test-only package (pytest...)
+pip-compile --generate-hashes --strip-extras --upgrade-package pytest requirements-dev.in
+```
+
+Always compile `requirements.in` first: the dev file is constrained by it, so both stay on the same
+versions. Compile on Linux with Python 3.12 (as the image and the CI): platform markers can differ elsewhere. Commit the `.in` and `.txt` files together.
+Installs use `pip install --require-hashes -r ...`.
 
 ## Configuration
 
