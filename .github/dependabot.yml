@@ -1,0 +1,8 @@
+# Keeps the SHA-pinned GitHub Actions up to date (weekly pull requests against dev).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
