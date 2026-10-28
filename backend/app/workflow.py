@@ -162,7 +162,10 @@ async def update_task(
         new_status = TaskStatus(status)
         if new_status not in EDITABLE_STATUSES:
             raise WorkflowError("Status can only be set to 'todo' or 'cancelled'; the rest follows the workflow")
+        was_cancelled = task.status == TaskStatus.cancelled
         task.status = new_status
+        if new_status == TaskStatus.cancelled and not was_cancelled:
+            await clean_up_task(await s.get(Project, project_id), task)
     await s.commit()
     return task
 
@@ -374,16 +377,42 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     return blockers
 
 
-async def _clean_up_branch(project: Project, task: Task, repo: str) -> None:
-    """After the merge, the task's branch goes, on GitHub and locally, with its worktree.
-    Best effort: the merge is done whatever happens here."""
+def is_task_branch(project: Project, branch: str | None) -> bool:
+    """Only a task's own branch may be deleted: never the default branch, `dev` or a release."""
+    return bool(branch) and branch.startswith("task/") and branch not in {project.default_branch, github.WORKING_BRANCH}
+
+
+async def clean_up_task(project: Project, task: Task) -> None:
+    """A finished task leaves nothing behind: its PR is closed if still open, its branch is
+    deleted on GitHub and locally, and its worktree removed. Idempotent; a GitHub or git
+    error is logged and never blocks the caller (the status change is already done)."""
+    repo = github.repo_slug(project.repo_url)
     try:
-        if task.branch:
+        if task.pr_number is not None and await github.is_pull_request_open(repo, task.pr_number):
+            await github.close_pull_request(repo, task.pr_number)
+        if is_task_branch(project, task.branch):
             await github.delete_branch(repo, task.branch)
         await remove_task_worktree(project, task)
         task.worktree_path = None
     except github.GitHubError as exc:
-        log.warning("Task #%s merged, but its branch could not be cleaned up: %s", task.id, exc)
+        log.warning("Task #%s (%s): clean-up incomplete: %s", task.id, task.status.value, exc)
+
+
+async def clean_up_finished_tasks(s: AsyncSession) -> int:
+    """Clean up every done or cancelled task in the database (the backlog). Only the branches
+    recorded on those tasks are touched. Returns how many tasks were visited."""
+    tasks = (
+        await s.scalars(select(Task).where(Task.status.in_([TaskStatus.done, TaskStatus.cancelled])))
+    ).all()
+    projects: dict[int, Project] = {}
+    for task in tasks:
+        if task.project_id not in projects:
+            projects[task.project_id] = await s.get(Project, task.project_id)
+        project = projects[task.project_id]
+        if project is not None and project.repo_url and (task.branch or task.pr_number is not None):
+            await clean_up_task(project, task)
+    await s.commit()
+    return len(tasks)
 
 
 async def merge_task(
@@ -401,7 +430,7 @@ async def merge_task(
     repo = github.repo_slug(project.repo_url)
     await github.merge_pull_request(repo, task.pr_number, f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
-    await _clean_up_branch(project, task, repo)
+    await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
     await s.flush()
 

@@ -69,6 +69,12 @@ async def create_task(room_id: int, body: TaskIn, s: SessionDep):
     return await task_detail(s, task)
 
 
+@router.post("/tasks/cleanup")
+async def clean_up_finished_tasks(s: SessionDep) -> dict:
+    """Close the open PRs and delete the branches of every done or cancelled task. Idempotent."""
+    return {"tasks_visited": await workflow.clean_up_finished_tasks(s)}
+
+
 @router.get("/tasks/{task_id}", response_model=TaskDetail)
 async def get_task(task_id: int, s: SessionDep):
     return await task_detail(s, await load_task(s, task_id))

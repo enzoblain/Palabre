@@ -160,6 +160,16 @@ async def close_pull_request(repo: str, number: int) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"state": "closed"})
 
 
+async def is_pull_request_open(repo: str, number: int) -> bool:
+    """Whether the PR is still open; a PR that no longer exists is not."""
+    try:
+        return (await _api("GET", f"/repos/{repo}/pulls/{number}"))["state"] == "open"
+    except GitHubError as exc:
+        if " 404 " not in str(exc):
+            raise
+        return False
+
+
 async def checks_status(repo: str, number: int) -> str | None:
     """None if CI passed on the PR's head commit, otherwise the reason it did not."""
     pr = await _api("GET", f"/repos/{repo}/pulls/{number}")

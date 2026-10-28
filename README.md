@@ -47,6 +47,12 @@ From there the team works on its own:
    company's rules require.
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
+Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
+closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
+worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
+release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
+and GitHub errors (404...) are only logged.
+
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts
 what waits for you in the direction channel as a request, a message with three answers,
