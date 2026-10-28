@@ -27,7 +27,8 @@ async def read_messages(ctx: Context, since_id: int | None = None, limit: int = 
             "id": m.id,
             "author": m.author_name,
             "is_me": m.employee_id == c.employee_id,
-            "is_boss": m.employee_id is None,
+            "is_boss": m.employee_id is None and not m.is_system,
+            "is_system": m.is_system,
             "content": m.content,
             "created_at": m.created_at.isoformat(),
         }

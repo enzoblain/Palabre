@@ -223,6 +223,8 @@ class MessageOut(ORM):
     author_name: str
     content: str
     created_at: datetime
+    # Automatic line from the platform, not from the boss
+    is_system: bool = False
     # Set when the message asks the boss something (see services.ask_boss)
     request_kind: str | None = None
     request_status: str | None = None

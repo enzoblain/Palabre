@@ -214,6 +214,7 @@ label.narrow { max-width: 240px; }
 .message-meta time { font-size: 12px; }
 .message-body { overflow-wrap: anywhere; }
 .from-boss .message-meta strong { color: var(--accent); }
+.message.system .message-body { color: var(--muted); font-size: 0.9em; }
 .mention { color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 0 2px; font-weight: 500; }
 /* Messages that mention the boss, highlighted like GitHub does */
 .message.mentions-me, .message.mentions-me:hover { background: var(--mention-me-bg); box-shadow: inset 3px 0 0 var(--mention-me-border); }

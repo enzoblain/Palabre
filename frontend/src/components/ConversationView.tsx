@@ -121,10 +121,10 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
   title: string | undefined;
   selfNames: string[];
 }) {
-  const boss = m.employee_id === null;
+  const boss = m.employee_id === null && !m.is_system;
   const forMe = !boss && mentionsAny(m.content, selfNames);
   return (
-    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${forMe ? " mentions-me" : ""}`}>
+    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${m.is_system ? " system" : ""}${forMe ? " mentions-me" : ""}`}>
       <div className="message-avatar">{!grouped && <Avatar name={m.author_name} boss={boss} size={34} />}</div>
       <div className="message-main">
         {!grouped && (

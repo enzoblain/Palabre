@@ -9,15 +9,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
+from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
-from app.services import WorkflowError, emit_event, post_message
+from app.services import WorkflowError, emit_event, post_message, post_system_message
 from app.worktrees import remove_task_worktree, repo_dir
 
 MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 log = logging.getLogger(__name__)
+
+
+async def announce(s: AsyncSession, task: Task, text: str) -> None:
+    """One short line about a step of the task, in its conversation, with the link."""
+    await post_system_message(s, task.conversation_id, f"{text} · #{task.id} {task.title} {task.pr_url or ''}".strip())
+
+
+_VERDICT_LABELS = {
+    Verdict.approve: "approved",
+    Verdict.changes: "requested changes",
+    Verdict.comment: "commented",
+}
 
 
 def mode_process(mode: str) -> dict:
@@ -273,6 +286,7 @@ async def submit_for_review(
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
     task.review_round += 1
+    task.merge_ready_at = task.lead_reminded_at = None
     task.sensitive = task.sensitive or sensitive
     process = mode_process(project.mode)
     payload = {"task_id": task.id, "pr_url": task.pr_url}
@@ -281,6 +295,7 @@ async def submit_for_review(
         emit_event(s, project_id, "pr_ready", payload, role="qa")
     if process["security_gate"] and task.sensitive:
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
+    await announce(s, task, f"PR submitted by {author.name} (round {task.review_round})")
     # In the author's own words, with the link
     await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task
@@ -326,6 +341,7 @@ async def review_task(
             f"**{reviewer.name} ({reviewer.title}) — {verdict}**\n\n{body}",
         )  # fmt: skip
 
+    await announce(s, task, f"{reviewer.name} ({reviewer.title}): {_VERDICT_LABELS[review.verdict]}")
     payload = {"task_id": task.id, "reviewer": reviewer.name}
     if review.verdict == Verdict.changes:
         task.status = TaskStatus.changes_requested
@@ -334,9 +350,24 @@ async def review_task(
 
     blockers = await merge_blockers(s, project, task) if task.status == TaskStatus.review else []
     if review.verdict == Verdict.approve and not blockers:
-        emit_event(s, project_id, "pr_approved", payload, role="lead")
+        await mark_merge_ready(s, task, reviewer.name)
         await s.commit()
     return blockers
+
+
+async def mark_merge_ready(s: AsyncSession, task: Task, by: str) -> None:
+    """Every merge rule is met (the caller checked merge_blockers): wake up the lead, once."""
+    if task.merge_ready_at is not None:
+        return
+    task.merge_ready_at = datetime.now(UTC)
+    emit_event(s, task.project_id, "pr_approved", {"task_id": task.id, "reviewer": by}, role="lead")
+
+
+async def remind_merge(s: AsyncSession, task: Task) -> None:
+    """The task has been mergeable for too long: remind the lead, once."""
+    task.lead_reminded_at = datetime.now(UTC)
+    by = f"the team and has met every merge rule for {settings.merge_reminder_minutes} minutes (reminder)"
+    emit_event(s, task.project_id, "pr_approved", {"task_id": task.id, "reviewer": by}, role="lead")
 
 
 async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[str]:
@@ -432,6 +463,7 @@ async def merge_task(
     task.status = TaskStatus.done
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
+    await announce(s, task, "Merged" + (f" by {author.name}" if author else ""))
     await s.flush()
 
     # Wake up the assignees of tasks that were only waiting for this one
