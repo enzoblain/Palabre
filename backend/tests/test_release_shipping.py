@@ -191,17 +191,86 @@ def test_release_name_and_notes_match_the_hand_made_releases():
     assert notes.endswith("\n\nServer: `ghcr.io/enzoblain/palabre:0.2.2` (see the README).")
 
 
-async def test_publish_version_uses_the_standard_name_and_notes(monkeypatch):
-    sent = {}
+def test_release_notes_put_the_changes_before_the_download_text():
+    notes = github.release_notes("acme/app", "v1.2.0", "### Features\n- a: b")
+    assert notes.startswith("### Features\n- a: b\n\nDesktop app:")
+    assert notes.endswith(github.release_notes("acme/app", "v1.2.0"))
+
+
+def test_release_changes_group_commits_by_type():
+    changes = github.release_changes([
+        "feat(usage): show real usage (#12)\n\nlong body",
+        "fix(api): handle 404 (#13)",
+        "perf(db): index tasks (#14)",
+        "docs: update README (#15)",
+        "ci(release): pin actions (#16)",
+        "chore: tidy",
+        "[#77] Release 0.3.0 : bump",
+        "feat: no scope (#17)",
+    ])  # fmt: skip
+    assert changes == "\n\n".join([
+        "### Features\n- usage: show real usage (#12)\n- no scope (#17)",
+        "### Bug Fixes\n- api: handle 404 (#13)",
+        "### Performance\n- db: index tasks (#14)",
+        "### Documentation\n- update README (#15)",
+        "### Other\n- release: pin actions (#16)\n- tidy\n- [#77] Release 0.3.0 : bump",
+    ])
+
+
+def test_release_changes_list_breaking_changes_and_skip_empty_sections():
+    changes = github.release_changes(["feat(api)!: drop v1 (#1)", "fix: x (#2)\n\nBREAKING CHANGE: y"])
+    assert changes.startswith("### Breaking Changes\n- api: drop v1 (#1)\n- x (#2)\n\n### Features")
+    assert "Documentation" not in changes and "Other" not in changes
+    assert github.release_changes([]) == ""
+
+
+def test_previous_tag_is_the_highest_lower_version():
+    tags = ["v0.10.0", "v0.2.4", "v0.3.0", "latest", "v0.9.1"]
+    assert github.previous_tag(tags, "v0.10.0") == "v0.9.1"
+    assert github.previous_tag(tags, "v0.3.0") == "v0.2.4"
+    assert github.previous_tag(tags, "v0.2.4") is None
+    assert github.previous_tag(tags, "v1.0.0") == "v0.10.0"
+
+
+def fake_github_api(monkeypatch, tags=("v1.1.0", "v1.0.0")):
+    sent = []
 
     async def api(method, path, **kwargs):
-        sent.update(method=method, path=path, **kwargs)
+        sent.append((method, path, kwargs))
+        if path.endswith("/tags"):
+            return [{"name": t} for t in tags]
+        if "/compare/" in path:
+            return {"commits": [
+                {"commit": {"message": "fix(a): older (#1)"}, "parents": [1]},
+                {"commit": {"message": "Merge pull request"}, "parents": [1, 2]},
+                {"commit": {"message": "feat(b): newer (#2)"}, "parents": [1]},
+            ]}  # fmt: skip
         return {}
 
     monkeypatch.setattr(github, "_api", api)
+    return sent
+
+
+async def test_publish_version_uses_the_standard_name_and_notes(monkeypatch):
+    sent = fake_github_api(monkeypatch)
     await github.create_release("acme/app", "v1.2.0", "abc123")
-    assert sent["json"]["name"] == "Palabre v1.2.0"
-    assert sent["json"]["body"] == github.release_notes("acme/app", "v1.2.0")
+    assert ("GET", "/repos/acme/app/compare/v1.1.0...abc123", {}) in sent
+    post = sent[-1][2]["json"]
+    assert post["name"] == "Palabre v1.2.0"
+    changes = "### Features\n- b: newer (#2)\n\n### Bug Fixes\n- a: older (#1)"
+    assert post["body"] == github.release_notes("acme/app", "v1.2.0", changes)
+
+
+async def test_first_release_lists_every_commit(monkeypatch):
+    async def api(method, path, **kwargs):
+        if path.endswith("/tags"):
+            return []
+        if path.endswith("/commits"):
+            return [{"commit": {"message": "feat: init"}, "parents": []}]
+        return {}
+
+    monkeypatch.setattr(github, "_api", api)
+    assert await github.release_commits("acme/app", "v0.1.0", "abc") == ["feat: init"]
 
 
 async def test_fix_release_patches_the_existing_release(gh, monkeypatch):
@@ -210,15 +279,20 @@ async def test_fix_release_patches_the_existing_release(gh, monkeypatch):
 
     async def api(method, path, **kwargs):
         calls.append((method, path, kwargs.get("json")))
+        if path.endswith("/tags"):
+            return [{"name": "v1.1.0"}]
+        if "/compare/" in path:
+            return {"commits": [{"commit": {"message": "feat(b): newer (#2)"}, "parents": [1]}]}
         return {"id": 7, "html_url": "https://github.com/acme/app/releases/tag/v1.2.0"}
 
     monkeypatch.setattr(github, "_api", api)
     url = await projects.fix_release(PROJECT, "v1.2.0")
     assert url.endswith("/v1.2.0")
     assert calls[0][:2] == ("GET", "/repos/acme/app/releases/tags/v1.2.0")
-    assert calls[1] == (
+    assert ("GET", "/repos/acme/app/compare/v1.1.0...v1.2.0", None) in calls
+    assert calls[-1] == (
         "PATCH", "/repos/acme/app/releases/7",
-        {"name": "Palabre v1.2.0", "body": github.release_notes("acme/app", "v1.2.0")},
+        {"name": "Palabre v1.2.0", "body": github.release_notes("acme/app", "v1.2.0", "### Features\n- b: newer (#2)")},
     )  # fmt: skip
 
 

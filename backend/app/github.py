@@ -240,10 +240,59 @@ def release_name(tag: str) -> str:
     return f"Palabre {tag}"
 
 
-def release_notes(repo: str, tag: str) -> str:
-    """The body of a release, the same text as release.yml (keep both in step)."""
+COMMIT_TITLE_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?(?P<bang>!)?: (?P<desc>.+)$")
+VERSION_TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+# Section titles in release order; every type not listed goes to Other
+CHANGE_SECTIONS = {"feat": "Features", "fix": "Bug Fixes", "perf": "Performance", "docs": "Documentation"}
+OTHER_SECTION = "Other"
+
+
+def release_changes(commits: list[str]) -> str:
+    """The changes of a version as Markdown, one line per commit message, grouped by Conventional
+    Commits type. Messages that do not follow the format (old commits) go to Other."""
+    groups: dict[str, list[str]] = {}
+    breaking: list[str] = []
+    for message in commits:
+        title, _, body = message.strip().partition("\n")
+        match = COMMIT_TITLE_RE.match(title.strip())
+        if not match:
+            groups.setdefault(OTHER_SECTION, []).append(title.strip())
+            continue
+        line = f"{match['scope']}: {match['desc']}" if match["scope"] else match["desc"]
+        groups.setdefault(CHANGE_SECTIONS.get(match["type"], OTHER_SECTION), []).append(line)
+        if match["bang"] or "BREAKING CHANGE" in body:
+            breaking.append(line)
+    sections = [("Breaking Changes", breaking)] + [(name, groups.get(name, [])) for name in [*CHANGE_SECTIONS.values(), OTHER_SECTION]]
+    return "\n\n".join(f"### {name}\n" + "\n".join(f"- {line}" for line in lines) for name, lines in sections if lines)
+
+
+def previous_tag(tags: list[str], tag: str) -> str | None:
+    """The highest vX.Y.Z tag below `tag`, if any."""
+    def key(name: str) -> tuple[int, ...]:
+        return tuple(int(n) for n in VERSION_TAG_RE.match(name).groups())
+
+    versions = [name for name in tags if VERSION_TAG_RE.match(name)]
+    older = [name for name in versions if name != tag and (not VERSION_TAG_RE.match(tag) or key(name) < key(tag))]
+    return max(older, key=key, default=None)
+
+
+async def release_commits(repo: str, tag: str, head: str) -> list[str]:
+    """Messages of the commits between the tag before `tag` and `head` (all of them for a first release).
+    Merge commits are left out: they only carry the release PR's own title."""
+    tags = [t["name"] for t in await _api("GET", f"/repos/{repo}/tags", params={"per_page": 100})]
+    base = previous_tag(tags, tag)
+    if base:
+        data = await _api("GET", f"/repos/{repo}/compare/{quote(base, safe='')}...{quote(head, safe='')}")
+        commits = data["commits"]
+    else:
+        commits = await _api("GET", f"/repos/{repo}/commits", params={"sha": head, "per_page": 100})
+    return [c["commit"]["message"] for c in reversed(commits) if len(c.get("parents", [])) < 2]
+
+
+def release_notes(repo: str, tag: str, changes: str = "") -> str:
+    """The body of a release: the changes, then the same download text as release.yml (keep both in step)."""
     owner = repo.split("/")[0].lower()
-    return "\n".join([
+    download = "\n".join([
         "Desktop app: download the file for your system below.",
         "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
         "- Windows: `.msi` or `-setup.exe`.",
@@ -251,6 +300,11 @@ def release_notes(repo: str, tag: str) -> str:
         "",
         f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see the README).",
     ])  # fmt: skip
+    return f"{changes}\n\n{download}" if changes else download
+
+
+async def _notes_with_changes(repo: str, tag: str, head: str) -> str:
+    return release_notes(repo, tag, release_changes(await release_commits(repo, tag, head)))
 
 
 async def create_release(repo: str, tag: str, sha: str) -> dict:
@@ -258,15 +312,15 @@ async def create_release(repo: str, tag: str, sha: str) -> dict:
     return await _api(
         "POST",
         f"/repos/{repo}/releases",
-        json={"tag_name": tag, "target_commitish": sha, "name": release_name(tag), "body": release_notes(repo, tag)},
+        json={"tag_name": tag, "target_commitish": sha, "name": release_name(tag), "body": await _notes_with_changes(repo, tag, sha)},
     )
 
 
 async def update_release(repo: str, tag: str) -> dict:
-    """Reset the name and notes of the existing release of `tag` to the standard ones."""
+    """Reset the name and notes of the existing release of `tag` to the standard ones, changes included."""
     release = await _api("GET", f"/repos/{repo}/releases/tags/{quote(tag, safe='')}")
     return await _api(
         "PATCH",
         f"/repos/{repo}/releases/{release['id']}",
-        json={"name": release_name(tag), "body": release_notes(repo, tag)},
+        json={"name": release_name(tag), "body": await _notes_with_changes(repo, tag, tag)},
     )
