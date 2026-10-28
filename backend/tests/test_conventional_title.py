@@ -9,7 +9,7 @@ from app.worktrees import branch_name, final_branch_name
 from .conftest import make_task
 
 
-def test_reference_is_added_last():
+def test_pr_number_is_added_last():
     assert conventional_title("feat(usage): show real Claude usage per model", 60) == (
         "feat(usage): show real Claude usage per model (#60)"
     )
@@ -20,8 +20,9 @@ def test_scope_is_optional_and_breaking_mark_accepted():
     assert conventional_title("refactor(api)!: drop v1", 7) == "refactor(api)!: drop v1 (#7)"
 
 
-def test_existing_reference_is_not_doubled():
-    assert conventional_title("chore: bump deps (#9)", 9) == "chore: bump deps (#9)"
+def test_existing_reference_is_replaced_not_doubled():
+    assert conventional_title("chore: bump deps (#9)", 12) == "chore: bump deps (#12)"
+    assert conventional_title("chore: bump deps (#9)") == "chore: bump deps"
 
 
 @pytest.mark.parametrize(

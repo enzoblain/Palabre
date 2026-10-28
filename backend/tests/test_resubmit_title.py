@@ -55,7 +55,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     await workflow.submit_for_review(
         FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
     )
-    assert calls[0] == ("title", 12, "fix(api): handle x (#7)")
+    assert calls[0] == ("title", 12, "fix(api): handle x (#12)")
 
 
 async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
@@ -81,6 +81,11 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
         opened.update(kw)
         return {"number": 3, "html_url": "u"}
 
+    titles = []
+
+    async def set_title(repo, number, title):
+        titles.append((number, title))
+
     async def noop(*_, **__):
         pass
 
@@ -93,6 +98,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     monkeypatch.setattr(github, "git", git)
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
+    monkeypatch.setattr(github, "set_pull_request_title", set_title)
 
     await workflow.submit_for_review(
         FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
@@ -101,6 +107,10 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     assert ("/tmp/w", "branch", "-m", "task/7", "fix/7-handle-x") in gits
     assert gits[-1][-1] == "fix/7-handle-x"
     assert opened["head"] == "fix/7-handle-x"
+    assert opened["title"] == "fix(api): handle x"
+    assert task.pr_title == "fix(api): handle x (#3)"
+    assert "Palabre task #7" in opened["body"]
+    assert titles == [(3, "fix(api): handle x (#3)")]
 
 
 async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
@@ -145,6 +155,7 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     monkeypatch.setattr(github, "git", git)
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
+    monkeypatch.setattr(github, "set_pull_request_title", noop)
 
     author = SimpleNamespace(id=1, name="Mehdi")
     with pytest.raises(github.GitHubError):
