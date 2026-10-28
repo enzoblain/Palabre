@@ -3,10 +3,10 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select, update
 
-from app import services
+from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
-from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut
-from app.models import Conversation, Employee, Event, Project, Room
+from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
+from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room
 from app.orchestrator.research import start_question
 
 router = APIRouter(tags=["conversations"])
@@ -85,3 +85,14 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     )
     await s.commit()
     return message
+
+
+@router.post("/messages/{message_id}/answer", response_model=MessageOut)
+async def answer_request(message_id: int, body: RequestAnswerIn, s: SessionDep):
+    """The boss answers a request of the lead: validate, reject or nuance (with a comment).
+    Only once. Validating a release merges its pull request. The lead is woken up with the answer."""
+    await get_or_404(s, Message, message_id)
+    try:
+        return await projects.answer_request(s, message_id, RequestAnswer(body.answer), body.comment)
+    except github.GitHubError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"GitHub refused the merge: {exc}") from None

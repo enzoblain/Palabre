@@ -4,8 +4,9 @@ import random
 import re
 import secrets
 from dataclasses import asdict
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,7 +16,9 @@ from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
     reroll_employee,
 )  # fmt: skip
-from app.models import Conversation, Decision, DecisionStatus, Employee, Project, Room, Task, TaskStatus
+from app.models import (
+    Conversation, Decision, DecisionStatus, Employee, Event, Message, Project, RequestAnswer, Room, Task, TaskStatus,
+)  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
 from app.worktrees import sync_repo
@@ -148,6 +151,37 @@ async def ensure_all_directions(s: AsyncSession) -> None:
     """Existing companies get their direction channel (their rooms stay team channels)."""
     for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
         await ensure_direction(s, await load_project(s, project_id))
+    await s.commit()
+
+
+async def migrate_inbox(s: AsyncSession) -> None:
+    """The inbox is gone: what waited in it becomes requests in direction, then its
+    notifications (events for the boss) are purged. Safe to run at every startup."""
+    escalations = await s.scalars(
+        select(Event).where(Event.target_role == "boss", Event.type == "escalation", Event.processed_at.is_(None))
+    )
+    for event in escalations:
+        message = await s.get(Message, event.payload.get("message_id"))
+        if message is not None and message.request_kind is None:
+            message.request_kind, message.request_status = "escalation", "pending"
+    pending = await s.scalars(select(Decision).where(Decision.status == DecisionStatus.proposed))
+    for decision in pending:
+        asked = await s.scalar(select(Message.id).where(Message.request_decision_id == decision.id).limit(1))
+        room = await s.get(Room, decision.room_id)
+        if asked is not None or room is None:
+            continue
+        employees = list(await s.scalars(select(Employee).where(Employee.project_id == room.project_id)))
+        author = next(
+            (e for e in employees if e.name == decision.proposed_by), next((e for e in employees if "lead" in e.roles), None)
+        )
+        if author is None:
+            continue
+        kind = "release" if decision.pr_number is not None else "decision"
+        text = f"{'Release' if kind == 'release' else 'Decision'} to validate: {decision.title}"
+        if decision.pr_url:
+            text += f" ({decision.pr_url})"
+        await services.ask_boss(s, room.project_id, author, text, kind, decision.id)
+    await s.execute(delete(Event).where(Event.target_role == "boss"))
     await s.commit()
 
 
@@ -305,7 +339,6 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     )  # fmt: skip
     s.add(decision)
     await s.flush()
-    services.emit_event(s, project.id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
     await s.commit()
     return decision
 
@@ -321,6 +354,72 @@ async def settle_release(project: Project, decision: Decision, accepted: bool) -
             await github.close_pull_request(repo, decision.pr_number)
         except github.GitHubError:
             pass  # Already closed or merged on GitHub
+
+
+async def settle_decision(
+    s: AsyncSession, decision: Decision, answer: RequestAnswer, comment: str = "", *, wake_proposer: bool = True
+) -> None:
+    """Apply the boss's answer to a decision. A release is merged when validated and closed
+    when rejected (GitHub refusing the merge raises and leaves everything as it was). A
+    nuanced answer leaves a decision proposed; a nuanced release is dropped but its PR stays
+    open, so the lead can reshape it and propose it again."""
+    room = await s.get(Room, decision.room_id)
+    is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
+    if is_release and answer != RequestAnswer.nuanced:
+        await settle_release(await load_project(s, room.project_id), decision, answer == RequestAnswer.validated)
+    if answer == RequestAnswer.nuanced:
+        status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
+    else:
+        status = DecisionStatus(answer.value)
+    now = datetime.now(UTC)
+    if status != DecisionStatus.proposed:
+        decision.status, decision.decided_at = status, now
+    payload = {"decision_id": decision.id, "status": answer.value, "room_id": room.id}
+    services.emit_event(s, room.project_id, "decision_changed", payload)
+    if wake_proposer:
+        proposer = await s.scalar(
+            select(Employee).where(Employee.project_id == room.project_id, Employee.name == decision.proposed_by)
+        )
+        if proposer is not None:
+            services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
+    # The requests asking the boss about this decision are answered
+    await s.execute(
+        update(Message)
+        .where(Message.request_decision_id == decision.id, Message.request_status == "pending")
+        .values(request_status=answer.value, request_comment=comment or None, request_answered_at=now)
+    )
+
+
+async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer, comment: str = "") -> Message:
+    """The boss answers a request of the lead, once. The answer is stored on the message and
+    wakes the lead up with it; a request about a decision or a release settles it too."""
+    message = await s.get(Message, message_id, with_for_update=True)  # two clicks: one answer
+    if message is None or message.request_kind is None:
+        raise WorkflowError(f"Message #{message_id} does not ask anything")
+    if message.request_status != "pending":
+        raise WorkflowError(f"Message #{message_id} was already answered ({message.request_status})")
+    conversation = await s.get(Conversation, message.conversation_id)
+    room = await s.get(Room, conversation.room_id)
+    comment = comment.strip()
+    employees = await s.scalars(select(Employee).where(Employee.project_id == room.project_id))
+    lead = next((e for e in employees if "lead" in e.roles), None)
+    if message.request_decision_id is not None:
+        decision = await s.get(Decision, message.request_decision_id)
+        if decision is not None:
+            # The lead is woken by the answer itself: no second wakeup for their own proposal
+            await settle_decision(s, decision, answer, comment, wake_proposer=lead is None or decision.proposed_by != lead.name)
+    message.request_status = answer.value
+    message.request_comment = comment or None
+    message.request_answered_at = datetime.now(UTC)
+    if lead is not None:
+        payload = {
+            "conversation_id": message.conversation_id, "message_id": message.id,
+            "answer": answer.value, "comment": comment or "(no comment)", "request": message.request_kind,
+            "asked_by": message.author_name,
+        }  # fmt: skip
+        services.emit_event(s, room.project_id, "ceo_answer", payload, employee_id=lead.id)
+    await s.commit()
+    return message
 
 
 async def normalize_repo_urls(s: AsyncSession) -> None:

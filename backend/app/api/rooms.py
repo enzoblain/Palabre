@@ -1,7 +1,5 @@
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import github, projects, services
@@ -17,7 +15,7 @@ from app.api.schemas import (
     RoomPatch,
     TaskOut,
 )
-from app.models import Conversation, Decision, DecisionStatus, Employee, Event, OpenQuestion, Project, Room, Task
+from app.models import Conversation, Decision, Employee, OpenQuestion, Project, RequestAnswer, Room, Task
 
 router = APIRouter(tags=["rooms"])
 
@@ -139,34 +137,14 @@ async def get_document(room_id: int, s: SessionDep) -> dict:
 
 @router.patch("/decisions/{decision_id}", response_model=DecisionOut)
 async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
-    """Validate or reject a decision proposed by an employee. A release is merged into
-    production when validated (and stays proposed if GitHub refuses), closed when rejected."""
+    """Validate or reject a decision from the room document. A release is merged into
+    production when validated (and stays proposed if GitHub refuses), closed when rejected.
+    The request in direction about it, if any, is answered the same way."""
     decision = await get_or_404(s, Decision, decision_id)
-    room = await get_or_404(s, Room, decision.room_id)
-    if decision.pr_number is not None and decision.status == DecisionStatus.proposed:
-        try:
-            await projects.settle_release(await get_or_404(s, Project, room.project_id), decision, body.status == "validated")
-        except github.GitHubError as exc:
-            raise HTTPException(status.HTTP_409_CONFLICT, f"GitHub refused the merge: {exc}") from None
-    decision.status = DecisionStatus(body.status)
-    decision.decided_at = datetime.now(UTC)
-    payload = {"decision_id": decision.id, "status": body.status, "room_id": room.id}
-    services.emit_event(s, room.project_id, "decision_changed", payload)
-    proposer = await s.scalar(
-        select(Employee).where(Employee.project_id == room.project_id, Employee.name == decision.proposed_by)
-    )
-    if proposer is not None:
-        services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
-    # The notification asking you to decide is done
-    await s.execute(
-        update(Event)
-        .where(
-            Event.type == "decision_proposed",
-            Event.processed_at.is_(None),
-            Event.payload["decision_id"].as_integer() == decision.id,
-        )
-        .values(processed_at=datetime.now(UTC))
-    )
+    try:
+        await projects.settle_decision(s, decision, RequestAnswer(body.status))
+    except github.GitHubError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"GitHub refused the merge: {exc}") from None
     await s.commit()
     return decision
 

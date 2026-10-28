@@ -147,14 +147,25 @@ async def last_message_id(s: AsyncSession, conversation_id: int) -> int:
 
 
 async def post_message(
-    s: AsyncSession, project_id: int, conversation_id: int, content: str, author: Employee | None
+    s: AsyncSession,
+    project_id: int,
+    conversation_id: int,
+    content: str,
+    author: Employee | None,
+    *,
+    request_kind: str | None = None,
+    request_decision_id: int | None = None,
 ) -> Message:
-    """Post a message (author None = the boss) and wake up everyone @mentioned."""
+    """Post a message (author None = the boss) and wake up everyone @mentioned.
+    With a request_kind, the message asks the boss something (see ask_boss)."""
     msg = Message(
         conversation_id=conversation_id,
         employee_id=author.id if author else None,
         author_name=author.name if author else boss_display_name(),
         content=content,
+        request_kind=request_kind,
+        request_status="pending" if request_kind else None,
+        request_decision_id=request_decision_id,
     )
     s.add(msg)
     await s.flush()
@@ -162,9 +173,6 @@ async def post_message(
     mentioned = {m.lower() for m in MENTION_RE.findall(content)}
     if mentioned:
         payload = {"conversation_id": conversation_id, "message_id": msg.id}
-        boss_names = BOSS_ALIASES | ({boss_name().lower()} if boss_name() else set())
-        if mentioned & boss_names:
-            emit_event(s, project_id, "mention", payload, role="boss")
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
         in_direction = await s.scalar(
             select(Room.id)
@@ -180,6 +188,42 @@ async def post_message(
     await s.commit()
     await s.refresh(msg)
     return msg
+
+
+# --- Requests to the boss ----------------------------------------------------------
+
+REQUEST_KINDS = {"decision", "release", "escalation", "question"}
+
+
+async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
+    """The active conversation of the direction channel (research groups have none)."""
+    return await s.scalar(
+        select(Conversation.id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.project_id == project_id, Room.kind == DIRECTION)
+        .order_by(Conversation.id.desc())
+        .limit(1)
+    )
+
+
+async def ask_boss(
+    s: AsyncSession,
+    project_id: int,
+    author: Employee,
+    content: str,
+    kind: str,
+    decision_id: int | None = None,
+) -> Message | None:
+    """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    Returns None where there is no direction (research groups): the boss reads the room instead."""
+    if kind not in REQUEST_KINDS:
+        raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
+    conversation_id = await direction_conversation_id(s, project_id)
+    if conversation_id is None:
+        return None
+    return await post_message(
+        s, project_id, conversation_id, content, author, request_kind=kind, request_decision_id=decision_id
+    )
 
 
 # --- Channels ----------------------------------------------------------------------
@@ -293,8 +337,9 @@ async def add_decision(
     decision = Decision(room_id=room_id, title=title, rationale=rationale, proposed_by=author.name)
     s.add(decision)
     await s.flush()
-    emit_event(s, project_id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
     await s.commit()
+    text = f"Decision to validate: {title}" + (f"\n\n{rationale}" if rationale else "")
+    await ask_boss(s, project_id, author, text, "decision", decision.id)
     return decision
 
 
@@ -341,12 +386,13 @@ async def write_notes(s: AsyncSession, employee_id: int, content: str, append: b
 async def escalate(
     s: AsyncSession, project_id: int, conversation_id: int, author: Employee, to: str, reason: str
 ) -> Message:
-    target = "boss" if to == "boss" else "lead"
-    if target == "boss":
-        name = boss_name() or "boss"
-    else:
-        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
-        name = next((e.name for e in employees if "lead" in e.roles), "lead")
+    if to == "boss":
+        # An interactive request in direction; where there is none, a plain message in the room
+        if msg := await ask_boss(s, project_id, author, reason, "escalation"):
+            return msg
+        return await post_message(s, project_id, conversation_id, f"@{boss_name() or 'boss'} {reason}", author)
+    employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+    name = next((e.name for e in employees if "lead" in e.roles), "lead")
     # Written like any message to them; the escalation event is what routes it
     content = reason if f"@{name}".lower() in reason.lower() else f"@{name} {reason}"
     msg = await post_message(s, project_id, conversation_id, content, author)
@@ -355,7 +401,7 @@ async def escalate(
         project_id,
         "escalation",
         {"conversation_id": conversation_id, "message_id": msg.id, "from": author.name},
-        role=target,
+        role="lead",
     )
     await s.commit()
     return msg

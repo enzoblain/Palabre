@@ -42,6 +42,14 @@ class DecisionStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class RequestAnswer(str, enum.Enum):
+    """How the boss answers a request of the lead (Message.request_status)."""
+
+    validated = "validated"
+    rejected = "rejected"
+    nuanced = "nuanced"
+
+
 class TaskKind(str, enum.Enum):
     feature = "feature"
     bug = "bug"
@@ -200,6 +208,14 @@ class Message(Base):
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     author_name: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text)
+    # A request to the boss ("decision", "release", "escalation", "question"), answered
+    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then
+    request_kind: Mapped[str | None] = mapped_column(String(20))
+    request_status: Mapped[str | None] = mapped_column(String(20))
+    request_comment: Mapped[str | None] = mapped_column(Text)
+    request_answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The decision (or release) the request is about
+    request_decision_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = created_at_column()
 
 

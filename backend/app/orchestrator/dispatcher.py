@@ -355,7 +355,7 @@ class Orchestrator:
         last = self._throttled_at.get(conversation_id)
         if last is None or last < since:
             services.emit_event(
-                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "runs": runs}, role="boss"
+                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "runs": runs}, role="lead"
             )
             await s.commit()
             self._throttled_at[conversation_id] = datetime.now(UTC)
