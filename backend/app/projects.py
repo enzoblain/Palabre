@@ -23,6 +23,20 @@ from app.worktrees import sync_repo
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
+async def working_branch(repo_url: str, branch: str) -> str:
+    """The branch a new development project works on. `branch` is the one resolved at
+    creation: when it is the repository's default branch (production), the team works on
+    `dev` instead, created from it if missing, and only propose_release reaches production.
+    An empty repository has no branch to create it from: `dev` is named anyway and its
+    first commit (worktrees._initial_commit) creates production, then `dev`."""
+    repo = github.repo_slug(repo_url)
+    if branch != await github.resolve_branch(repo, ""):
+        return branch
+    if await github.has_commits(repo) and not await github.branch_exists(repo, github.WORKING_BRANCH):
+        await github.create_branch(repo, github.WORKING_BRANCH, branch)
+    return github.WORKING_BRANCH
+
+
 async def create_project(
     s: AsyncSession,
     *,
@@ -43,6 +57,7 @@ async def create_project(
     kind = kind_of_mode(mode)
     if kind == "company":
         repo_url = github.https_url(repo_url)  # GitHub URLs only
+        default_branch = await working_branch(repo_url, default_branch)
     else:
         repo_url = ""
     if employees:
