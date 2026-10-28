@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -12,14 +13,64 @@ from sqlalchemy.orm import selectinload
 from app import github
 from app.config import settings
 from app.company.team import load_catalog
-from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
+from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.services import WorkflowError, emit_event, post_message, post_system_message
 from app.worktrees import final_branch_name, remove_task_worktree, rename_branch, repo_dir
 
 MAX_DIFF_CHARS = 100_000
+# Events that make a dev work on a task (the same set as the orchestrator's task runs)
+TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 log = logging.getLogger(__name__)
+
+
+# Changes of each task waiting to reach the lead: (project id, first seen at, changes). In memory:
+# a restart loses at most the last window, and the idle watchdog catches what stays stuck.
+_lead_pending: dict[int, tuple[int, float, list[str]]] = {}
+
+
+def wake_lead(task: Task, change: str) -> None:
+    """Note a task change for the lead; flush_lead_updates sends the changes of a task together
+    once lead_debounce_seconds have passed since the first one."""
+    task.idle_alert_sha = None  # The task moved: a new stall deserves a new alert
+    _, since, changes = _lead_pending.get(task.id, (task.project_id, time.monotonic(), []))
+    _lead_pending[task.id] = (task.project_id, since, [*changes, change])
+
+
+def flush_lead_updates(s: AsyncSession) -> None:
+    """Emit one task_update per task whose window is over, with all its changes."""
+    now = time.monotonic()
+    for task_id, (project_id, since, changes) in list(_lead_pending.items()):
+        if now - since >= settings.lead_debounce_seconds:
+            del _lead_pending[task_id]
+            emit_event(s, project_id, "task_update", {"task_id": task_id, "change": "; ".join(changes)}, role="lead")
+
+
+async def wake_dev(
+    s: AsyncSession, task: Task, event_type: str, payload: dict | None = None, *, dedupe: bool = False, nudge: bool = False
+) -> bool:
+    """The one way to send a task back to its dev: emit event_type for the assignee with the reason in
+    payload. dedupe: skip if a run is on it or a wakeup is already queued. Returns whether it woke."""
+    if task.assignee_id is None:
+        return False
+    if dedupe and await dev_busy(s, task):
+        return False
+    if not nudge:
+        task.unstarted_nudges = 0  # Someone moved the task: the watchdog starts over
+    task.idle_alert_sha = None
+    emit_event(s, task.project_id, event_type, {"task_id": task.id, **(payload or {})}, employee_id=task.assignee_id)
+    return True
+
+
+async def dev_busy(s: AsyncSession, task: Task) -> bool:
+    """A wakeup of this task is queued or running, or an event for it is not resolved yet."""
+    if await s.scalar(select(Wakeup.id).where(Wakeup.task_id == task.id, Wakeup.finished_at.is_(None)).limit(1)):
+        return True
+    queued = await s.scalars(
+        select(Event).where(Event.processed_at.is_(None), Event.target_employee_id == task.assignee_id)
+    )
+    return any(e.type in TASK_EVENT_TYPES and e.payload.get("task_id") == task.id for e in queued)
 
 
 async def announce(s: AsyncSession, task: Task, text: str) -> None:
@@ -106,6 +157,13 @@ async def _check_dependencies(s: AsyncSession, project_id: int, depends_on: list
         await get_task(s, project_id, dep_id)
 
 
+async def dependencies_done(s: AsyncSession, task: Task) -> bool:
+    if not task.depends_on:
+        return True
+    statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
+    return all(st == TaskStatus.done for st in statuses)
+
+
 async def create_task(
     s: AsyncSession,
     *,
@@ -145,8 +203,10 @@ async def assign_task(s: AsyncSession, project_id: int, task_id: int, assignee: 
     if task.status not in {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}:
         raise WorkflowError(f"Task #{task_id} is {task.status.value} and can no longer be reassigned")
     employee = await find_employee(s, project_id, assignee)
-    task.assignee_id = employee.id
-    emit_event(s, project_id, "task_assigned", {"task_id": task.id}, employee_id=employee.id)
+    changed = task.assignee_id != employee.id
+    task.assignee, task.assignee_id = employee, employee.id  # The relationship too: it is what get_task shows
+    # Same assignee: only a nudge, which does nothing if the dev is already on it
+    await wake_dev(s, task, "task_assigned", dedupe=not changed)
     await s.commit()
     return await get_task(s, project_id, task_id)
 
@@ -180,6 +240,9 @@ async def update_task(
         task.status = new_status
         if new_status == TaskStatus.cancelled and not was_cancelled:
             await clean_up_task(await s.get(Project, project_id), task)
+        elif new_status == TaskStatus.todo and await dependencies_done(s, task):
+            why = "rebase and submit again" if task.pr_number is not None else "back in todo"
+            await wake_dev(s, task, "task_nudge", {"why": why}, dedupe=True)
     await s.commit()
     return task
 
@@ -240,6 +303,7 @@ async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: E
         statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
         if any(st != TaskStatus.done for st in statuses):
             raise WorkflowError(f"Task #{task.id} is still waiting for tasks {task.depends_on}")
+    task.idle_alert_sha = None  # Back at work: a new stall deserves a new alert
     emit_event(s, project_id, "task_resume", {"task_id": task.id}, employee_id=employee.id)
     await s.commit()
     return task
@@ -328,6 +392,7 @@ async def submit_for_review(
     if process["security_gate"] and task.sensitive:
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
     await announce(s, task, f"PR submitted by {author.name} (round {task.review_round})")
+    wake_lead(task, f"PR submitted by {author.name} (round {task.review_round})")
     # In the author's own words, with the link
     await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task
@@ -374,10 +439,11 @@ async def review_task(
         )  # fmt: skip
 
     await announce(s, task, f"{reviewer.name} ({reviewer.title}): {_VERDICT_LABELS[review.verdict]}")
+    wake_lead(task, f"{reviewer.name} ({reviewer.title}) {_VERDICT_LABELS[review.verdict]}")
     payload = {"task_id": task.id, "reviewer": reviewer.name}
     if review.verdict == Verdict.changes:
         task.status = TaskStatus.changes_requested
-        emit_event(s, project_id, "changes_requested", payload, employee_id=task.assignee_id)
+        await wake_dev(s, task, "changes_requested", payload)
     await s.commit()
 
     blockers = await merge_blockers(s, project, task) if task.status == TaskStatus.review else []
@@ -488,6 +554,9 @@ async def merge_task(
     if task.status != TaskStatus.review or task.pr_number is None:
         raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged")
     if not force and (blockers := await merge_blockers(s, project, task)):
+        if any(b.startswith("CI still running") for b in blockers):
+            task.merge_retry_at = datetime.now(UTC)  # The watcher wakes the lead when the CI is over
+            await s.commit()
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
 
     repo = github.repo_slug(project.repo_url)

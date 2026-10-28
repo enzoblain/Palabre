@@ -63,6 +63,29 @@ and, after `merge_release`, when the CI of production's head ends, the lead is w
 head SHA with the result (green, or the failing checks) and a "Palabre" line is posted in the
 team's first channel. Green means `merge_release`, then `publish_version`.
 
+A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
+branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
+the CI is red on an otherwise approved task, the task goes back to its dev (`changes_requested`)
+with the problem (rebase, missing CI, failing checks) and a "Palabre" line is posted in the team's
+first channel. The dev is woken up once per head SHA. A red CI only sends the task back once it is
+otherwise approved (no other merge rule is missing); before that, reviewers go first.
+
+The lead is also woken up (`task_update`) whenever a task moves: PR submitted or resubmitted, each
+review verdict, CI finished, task sent back. Changes of the same task within
+`LEAD_DEBOUNCE_SECONDS` (30 by default) are grouped into one wakeup sent when the window ends, listing them all. A watchdog alerts the lead
+(`task_idle`, once per head SHA) when a task in progress or in review has not moved for
+`IDLE_TASK_MINUTES` (10 by default), with the reason: conflict, missing or red CI, missing review,
+or simply no activity.
+
+A task never waits silently for its dev either: putting a task back to `todo` (with or without a PR:
+rebase, new work), requesting changes, or calling `assign_task` (also to the same dev, which then
+only nudges) wakes the assignee with the reason, unless a run or a wakeup is already on that
+task. A `todo` or `changes_requested` task whose dev has had no run for `IDLE_TASK_MINUTES` is
+nudged once; if it still does not start after another `IDLE_TASK_MINUTES`, the lead is alerted
+(`task_idle`). Tasks waiting for their dependencies are left alone. When `merge_task` is refused
+because the CI is still running, the lead is woken (`merge_retry`) as soon as the CI is over,
+or as a mergeable task if every rule is then met.
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
@@ -289,4 +312,4 @@ Roles, company sizes, research angles and personalities are all defined in
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64
 (`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
-every system, attached to the release.
+every system, attached to the release. A final `notes` job puts the changes back if the builds overwrote the release body, so the notes always read changes, then download text.

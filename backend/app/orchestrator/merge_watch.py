@@ -1,22 +1,27 @@
 """Tasks that became mergeable without a review (CI turned green) or that nobody merged:
-the lead is woken up, then reminded once. Same for the CI of the release PR and of production."""
+the lead is woken up, then reminded once. Tasks stuck in review (conflict, no CI, red CI) go back
+to their dev, once per head SHA. Same for the CI of the release PR and of production."""
 
 import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, workflow
 from app.config import settings
-from app.models import Project, Task, TaskStatus
+from app.models import AgentRun, Project, Task, TaskStatus, Wakeup
 from app.services import emit_event, post_system_message, team_conversation_id
 
 # Seconds between two merge-rule checks of the same task (they ask GitHub about the CI)
 CHECK_EVERY_S = 60
 _last_check: dict[int, float] = {}
 _last_release_check: dict[int, float] = {}
+_last_idle_check: dict[int, float] = {}
+_last_unstarted_check: dict[int, float] = {}
+# Last final CI result announced to the lead, per task; in memory, so a restart may repeat one
+_ci_seen: dict[int, str] = {}
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +38,8 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
     tasks = list(tasks)
     for gone in _last_check.keys() - {t.id for t in tasks}:
         del _last_check[gone]
+    for gone in _ci_seen.keys() - {t.id for t in tasks}:
+        del _ci_seen[gone]
     for task in tasks:
         reminder_due = (
             task.merge_ready_at is not None
@@ -47,9 +54,22 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         project = await s.get(Project, task.project_id)
         try:
             blockers = await workflow.merge_blockers(s, project, task)
+            stuck = await _stuck(project, task, blockers)
         except github.GitHubError as exc:
             log.warning("Task #%s: merge rules could not be checked: %s", task.id, exc)
             continue  # One broken task must not stop the others
+        if stuck is not None:
+            await _send_back(s, project, task, *stuck)
+            continue
+        if (ci := _ci_result(blockers)) is not None and _ci_seen.get(task.id) != ci:
+            if ci != "green" or blockers:  # All green and approved: the lead is woken as mergeable
+                workflow.wake_lead(task, f"CI finished: {ci}")
+            _ci_seen[task.id] = ci
+        if task.merge_retry_at is not None and not any(b.startswith("CI still running") for b in blockers):
+            task.merge_retry_at = None  # The CI is over; mergeable tasks wake the lead just below
+            if blockers:
+                payload = {"task_id": task.id, "result": "; ".join(blockers)}
+                emit_event(s, task.project_id, "merge_retry", payload, role="lead")
         if blockers:
             task.merge_ready_at = None  # A rule broke again (CI): announce it when fixed
             continue
@@ -58,6 +78,100 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         else:
             await workflow.mark_merge_ready(s, task, "the checks")
     await s.commit()
+
+
+def _ci_result(blockers: list[str]) -> str | None:
+    """"green" or the failure reason once the CI is over; None while it runs or is missing."""
+    ci = next((b for b in blockers if b.startswith(("CI", "no CI"))), None)
+    if ci is None:
+        return "green"
+    return None if ci.startswith(("CI still running", "no CI")) else ci
+
+
+async def _stuck(project: Project, task: Task, blockers: list[str]) -> tuple[str, str] | None:
+    """(head SHA, what the dev must fix) if the PR cannot merge by itself and the dev was not
+    already told for this head; the CI reasons come from merge_blockers, so they follow the
+    company's rules (a size that does not require CI never complains about it)."""
+    if task.assignee_id is None:
+        return None
+    pr = await github.get_pull_request(github.repo_slug(project.repo_url), task.pr_number)
+    sha = pr["head"]["sha"]
+    if task.stuck_sha == sha:
+        return None
+    if pr.get("mergeable_state") == "dirty":
+        return sha, f"conflict with {pr['base']['ref']}: rebase and submit again"
+    for blocker in blockers:
+        if blocker.startswith("CI failed") and len(blockers) == 1:  # Approved, only the CI is red
+            return sha, blocker
+        if blocker.startswith("no CI checks") and task.submitted_at is not None and (
+            _aware(task.submitted_at) <= datetime.now(UTC) - timedelta(minutes=settings.ci_missing_minutes)
+        ):
+            return sha, f"no CI reported after {settings.ci_missing_minutes} minutes: check the workflows and push again"
+    return None
+
+
+async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, problem: str) -> None:
+    """Give the task back to its dev with the problem, and tell the team."""
+    task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
+    await workflow.wake_dev(s, task, "pr_blocked", {"problem": problem})
+    workflow.wake_lead(task, f"sent back to its dev: {problem}")
+    if (conversation_id := await team_conversation_id(s, project.id)) is not None:
+        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
+
+
+async def watch_idle_tasks(s: AsyncSession) -> None:
+    """Alert the lead, once per head SHA, about a task in progress or in review that has not moved
+    for idle_task_minutes, with the reason it is stuck."""
+    now = time.monotonic()
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_task_minutes)
+    tasks = list(
+        await s.scalars(
+            select(Task).where(Task.status.in_([TaskStatus.in_progress, TaskStatus.review]), Task.updated_at < cutoff)
+        )
+    )
+    for gone in _last_idle_check.keys() - {t.id for t in tasks}:
+        del _last_idle_check[gone]
+    for task in tasks:
+        if now - _last_idle_check.get(task.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
+            continue
+        _last_idle_check[task.id] = now
+        # The task row does not change while its dev works: a running agent is activity (a run older
+        # than the timeout was cut by a restart and never finished)
+        started_after = datetime.now(UTC) - timedelta(seconds=settings.agent_timeout_s)
+        running = await s.scalar(
+            select(AgentRun.id)
+            .where(AgentRun.task_id == task.id, AgentRun.finished_at.is_(None), AgentRun.started_at > started_after)
+            .limit(1)
+        )
+        if running is not None:
+            continue
+        project = await s.get(Project, task.project_id)
+        try:
+            sha, reason = await _idle_reason(s, project, task)
+        except github.GitHubError as exc:
+            log.warning("Task #%s: idle state could not be checked: %s", task.id, exc)
+            continue
+        if reason is None:
+            continue  # Already alerted for this head SHA
+        task.idle_alert_sha = sha
+        payload = {"task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes, "reason": reason}
+        emit_event(s, task.project_id, "task_idle", payload, role="lead")
+    await s.commit()
+
+
+async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str | None]:
+    """(head SHA, why the task is stuck); the SHA is "none" while there is no PR. The reason is
+    None when the lead was already alerted for this SHA: only one PR call is spent then."""
+    if task.status != TaskStatus.review or task.pr_number is None:
+        return "none", None if task.idle_alert_sha == "none" else "no activity on the work in progress"
+    pr = await github.get_pull_request(github.repo_slug(project.repo_url), task.pr_number)
+    sha = pr["head"]["sha"]
+    if task.idle_alert_sha == sha:
+        return sha, None
+    if pr.get("mergeable_state") == "dirty":
+        return sha, f"the PR conflicts with {pr['base']['ref']}"
+    blockers = await workflow.merge_blockers(s, project, task)
+    return sha, "; ".join(blockers) or "every merge rule is met, waiting to be merged"
 
 
 def _ci_over(reason: str | None) -> bool:
@@ -117,3 +231,43 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
             f"CI of the release PR #{pr['number']}: {result} · {pr['html_url']}",
         )  # fmt: skip
         project.release_ci_sha = pr["head"]["sha"]
+
+
+async def watch_unstarted_tasks(s: AsyncSession) -> None:
+    """A todo or changes_requested task with a dev but no run for idle_task_minutes: the dev is
+    nudged once, then (after another idle_task_minutes) the lead is told."""
+    now = time.monotonic()
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_task_minutes)
+    tasks = list(
+        await s.scalars(
+            select(Task).where(
+                Task.status.in_([TaskStatus.todo, TaskStatus.changes_requested]),
+                Task.assignee_id.is_not(None),
+                Task.unstarted_nudges < 2,
+                Task.updated_at < cutoff,
+            )
+        )
+    )
+    for gone in _last_unstarted_check.keys() - {t.id for t in tasks}:
+        del _last_unstarted_check[gone]
+    for task in tasks:
+        if now - _last_unstarted_check.get(task.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
+            continue
+        _last_unstarted_check[task.id] = now
+        if not await workflow.dependencies_done(s, task) or await workflow.dev_busy(s, task):
+            continue  # Waiting for other tasks, or already on it
+        last_run = await s.scalar(select(func.max(AgentRun.started_at)).where(AgentRun.task_id == task.id))
+        last_wakeup = await s.scalar(select(func.max(Wakeup.created_at)).where(Wakeup.task_id == task.id))
+        if any(at is not None and _aware(at) >= cutoff for at in (last_run, last_wakeup)):
+            continue
+        if task.unstarted_nudges == 0:
+            why = f"no run for {settings.idle_task_minutes} minutes"
+            await workflow.wake_dev(s, task, "task_nudge", {"why": why}, nudge=True)
+        else:
+            payload = {
+                "task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes,
+                "reason": "its dev was nudged and still did not start",
+            }  # fmt: skip
+            emit_event(s, task.project_id, "task_idle", payload, role="lead")
+        task.unstarted_nudges += 1
+    await s.commit()
