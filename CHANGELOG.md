@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.4
+
+### Highlights
+
+- **Lead wake-up when CI finishes**: the lead is woken up when the CI of the release PR and of `main` (production) ends, with the result, so a failed release CI no longer goes unnoticed.
+
+### Also in this release
+
+- Tests: the usage cache locks are cleared between tests.
+
+### Upgrading from 0.2.3
+
+- Nothing to do: the `release_ci_sha`, `main_ci_sha` and `main_ci_watch` project columns (nullable, or default false) are added automatically at startup.
+
 ## 0.2.3
 
 ### Highlights
