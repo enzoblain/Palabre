@@ -132,8 +132,7 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
 
 
 def branch_name(task: Task) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", task.title.lower()).strip("-")[:40].rstrip("-") or "task"
-    return f"task/{task.id}-{slug}"
+    return f"task/{task.id}"  # Not from the title, which is in the team's language
 
 
 async def prepare_worktree(project: Project, task: Task) -> tuple[str, Path]:

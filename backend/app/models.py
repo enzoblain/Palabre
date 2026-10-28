@@ -251,6 +251,8 @@ class Task(Base):
     worktree_path: Mapped[str | None] = mapped_column(String(500))
     pr_number: Mapped[int | None]
     pr_url: Mapped[str | None] = mapped_column(String(500))
+    # English Conventional Commits title given at submission: the PR title and the squash commit's
+    pr_title: Mapped[str | None] = mapped_column(String(200))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Incremented on each submission; only reviews of the current round count
     review_round: Mapped[int] = mapped_column(default=0)
