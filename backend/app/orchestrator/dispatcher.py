@@ -16,7 +16,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
-from app.models import AgentRun, AgentSession, Employee, Project, Task, TaskStatus, Wakeup
+from app.models import AgentRun, AgentSession, Employee, Message, Project, Task, TaskStatus, Wakeup
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import CHAT_RULES, OPERATING_RULES, language_rule, task_rules, wake_prompt
 from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
@@ -28,6 +28,8 @@ from app.worktrees import prepare_desk, prepare_worktree, repo_dir, sync_repo
 log = logging.getLogger(__name__)
 
 REPO_SYNC_INTERVAL_S = 60
+# Wakeups that only come from the team talking to itself: the ones the throttle applies to
+CHATTER_EVENTS = {"mention", "conversation_idle", "daily"}
 
 
 class SkipRun(Exception):
@@ -244,7 +246,7 @@ class Orchestrator:
                 oauth_token=oauth_token,
             )
         else:
-            await self._check_rate(s, project, first.conversation_id, run_id)
+            await self._check_rate(s, project, first.conversation_id, run_id, {w.event_type for w in wakeups})
             scope = f"conversation:{first.conversation_id}"
             spec = RunSpec(
                 author_name=employee.name,
@@ -304,8 +306,23 @@ class Orchestrator:
             await s.commit()
             raise SkipRun(f"{task.review_round} review rounds: the lead has to step in")
 
-    async def _check_rate(self, s: AsyncSession, project: Project, conversation_id: int, run_id: int) -> None:
+    async def _check_rate(
+        self, s: AsyncSession, project: Project, conversation_id: int, run_id: int, event_types: set[str]
+    ) -> None:
+        """Stops agents that keep pinging each other in a conversation. Only chatter is
+        throttled: workflow events (reviews, merges, bugs, escalations...) always go
+        through. The boss posting in the conversation lifts it."""
+        if not event_types <= CHATTER_EVENTS:
+            return
         since = datetime.now(UTC) - timedelta(hours=1)
+        last_boss_message = await s.scalar(
+            select(func.max(Message.created_at)).where(
+                Message.conversation_id == conversation_id, Message.employee_id.is_(None)
+            )
+        )
+        if last_boss_message is not None:
+            last_boss_message = last_boss_message if last_boss_message.tzinfo else last_boss_message.replace(tzinfo=UTC)
+            since = max(since, last_boss_message)
         runs = await s.scalar(
             select(func.count())
             .select_from(AgentRun)

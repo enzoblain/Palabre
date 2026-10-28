@@ -22,7 +22,7 @@ REASONS: dict[str, str] = {
     "decision_changed": "The boss {status} decision #{decision_id}. Take it into account.",
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",
     "review_rounds_exceeded": "Task #{task_id} went through {rounds} rounds of requested changes without converging. Step in: decide, reassign it, or split it.",
-    "conversation_throttled": "The team posted too much in conversation #{conversation_id} within an hour; agents are paused there until you step in.",
+    "conversation_throttled": "The team talked too much in conversation #{conversation_id} within an hour: their chatter is paused there until you post in it (work on tasks and reviews goes on).",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, tell them with @boss; otherwise reassign or split the task.",
     "conversation_idle": "The conversation has gone quiet. Update the room document (summary, open questions) with what was said and decided.",
