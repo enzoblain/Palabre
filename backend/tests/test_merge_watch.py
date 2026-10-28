@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app import github, workflow
-from app.models import Message, Task
+from app.models import Message, Task, TaskStatus
 from app.orchestrator import merge_watch
 
 from .conftest import make_project, make_task
@@ -39,7 +39,16 @@ def watch(project, monkeypatch):
     async def blockers(_s, _project, _task):
         return state.blockers
 
+    async def pull_request(_repo, _number):
+        return state.pr
+
+    async def team_conversation(_s, _pid):
+        return 3
+
     monkeypatch.setattr(workflow, "merge_blockers", blockers)
+    monkeypatch.setattr(github, "get_pull_request", pull_request)
+    monkeypatch.setattr(merge_watch, "team_conversation_id", team_conversation)
+    state.pr = {"head": {"sha": "abc"}, "base": {"ref": "dev"}, "mergeable_state": "clean"}
     return state
 
 
@@ -236,3 +245,66 @@ async def test_github_error_is_logged_not_raised(ci_project, monkeypatch):
     s = WatchSession([ci_project], ci_project)
     await merge_watch.watch_release_ci(s)
     assert not s.added and s.commits == 1
+
+
+def stuck_task(**fields):
+    return reviewable(title="Demo", assignee_id=5, status=TaskStatus.review, submitted_at=datetime.now(UTC) - timedelta(minutes=30), **({"stuck_sha": None} | fields))
+
+
+async def test_conflicting_pr_goes_back_to_its_dev_once_per_sha(watch, project):
+    watch.pr["mergeable_state"] = "dirty"
+    watch.blockers = ["no CI checks reported"]
+    task = stuck_task()
+    s = WatchSession([task], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    merge_watch._last_check.clear()
+    await merge_watch.watch_mergeable_tasks(s)
+    [event] = events_of(s, "pr_blocked")
+    assert event.target_employee_id == 5 and "conflict with dev: rebase" in event.payload["problem"]
+    assert task.status == TaskStatus.changes_requested and task.stuck_sha == "abc"
+    [line] = [m for m in s.added if isinstance(m, Message)]
+    assert "sent back" in line.content
+
+
+async def test_a_new_head_sha_wakes_the_dev_again(watch, project):
+    watch.pr["mergeable_state"] = "dirty"
+    task = stuck_task(stuck_sha="old")
+    s = WatchSession([task], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    assert len(events_of(s, "pr_blocked")) == 1 and task.stuck_sha == "abc"
+
+
+async def test_missing_ci_goes_back_only_after_the_delay(watch, project):
+    watch.blockers = ["no CI checks reported"]
+    recent = stuck_task()
+    recent.submitted_at = datetime.now(UTC) - timedelta(minutes=2)
+    s = WatchSession([recent], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    assert not events_of(s, "pr_blocked")
+    late = stuck_task()
+    s = WatchSession([late], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    [event] = events_of(s, "pr_blocked")
+    assert "no CI reported" in event.payload["problem"]
+
+
+async def test_red_ci_on_an_approved_task_lists_the_failing_checks(watch, project):
+    watch.blockers = ["CI failed: lint, tests"]
+    s = WatchSession([stuck_task()], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    [event] = events_of(s, "pr_blocked")
+    assert event.payload["problem"] == "CI failed: lint, tests"
+
+
+async def test_red_ci_waits_for_the_reviews(watch, project):
+    watch.blockers = ["CI failed: lint", "0/1 reviewer approval(s)"]
+    s = WatchSession([stuck_task()], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    assert not s.added
+
+
+async def test_running_ci_is_left_alone(watch, project):
+    watch.blockers = ["CI still running: tests"]
+    s = WatchSession([stuck_task()], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    assert not s.added

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A task in review whose PR conflicts with the team's branch, reports no CI after `CI_MISSING_MINUTES` (10 by default), or has a red CI once approved goes back to its dev with the problem, and the team's channel gets a line. One wakeup per head SHA.
+- The `stuck_sha` task column (nullable), added automatically at startup. Nothing to do when upgrading.
+
 ## [0.4.0] - 2026-10-28
 
 ### Changed

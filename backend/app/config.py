@@ -48,6 +48,8 @@ class Settings(BaseSettings):
 
     # Minutes a mergeable task may wait before the lead is reminded (once)
     merge_reminder_minutes: int = 10
+    # Minutes after a submission without any CI check before the PR goes back to its dev
+    ci_missing_minutes: int = 10
 
     @property
     def claude_tokens(self) -> list[str]:

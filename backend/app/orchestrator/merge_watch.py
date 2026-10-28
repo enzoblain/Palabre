@@ -1,5 +1,6 @@
 """Tasks that became mergeable without a review (CI turned green) or that nobody merged:
-the lead is woken up, then reminded once. Same for the CI of the release PR and of production."""
+the lead is woken up, then reminded once. Tasks stuck in review (conflict, no CI, red CI) go back
+to their dev, once per head SHA. Same for the CI of the release PR and of production."""
 
 import logging
 import time
@@ -47,9 +48,13 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         project = await s.get(Project, task.project_id)
         try:
             blockers = await workflow.merge_blockers(s, project, task)
+            stuck = await _stuck(project, task, blockers)
         except github.GitHubError as exc:
             log.warning("Task #%s: merge rules could not be checked: %s", task.id, exc)
             continue  # One broken task must not stop the others
+        if stuck is not None:
+            await _send_back(s, project, task, *stuck)
+            continue
         if blockers:
             task.merge_ready_at = None  # A rule broke again (CI): announce it when fixed
             continue
@@ -58,6 +63,36 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         else:
             await workflow.mark_merge_ready(s, task, "the checks")
     await s.commit()
+
+
+async def _stuck(project: Project, task: Task, blockers: list[str]) -> tuple[str, str] | None:
+    """(head SHA, what the dev must fix) if the PR cannot merge by itself and the dev was not
+    already told for this head; the CI reasons come from merge_blockers, so they follow the
+    company's rules (a size that does not require CI never complains about it)."""
+    if task.assignee_id is None:
+        return None
+    pr = await github.get_pull_request(github.repo_slug(project.repo_url), task.pr_number)
+    sha = pr["head"]["sha"]
+    if task.stuck_sha == sha:
+        return None
+    if pr.get("mergeable_state") == "dirty":
+        return sha, f"conflict with {pr['base']['ref']}: rebase and submit again"
+    for blocker in blockers:
+        if blocker.startswith("CI failed") and len(blockers) == 1:  # Approved, only the CI is red
+            return sha, blocker
+        if blocker.startswith("no CI checks") and task.submitted_at is not None and (
+            _aware(task.submitted_at) <= datetime.now(UTC) - timedelta(minutes=settings.ci_missing_minutes)
+        ):
+            return sha, f"no CI reported after {settings.ci_missing_minutes} minutes: check the workflows and push again"
+    return None
+
+
+async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, problem: str) -> None:
+    """Give the task back to its dev with the problem, and tell the team."""
+    task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
+    emit_event(s, project.id, "pr_blocked", {"task_id": task.id, "problem": problem}, employee_id=task.assignee_id)
+    if (conversation_id := await team_conversation_id(s, project.id)) is not None:
+        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
 
 
 def _ci_over(reason: str | None) -> bool:

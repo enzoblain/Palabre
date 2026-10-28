@@ -63,6 +63,12 @@ and, after `merge_release`, when the CI of production's head ends, the lead is w
 head SHA with the result (green, or the failing checks) and a "Palabre" line is posted in the
 team's first channel. Green means `merge_release`, then `publish_version`.
 
+A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
+branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
+the CI is red on an otherwise approved task, the task goes back to its dev (`changes_requested`)
+with the problem (rebase, missing CI, failing checks) and a "Palabre" line is posted in the team's
+first channel. The dev is woken up once per head SHA.
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a

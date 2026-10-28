@@ -10,6 +10,7 @@ REASONS: dict[str, str] = {
     "task_assigned": "You have been assigned task #{task_id}.",
     "task_unblocked": "Task #{task_id}, assigned to you, is no longer waiting for other tasks.",
     "changes_requested": "{reviewer} requested changes on task #{task_id}. Read the reviews with get_task and address them.",
+    "pr_blocked": "The pull request of task #{task_id} cannot be merged as it is: {problem}. Fix it in your worktree, then submit_for_review again.",
     "review_requested": "Task #{task_id} is waiting for review ({pr_url}). Read it with get_task and get_diff, then give your verdict with review_task.",
     "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task. File each bug with report_bug.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task.",
