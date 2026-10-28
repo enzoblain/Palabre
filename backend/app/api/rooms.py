@@ -77,6 +77,8 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
     """Changing the objective wakes up the positions that react to it."""
     room = await load_room(s, room_id)
     changes = body.model_dump(exclude_none=True)
+    if "name" in changes:
+        check_not_direction(room)
     for field, value in changes.items():
         setattr(room, field, value)
     if "objective" in changes:

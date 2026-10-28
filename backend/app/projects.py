@@ -117,7 +117,11 @@ async def ensure_direction(s: AsyncSession, project: Project) -> None:
     """A company has a "direction" channel: the boss and the lead, nobody else. It is
     created after the team channels, so the first room stays the team's."""
     lead = next((e for e in project.employees if "lead" in e.roles), None)
-    if project.kind != "company" or lead is None or any(r.kind == services.DIRECTION for r in project.rooms):
+    if project.kind != "company" or lead is None:
+        return
+    existing = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
+    if existing is not None:
+        existing.members = [lead]  # A new lead (change of company size) takes the seat
         return
     room = Room(project=project, name=services.DIRECTION, kind=services.DIRECTION, members=[lead])
     s.add(room)

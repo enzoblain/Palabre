@@ -8,9 +8,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AppSetting,
+    Conversation,
     Decision,
     DecisionStatus,
-    Conversation,
     Employee,
     Event,
     Message,
@@ -207,13 +207,32 @@ async def create_channel(s: AsyncSession, project_id: int, name: str, member_nam
     return room
 
 
+async def team_context(s: AsyncSession, project_id: int, room_id: int, conversation_id: int) -> tuple[int, int]:
+    """Where a task lives. Called from direction, it goes to the first team channel: the
+    people it concerns (reviewers, QA...) are not in direction and cannot be woken there."""
+    if await s.scalar(select(Room.kind).where(Room.id == room_id)) != DIRECTION:
+        return room_id, conversation_id
+    team_room_id = await s.scalar(
+        select(Room.id).where(Room.project_id == project_id, Room.kind != DIRECTION).order_by(Room.id).limit(1)
+    )
+    if team_room_id is None:
+        raise WorkflowError("There is no team channel to put the task in")
+    team_conversation_id = await s.scalar(
+        select(Conversation.id).where(Conversation.room_id == team_room_id).order_by(Conversation.id.desc()).limit(1)
+    )
+    return team_room_id, team_conversation_id
+
+
 async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -> int:
     """The conversation to post in for the channel `name`."""
+    wanted = name.strip().lstrip("#").lower()
+    # Direction is found by its kind: a rename must not break the relay
+    named = Room.kind == DIRECTION if wanted == DIRECTION else func.lower(Room.name) == wanted
     conversation_id = await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
-        .where(Room.project_id == project_id, func.lower(Room.name) == name.strip().lstrip("#").lower())
-        .order_by(Conversation.id)
+        .where(Room.project_id == project_id, named)
+        .order_by(Conversation.id.desc())  # the active one is the latest
         .limit(1)
     )
     if conversation_id is None:
