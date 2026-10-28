@@ -305,6 +305,7 @@ async def submit_for_review(
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
     else:
+        await github.set_pull_request_title(repo, task.pr_number, pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
     task.status = TaskStatus.review

@@ -393,7 +393,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
         )  # fmt: skip
         await s.commit()
     else:
-        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge", sha=head_sha)
+        await github.merge_pull_request(repo, pr["number"], f"chore(release): {title}", method="merge", sha=head_sha)
     project.main_ci_watch = True  # The scheduler tells the lead when CI on production ends
     await s.commit()
     return pr["html_url"], pr["number"]

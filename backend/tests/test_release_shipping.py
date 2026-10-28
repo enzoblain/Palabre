@@ -46,6 +46,7 @@ def gh(monkeypatch):
 
     async def merge(repo, number, title, method="squash", sha=None):
         state.calls.append(("merge", number, method, sha))
+        state.merge_title = title
 
     async def tag_exists(repo, tag):
         return tag in state.tags
@@ -84,6 +85,7 @@ async def test_merge_release_merges_when_ci_is_green(gh):
     url, number = await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
     assert (url, number) == (PR["html_url"], 42)
     assert gh.calls == [("merge", 42, "merge", "pr-head")]
+    assert gh.merge_title == "chore(release): Checkout"
 
 
 @pytest.mark.parametrize("ci", ["CI failed: backend", "CI still running: tests", "no CI checks reported"])
