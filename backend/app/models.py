@@ -103,6 +103,11 @@ class Project(Base):
     # Mode (catalog.toml) and the seed the team was drawn with
     mode: Mapped[str] = mapped_column(String(50))
     seed: Mapped[int] = mapped_column(BigInteger)
+    # Release CI the lead was already told about: head SHA of the release PR, and of production
+    # (main_ci_watch: a release was just merged, its CI on production is still to be announced)
+    release_ci_sha: Mapped[str | None] = mapped_column(String(64))
+    main_ci_sha: Mapped[str | None] = mapped_column(String(64))
+    main_ci_watch: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = created_at_column()
 
     employees: Mapped[list[Employee]] = relationship(

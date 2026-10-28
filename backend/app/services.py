@@ -214,6 +214,17 @@ async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | N
     )
 
 
+async def team_conversation_id(s: AsyncSession, project_id: int) -> int | None:
+    """The active conversation of the team's first channel (where automatic lines about the team go)."""
+    return await s.scalar(
+        select(Conversation.id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.project_id == project_id, Room.kind == "team")
+        .order_by(Room.id, Conversation.id.desc())
+        .limit(1)
+    )
+
+
 async def ask_boss(
     s: AsyncSession,
     project_id: int,
