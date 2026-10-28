@@ -77,13 +77,20 @@ async def _api(method: str, path: str, **kwargs) -> dict:
     return response.json() if response.content else {}
 
 
+WORKING_BRANCH = "dev"
+
+
+async def has_commits(repo: str) -> bool:
+    return bool(await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}))
+
+
 async def resolve_branch(repo: str, branch: str) -> str:
     """The branch a project works from: `branch` if given, else the repository's default
     branch. A repository without commits accepts any: the first commit creates it."""
     default = (await _api("GET", f"/repos/{repo}"))["default_branch"]
     if not branch:
         return default
-    if not await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}):
+    if not await has_commits(repo):
         return branch
     if not await branch_exists(repo, branch):
         raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')")
@@ -98,10 +105,6 @@ async def branch_exists(repo: str, branch: str) -> bool:
             raise
         return False
     return True
-
-
-async def has_commits(repo: str) -> bool:
-    return bool(await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}))
 
 
 async def create_branch(repo: str, branch: str, from_branch: str) -> None:

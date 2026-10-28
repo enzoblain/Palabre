@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import github, projects
+from app import github, projects, worktrees
 
 
 @pytest.fixture
@@ -52,10 +52,27 @@ async def test_an_explicit_non_default_branch_is_kept(repo):
     assert repo.created == []
 
 
-async def test_an_empty_repository_keeps_its_branch(repo):
+async def test_an_empty_repository_gets_dev_from_its_first_commit(repo):
     repo.branches.clear()
-    assert await projects.working_branch(URL, "main") == "main"
-    assert repo.created == []
+    assert await projects.working_branch(URL, "main") == "dev"
+    assert repo.created == []  # nothing to branch from yet
+
+
+async def test_initial_commit_pushes_production_before_dev(repo, monkeypatch, tmp_path):
+    calls = []
+
+    async def git(_cwd, *args, **_kwargs):
+        calls.append(args)
+        if args[0] == "rev-parse":
+            raise github.GitHubError("no ref")
+        return ""
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "resolve_branch", github.resolve_branch)  # the fake of `repo`
+    project = SimpleNamespace(repo_url=URL, default_branch="dev")
+    await worktrees._initial_commit(project, tmp_path)
+    pushes = [a[-1] for a in calls if a[0] == "push"]
+    assert pushes == ["main:refs/heads/main", "main:refs/heads/dev"]
 
 
 async def test_create_project_stores_dev_for_a_company(repo, monkeypatch):
