@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.config import settings
-from app.github import GitHubError, git, repo_slug, resolve_branch
+from app.github import GitHubError, git, is_task_branch_name, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
 
 
@@ -124,7 +124,7 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
         if path.exists():
             await git(repo, "worktree", "remove", "--force", str(path))
         await git(repo, "worktree", "prune")
-        if task.branch and task.branch.startswith("task/"):
+        if is_task_branch_name(task.branch):
             try:
                 await git(repo, "branch", "-D", task.branch)
             except GitHubError:
@@ -133,6 +133,22 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
 
 def branch_name(task: Task) -> str:
     return f"task/{task.id}"  # Not from the title, which is in the team's language
+
+
+def final_branch_name(pr_title: str, task_id: int) -> str:
+    """`<type>/<id>-<slug>` from the English Conventional Commits title (`feat(usage): show
+    usage (#60)` → `feat/60-show-usage`); the slug is capped at 40 characters."""
+    kind, _, rest = pr_title.partition(": ")
+    kind = re.split(r"[(!]", kind)[0]
+    words = re.sub(r"\s*\(#\d+\)$", "", rest).lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", words).strip("-")[:40].strip("-")
+    return f"{kind}/{task_id}-{slug}" if slug else f"{kind}/{task_id}"
+
+
+async def rename_branch(task: Task, new: str) -> None:
+    """Rename the task's local branch (checked out in its worktree) before its first push."""
+    await git(task.worktree_path, "branch", "-m", task.branch, new)
+    task.branch = new
 
 
 async def prepare_worktree(project: Project, task: Task) -> tuple[str, Path]:

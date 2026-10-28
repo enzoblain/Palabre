@@ -500,7 +500,7 @@ async def close_outside_pull_request(s: AsyncSession, project: Project, number: 
     # A fork's branch is not ours; branches tasks or the team work on are left alone
     own = (pr["head"].get("repo") or {}).get("full_name", "").lower() == repo.lower()
     protected = {production, project.default_branch, github.WORKING_BRANCH}
-    deleted = own and head not in protected and not head.startswith("task/")
+    deleted = own and head not in protected and not github.is_task_branch_name(head)
     if deleted:
         await github.delete_branch(repo, head)
     return {"number": number, "url": pr["html_url"], "branch_deleted": head if deleted else None}

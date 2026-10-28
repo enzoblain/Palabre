@@ -3,7 +3,8 @@
 import pytest
 
 from app.workflow import WorkflowError, conventional_title
-from app.worktrees import branch_name
+from app.github import is_task_branch_name
+from app.worktrees import branch_name, final_branch_name
 
 from .conftest import make_task
 
@@ -44,3 +45,31 @@ def test_invalid_titles_are_refused_with_a_clear_message(title):
 
 def test_branch_name_ignores_the_title():
     assert branch_name(make_task(id=70, title="Rules: commits in English")) == "task/70"
+
+
+def test_final_branch_name_from_title():
+    assert final_branch_name("feat(usage): Show real Claude usage per model (#60)", 60) == (
+        "feat/60-show-real-claude-usage-per-model"
+    )
+    assert final_branch_name("fix!: handle empty diff (#7)", 7) == "fix/7-handle-empty-diff"
+    assert final_branch_name("refactor(api): " + "word " * 20 + "(#7)", 7).count("-") <= 9
+
+
+@pytest.mark.parametrize(
+    "branch, expected",
+    [
+        ("task/12", True),
+        ("task/12-x", True),
+        ("feat/60-claude-usage", True),
+        ("fix/64-system-lines", True),
+        ("dev", False),
+        ("main", False),
+        ("feature/1-x", False),
+        ("dependabot/npm/foo", False),
+        ("release/1.0", False),
+        ("fix/abc", False),
+        (None, False),
+    ],
+)
+def test_task_branch_recognition(branch, expected):
+    assert is_task_branch_name(branch) is expected
