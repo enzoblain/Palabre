@@ -23,6 +23,7 @@ PAYLOAD = {
 def setup(monkeypatch):
     monkeypatch.setattr(accounts.settings, "claude_code_oauth_tokens", "secret-one|secret-two")
     claude_usage._cache.clear()
+    claude_usage._locks.clear()
 
 
 def mock_api(monkeypatch, handler):
