@@ -114,3 +114,16 @@ def fake_github(monkeypatch):
     monkeypatch.setattr(github, "checks_status", checks_status)
     monkeypatch.setattr(github, "git", git)
     return state
+
+
+@pytest.fixture(autouse=True)
+def no_network_no_agent(monkeypatch):
+    """Safety net: a test that forgets to mock GitHub, git or `claude -p` fails instead of running it."""
+    import asyncio
+    import socket
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Real network/subprocess call in a test: mock it")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
