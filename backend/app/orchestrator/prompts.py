@@ -12,6 +12,8 @@ REASONS: dict[str, str] = {
     "changes_requested": "{reviewer} requested changes on task #{task_id}. Read the reviews with get_task and address them.",
     "pr_blocked": "The pull request of task #{task_id} cannot be merged as it is: {problem}. Fix it in your worktree, then submit_for_review again.",
     "task_update": "Task #{task_id} moved: {change}. Look at it with get_task and act if it needs you (merge, unblock, reassign).",
+    "task_nudge": "Task #{task_id} is waiting for you ({why}). Pick it up now, then submit_for_review.",
+    "merge_retry": "You tried to merge task #{task_id} while its CI was running. The CI is over: {result}. Try merge_task again if every rule is met.",
     "task_idle": "Task #{task_id} ({status}) has not moved for {minutes} minutes: {reason}. Unblock it or reassign it.",
     "review_requested": "Task #{task_id} is waiting for review ({pr_url}). Read it with get_task and get_diff, then give your verdict with review_task.",
     "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task. File each bug with report_bug.",

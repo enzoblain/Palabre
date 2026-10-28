@@ -56,7 +56,8 @@ def make_project(mode: str = "enterprise") -> SimpleNamespace:
 def make_task(**overrides) -> SimpleNamespace:
     fields = dict(
         id=next(_ids), status=TaskStatus.review, review_round=1, sensitive=False,
-        pr_number=42, branch="task/1-demo", assignee_id=None,
+        pr_number=42, branch="task/1-demo", assignee_id=None, merge_retry_at=None, unstarted_nudges=0,
+        idle_alert_sha=None, project_id=1, depends_on=[],
     )  # fmt: skip
     return SimpleNamespace(**(fields | overrides))
 

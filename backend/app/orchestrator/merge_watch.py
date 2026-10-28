@@ -6,12 +6,12 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, workflow
 from app.config import settings
-from app.models import AgentRun, Project, Task, TaskStatus
+from app.models import AgentRun, Project, Task, TaskStatus, Wakeup
 from app.services import emit_event, post_system_message, team_conversation_id
 
 # Seconds between two merge-rule checks of the same task (they ask GitHub about the CI)
@@ -19,6 +19,7 @@ CHECK_EVERY_S = 60
 _last_check: dict[int, float] = {}
 _last_release_check: dict[int, float] = {}
 _last_idle_check: dict[int, float] = {}
+_last_unstarted_check: dict[int, float] = {}
 # Last final CI result announced to the lead, per task; in memory, so a restart may repeat one
 _ci_seen: dict[int, str] = {}
 
@@ -64,6 +65,11 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
             if ci != "green" or blockers:  # All green and approved: the lead is woken as mergeable
                 workflow.wake_lead(task, f"CI finished: {ci}")
             _ci_seen[task.id] = ci
+        if task.merge_retry_at is not None and not any(b.startswith("CI still running") for b in blockers):
+            task.merge_retry_at = None  # The CI is over; mergeable tasks wake the lead just below
+            if blockers:
+                payload = {"task_id": task.id, "result": "; ".join(blockers)}
+                emit_event(s, task.project_id, "merge_retry", payload, role="lead")
         if blockers:
             task.merge_ready_at = None  # A rule broke again (CI): announce it when fixed
             continue
@@ -107,7 +113,7 @@ async def _stuck(project: Project, task: Task, blockers: list[str]) -> tuple[str
 async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, problem: str) -> None:
     """Give the task back to its dev with the problem, and tell the team."""
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
-    emit_event(s, project.id, "pr_blocked", {"task_id": task.id, "problem": problem}, employee_id=task.assignee_id)
+    await workflow.wake_dev(s, task, "pr_blocked", {"problem": problem})
     workflow.wake_lead(task, f"sent back to its dev: {problem}")
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
         await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
@@ -225,3 +231,43 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
             f"CI of the release PR #{pr['number']}: {result} · {pr['html_url']}",
         )  # fmt: skip
         project.release_ci_sha = pr["head"]["sha"]
+
+
+async def watch_unstarted_tasks(s: AsyncSession) -> None:
+    """A todo or changes_requested task with a dev but no run for idle_task_minutes: the dev is
+    nudged once, then (after another idle_task_minutes) the lead is told."""
+    now = time.monotonic()
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_task_minutes)
+    tasks = list(
+        await s.scalars(
+            select(Task).where(
+                Task.status.in_([TaskStatus.todo, TaskStatus.changes_requested]),
+                Task.assignee_id.is_not(None),
+                Task.unstarted_nudges < 2,
+                Task.updated_at < cutoff,
+            )
+        )
+    )
+    for gone in _last_unstarted_check.keys() - {t.id for t in tasks}:
+        del _last_unstarted_check[gone]
+    for task in tasks:
+        if now - _last_unstarted_check.get(task.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
+            continue
+        _last_unstarted_check[task.id] = now
+        if not await workflow.dependencies_done(s, task) or await workflow.dev_busy(s, task):
+            continue  # Waiting for other tasks, or already on it
+        last_run = await s.scalar(select(func.max(AgentRun.started_at)).where(AgentRun.task_id == task.id))
+        last_wakeup = await s.scalar(select(func.max(Wakeup.created_at)).where(Wakeup.task_id == task.id))
+        if any(at is not None and _aware(at) >= cutoff for at in (last_run, last_wakeup)):
+            continue
+        if task.unstarted_nudges == 0:
+            why = f"no run for {settings.idle_task_minutes} minutes"
+            await workflow.wake_dev(s, task, "task_nudge", {"why": why}, nudge=True)
+        else:
+            payload = {
+                "task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes,
+                "reason": "its dev was nudged and still did not start",
+            }  # fmt: skip
+            emit_event(s, task.project_id, "task_idle", payload, role="lead")
+        task.unstarted_nudges += 1
+    await s.commit()

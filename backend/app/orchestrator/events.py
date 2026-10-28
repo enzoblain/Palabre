@@ -11,7 +11,7 @@ from app.orchestrator.prompts import reason_for
 from app.services import DIRECTION
 
 # Events that make the assignee work on the task (task run) rather than talk
-TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume"}
+TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 BATCH_SIZE = 200
 
 
