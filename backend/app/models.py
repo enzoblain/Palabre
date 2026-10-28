@@ -338,5 +338,12 @@ class AgentRun(Base):
     claude_session_id: Mapped[str | None] = mapped_column(String(100))
     num_turns: Mapped[int | None]
     cost_usd: Mapped[float | None]
+    # Usage reported by claude's JSON output; None when the run failed before reporting it
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cache_creation_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cache_read_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    # Claude account (from 1) the run was billed on, kept because the assignment can change
+    account: Mapped[int | None]
 
     employee: Mapped[Employee] = relationship()
