@@ -48,7 +48,7 @@ async def create_project(
     name: str,
     repo_url: str,
     mode: str,
-    default_branch: str = "main",
+    default_branch: str = "",
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,

@@ -92,10 +92,21 @@ async def has_commits(repo: str) -> bool:
     return bool(await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}))
 
 
+async def production_branch(repo: str) -> str:
+    """The repository's default branch as GitHub declares it. Failing that, `main`, then
+    `master` if only that one exists; `main` for a repository that has nothing yet."""
+    declared = (await _api("GET", f"/repos/{repo}")).get("default_branch")
+    if declared:
+        return declared
+    if await has_commits(repo) and not await branch_exists(repo, "main") and await branch_exists(repo, "master"):
+        return "master"
+    return "main"
+
+
 async def resolve_branch(repo: str, branch: str) -> str:
     """The branch a project works from: `branch` if given, else the repository's default
     branch. A repository without commits accepts any: the first commit creates it."""
-    default = (await _api("GET", f"/repos/{repo}"))["default_branch"]
+    default = await production_branch(repo)
     if not branch:
         return default
     if not await has_commits(repo):

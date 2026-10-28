@@ -23,6 +23,7 @@ from app.orchestrator.prompts import (
     OPERATING_RULES,
     RESEARCH_RULES,
     language_rule,
+    orientation_rule,
     task_rules,
     version_rule,
     wake_prompt,
@@ -239,6 +240,7 @@ class Orchestrator:
             render_system_prompt(team, member, services.boss_display_name()),
             RESEARCH_RULES if project.kind == "research" else OPERATING_RULES,
             CHAT_RULES,
+            orientation_rule(project.default_branch) if project.kind == "company" else None,
             language_rule(services.team_language()),
             version_rule(member.roles),
         ] if p)  # fmt: skip

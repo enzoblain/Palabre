@@ -127,6 +127,15 @@ You are working on task #{task_id} « {title} », in its own git worktree (your 
 - When the work is done and committed, call submit_for_review with an English Conventional Commits title (the task reference is added for you)."""
 
 
+ORIENTATION_RULE = """## Getting oriented
+The team works on the branch `{branch}`{production}. Before anything else on this project, read its README and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
+
+
+def orientation_rule(branch: str, production: str | None = None) -> str:
+    note = f" (production is `{production}`)" if production and production != branch else ""
+    return ORIENTATION_RULE.format(branch=branch, production=note)
+
+
 def task_rules(task: Task, default_branch: str) -> str:
     return TASK_RULES.format(task_id=task.id, title=task.title, branch=task.branch, default_branch=default_branch)
 
