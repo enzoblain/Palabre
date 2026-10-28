@@ -16,7 +16,7 @@ type RoomDocument = {
 };
 
 /** The shared document of the general room: for a research group, its report. */
-export function DocumentView({ project, onDecided }: { project: ProjectState; onDecided: () => void }) {
+export function DocumentView({ project }: { project: ProjectState }) {
   const research = project.detail.kind === "research";
   const room = project.detail.rooms[0];
   const [doc, setDoc] = useState<RoomDocument | null>(null);
@@ -30,7 +30,6 @@ export function DocumentView({ project, onDecided }: { project: ProjectState; on
     try {
       await api.decide(decision.id, status);
       await load();
-      onDecided();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     }

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type Notification, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type EmployeeStatus, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { DocumentView } from "./components/DocumentView";
 import { Home } from "./components/Home";
 import { MenuIcon } from "./components/Icons";
-import { Inbox } from "./components/Inbox";
 import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
 import { type ProjectState, Sidebar } from "./components/Sidebar";
@@ -13,7 +12,7 @@ import { go, useRoute } from "./router";
 import { usePolling } from "./util";
 
 const STATUS_POLL_MS = 3000;
-const NOTIFICATIONS_POLL_MS = 4000;
+const PENDING_POLL_MS = 4000;
 
 export default function App() {
   const [conn, setConn] = useState<Connection | null>(getConnection);
@@ -81,10 +80,19 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }).catch(() => {});
   }, [reloadProjects]);
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const refreshNotifications = useCallback(() => api.notifications().then(setNotifications).catch(() => {}), []);
-  usePolling(refreshNotifications, NOTIFICATIONS_POLL_MS, []);
-  const projectNotifications = notifications.filter((n) => n.project_id === projectId);
+  // Requests of the lead still waiting for the CEO, in the direction channel (badge in the sidebar)
+  const [pending, setPending] = useState(0);
+  const direction = project?.detail.rooms.find((r) => r.kind === "direction");
+  const directionConversation = direction && project?.conversations[direction.id]?.[0]?.id;
+  useEffect(() => setPending(0), [projectId]);
+  usePolling(
+    directionConversation ? async () => {
+      const messages = await api.listMessages(directionConversation);
+      setPending(messages.filter((m) => m.request_status === "pending").length);
+    } : null,
+    PENDING_POLL_MS,
+    [directionConversation],
+  );
 
   useEffect(() => setStatuses([]), [projectId]);
   usePolling(
@@ -96,11 +104,12 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     [projectId],
   );
 
-  // Opening a project lands in its general channel
+  // Opening a project lands in the direction channel, where the CEO talks to the lead
   const conversationId = route.name === "project" ? route.conversationId : null;
   useEffect(() => {
     if (route.name === "project" && project && conversationId === null) {
-      const first = project.conversations[project.detail.rooms[0]?.id]?.[0];
+      const home = project.detail.rooms.find((r) => r.kind === "direction") ?? project.detail.rooms[0];
+      const first = project.conversations[home?.id]?.[0];
       if (first) go(`/p/${project.detail.id}/c/${first.id}`, true);
     }
   }, [route.name, project, conversationId]);
@@ -113,26 +122,18 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }} />;
   } else if (route.name === "settings") {
     main = <Settings settings={settings} projects={projects} onSaved={setSettings}
-      onProjectsChanged={() => { reloadProjects(); refreshNotifications(); }} onDisconnect={onDisconnect} />;
+      onProjectsChanged={reloadProjects} onDisconnect={onDisconnect} />;
   } else if (route.name === "report") {
     if (error) main = <p className="error center">{error}</p>;
-    else if (project) main = <DocumentView project={project} onDecided={refreshNotifications} />;
+    else if (project) main = <DocumentView project={project} />;
     else main = <p className="muted center">Loading…</p>;
-  } else if (route.name === "inbox") {
-    if (error) main = <p className="error center">{error}</p>;
-    else if (project) {
-      main = <Inbox project={project} notifications={projectNotifications} bossName={bossName}
-        onChanged={refreshNotifications} />;
-    } else main = <p className="muted center">Loading…</p>;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        statuses={statuses} bossName={bossName}
-        notifications={projectNotifications.filter((n) => n.conversation_id === conversation.id)}
-        onNotificationsRead={refreshNotifications} />;
+        statuses={statuses} bossName={bossName} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">This conversation does not exist.</p>;
     } else {
@@ -149,10 +150,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
           <MenuIcon />
         </button>
         <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
-        {notifications.length > 0 && <span className="badge-count urgent">{notifications.length}</span>}
+        {pending > 0 && <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>}
       </header>
       <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
-        claudeAccounts={claudeAccounts} notifications={notifications} />
+        claudeAccounts={claudeAccounts} pending={pending} />
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
       <main className="main">{main}</main>
     </div>
