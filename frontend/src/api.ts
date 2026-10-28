@@ -257,6 +257,7 @@ export const api = {
   listProjects: () => call<Project[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
+  changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
   createProject: (body: {
     name: string;
     repo_url?: string;

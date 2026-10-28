@@ -8,6 +8,7 @@ from app.api.schemas import (
     EmployeeDetail,
     EmployeeOut,
     EmployeePatch,
+    BranchChange,
     MemberIn,
     ModeChange,
     ProjectDetail,
@@ -106,6 +107,18 @@ async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown {project.kind} mode: {body.mode}")
     return await projects.change_mode(s, project, body.mode)
+
+
+
+@router.put("/projects/{project_id}/branch", response_model=ProjectDetail)
+async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
+    """The branch the team works from and merges into (created on GitHub if missing)."""
+    project = await _project(s, project_id)
+    if project.kind != "company":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A research project has no repository")
+    if body.branch == project.default_branch:
+        return project
+    return await projects.change_branch(s, project, body.branch)
 
 
 # --- Employees ---------------------------------------------------------------------

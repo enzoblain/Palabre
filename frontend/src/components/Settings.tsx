@@ -165,6 +165,11 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
     <section className="panel">
       <h2>Projects</h2>
       <p className="muted">
+        The branch is where the team's tasks start from and their PRs are merged: give them a
+        <code>dev</code> branch and merge it into <code>main</code> yourself when a step is ready.
+        A new branch is created on GitHub from the current one.
+      </p>
+      <p className="muted">
         Deleting a project removes its agents, conversations, tasks, reports and files on the server.
         A GitHub repository is left as it is.
       </p>
@@ -177,6 +182,7 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
             <span className="truncate project-list-name">
               {p.name} <span className="muted">· {p.kind === "research" ? "research" : p.mode}</span>
             </span>
+            {p.kind === "company" && confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
             {confirming === p.id ? (
               <span className="row confirm-delete">
                 <span className="error">Delete it and all its data?</span>
@@ -192,5 +198,45 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
         ))}
       </ul>
     </section>
+  );
+}
+
+function BranchField({ project, onChanged }: { project: Project; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [branch, setBranch] = useState(project.default_branch);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await api.changeBranch(project.id, branch.trim());
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button className="btn btn-small" title="The branch the team works from and merges into"
+        onClick={() => { setBranch(project.default_branch); setEditing(true); }}>
+        <code>{project.default_branch}</code>
+      </button>
+    );
+  }
+  return (
+    <form className="row branch-field" onSubmit={save}>
+      <input autoFocus required value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false}
+        autoCapitalize="off" aria-label="Branch" />
+      <button type="button" className="btn btn-small" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+      <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? "Saving…" : "Save"}</button>
+      {error && <span className="error">{error}</span>}
+    </form>
   );
 }

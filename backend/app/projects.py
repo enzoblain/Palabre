@@ -14,9 +14,10 @@ from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
     reroll_employee,
 )  # fmt: skip
-from app.models import Conversation, Employee, Project, Room
+from app.models import Conversation, Employee, Project, Room, Task, TaskStatus
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
+from app.worktrees import sync_repo
 
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
@@ -198,6 +199,28 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     project.mode = mode
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
     await s.commit()
+    return await load_project(s, project.id)
+
+
+async def change_branch(s: AsyncSession, project: Project, branch: str) -> Project:
+    """Point the team at another branch: tasks start from it and their PRs merge into it
+    (e.g. a `dev` branch, merged into `main` by the boss). A branch missing on GitHub is
+    created from the current one; the open PRs are retargeted to it."""
+    repo = github.repo_slug(project.repo_url)
+    if not await github.branch_exists(repo, branch):
+        await github.create_branch(repo, branch, project.default_branch)
+    open_prs = await s.scalars(
+        select(Task).where(
+            Task.project_id == project.id,
+            Task.pr_number.is_not(None),
+            Task.status.not_in([TaskStatus.done, TaskStatus.cancelled]),
+        )
+    )
+    for task in open_prs:
+        await github.set_pull_request_base(repo, task.pr_number, branch)
+    project.default_branch = branch
+    await s.commit()
+    await sync_repo(project)
     return await load_project(s, project.id)
 
 

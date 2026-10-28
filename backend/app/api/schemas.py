@@ -131,6 +131,11 @@ class ModeChange(BaseModel):
     mode: str
 
 
+class BranchChange(BaseModel):
+    # A git branch name: no spaces, "..", leading "-" or trailing "/"
+    branch: str = Field(pattern=r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$")
+
+
 # --- Rooms and their document ------------------------------------------------------
 
 

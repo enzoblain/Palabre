@@ -77,13 +77,28 @@ async def resolve_branch(repo: str, branch: str) -> str:
         return default
     if not await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}):
         return branch
+    if not await branch_exists(repo, branch):
+        raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')")
+    return branch
+
+
+async def branch_exists(repo: str, branch: str) -> bool:
     try:
         await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}")
     except GitHubError as exc:
         if " 404 " not in str(exc):
             raise
-        raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')") from None
-    return branch
+        return False
+    return True
+
+
+async def create_branch(repo: str, branch: str, from_branch: str) -> None:
+    ref = await _api("GET", f"/repos/{repo}/git/ref/heads/{from_branch}")
+    await _api("POST", f"/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": ref["object"]["sha"]})
+
+
+async def set_pull_request_base(repo: str, number: int, base: str) -> None:
+    await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"base": base})
 
 
 async def open_pull_request(repo: str, head: str, base: str, title: str, body: str) -> dict:
