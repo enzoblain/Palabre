@@ -45,6 +45,8 @@ export type Room = {
   id: number;
   project_id: number;
   name: string;
+  // "direction": the only channel where the CEO writes; "team": read-only for the CEO
+  kind: "direction" | "team";
   objective: string;
   summary: string;
   created_at: string;
@@ -62,7 +64,14 @@ export type Message = {
   author_name: string;
   content: string;
   created_at: string;
+  // Set when the lead asks the CEO something (Validate / Reject / Nuance)
+  request_kind: string | null;
+  request_status: "pending" | RequestAnswer | null;
+  request_comment: string | null;
+  request_answered_at: string | null;
+  request_decision_id: number | null;
 };
+export type RequestAnswer = "validated" | "rejected" | "nuanced";
 
 export type EmployeeStatus = {
   employee_id: number;
@@ -125,21 +134,6 @@ export type Decision = {
   pr_url: string | null;
   created_at: string;
   decided_at: string | null;
-};
-
-/** Something for the boss: a mention, an escalation, a decision to make... */
-export type Notification = {
-  id: number;
-  project_id: number;
-  type: string;
-  payload: Record<string, unknown>;
-  created_at: string;
-  read: boolean;
-  conversation_id: number | null;
-  room_id: number | null;
-  author: string | null;
-  excerpt: string | null;
-  decision: Decision | null;
 };
 
 export type Axis = { key: string; label: string; low: string; high: string };
@@ -297,15 +291,6 @@ export const api = {
   researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
-  notifications: () => call<Notification[]>("/notifications?unread_only=true&limit=200"),
-  markRead: (id: number) => call<void>(`/notifications/${id}/read`, "POST"),
-  markAllRead: (filters: { project_id?: number; conversation_id?: number; types?: string[] }) => {
-    const params = new URLSearchParams();
-    if (filters.project_id !== undefined) params.set("project_id", String(filters.project_id));
-    if (filters.conversation_id !== undefined) params.set("conversation_id", String(filters.conversation_id));
-    filters.types?.forEach((type) => params.append("types", type));
-    return call<void>(`/notifications/read-all?${params}`, "POST");
-  },
   roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
   decide: (decisionId: number, status: "validated" | "rejected") =>
     call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
@@ -317,4 +302,6 @@ export const api = {
     ),
   postMessage: (conversationId: number, content: string) =>
     call<Message>(`/conversations/${conversationId}/messages`, "POST", { content }),
+  answerRequest: (messageId: number, answer: RequestAnswer, comment = "") =>
+    call<Message>(`/messages/${messageId}/answer`, "POST", { answer, comment }),
 };
