@@ -18,12 +18,12 @@ function activity(status: EmployeeStatus, project: ProjectState): string {
   return room ? `Talking in #${room.name}` : "Working";
 }
 
-function Badge({ count, label }: { count: number; label: string }) {
+function Badge({ count, label, quiet }: { count: number; label: string; quiet?: boolean }) {
   // The count is text, and the label tells what it counts: no meaning carried by color alone
-  return count > 0 ? <span className="badge-count urgent" aria-label={label}>{count}</span> : null;
+  return count > 0 ? <span className={quiet ? "badge-count" : "badge-count urgent"} aria-label={label}>{count}</span> : null;
 }
 
-export function Sidebar({ route, projects, project, statuses, bossName, claudeAccounts, pending }: {
+export function Sidebar({ route, projects, project, statuses, bossName, claudeAccounts, pending, unread }: {
   route: Route;
   projects: Project[];
   project: ProjectState | null;
@@ -32,12 +32,14 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
   claudeAccounts: number;
   // Requests of the lead waiting for the CEO in the current project
   pending: number;
+  // Unread messages per conversation
+  unread: Record<number, number>;
 }) {
   const inProject = "projectId" in route;
   return (
     <aside className="sidebar">
       {inProject ? (
-        <ProjectNav route={route} project={project} statuses={statuses} showAccounts={claudeAccounts > 1} pending={pending} />
+        <ProjectNav route={route} project={project} statuses={statuses} showAccounts={claudeAccounts > 1} pending={pending} unread={unread} />
       ) : (
         <>
           <header className="sidebar-head">
@@ -68,12 +70,13 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
   );
 }
 
-function ProjectNav({ route, project, statuses, showAccounts, pending }: {
+function ProjectNav({ route, project, statuses, showAccounts, pending, unread }: {
   route: Extract<Route, { projectId: number }>;
   project: ProjectState | null;
   statuses: EmployeeStatus[];
   showAccounts: boolean;
   pending: number;
+  unread: Record<number, number>;
 }) {
   const activeConversation = route.name === "project" ? route.conversationId : null;
   const sorted = [...statuses].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
@@ -91,9 +94,11 @@ function ProjectNav({ route, project, statuses, showAccounts, pending }: {
           <DocumentIcon size={15} /> <span className="truncate">{project?.detail.kind === "research" ? "Report" : "Document"}</span>
         </a>
         {project && <Channels project={project} rooms={project.detail.rooms.filter((r) => r.kind === "direction")}
-          label="Direction" activeConversation={activeConversation} pending={pending} />}
+          label="Direction" activeConversation={activeConversation} pending={pending}
+          unread={unread} statuses={statuses} />}
         {project && <Channels project={project} rooms={project.detail.rooms.filter((r) => r.kind !== "direction")}
-          label="Channels" activeConversation={activeConversation} pending={0} />}
+          label="Channels" activeConversation={activeConversation} pending={0}
+          unread={unread} statuses={statuses} />}
 
         <div className="section-label team-label">
           Team <span className="count">{working ? `${working} working` : "all resting"}</span>
@@ -121,12 +126,14 @@ function ProjectNav({ route, project, statuses, showAccounts, pending }: {
 }
 
 /** A section of channels. Direction is the CEO's own; the others are read-only for them. */
-function Channels({ project, rooms, label, activeConversation, pending }: {
+function Channels({ project, rooms, label, activeConversation, pending, unread, statuses }: {
   project: ProjectState;
   rooms: Room[];
   label: string;
   activeConversation: number | null;
   pending: number;
+  unread: Record<number, number>;
+  statuses: EmployeeStatus[];
 }) {
   if (rooms.length === 0) return null;
   return (
@@ -136,13 +143,18 @@ function Channels({ project, rooms, label, activeConversation, pending }: {
         const conversations = project.conversations[room.id] ?? [];
         const first = conversations[0];
         const active = conversations.some((c) => c.id === activeConversation);
+        const live = statuses.some((s) => s.status === "working" && conversations.some((c) => c.id === s.conversation_id));
+        const fresh = conversations.reduce((n, c) => n + (c.id === activeConversation ? 0 : unread[c.id] ?? 0), 0);
         return (
           <div key={room.id}>
             <a className={`nav-item${active && conversations.length === 1 ? " active" : ""}`}
               aria-current={active && conversations.length === 1 ? "page" : undefined}
               href={first ? `#/p/${project.detail.id}/c/${first.id}` : undefined}>
               <HashIcon size={15} /> <span className="truncate">{room.name}</span>
-              {room.kind === "direction" && <Badge count={pending} label={`${pending} waiting for you`} />}
+              {live && <span className="dot dot-working live-dot" role="img" aria-label="An agent is working here" />}
+              {room.kind === "direction" && pending > 0
+                ? <Badge count={pending} label={`${pending} waiting for you`} />
+                : <Badge count={fresh} label={`${fresh} new messages`} quiet />}
             </a>
             {conversations.length > 1 &&
               conversations.map((c) => (

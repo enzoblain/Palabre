@@ -400,3 +400,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .usage-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.live-dot { margin-left: auto; flex-shrink: 0; }
+.live-dot + .badge-count { margin-left: 6px; }
