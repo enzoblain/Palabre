@@ -24,6 +24,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "update_summary": {"edit_room_document"},
     "resolve_question": {"edit_room_document"},
     "merge_task": {"merge"},
+    "set_working_branch": {"merge"},
     "install_toolchain": {"manage_toolchains"},
 }
 

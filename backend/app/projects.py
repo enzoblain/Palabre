@@ -1,6 +1,7 @@
 """Project creation: the team is drawn at random from the catalog."""
 
 import random
+import re
 import secrets
 from dataclasses import asdict
 
@@ -202,11 +203,19 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     return await load_project(s, project.id)
 
 
-async def change_branch(s: AsyncSession, project: Project, branch: str) -> Project:
+async def change_branch(s: AsyncSession, project: Project, branch: str, by: Employee | None = None) -> Project:
     """Point the team at another branch: tasks start from it and their PRs merge into it
     (e.g. a `dev` branch, merged into `main` by the boss). A branch missing on GitHub is
-    created from the current one; the open PRs are retargeted to it."""
+    created from the current one; the open PRs are retargeted to it.
+    by: the lead doing it. They cannot pick the repository's default branch (production):
+    only the boss sends the team's merges there."""
+    if not re.match(github.BRANCH_PATTERN, branch):
+        raise WorkflowError(f"Not a valid branch name: {branch}")
+    if branch == project.default_branch:
+        raise WorkflowError(f"The team already works on {branch}")
     repo = github.repo_slug(project.repo_url)
+    if by is not None and branch == await github.resolve_branch(repo, ""):
+        raise WorkflowError(f"{branch} is the production branch: only the boss can send the team's merges there")
     if not await github.branch_exists(repo, branch):
         await github.create_branch(repo, branch, project.default_branch)
     open_prs = await s.scalars(

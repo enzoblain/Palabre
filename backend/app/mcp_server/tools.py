@@ -4,7 +4,7 @@ from typing import Literal
 
 from mcp.server.mcpserver import Context
 
-from app import services, toolchains, workflow
+from app import projects, services, toolchains, workflow
 from app.db import SessionLocal
 from app.mcp_server.server import current_caller, tool
 from app.models import Employee, Project
@@ -322,7 +322,7 @@ async def resolve_question(ctx: Context, question_id: int, answer: str) -> dict:
 
 @tool
 async def merge_task(ctx: Context, task_id: int, message: str) -> dict:
-    """Merge a task's pull request (always a squash merge: one commit on the default
+    """Merge a task's pull request (always a squash merge: one commit on the team's
     branch). Refused, with the reasons, until every rule of the company's mode is met
     (approvals, QA, security, CI, changelog).
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
@@ -331,6 +331,22 @@ async def merge_task(ctx: Context, task_id: int, message: str) -> dict:
         await _check_chat(s, c.project_id, message)
         me = await s.get(Employee, c.employee_id)
         return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me, message=message))
+
+
+@tool
+async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
+    """Move the team to another branch, e.g. "dev": new tasks start from it and every PR
+    merges into it. A branch missing on GitHub is created from the current one, and the
+    open PRs are retargeted to it. The repository's default branch (production) is
+    refused: only the boss merges into it, or sends the team back there.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.change_branch(s, await projects.load_project(s, c.project_id), branch.strip(), by=me)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} (branch: `{branch.strip()}`)", me)
+    return {"branch": project.default_branch}
 
 
 # --- Toolchains (lead, devops) -------------------------------------------------------
