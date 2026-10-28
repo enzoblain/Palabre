@@ -52,6 +52,10 @@ review, QA or security verdict with its author, merge) is announced by a short "
 line in the task's channel, with the link. As soon as a task meets every merge rule of the
 company's size, the lead is woken up to merge it,
 and reminded once if it is still not merged after `MERGE_REMINDER_MINUTES` (10 by default).
+The same goes for releases: when the CI of the open release PR (team's branch to production) ends,
+and, after `merge_release`, when the CI of production's head ends, the lead is woken up once per
+head SHA with the result (green, or the failing checks) and a "Palabre" line is posted in the
+team's first channel. Green means `merge_release`, then `publish_version`.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
