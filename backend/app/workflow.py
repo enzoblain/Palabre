@@ -14,7 +14,7 @@ from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
 from app.services import WorkflowError, emit_event, post_message, post_system_message
-from app.worktrees import remove_task_worktree, repo_dir
+from app.worktrees import final_branch_name, remove_task_worktree, rename_branch, repo_dir
 
 MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -280,6 +280,9 @@ async def submit_for_review(
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet")
     pr_title = conventional_title(title, task.id)
+    if task.pr_number is None and github.is_task_branch_name(task.branch):
+        # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
+        await rename_branch(task, final_branch_name(pr_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
     task.pr_title = pr_title
@@ -435,7 +438,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
 
 def is_task_branch(project: Project, branch: str | None) -> bool:
     """Only a task's own branch may be deleted: never the default branch, `dev` or a release."""
-    return bool(branch) and branch.startswith("task/") and branch not in {project.default_branch, github.WORKING_BRANCH}
+    return github.is_task_branch_name(branch) and branch not in {project.default_branch, github.WORKING_BRANCH}
 
 
 async def clean_up_task(project: Project, task: Task) -> None:

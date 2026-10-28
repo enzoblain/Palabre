@@ -42,7 +42,8 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git branch (`task/<id>`) and worktree, then opens a pull request.
+2. **A developer** works on the task in its own git worktree, then opens a pull request. The branch starts as `task/<id>` and, at the first
+   `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
    `submit_for_review` a title such as `feat(usage): show real Claude usage per model`, the backend
@@ -63,7 +64,7 @@ head SHA with the result (green, or the failing checks) and a "Palabre" line is 
 team's first channel. Green means `merge_release`, then `publish_version`.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
-closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
+closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
@@ -102,7 +103,7 @@ the catalog); `propose_release` and Validate stay available when the lead wants 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
 shows every open one, and `close_pull_request` closes one with a comment and deletes its
 branch. It refuses a task's pull request (cancel the task instead) and the release one, and
-never deletes production, the team's branch or a fork's branch.
+never deletes production, the team's branch or a fork's branch, nor a branch named like a task's (`feat/12-foo`).
 
 ### Research group
 
