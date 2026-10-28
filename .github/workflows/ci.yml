@@ -1,6 +1,6 @@
-# Tests on every pull request and on main. Python and Node match the Dockerfiles
-# (backend: python:3.12, frontend: node:22). The jobs skip what the branch doesn't have yet,
-# so the workflow is green before pytest / `npm run check` exist.
+# Tests and Docker image builds on every pull request and on main. Python and Node match the
+# Dockerfiles (backend: python:3.12, frontend: node:22). The test jobs skip what the branch
+# does not have yet, so the workflow is green before pytest / `npm run check` exist.
 name: CI
 
 on:
@@ -78,3 +78,25 @@ jobs:
       - name: npm run check
         if: steps.detect.outputs.run == 'true'
         run: npm run check
+
+  # Checks that the images build (nobody has docker locally). No push, no login, no secrets.
+  docker:
+    name: Docker build (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: palabre, context: ./backend }
+          - { image: palabre-web, context: ./frontend }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # amd64 only: the multi-arch build (QEMU) stays in release.yml
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
