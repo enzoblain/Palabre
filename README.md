@@ -64,7 +64,7 @@ head SHA with the result (green, or the failing checks) and a "Palabre" line is 
 team's first channel. Green means `merge_release`, then `publish_version`.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
-closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
+closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
@@ -103,7 +103,7 @@ the catalog); `propose_release` and Validate stay available when the lead wants 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
 shows every open one, and `close_pull_request` closes one with a comment and deletes its
 branch. It refuses a task's pull request (cancel the task instead) and the release one, and
-never deletes production, the team's branch or a fork's branch.
+never deletes production, the team's branch or a fork's branch, nor a branch named like a task's (`feat/12-foo`).
 
 ### Research group
 

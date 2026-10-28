@@ -137,7 +137,8 @@ def branch_name(task: Task) -> str:
 
 def final_branch_name(pr_title: str, task_id: int) -> str:
     """`<type>/<id>-<slug>` from the English Conventional Commits title (`feat(usage): show
-    usage (#60)` → `feat/60-show-usage`); the slug is capped at 40 characters."""
+    usage (#60)` → `feat/60-show-usage`); the slug is capped at 40 characters. Only the first
+    submission names the branch: a later change of type in the title does not rename it."""
     kind, _, rest = pr_title.partition(": ")
     kind = re.split(r"[(!]", kind)[0]
     words = re.sub(r"\s*\(#\d+\)$", "", rest).lower()
@@ -146,8 +147,12 @@ def final_branch_name(pr_title: str, task_id: int) -> str:
 
 
 async def rename_branch(task: Task, new: str) -> None:
-    """Rename the task's local branch (checked out in its worktree) before its first push."""
-    await git(task.worktree_path, "branch", "-m", task.branch, new)
+    """Rename the task's local branch (checked out in its worktree) before its first push.
+    Idempotent: the source is the worktree's actual branch, so a rename whose transaction was
+    rolled back (the push failed afterwards) is not attempted twice."""
+    current = (await git(task.worktree_path, "rev-parse", "--abbrev-ref", "HEAD")).strip()
+    if current != new:
+        await git(task.worktree_path, "branch", "-m", current, new)
     task.branch = new
 
 

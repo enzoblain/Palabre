@@ -280,14 +280,12 @@ async def submit_for_review(
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet")
     pr_title = conventional_title(title, task.id)
+    if task.pr_number is None and github.is_task_branch_name(task.branch):
+        # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
+        await rename_branch(task, final_branch_name(pr_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
     task.pr_title = pr_title
-    if task.pr_number is None and github.is_task_branch_name(task.branch):
-        # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
-        new_branch = final_branch_name(pr_title, task.id)
-        if new_branch != task.branch:
-            await rename_branch(task, new_branch)
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
