@@ -25,7 +25,9 @@ docker compose up -d
 The server listens on port `2710` (`PALABRE_PORT` in `.env`), and the web app on port
 `2810` (`PALABRE_WEB_PORT`): open `http://<your NAS>:2810` and enter the `ADMIN_TOKEN`
 from `.env`. To update:
-`docker compose pull && docker compose up -d`. `PALABRE_VERSION` in `.env` pins a
+`docker compose pull && docker compose up -d`, or let it update itself: with
+`COMPOSE_PROFILES=autoupdate` in `.env`, an `updater` container checks for a new version
+every 5 minutes. `PALABRE_VERSION` in `.env` pins a
 version (e.g. `0.1.0`); the default is the latest release.
 
 ## Install the desktop app

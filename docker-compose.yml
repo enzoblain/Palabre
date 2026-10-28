@@ -46,6 +46,39 @@ services:
     ports:
       - "${PALABRE_WEB_PORT:-2810}:80"
 
+  updater:
+    # Off by default: COMPOSE_PROFILES=autoupdate in .env turns it on. Every few minutes
+    # it pulls the images and restarts the server and the web app if a new version came out
+    image: docker:27-cli
+    profiles: [autoupdate]
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project:ro
+    environment:
+      INTERVAL: ${PALABRE_UPDATE_INTERVAL:-300}
+    # The project is reached at its path on the host (a link to /project), so the
+    # containers it recreates keep the labels of this compose project
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -u
+        project=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$$(hostname)")
+        dir=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$$(hostname)")
+        mkdir -p "$$(dirname "$$dir")" && { [ -e "$$dir" ] || ln -s /project "$$dir"; }
+        cd "$$dir"
+        while true; do
+          # `up` only recreates the containers whose image changed
+          if docker compose -p "$$project" pull -q backend web &&
+             out=$$(docker compose -p "$$project" up -d backend web 2>&1); then
+            case "$$out" in *Recreate*) echo "$$(date -u '+%F %T') Updated"; echo "$$out";; esac
+          else
+            echo "$$(date -u '+%F %T') Update failed: $${out:-pull failed}"
+          fi
+          sleep "$$INTERVAL"
+        done
+
 volumes:
   pgdata:
   palabre-data:
