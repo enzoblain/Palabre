@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import workflow
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Conversation, Event, Message, Project, Room
@@ -38,6 +39,8 @@ async def run_scheduler() -> None:
                 await watch_mergeable_tasks(s)
                 await watch_release_ci(s)
                 await watch_idle_tasks(s)
+                workflow.flush_lead_updates(s)
+                await s.commit()
         except asyncio.CancelledError:
             raise
         except Exception:

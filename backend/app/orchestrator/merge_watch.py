@@ -11,14 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, workflow
 from app.config import settings
-from app.models import Project, Task, TaskStatus
+from app.models import AgentRun, Project, Task, TaskStatus
 from app.services import emit_event, post_system_message, team_conversation_id
 
 # Seconds between two merge-rule checks of the same task (they ask GitHub about the CI)
 CHECK_EVERY_S = 60
 _last_check: dict[int, float] = {}
 _last_release_check: dict[int, float] = {}
-_ci_seen: dict[int, str] = {}  # Last final CI result announced to the lead, per task
+_last_idle_check: dict[int, float] = {}
+# Last final CI result announced to the lead, per task; in memory, so a restart may repeat one
+_ci_seen: dict[int, str] = {}
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
             continue
         if (ci := _ci_result(blockers)) is not None and _ci_seen.get(task.id) != ci:
             if ci != "green" or blockers:  # All green and approved: the lead is woken as mergeable
-                workflow.wake_lead(s, task, f"CI finished: {ci}")
+                workflow.wake_lead(task, f"CI finished: {ci}")
             _ci_seen[task.id] = ci
         if blockers:
             task.merge_ready_at = None  # A rule broke again (CI): announce it when fixed
@@ -106,7 +108,7 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
     """Give the task back to its dev with the problem, and tell the team."""
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
     emit_event(s, project.id, "pr_blocked", {"task_id": task.id, "problem": problem}, employee_id=task.assignee_id)
-    workflow.wake_lead(s, task, f"sent back to its dev: {problem}")
+    workflow.wake_lead(task, f"sent back to its dev: {problem}")
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
         await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
 
@@ -114,31 +116,46 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
 async def watch_idle_tasks(s: AsyncSession) -> None:
     """Alert the lead, once per head SHA, about a task in progress or in review that has not moved
     for idle_task_minutes, with the reason it is stuck."""
+    now = time.monotonic()
     cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_task_minutes)
-    tasks = await s.scalars(
-        select(Task).where(Task.status.in_([TaskStatus.in_progress, TaskStatus.review]), Task.updated_at < cutoff)
+    tasks = list(
+        await s.scalars(
+            select(Task).where(Task.status.in_([TaskStatus.in_progress, TaskStatus.review]), Task.updated_at < cutoff)
+        )
     )
+    for gone in _last_idle_check.keys() - {t.id for t in tasks}:
+        del _last_idle_check[gone]
     for task in tasks:
+        if now - _last_idle_check.get(task.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
+            continue
+        _last_idle_check[task.id] = now
+        # The task row does not change while its dev works: a running agent is activity
+        running = await s.scalar(select(AgentRun.id).where(AgentRun.task_id == task.id, AgentRun.finished_at.is_(None)).limit(1))
+        if running is not None:
+            continue
         project = await s.get(Project, task.project_id)
         try:
             sha, reason = await _idle_reason(s, project, task)
         except github.GitHubError as exc:
             log.warning("Task #%s: idle state could not be checked: %s", task.id, exc)
             continue
-        if task.idle_alert_sha == sha:
-            continue
+        if reason is None:
+            continue  # Already alerted for this head SHA
         task.idle_alert_sha = sha
         payload = {"task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes, "reason": reason}
         emit_event(s, task.project_id, "task_idle", payload, role="lead")
     await s.commit()
 
 
-async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str]:
-    """(head SHA, why the task is stuck); the SHA is "none" while there is no PR."""
+async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str | None]:
+    """(head SHA, why the task is stuck); the SHA is "none" while there is no PR. The reason is
+    None when the lead was already alerted for this SHA: only one PR call is spent then."""
     if task.status != TaskStatus.review or task.pr_number is None:
-        return "none", "no activity on the work in progress"
+        return "none", None if task.idle_alert_sha == "none" else "no activity on the work in progress"
     pr = await github.get_pull_request(github.repo_slug(project.repo_url), task.pr_number)
     sha = pr["head"]["sha"]
+    if task.idle_alert_sha == sha:
+        return sha, None
     if pr.get("mergeable_state") == "dirty":
         return sha, f"the PR conflicts with {pr['base']['ref']}"
     blockers = await workflow.merge_blockers(s, project, task)

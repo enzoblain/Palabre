@@ -18,6 +18,9 @@ class WatchSession:
     async def scalars(self, _query):
         return self.tasks
 
+    async def scalar(self, _query):
+        return getattr(self, "running_run", None)
+
     async def get(self, _model, _pk):
         return self.project
 
@@ -35,7 +38,8 @@ class WatchSession:
 def watch(project, monkeypatch):
     monkeypatch.setattr(merge_watch, "_last_check", {})
     monkeypatch.setattr(merge_watch, "_ci_seen", {})
-    monkeypatch.setattr(workflow, "_lead_woken", {})
+    monkeypatch.setattr(merge_watch, "_last_idle_check", {})
+    monkeypatch.setattr(workflow, "_lead_pending", {})
     state = type("S", (), {"blockers": []})()
 
     async def blockers(_s, _project, _task):
@@ -312,28 +316,30 @@ async def test_running_ci_is_left_alone(watch, project):
     assert not s.added
 
 
-async def test_ci_finishing_red_wakes_the_lead_once(watch, project):
+async def test_ci_finishing_red_wakes_the_lead_once(watch, project, monkeypatch):
+    monkeypatch.setattr(workflow.settings, "lead_debounce_seconds", 0)
     watch.blockers = ["CI failed: tests", "0/1 reviewer approval(s)"]
     s = WatchSession([stuck_task()], project)
     await merge_watch.watch_mergeable_tasks(s)
     merge_watch._last_check.clear()
-    workflow._lead_woken.clear()
     await merge_watch.watch_mergeable_tasks(s)
+    workflow.flush_lead_updates(s)
     [event] = events_of(s, "task_update")
     assert event.target_role == "lead" and "CI failed: tests" in event.payload["change"]
 
 
-async def test_changes_of_a_task_are_debounced(project):
+async def test_changes_of_a_task_are_grouped_in_one_wakeup(project, monkeypatch):
     task = reviewable()
     s = WatchSession([], project)
-    workflow._lead_woken.clear()
-    workflow.wake_lead(s, task, "PR submitted")
-    workflow.wake_lead(s, task, "Karim approved")
+    workflow.wake_lead(task, "PR submitted")
+    workflow.wake_lead(task, "Karim requested changes")
+    workflow.flush_lead_updates(s)  # Window still open
+    assert not events_of(s, "task_update")
+    monkeypatch.setattr(workflow.settings, "lead_debounce_seconds", 0)
+    workflow.flush_lead_updates(s)
+    workflow.flush_lead_updates(s)
     [event] = events_of(s, "task_update")
-    assert event.payload["change"] == "PR submitted"
-    workflow._lead_woken.clear()
-    workflow.wake_lead(s, task, "Karim approved")
-    assert len(events_of(s, "task_update")) == 2
+    assert event.payload["change"] == "PR submitted; Karim requested changes"
 
 
 def idle_task(**fields):
@@ -349,6 +355,7 @@ async def test_idle_task_alerts_the_lead_with_the_reason_once_per_sha(watch, pro
     [event] = events_of(s, "task_idle")
     assert event.target_role == "lead" and "conflicts with dev" in event.payload["reason"]
     watch.pr["head"]["sha"] = "def"
+    merge_watch._last_idle_check.clear()
     await merge_watch.watch_idle_tasks(s)
     assert len(events_of(s, "task_idle")) == 2
 
@@ -366,3 +373,35 @@ async def test_idle_task_without_pr_is_reported(watch, project):
     await merge_watch.watch_idle_tasks(s)
     [event] = events_of(s, "task_idle")
     assert event.payload["status"] == "in_progress"
+
+
+async def test_idle_task_with_a_running_agent_is_not_alerted(watch, project):
+    s = WatchSession([idle_task(status=TaskStatus.in_progress, pr_number=None)], project)
+    s.running_run = 99
+    await merge_watch.watch_idle_tasks(s)
+    assert not s.added
+
+
+async def test_idle_tasks_are_checked_at_most_once_a_minute(watch, project, monkeypatch):
+    calls = []
+
+    async def pull_request(_repo, _number):
+        calls.append(1)
+        return watch.pr
+
+    monkeypatch.setattr(github, "get_pull_request", pull_request)
+    task = idle_task()
+    s = WatchSession([task], project)
+    await merge_watch.watch_idle_tasks(s)
+    await merge_watch.watch_idle_tasks(s)
+    assert len(calls) == 1
+
+
+async def test_already_alerted_sha_costs_no_merge_rule_check(watch, project, monkeypatch):
+    async def blockers(*_):
+        raise AssertionError("merge_blockers must not run")
+
+    monkeypatch.setattr(workflow, "merge_blockers", blockers)
+    s = WatchSession([idle_task(idle_alert_sha="abc")], project)
+    await merge_watch.watch_idle_tasks(s)
+    assert not s.added

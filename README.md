@@ -72,7 +72,7 @@ otherwise approved (no other merge rule is missing); before that, reviewers go f
 
 The lead is also woken up (`task_update`) whenever a task moves: PR submitted or resubmitted, each
 review verdict, CI finished, task sent back. Changes of the same task within
-`LEAD_DEBOUNCE_SECONDS` (30 by default) are grouped into one wakeup. A watchdog alerts the lead
+`LEAD_DEBOUNCE_SECONDS` (30 by default) are grouped into one wakeup sent when the window ends, listing them all. A watchdog alerts the lead
 (`task_idle`, once per head SHA) when a task in progress or in review has not moved for
 `IDLE_TASK_MINUTES` (10 by default), with the reason: conflict, missing or red CI, missing review,
 or simply no activity.

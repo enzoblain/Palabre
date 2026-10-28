@@ -61,7 +61,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
 async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     gits = []
     task = SimpleNamespace(
-        id=7, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
         sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
     )
@@ -115,7 +115,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
 
 async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     task = SimpleNamespace(
-        id=7, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
         sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
     )
