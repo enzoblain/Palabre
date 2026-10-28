@@ -77,6 +77,15 @@ review verdict, CI finished, task sent back. Changes of the same task within
 `IDLE_TASK_MINUTES` (10 by default), with the reason: conflict, missing or red CI, missing review,
 or simply no activity.
 
+A task never waits silently for its dev either: putting a task back to `todo` (with or without a PR:
+rebase, new work), requesting changes, or calling `assign_task` (also to the same dev, which then
+only nudges) wakes the assignee with the reason, unless a run or a wakeup is already on that
+task. A `todo` or `changes_requested` task whose dev has had no run for `IDLE_TASK_MINUTES` is
+nudged once; if it still does not start after another `IDLE_TASK_MINUTES`, the lead is alerted
+(`task_idle`). Tasks waiting for their dependencies are left alone. When `merge_task` is refused
+because the CI is still running, the lead is woken (`merge_retry`) as soon as the CI is over,
+or as a mergeable task if every rule is then met.
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
