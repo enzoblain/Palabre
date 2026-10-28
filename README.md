@@ -282,7 +282,7 @@ To check the frontend (TypeScript typecheck, then Vite build), run `npm run chec
 Roles, company sizes, research angles and personalities are all defined in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
 
-To publish a release, push a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
+The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64
 (`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
 every system, attached to the release.
