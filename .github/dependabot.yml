@@ -1,4 +1,4 @@
-# Keeps the SHA-pinned GitHub Actions up to date (weekly pull requests against dev).
+# Keeps the SHA-pinned GitHub Actions and the backend pip locks up to date (weekly pull requests against dev).
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -6,3 +6,15 @@ updates:
     target-branch: dev
     schedule:
       interval: weekly
+  # Backend locks: Dependabot detects the pip-compile headers and re-runs pip-compile
+  # (hashes included) for requirements.txt and requirements-dev.txt. One grouped PR keeps
+  # the dev lock aligned with the main one (-c requirements.txt).
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      backend-locks:
+        patterns:
+          - "*"
