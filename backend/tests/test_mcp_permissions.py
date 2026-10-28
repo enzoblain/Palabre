@@ -12,7 +12,8 @@ from app.mcp_server.auth import AgentAuthMiddleware, Caller
 from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_for, mcp_tools_for
 
 CONVERSATION_TOOLS = {name for name, perms in MCP_TOOLS.items() if perms == {"conversation"}}
-MERGE_TOOLS = {"merge_task", "set_working_branch", "propose_release"}
+SHIP_TOOLS = {"merge_release", "publish_version"}
+MERGE_TOOLS = {"merge_task", "set_working_branch", "propose_release"} | SHIP_TOOLS
 MANAGE_TOOLS = {"create_task", "assign_task", "update_task"}
 REVIEW_TOOLS = {"review_task"}
 
@@ -235,3 +236,17 @@ def test_only_the_lead_can_create_channels():
     for role, cfg in load_catalog()["roles"].items():
         has_it = "create_channel" in mcp_tools_for(cfg["permissions"], False)
         assert has_it == (role == "lead"), role
+
+
+def test_only_the_lead_can_ship_releases():
+    for role, cfg in load_catalog()["roles"].items():
+        has_it = SHIP_TOOLS <= mcp_tools_for(cfg["permissions"], True)
+        assert has_it == (role == "lead"), role
+    assert "propose_release" in tools_of("lead")
+
+
+@pytest.mark.parametrize("role", ["dev_backend", "qa", "security", "devops", "architect", "reviewer"])
+@pytest.mark.parametrize("name", sorted(SHIP_TOOLS))
+async def test_others_cannot_ship_releases(role, name):
+    result, reached = await call_through_filter(role, name)
+    assert result.is_error and reached == []

@@ -403,6 +403,50 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     return {"decision_id": decision.id, "pr_url": decision.pr_url, "status": "waiting for the boss"}
 
 
+@tool
+async def merge_release(ctx: Context, title: str, summary: str, message: str) -> dict:
+    """Merge the release pull request (the team's branch into production) yourself, without
+    waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
+    once the checks of a freshly opened PR are done), and the merge fails if the head moved
+    meanwhile. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
+    opinion first, use propose_release.
+    title: what ships, e.g. "Checkout and order history".
+    summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        pr_url, number = await projects.merge_release(s, project, title.strip(), summary.strip())
+        text = f"{message.strip()} (release merged: {pr_url})"
+        direction = await services.direction_conversation_id(s, c.project_id)
+        await services.post_message(s, c.project_id, direction or c.conversation_id, text, me)
+        if direction and direction != c.conversation_id:
+            await services.post_message(s, c.project_id, c.conversation_id, text, me)
+    return {"merged": True, "pr_number": number, "pr_url": pr_url}
+
+
+@tool
+async def publish_version(ctx: Context, version: str, notes: str, message: str) -> dict:
+    """Tag the head of production (the default branch) vX.Y.Z and publish the GitHub Release
+    with its notes; the tag builds the images and the desktop app. Refused for a version that
+    is not X.Y.Z, a tag that already exists, or a version that differs from the one in the
+    repository's files (frontend/package.json, tauri.conf.json, Cargo.toml: the ones that exist),
+    or when CI is not green on production's head. Merge a version bump first.
+    version: e.g. "1.4.0".
+    notes: the release notes, in Markdown.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        url = await projects.publish_version(project, version, notes)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({url})", me)
+    return {"version": version.strip().removeprefix("v"), "release_url": url}
+
+
 # --- Toolchains (lead, devops) -------------------------------------------------------
 
 

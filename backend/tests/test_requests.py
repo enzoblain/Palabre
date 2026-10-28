@@ -122,7 +122,7 @@ async def test_nuancing_a_decision_leaves_it_proposed():
 def release(monkeypatch):
     calls = []
 
-    async def merge(repo, number, title, method):
+    async def merge(repo, number, title, method, sha=None):
         calls.append(("merge", number, method))
 
     async def close(repo, number):

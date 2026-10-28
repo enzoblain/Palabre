@@ -1,8 +1,10 @@
 """Project creation: the team is drawn at random from the catalog."""
 
+import json
 import random
 import re
 import secrets
+import tomllib
 from dataclasses import asdict
 from datetime import UTC, datetime
 
@@ -343,12 +345,12 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     return decision
 
 
-async def settle_release(project: Project, decision: Decision, accepted: bool) -> None:
+async def settle_release(project: Project, decision: Decision, accepted: bool, sha: str | None = None) -> None:
     """The boss's answer to a release: accepted, its PR is merged (a merge commit, so the
     team's branch and production keep the same history); rejected, it is closed."""
     repo = github.repo_slug(project.repo_url)
     if accepted:
-        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge")
+        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge", sha=sha)
     else:
         try:
             await github.close_pull_request(repo, decision.pr_number)
@@ -356,8 +358,96 @@ async def settle_release(project: Project, decision: Decision, accepted: bool) -
             pass  # Already closed or merged on GitHub
 
 
+async def merge_release(s: AsyncSession, project: Project, title: str, summary: str) -> tuple[str, int]:
+    """The lead merges the release PR (team's branch to production) without the boss's answer,
+    under the same CI gate as a task. Opens the PR if there is none; a release the boss
+    was asked about is settled as validated. Returns the PR's URL and number."""
+    repo = github.repo_slug(project.repo_url)
+    production = await github.resolve_branch(repo, "")
+    if project.default_branch == production:
+        raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
+    pr = await github.find_pull_request(repo, project.default_branch, production)
+    if pr is None:
+        try:
+            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+        except github.GitHubError as exc:
+            if "No commits between" in str(exc):
+                raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
+            raise
+    # CI is checked on this exact commit and the merge is pinned to it: a task merged into
+    # the team's branch in between makes GitHub refuse instead of shipping unchecked code
+    head_sha = pr["head"]["sha"]
+    if ci := await github.commit_checks(repo, head_sha):
+        raise WorkflowError(f"The release PR #{pr['number']} cannot be merged: {ci}")
+    pending = await s.scalar(
+        select(Decision).where(
+            Decision.room_id.in_(select(Room.id).where(Room.project_id == project.id)),
+            Decision.pr_number == pr["number"],
+            Decision.status == DecisionStatus.proposed,
+        )
+    )
+    if pending is not None:
+        await settle_decision(
+            s, pending, RequestAnswer.validated, "Merged by the lead, without the boss's answer",
+            wake_proposer=False, merge_sha=head_sha,
+        )  # fmt: skip
+        await s.commit()
+    else:
+        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge", sha=head_sha)
+    return pr["html_url"], pr["number"]
+
+
+SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# Where the app's version lives in the repository, and how to read it
+VERSION_FILES = {
+    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/src-tauri/tauri.conf.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/src-tauri/Cargo.toml": lambda text: str(tomllib.loads(text).get("package", {}).get("version")),
+}
+
+
+async def publish_version(project: Project, version: str, notes: str) -> str:
+    """Tag the head of production with vX.Y.Z and publish the GitHub Release (the tag starts
+    release.yml). Refused for a malformed version, an existing tag or files at another version."""
+    version = version.strip().removeprefix("v")
+    if not SEMVER_RE.match(version):
+        raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
+    if not notes.strip():
+        raise WorkflowError("A release needs notes")
+    tag = f"v{version}"
+    repo = github.repo_slug(project.repo_url)
+    if await github.tag_exists(repo, tag):
+        raise WorkflowError(f"The tag {tag} already exists")
+    production = await github.resolve_branch(repo, "")
+    sha = await github.branch_head(repo, production)
+    # The tag publishes the images the team pulls: production's head must have passed CI
+    if ci := await github.commit_checks(repo, sha):
+        raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
+    mismatches = []
+    for path, read in VERSION_FILES.items():
+        text = await github.file_content(repo, path, sha)
+        if text is None:
+            continue  # A project without this file has no version to match
+        try:
+            found = read(text)
+        except ValueError:  # includes malformed JSON and TOML
+            found = "unreadable"
+        if found != version:
+            mismatches.append(f"{path} says {found}")
+    if mismatches:
+        raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")
+    release = await github.create_release(repo, tag, sha, notes.strip())
+    return release["html_url"]
+
+
 async def settle_decision(
-    s: AsyncSession, decision: Decision, answer: RequestAnswer, comment: str = "", *, wake_proposer: bool = True
+    s: AsyncSession,
+    decision: Decision,
+    answer: RequestAnswer,
+    comment: str = "",
+    *,
+    wake_proposer: bool = True,
+    merge_sha: str | None = None,
 ) -> None:
     """Apply the boss's answer to a decision. A release is merged when validated and closed
     when rejected (GitHub refusing the merge raises and leaves everything as it was). A
@@ -366,7 +456,8 @@ async def settle_decision(
     room = await s.get(Room, decision.room_id)
     is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
     if is_release and answer != RequestAnswer.nuanced:
-        await settle_release(await load_project(s, room.project_id), decision, answer == RequestAnswer.validated)
+        project = await load_project(s, room.project_id)
+        await settle_release(project, decision, answer == RequestAnswer.validated, merge_sha)
     if answer == RequestAnswer.nuanced:
         status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
     else:
