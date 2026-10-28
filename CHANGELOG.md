@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Creating a project detects the repository's production branch instead of assuming one, and seeds an empty repository with an initial commit so tasks can branch from it.
-- Each agent is oriented on its first run only, with a short intro to the project and its role.
+- Creating a project detects the repository's production branch (the one GitHub declares as default, falling back to `main`, then `master`) instead of assuming one.
+- An empty repository is seeded with a first commit holding a minimal README and a `.gitignore`, so tasks can branch from it.
+- On its first run on a project, each agent is told to read the README and the tree of the team's branch; later runs only get the branch name.
 
 ## [0.5.0] - 2026-10-28
 
