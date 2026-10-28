@@ -26,7 +26,8 @@ _ids = count(1)
 
 class FakeSession:
     """Just enough of AsyncSession: `scalars()` returns the preloaded `scalar_results`
-    in order; every query of the code under test must be queued by the test."""
+    in order; every query of the code under test must be queued by the test.
+    The query itself is ignored: SQL filters (e.g. reviews of the current round) are not tested."""
 
     def __init__(self, *scalar_results: list):
         self.scalar_results = list(scalar_results)
