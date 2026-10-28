@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.github import GitHubError, git
-from app.models import Project, Task
+from app.models import Employee, Project, Task
 
 
 # One git operation at a time on a project's main clone (clone, fetch, worktree add)
@@ -68,6 +68,27 @@ async def _initial_commit(project: Project, repo: Path) -> None:
         )  # fmt: skip
     await git(repo, "push", "--quiet", "origin", f"refs/heads/{branch}:refs/heads/{branch}", repo_url=project.repo_url)
     await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
+
+
+def desk_dir(project: Project, employee: Employee) -> Path:
+    return project_dir(project) / "desks" / f"employee-{employee.id}"
+
+
+async def prepare_desk(project: Project, employee: Employee) -> Path:
+    """The employee's own scratch checkout, where they work during conversations (read,
+    run commands, test a task's branch). It is reset to the default branch at every run
+    and never pushed: real changes go through tasks. Expects the repository synced."""
+    ref = f"refs/remotes/origin/{project.default_branch}"
+    path = desk_dir(project, employee)
+    async with _repo_locks[project.id]:
+        if not (path / ".git").exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            await git(repo_dir(project), "worktree", "prune")
+            await git(repo_dir(project), "worktree", "add", "--quiet", "--detach", str(path), ref)
+        else:
+            await git(path, "checkout", "--quiet", "--force", "--detach", ref)
+            await git(path, "clean", "--quiet", "-fdx")
+    return path
 
 
 def branch_name(task: Task) -> str:

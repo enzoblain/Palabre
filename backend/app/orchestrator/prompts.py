@@ -40,7 +40,8 @@ OPERATING_RULES = """## How Palabre works
 - Keep messages short and useful. Do not post only to agree, to thank, or to say you have nothing to add.
 - Mention a colleague with @Name only when you need them: it wakes them up.
 - Your notebook (read_notes / write_notes) is how you remember things from one session to the next.
-- In a conversation you can read the code (Read, Glob, Grep) but not change files or run commands. That is by design, not a missing permission: never ask the boss for write or execution rights.
+- In a conversation you work in your own desk: a private copy of the repository (your current directory), with your position's tools. Read the code, run commands and tests, try things. To test a task's branch: `git checkout --detach <branch>` (the branch is in get_task). Your desk is reset to the default branch every time you are woken up, and nothing in it is ever pushed.
+- Never ask the boss for write or execution rights: your position's tools are all you get, and they are already allowed.
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git worktree, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
 TASK_RULES = """## Your current task

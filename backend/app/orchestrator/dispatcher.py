@@ -23,12 +23,10 @@ from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
 from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, run_claude
-from app.worktrees import prepare_worktree, repo_dir, sync_repo
+from app.worktrees import prepare_desk, prepare_worktree, repo_dir, sync_repo
 
 log = logging.getLogger(__name__)
 
-# Conversation runs may read the code, never change it: edits only happen in task worktrees
-READ_ONLY_TOOLS = ["Glob", "Grep", "Read"]
 REPO_SYNC_INTERVAL_S = 60
 
 
@@ -247,10 +245,11 @@ class Orchestrator:
                 author_name=employee.name,
                 system_prompt=system_prompt,
                 prompt=wake_prompt([w.reason for w in wakeups]),
-                cwd=await self._main_checkout(project),
+                # Their own desk: same directory every time (claude sessions are tied to it)
+                cwd=await self._desk(project, employee),
                 mcp_headers=headers | {"X-Palabre-Conversation": str(first.conversation_id)},
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
-                claude_tools=READ_ONLY_TOOLS if claude_tools_for(employee.permissions) else [],
+                claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
                 oauth_token=oauth_token,
             )
@@ -262,9 +261,9 @@ class Orchestrator:
         )
         return spec, scope
 
-    async def _main_checkout(self, project: Project):
-        """The project's main checkout, refreshed at most every REPO_SYNC_INTERVAL_S.
-        Always the same directory: claude sessions are tied to their working directory."""
+    async def _desk(self, project: Project, employee: Employee):
+        """The employee's desk, from the main checkout refreshed at most every
+        REPO_SYNC_INTERVAL_S."""
         if time.monotonic() - self._repo_synced_at.get(project.id, float("-inf")) > REPO_SYNC_INTERVAL_S:
             try:
                 await sync_repo(project)
@@ -273,7 +272,7 @@ class Orchestrator:
                 if not (repo_dir(project) / ".git").exists():
                     raise
                 log.warning("Project %s: could not refresh the repository, using the last state", project.id)
-        return repo_dir(project)
+        return await prepare_desk(project, employee)
 
     async def _check_task(
         self, s: AsyncSession, project: Project, employee: Employee, task: Task | None, wakeups: list[Wakeup]
