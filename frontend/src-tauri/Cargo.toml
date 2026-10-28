@@ -1,6 +1,6 @@
 [package]
 name = "palabre"
-version = "0.1.4"
+version = "0.1.5"
 description = "Palabre desktop app: talk to your AI company"
 edition = "2021"
 
