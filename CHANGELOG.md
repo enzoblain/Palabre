@@ -12,10 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A task in review whose PR conflicts with the team's branch, reports no CI after `CI_MISSING_MINUTES` (10 by default), or has a red CI once approved goes back to its dev with the problem, and the team's channel gets a line. One wakeup per head SHA.
-- The lead is woken up whenever a task moves (submission, verdict, CI result, sent back), grouped per task within `LEAD_DEBOUNCE_SECONDS` (30), and when a task in progress or in review stays still for `IDLE_TASK_MINUTES` (10), with the reason.
-- The `idle_alert_sha` task column (nullable), added automatically at startup.
-- The `stuck_sha` task column (nullable), added automatically at startup. Nothing to do when upgrading.
-- A task sent back or reassigned wakes its dev, whoever moved it.
+- The lead is woken up whenever a task moves (submission, verdict, CI result, sent back), grouped per task within `LEAD_DEBOUNCE_SECONDS` (30), and when a task in progress or in review stays still for `IDLE_TASK_MINUTES` (10), with the reason; agent runs cut by a restart are ignored.
+- A task sent back or reassigned wakes its dev, whoever moved it. Putting a task back to `todo` wakes its dev too.
+- A task in `todo` or `changes_requested` with no run for `IDLE_TASK_MINUTES` nudges its dev once, then alerts the lead if it still does not start.
+- A merge refused because the CI is still running wakes the lead again once the CI is over.
+- The `idle_alert_sha`, `stuck_sha`, `unstarted_nudges` and `merge_retry_at` task columns, added automatically at startup. Nothing to do when upgrading.
 
 ### Changed
 
@@ -23,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `assign_task` now really changes the assignee (`get_task` kept showing the old one), and is idempotent.
 - The release notes keep the list of changes after the builds attach the downloads to the tag.
-- The idle watchdog ignores agent runs cut by a restart.
 
 ## [0.4.0] - 2026-10-28
 
