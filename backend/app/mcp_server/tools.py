@@ -70,6 +70,22 @@ async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
 
 
 @tool
+async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "question", "escalation"] = "question") -> dict:
+    """Ask the boss something in the direction channel. They answer with Validate, Reject or
+    Nuance (a free comment), and you are woken up with their answer. Use it when you need
+    their go or arbitration; a plain update is a send_message with channel="direction".
+    content: what you ask, short and self-contained, with your recommendation."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, content)
+        me = await s.get(Employee, c.employee_id)
+        msg = await services.ask_boss(s, c.project_id, me, content, kind)
+    if msg is None:
+        raise services.WorkflowError("This project has no direction channel to ask the boss in")
+    return {"message_id": msg.id, "status": "waiting for the boss"}
+
+
+@tool
 async def get_room_context(ctx: Context) -> dict:
     """The room's shared document: objective, members, decisions (proposed / validated /
     rejected), open questions, who does what, and summary."""
@@ -371,7 +387,7 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
 async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to
-    accept it: they merge it with one click from their inbox. One release at a time.
+    accept it: a request in direction that merges it when they validate it. One release at a time.
     title: what ships, e.g. "Checkout and order history".
     summary: for the boss, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
@@ -381,7 +397,9 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         decision = await projects.propose_release(s, project, c.room_id, title.strip(), summary.strip(), me)
-        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({decision.pr_url})", me)
+        text = f"{message.strip()} ({decision.pr_url})"
+        if await services.ask_boss(s, c.project_id, me, text, "release", decision.id) is None:
+            await services.post_message(s, c.project_id, c.conversation_id, text, me)
     return {"decision_id": decision.id, "pr_url": decision.pr_url, "status": "waiting for the boss"}
 
 

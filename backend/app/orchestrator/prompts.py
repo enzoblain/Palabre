@@ -17,6 +17,7 @@ REASONS: dict[str, str] = {
     "pr_merged": "Task #{task_id} was merged ({pr_url}). Do what your position requires after a merge, if anything.",
     "bug_reported": "A {severity} bug was reported as task #{task_id}. Triage it: assign it with assign_task, or cancel it with update_task.",
     "escalation": "{from} escalated something to you (message #{message_id}). Read it and decide.",
+    "ceo_answer": "The boss answered your request in direction (message #{message_id}, {request}): {answer}. Their comment: {comment}. Act on it, then tell the team in the right channel.",
     "boss_message": "The boss posted in the direction channel (message #{message_id}). Read it, then relay it to the team channels (send_message with channel=...) and report back to them in direction.",
     "objective_set": "The boss set the objective of this room. Read it with get_room_context and act according to your position.",
     "decision_changed": "The boss {status} decision #{decision_id}. Take it into account.",
@@ -48,7 +49,7 @@ OPERATING_RULES = """## How Palabre works
 - Never ask the boss for write or execution rights: your position's tools are all you get, and they are already allowed.
 - A missing toolchain (Node.js, Go) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
 - Your task's code only changes in a task run, in the task's worktree. When you are woken up in a conversation and it is time to work on your task (you were unblocked, someone asks you to start or to fix something), call start_task and stop: you are woken up in the worktree right after. Never cd into a task worktree from your desk, and never push: you have no credentials, submit_for_review does it.
-- Channels: the boss only talks to the lead, in the "direction" channel (they read every other channel but never write in them). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction"), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
+- Channels: the boss only talks to the lead, in the "direction" channel (they read every other channel but never write in them). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction", or ask_ceo when you need their Validate / Reject / Nuance answer), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git worktree, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
 RESEARCH_RULES = """## How Palabre works

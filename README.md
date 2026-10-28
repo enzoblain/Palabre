@@ -48,16 +48,20 @@ From there the team works on its own:
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
 Along the way the team holds a daily stand-up, records decisions in each room's shared
-document, and asks you when something is yours to decide. Decisions and questions waiting
-for you land in your inbox.
+document, and asks you when something is yours to decide. There is no inbox: the lead puts
+what waits for you in the direction channel as a request, a message with three answers,
+Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
+in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
+Proposed decisions, releases and escalations to the boss become such requests on their own,
+and the lead can ask for anything else with `ask_ceo`.
 
 A new project works on a `dev` branch, created from the repository's default branch if
 missing (an empty repository gets `main` then `dev` from its first commit), and every
 task's pull request targets it. Only a release reaches production. To switch an existing
 project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
 (`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
-request from `dev` to `main` and you get it in your inbox: one click merges it, or reject
-it to close it. The lead never merges into the repository's default branch: that one is yours.
+request from `dev` to `main` and asks you in direction: Validate merges it, Reject closes
+it, Nuance leaves it open for the lead to rework. The lead never merges into the repository's default branch: that one is yours.
 
 ### Research group
 

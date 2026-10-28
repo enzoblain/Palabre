@@ -35,3 +35,5 @@ def upgrade_schema(conn: Connection) -> None:
                 conn.exec_driver_sql(ddl + " NOT NULL DEFAULT '" + default.replace("'", "''") + "'")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    # The inbox is gone: its notifications (events for the boss) are now requests in direction
+    conn.exec_driver_sql("DELETE FROM events WHERE target_role = 'boss'")
