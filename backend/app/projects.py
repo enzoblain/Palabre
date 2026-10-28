@@ -42,7 +42,7 @@ async def create_project(
     (a peer's name; none: drawn at random, unless the team built by hand has one)."""
     kind = kind_of_mode(mode)
     if kind == "company":
-        github.repo_slug(repo_url)  # GitHub URLs only
+        repo_url = github.https_url(repo_url)  # GitHub URLs only
     else:
         repo_url = ""
     if employees:
@@ -279,6 +279,14 @@ async def settle_release(project: Project, decision: Decision, accepted: bool) -
             await github.close_pull_request(repo, decision.pr_number)
         except github.GitHubError:
             pass  # Already closed or merged on GitHub
+
+
+async def normalize_repo_urls(s: AsyncSession) -> None:
+    """Projects created with an SSH URL (before they were converted at creation) get
+    their HTTPS URL, which git can clone with the token."""
+    for project in await s.scalars(select(Project).where(Project.repo_url.like("git@%"))):
+        project.repo_url = github.https_url(project.repo_url)
+    await s.commit()
 
 
 async def refresh_permissions(s: AsyncSession) -> None:

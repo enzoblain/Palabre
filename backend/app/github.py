@@ -30,6 +30,12 @@ def repo_slug(repo_url: str) -> str:
     return match.group(1)
 
 
+def https_url(repo_url: str) -> str:
+    """The HTTPS URL of a GitHub repository: the one git uses, with the token (the server
+    has no SSH key, so `git@github.com:` URLs cannot be cloned as they are)."""
+    return f"https://github.com/{repo_slug(repo_url)}"
+
+
 def _git_env(repo_url: str | None) -> dict[str, str]:
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     if repo_url and repo_url.startswith("https://") and settings.github_token:

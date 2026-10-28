@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401 (registers tables)
 from app import services
-from app.projects import refresh_permissions
+from app.projects import normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.config import settings
@@ -33,6 +33,7 @@ async def lifespan(_: FastAPI):
     async with SessionLocal() as s:
         await services.load_app_settings(s)
         await refresh_permissions(s)
+        await normalize_repo_urls(s)
     async with mcp.session_manager.run():
         if settings.orchestrator_enabled:
             await orchestrator.start()
