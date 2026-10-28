@@ -64,6 +64,8 @@ export type Message = {
   author_name: string;
   content: string;
   created_at: string;
+  // Automatic line from the platform (not the CEO, although it has no employee)
+  is_system: boolean;
   // Set when the lead asks the CEO something (Validate / Reject / Nuance)
   request_kind: string | null;
   request_status: "pending" | RequestAnswer | null;
