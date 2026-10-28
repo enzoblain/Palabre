@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -65,14 +65,30 @@ class EmployeePatch(BaseModel):
 # --- Projects ----------------------------------------------------------------------
 
 
+class MemberIn(BaseModel):
+    """An agent of a team built by hand. Personality parts left out are drawn at random."""
+
+    # One word: colleagues mention them with @Name
+    name: str = Field(pattern=r"^[\w-]{1,40}$")
+    roles: list[str] = Field(min_length=1)
+    model: Literal["haiku", "sonnet", "opus"] | None = None
+    traits: dict[str, int] | None = None
+    quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
+    style: dict[str, str] | None = None
+    account: int | None = Field(default=None, ge=1)
+
+
 class ProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     repo_url: str
+    # Company mode: its rules (approvals, QA, CI...) and, without `employees`, its seats
     mode: str = "startup"
     default_branch: str = "main"
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
+    # Team built by hand (instead of drawn at random for the mode)
+    employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=30)
 
 
 class ProjectOut(ORM):

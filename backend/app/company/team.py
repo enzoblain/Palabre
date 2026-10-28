@@ -67,6 +67,36 @@ def generate_team(mode: str, seed: int | None = None) -> Team:
     return Team(mode=mode, seed=seed, process=dict(mode_cfg["process"]), employees=employees)
 
 
+def custom_employee(
+    roles: list[str],
+    name: str,
+    *,
+    traits: dict[str, int] | None = None,
+    quirks: list[str] | None = None,
+    style: dict[str, str] | None = None,
+    model: str | None = None,
+    seed: int | None = None,
+) -> Employee:
+    """An employee chosen by the boss. The roles set the title, permissions and default
+    model; whatever part of the personality is left out is drawn at random."""
+    catalog = load_catalog()
+    roles = list(dict.fromkeys(roles))
+    unknown = [r for r in roles if r not in catalog["roles"]]
+    if not roles or unknown:
+        raise ValueError(f"Unknown roles: {', '.join(unknown)}" if unknown else "An employee needs a role")
+    rng = random.Random(seed)
+    personality = catalog["personality"]
+    drawn = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
+    member = _make_employee(rng, catalog, roles, name, {**drawn, **(traits or {})})
+    if quirks is not None:
+        member.quirks = list(quirks)
+    if style is not None:
+        member.style = {**member.style, **style}
+    if model is not None:
+        member.model = model
+    return member
+
+
 def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee:
     """Redraw one employee's personality (roles and name are kept)."""
     catalog = load_catalog()

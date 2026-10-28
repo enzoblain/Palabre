@@ -1,5 +1,6 @@
 """Project creation: the team is drawn at random from the catalog."""
 
+import random
 import secrets
 from dataclasses import asdict
 
@@ -9,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app import github
 from app.company.team import Employee as TeamMember
-from app.company.team import Team, generate_team, load_catalog, reroll_employee
+from app.company.team import Team, custom_employee, generate_team, load_catalog, reroll_employee
 from app.models import Conversation, Employee, Project, Room
 from app.services import WorkflowError
 
@@ -25,9 +26,23 @@ async def create_project(
     default_branch: str = "main",
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
+    employees: list[dict] | None = None,
 ) -> Project:
+    """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode."""
     github.repo_slug(repo_url)  # GitHub URLs only
-    team = generate_team(mode, seed)
+    if employees:
+        seed = random.SystemRandom().randrange(2**32) if seed is None else seed
+        accounts = {**(accounts or {}), **{m["name"]: m["account"] for m in employees if m.get("account")}}
+        members = [
+            custom_employee(
+                m["roles"], m["name"], traits=m.get("traits"), quirks=m.get("quirks"), style=m.get("style"),
+                model=m.get("model"), seed=seed + i,
+            )  # fmt: skip
+            for i, m in enumerate(employees)
+        ]
+        team = Team(mode=mode, seed=seed, process=dict(load_catalog()["modes"][mode]["process"]), employees=members)
+    else:
+        team = generate_team(mode, seed)
     project = Project(
         name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed
     )
@@ -95,16 +110,24 @@ async def reroll_personality(s: AsyncSession, employee: Employee) -> Employee:
     return employee
 
 
-def validate_personality(traits: dict[str, int] | None, style: dict[str, str] | None) -> None:
+def validate_personality(
+    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False
+) -> None:
+    """partial: some axes or style keys may be left out (they are drawn at random)."""
     personality = load_catalog()["personality"]
     if traits is not None:
         axes = {a["key"] for a in personality["axes"]}
-        if set(traits) != axes:
-            raise WorkflowError(f"traits must define exactly these axes: {', '.join(sorted(axes))}")
+        if (not set(traits) <= axes) if partial else (set(traits) != axes):
+            raise WorkflowError(f"traits must define {'only' if partial else 'exactly'} these axes: {', '.join(sorted(axes))}")
         if any(v not in personality["levels"] for v in traits.values()):
             raise WorkflowError(f"trait levels must be one of {personality['levels']}")
-    if style is not None and set(style) != set(personality["style"]):
-        raise WorkflowError(f"style must define exactly: {', '.join(personality['style'])}")
+    if style is not None:
+        keys = set(personality["style"])
+        if (not set(style) <= keys) if partial else (set(style) != keys):
+            raise WorkflowError(f"style must define {'only' if partial else 'exactly'}: {', '.join(sorted(keys))}")
+        for key, value in style.items():
+            if value not in personality["style"][key]:
+                raise WorkflowError(f"style {key} must be one of: {', '.join(personality['style'][key])}")
 
 
 async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:

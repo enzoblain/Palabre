@@ -111,7 +111,26 @@ export type Notification = {
 };
 
 export type Axis = { key: string; label: string; low: string; high: string };
-export type Personality = { levels: number[]; axes: Axis[]; quirks: string[] };
+export type Personality = {
+  levels: number[];
+  axes: Axis[];
+  quirks: string[];
+  // Style key (verbosity, tone) → possible values
+  style: Record<string, string[]>;
+};
+
+export type Role = { title: string; mission: string; model: string; permissions: string[] };
+
+/** An agent of a team built by hand (MemberIn on the server). */
+export type MemberIn = {
+  name: string;
+  roles: string[];
+  model: string | null;
+  traits: Record<string, number>;
+  quirks: string[];
+  style: Record<string, string>;
+  account: number | null;
+};
 
 // --- Connection to the server ------------------------------------------------------
 
@@ -220,6 +239,8 @@ export const api = {
 
   modes: () => call<Record<string, Mode>>("/catalog/modes"),
   personality: () => call<Personality>("/catalog/personality"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
+  names: () => call<string[]>("/catalog/names"),
   previewTeam: (mode: string, seed?: number) =>
     call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),
 
@@ -232,6 +253,7 @@ export const api = {
     default_branch: string;
     seed: number;
     accounts: Record<string, number>;
+    employees?: MemberIn[];
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),

@@ -28,3 +28,9 @@ async def preview_team(mode: str, seed: int | None = None) -> dict:
     if mode not in load_catalog()["modes"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode: {mode}")
     return generate_team(mode, seed).to_dict()
+
+
+@router.get("/names")
+async def list_names() -> list[str]:
+    """First names given to employees drawn at random."""
+    return load_catalog()["people"]["names"]

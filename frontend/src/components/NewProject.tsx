@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ApiError, type Mode, type Personality, type ProjectDetail, type TeamMember, type TeamPreview, api } from "../api";
+import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
+import { TeamEditor, teamProblems } from "./TeamEditor";
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
 
@@ -37,6 +38,10 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [branch, setBranch] = useState("main");
   const [mode, setMode] = useState("startup");
   const [team, setTeam] = useState<TeamPreview | null>(null);
+  // Team built by hand (null: the team drawn at random is used)
+  const [custom, setCustom] = useState<MemberIn[] | null>(null);
+  const [roles, setRoles] = useState<Record<string, Role> | null>(null);
+  const [names, setNames] = useState<string[]>([]);
   // First name → Claude account chosen by hand; the others are spread automatically
   const [accounts, setAccounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +50,14 @@ export function NewProject({ claudeAccounts, onCreated }: {
   useEffect(() => {
     api.modes().then(setModes).catch((err) => setError(String(err.message ?? err)));
     api.personality().then(setPersonality).catch(() => {});
+    api.roles().then(setRoles).catch(() => {});
+    api.names().then(setNames).catch(() => {});
   }, []);
+
+  // Building by hand starts from an empty team
+  function buildByHand() {
+    setCustom((current) => current ?? []);
+  }
 
   function draw(forMode: string) {
     setTeam(null);
@@ -55,11 +67,12 @@ export function NewProject({ claudeAccounts, onCreated }: {
   useEffect(() => draw(mode), [mode]);
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
+  const problems = custom ? teamProblems(custom) : [];
   const effective = team ? spreadAccounts(team.employees.map((m) => accounts[m.name]), claudeAccounts) : [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!team) return;
+    if (!team || problems.length) return;
     setBusy(true);
     setError(null);
     try {
@@ -69,7 +82,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
         mode,
         default_branch: branch.trim() || "main",
         seed: team.seed,
-        accounts,
+        accounts: custom ? {} : accounts,
+        ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
       });
       onCreated(project);
     } catch (err) {
@@ -102,20 +116,37 @@ export function NewProject({ claudeAccounts, onCreated }: {
       </section>
 
       <section className="panel">
-        <h2>Your team</h2>
-        <p className="muted">The bigger the company, the more roles, and the stricter the rules before merging.</p>
+        <div className="team-head">
+          <h2>Your team</h2>
+          <div className="segmented" role="tablist">
+            <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
+              onClick={() => setCustom(null)}>Random</button>
+            <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
+              disabled={!roles || !personality} onClick={buildByHand}>Build my own</button>
+          </div>
+        </div>
+        <p className="muted">
+          {custom
+            ? "The company size sets the rules before merging (approvals, QA, CI). Pick the agents yourself below."
+            : "The bigger the company, the more roles, and the stricter the rules before merging."}
+        </p>
         <div className="modes">
           {modes &&
             Object.entries(modes).map(([key, m]) => (
               <button type="button" key={key} className={`mode${key === mode ? " selected" : ""}`}
                 onClick={() => setMode(key)}>
                 <strong>{m.label}</strong>
-                <span className="mode-size">{teamSize(m)} people</span>
+                {!custom && <span className="mode-size">{teamSize(m)} people</span>}
                 <span className="mode-rule">{m.rules[0]}</span>
               </button>
             ))}
         </div>
 
+        {custom && roles && personality ? (
+          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} names={names}
+            claudeAccounts={claudeAccounts} />
+        ) : (
+          <>
         <div className="team-head">
           <h3>Drawn at random</h3>
           <button type="button" className="btn btn-small" onClick={() => draw(mode)} disabled={!team}>
@@ -148,12 +179,15 @@ export function NewProject({ claudeAccounts, onCreated }: {
         ) : (
           <p className="muted">Drawing a team…</p>
         )}
+          </>
+        )}
+        {problems.map((problem) => <p key={problem} className="error">{problem}</p>)}
       </section>
 
       {error && <p className="error">{error}</p>}
       <div className="row actions">
         <button type="button" className="btn" onClick={() => go("/")}>Cancel</button>
-        <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !repoValid}>
+        <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !repoValid || problems.length > 0}>
           {busy ? "Creating…" : "Create project"}
         </button>
       </div>

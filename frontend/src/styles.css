@@ -291,3 +291,31 @@ select:focus { border-color: var(--accent); }
 .notification-main p { margin: 0; }
 .notification-decision { padding: 8px 12px; border-radius: 8px; background: var(--bg-soft); }
 .notification-actions { gap: 8px; }
+
+/* --- Team built by hand --- */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { border: none; background: var(--bg); padding: 5px 12px; cursor: pointer; font-size: 13px; }
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.selected { background: var(--accent); color: var(--accent-text); }
+.segmented button:disabled { opacity: 0.5; cursor: default; }
+.team-editor { display: flex; flex-direction: column; gap: 12px; }
+.editor-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.editor-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-soft); }
+.editor-head { display: flex; align-items: center; gap: 8px; }
+.editor-name { width: 140px; padding: 5px 8px; font-weight: 600; }
+.editor-summary { flex: 1; font-size: 13px; }
+.role-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.role-chip { cursor: pointer; font: inherit; font-size: 12px; color: var(--muted); }
+.role-chip.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.editor-details { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.editor-details label { font-size: 13px; }
+.randomize { align-self: flex-end; }
+.axes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 20px; }
+.axis { display: grid; grid-template-columns: 1fr 110px 1fr; align-items: center; gap: 8px; font-size: 12px; }
+.axis-pole { color: var(--muted); }
+.axis-pole:first-child { text-align: right; }
+.axis input[type="range"] { width: 100%; accent-color: var(--accent); }
+.quirks { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.quirk { flex-direction: row; align-items: flex-start; gap: 8px; font-weight: 400; }
+.quirk input { margin-top: 3px; }
+.custom-quirk input { flex: 1; padding: 5px 8px; }

@@ -8,6 +8,7 @@ from app.api.schemas import (
     EmployeeDetail,
     EmployeeOut,
     EmployeePatch,
+    MemberIn,
     ModeChange,
     ProjectDetail,
     ProjectIn,
@@ -42,8 +43,26 @@ async def create_project(body: ProjectIn, s: SessionDep):
     except github.GitHubError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
     _check_accounts(body.accounts.values())
+    if body.employees is not None:
+        _check_team(body.employees)
     project = await projects.create_project(s, **body.model_dump())
     return await _project(s, project.id)
+
+
+def _check_team(employees: list[MemberIn]) -> None:
+    """A team built by hand: valid roles and personalities, unique names, and a lead
+    (they organize the work and merge)."""
+    roles = load_catalog()["roles"]
+    names = [e.name.lower() for e in employees]
+    if len(set(names)) != len(names):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Two employees have the same name")
+    for e in employees:
+        if unknown := [r for r in e.roles if r not in roles]:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"{e.name}: unknown roles {', '.join(unknown)}")
+        projects.validate_personality(e.traits, e.style, partial=True)
+    if not any("lead" in e.roles for e in employees):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The team needs a lead (they organize and merge)")
+    _check_accounts([e.account for e in employees if e.account is not None])
 
 
 def _check_accounts(accounts) -> None:
