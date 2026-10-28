@@ -177,6 +177,10 @@ Always compile `requirements.in` first: the dev file is constrained by it, so bo
 versions. Compile on Linux with Python 3.12 (as the image and the CI): platform markers can differ elsewhere. Commit the `.in` and `.txt` files together.
 Installs use `pip install --require-hashes -r ...`.
 
+Dependabot opens a weekly grouped PR on `dev` for the backend locks. How it orders the two
+compilations is not guaranteed, so CI installs both locks in one `pip install`: a PR where they pin
+different versions fails. If that happens, run the compile commands above by hand.
+
 ## Configuration
 
 All optional, in `.env`:

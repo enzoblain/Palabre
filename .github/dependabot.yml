@@ -1,0 +1,21 @@
+# Keeps the SHA-pinned GitHub Actions and the backend pip locks up to date
+# (weekly pull requests against dev).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+  # Backend locks: Dependabot recognizes the pip-compile headers and re-runs pip-compile.
+  # The group puts both locks in one PR; CI installs them together, so a PR where they
+  # disagree fails. Security updates are not grouped (no applies-to): separate PRs.
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      backend-locks:
+        patterns:
+          - "*"
