@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- **Unread badges in direction only**: team channels no longer show a new-message count (the live dot stays), and the app stops polling them for it.
+
 ## 0.2.1
 
 ### Highlights
