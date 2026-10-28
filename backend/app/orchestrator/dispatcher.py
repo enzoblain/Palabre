@@ -23,6 +23,7 @@ from app.orchestrator.prompts import (
     OPERATING_RULES,
     RESEARCH_RULES,
     language_rule,
+    orientation_rule,
     task_rules,
     version_rule,
     wake_prompt,
@@ -239,6 +240,8 @@ class Orchestrator:
             render_system_prompt(team, member, services.boss_display_name()),
             RESEARCH_RULES if project.kind == "research" else OPERATING_RULES,
             CHAT_RULES,
+            orientation_rule(project.default_branch, await self._is_first_run(s, employee, run_id))
+            if project.kind == "company" else None,
             language_rule(services.team_language()),
             version_rule(member.roles),
         ] if p)  # fmt: skip
@@ -296,6 +299,14 @@ class Orchestrator:
             return path
         await self._refresh_repo(project)
         return await prepare_desk(project, employee)
+
+    @staticmethod
+    async def _is_first_run(s: AsyncSession, employee: Employee, run_id: int) -> bool:
+        """The run being prepared is already recorded: it is the first if no earlier one exists."""
+        earlier = await s.scalar(
+            select(AgentRun.id).where(AgentRun.employee_id == employee.id, AgentRun.id < run_id).limit(1)
+        )
+        return earlier is None
 
     async def _refresh_repo(self, project: Project) -> None:
         """Fetch the repository, at most every REPO_SYNC_INTERVAL_S."""

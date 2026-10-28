@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
+### Added
+
+- Creating a project detects the repository's production branch (the one GitHub declares as default, falling back to `main`, then `master`) instead of assuming one.
+- An empty repository is seeded with a first commit holding a minimal README and a `.gitignore`, so tasks can branch from it.
+- On its first run on a project, each agent is told to read the README and the tree of the team's branch; later runs only get the branch name.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added
@@ -209,7 +217,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/enzoblain/Palabre/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/enzoblain/Palabre/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/enzoblain/Palabre/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/enzoblain/Palabre/compare/v0.2.4...v0.3.0
