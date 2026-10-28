@@ -80,7 +80,7 @@ async def get_quota():
                 error=a.error,
                 session=_window(a.session),
                 week=_window(a.week),
-                models=[ModelUsageOut(model=m, **_window(w).model_dump()) for m, w in sorted(a.models.items())],
+                models=[ModelUsageOut(model=m, used_percent=w.used_percent, resets_at=w.resets_at) for m, w in sorted(a.models.items())],
             )
             for a in await claude_usage.fetch_all()
         ]

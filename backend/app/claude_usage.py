@@ -1,5 +1,6 @@
 """Real quota usage of each Claude account, read from the OAuth usage endpoint behind Claude Code's /usage."""
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -17,7 +18,9 @@ CACHE_TTL = 60
 
 SESSION_KEY = "five_hour"
 WEEK_KEY = "seven_day"
-MODEL_PREFIX = "seven_day_"  # seven_day_opus, seven_day_sonnet...
+MODEL_PREFIX = "seven_day_"
+# Explicit list: the API also has seven_day_oauth_apps and may gain other non-model keys
+MODELS = ("opus", "sonnet")
 
 
 @dataclass
@@ -55,9 +58,7 @@ def parse(account: int, data: object) -> AccountUsage:
     if not isinstance(data, dict):
         return AccountUsage(account, error="Unexpected response from the usage API")
     models = {
-        key.removeprefix(MODEL_PREFIX): w
-        for key, raw in data.items()
-        if key.startswith(MODEL_PREFIX) and (w := _window(raw))
+        model: w for model in MODELS if (w := _window(data.get(MODEL_PREFIX + model)))
     }
     return AccountUsage(
         account, session=_window(data.get(SESSION_KEY)), week=_window(data.get(WEEK_KEY)), models=models
@@ -88,14 +89,16 @@ async def _fetch(client: httpx.AsyncClient, account: int) -> AccountUsage:
 async def fetch_all() -> list[AccountUsage]:
     """Usage of every configured account, cached for a minute. One failing account does not affect the others."""
     now = time.monotonic()
-    out: list[AccountUsage] = []
+    accounts = range(1, account_count() + 1)
+
+    async def one(client: httpx.AsyncClient, account: int) -> AccountUsage:
+        cached = _cache.get(account)
+        if cached and now - cached[0] < CACHE_TTL:
+            return cached[1]
+        result = await _fetch(client, account)
+        _cache[account] = (time.monotonic(), result)
+        return result
+
+    # In parallel: dead accounts must not add up their timeouts
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        for account in range(1, account_count() + 1):
-            cached = _cache.get(account)
-            if cached and now - cached[0] < CACHE_TTL:
-                out.append(cached[1])
-                continue
-            result = await _fetch(client, account)
-            _cache[account] = (time.monotonic(), result)
-            out.append(result)
-    return out
+        return list(await asyncio.gather(*(one(client, a) for a in accounts)))

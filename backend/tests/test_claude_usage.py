@@ -13,6 +13,7 @@ PAYLOAD = {
     "seven_day": {"utilization": 40, "resets_at": "2026-11-02T09:00:00+00:00"},
     "seven_day_opus": {"utilization": 55.5, "resets_at": "2026-11-02T09:00:00+00:00"},
     "seven_day_sonnet": None,
+    "seven_day_oauth_apps": {"utilization": 3, "resets_at": None},
     "extra": {"foo": 1},
 }
 
