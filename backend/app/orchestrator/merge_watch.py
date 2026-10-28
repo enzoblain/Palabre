@@ -18,6 +18,7 @@ from app.services import emit_event, post_system_message, team_conversation_id
 CHECK_EVERY_S = 60
 _last_check: dict[int, float] = {}
 _last_release_check: dict[int, float] = {}
+_ci_seen: dict[int, str] = {}  # Last final CI result announced to the lead, per task
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
     tasks = list(tasks)
     for gone in _last_check.keys() - {t.id for t in tasks}:
         del _last_check[gone]
+    for gone in _ci_seen.keys() - {t.id for t in tasks}:
+        del _ci_seen[gone]
     for task in tasks:
         reminder_due = (
             task.merge_ready_at is not None
@@ -55,6 +58,10 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         if stuck is not None:
             await _send_back(s, project, task, *stuck)
             continue
+        if (ci := _ci_result(blockers)) is not None and _ci_seen.get(task.id) != ci:
+            if ci != "green" or blockers:  # All green and approved: the lead is woken as mergeable
+                workflow.wake_lead(s, task, f"CI finished: {ci}")
+            _ci_seen[task.id] = ci
         if blockers:
             task.merge_ready_at = None  # A rule broke again (CI): announce it when fixed
             continue
@@ -63,6 +70,14 @@ async def watch_mergeable_tasks(s: AsyncSession) -> None:
         else:
             await workflow.mark_merge_ready(s, task, "the checks")
     await s.commit()
+
+
+def _ci_result(blockers: list[str]) -> str | None:
+    """"green" or the failure reason once the CI is over; None while it runs or is missing."""
+    ci = next((b for b in blockers if b.startswith(("CI", "no CI"))), None)
+    if ci is None:
+        return "green"
+    return None if ci.startswith(("CI still running", "no CI")) else ci
 
 
 async def _stuck(project: Project, task: Task, blockers: list[str]) -> tuple[str, str] | None:
@@ -91,8 +106,43 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
     """Give the task back to its dev with the problem, and tell the team."""
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
     emit_event(s, project.id, "pr_blocked", {"task_id": task.id, "problem": problem}, employee_id=task.assignee_id)
+    workflow.wake_lead(s, task, f"sent back to its dev: {problem}")
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
         await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
+
+
+async def watch_idle_tasks(s: AsyncSession) -> None:
+    """Alert the lead, once per head SHA, about a task in progress or in review that has not moved
+    for idle_task_minutes, with the reason it is stuck."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_task_minutes)
+    tasks = await s.scalars(
+        select(Task).where(Task.status.in_([TaskStatus.in_progress, TaskStatus.review]), Task.updated_at < cutoff)
+    )
+    for task in tasks:
+        project = await s.get(Project, task.project_id)
+        try:
+            sha, reason = await _idle_reason(s, project, task)
+        except github.GitHubError as exc:
+            log.warning("Task #%s: idle state could not be checked: %s", task.id, exc)
+            continue
+        if task.idle_alert_sha == sha:
+            continue
+        task.idle_alert_sha = sha
+        payload = {"task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes, "reason": reason}
+        emit_event(s, task.project_id, "task_idle", payload, role="lead")
+    await s.commit()
+
+
+async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str]:
+    """(head SHA, why the task is stuck); the SHA is "none" while there is no PR."""
+    if task.status != TaskStatus.review or task.pr_number is None:
+        return "none", "no activity on the work in progress"
+    pr = await github.get_pull_request(github.repo_slug(project.repo_url), task.pr_number)
+    sha = pr["head"]["sha"]
+    if pr.get("mergeable_state") == "dirty":
+        return sha, f"the PR conflicts with {pr['base']['ref']}"
+    blockers = await workflow.merge_blockers(s, project, task)
+    return sha, "; ".join(blockers) or "every merge rule is met, waiting to be merged"
 
 
 def _ci_over(reason: str | None) -> bool:

@@ -263,6 +263,8 @@ class Task(Base):
     lead_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Head SHA for which the dev was sent the PR back (conflict, no CI, red CI): once per SHA
     stuck_sha: Mapped[str | None] = mapped_column(String(64))
+    # Head SHA ("none" before any PR) for which the lead got the idle-task alert: once per SHA
+    idle_alert_sha: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = created_at_column()
     updated_at: Mapped[datetime] = updated_at_column()
 

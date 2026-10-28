@@ -19,7 +19,7 @@ class FakeSession:
 async def test_resubmission_patches_the_pr_title(monkeypatch):
     calls = []
     task = SimpleNamespace(
-        id=7, assignee_id=1, status=TaskStatus.changes_requested, branch="task/7", worktree_path="/tmp/w",
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.changes_requested, branch="task/7", worktree_path="/tmp/w",
         pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
         sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
     )

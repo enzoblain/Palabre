@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Conversation, Event, Message, Project, Room
-from app.orchestrator.merge_watch import watch_mergeable_tasks, watch_release_ci
+from app.orchestrator.merge_watch import watch_idle_tasks, watch_mergeable_tasks, watch_release_ci
 from app.orchestrator.research import advance_research
 from app.orchestrator.retries import retry_failed_tasks
 from app.services import emit_event
@@ -37,6 +37,7 @@ async def run_scheduler() -> None:
                 await advance_research(s)
                 await watch_mergeable_tasks(s)
                 await watch_release_ci(s)
+                await watch_idle_tasks(s)
         except asyncio.CancelledError:
             raise
         except Exception:

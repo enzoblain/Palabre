@@ -34,6 +34,8 @@ class WatchSession:
 @pytest.fixture
 def watch(project, monkeypatch):
     monkeypatch.setattr(merge_watch, "_last_check", {})
+    monkeypatch.setattr(merge_watch, "_ci_seen", {})
+    monkeypatch.setattr(workflow, "_lead_woken", {})
     state = type("S", (), {"blockers": []})()
 
     async def blockers(_s, _project, _task):
@@ -70,7 +72,7 @@ async def test_mergeable_task_wakes_the_lead(watch, project):
 
 
 async def test_blocked_task_wakes_nobody(watch, project):
-    watch.blockers = ["CI is running"]
+    watch.blockers = ["CI still running: tests"]
     s = WatchSession([reviewable()], project)
     await merge_watch.watch_mergeable_tasks(s)
     assert not s.added
@@ -106,7 +108,7 @@ async def test_broken_rule_resets_readiness(watch, project):
     task = reviewable(merge_ready_at=datetime.now(UTC) - timedelta(minutes=30))
     s = WatchSession([task], project)
     await merge_watch.watch_mergeable_tasks(s)
-    assert task.merge_ready_at is None and not s.added
+    assert task.merge_ready_at is None and not events_of(s, "pr_approved")
 
 
 async def test_announce_posts_a_system_line_with_the_link():
@@ -300,7 +302,7 @@ async def test_red_ci_waits_for_the_reviews(watch, project):
     watch.blockers = ["CI failed: lint", "0/1 reviewer approval(s)"]
     s = WatchSession([stuck_task()], project)
     await merge_watch.watch_mergeable_tasks(s)
-    assert not s.added
+    assert not events_of(s, "pr_blocked")
 
 
 async def test_running_ci_is_left_alone(watch, project):
@@ -308,3 +310,59 @@ async def test_running_ci_is_left_alone(watch, project):
     s = WatchSession([stuck_task()], project)
     await merge_watch.watch_mergeable_tasks(s)
     assert not s.added
+
+
+async def test_ci_finishing_red_wakes_the_lead_once(watch, project):
+    watch.blockers = ["CI failed: tests", "0/1 reviewer approval(s)"]
+    s = WatchSession([stuck_task()], project)
+    await merge_watch.watch_mergeable_tasks(s)
+    merge_watch._last_check.clear()
+    workflow._lead_woken.clear()
+    await merge_watch.watch_mergeable_tasks(s)
+    [event] = events_of(s, "task_update")
+    assert event.target_role == "lead" and "CI failed: tests" in event.payload["change"]
+
+
+async def test_changes_of_a_task_are_debounced(project):
+    task = reviewable()
+    s = WatchSession([], project)
+    workflow._lead_woken.clear()
+    workflow.wake_lead(s, task, "PR submitted")
+    workflow.wake_lead(s, task, "Karim approved")
+    [event] = events_of(s, "task_update")
+    assert event.payload["change"] == "PR submitted"
+    workflow._lead_woken.clear()
+    workflow.wake_lead(s, task, "Karim approved")
+    assert len(events_of(s, "task_update")) == 2
+
+
+def idle_task(**fields):
+    return reviewable(**({"title": "Demo", "status": TaskStatus.review, "idle_alert_sha": None} | fields))
+
+
+async def test_idle_task_alerts_the_lead_with_the_reason_once_per_sha(watch, project):
+    watch.pr["mergeable_state"] = "dirty"
+    task = idle_task()
+    s = WatchSession([task], project)
+    await merge_watch.watch_idle_tasks(s)
+    await merge_watch.watch_idle_tasks(s)
+    [event] = events_of(s, "task_idle")
+    assert event.target_role == "lead" and "conflicts with dev" in event.payload["reason"]
+    watch.pr["head"]["sha"] = "def"
+    await merge_watch.watch_idle_tasks(s)
+    assert len(events_of(s, "task_idle")) == 2
+
+
+async def test_idle_review_lists_the_missing_rules(watch, project):
+    watch.blockers = ["QA has not approved"]
+    s = WatchSession([idle_task()], project)
+    await merge_watch.watch_idle_tasks(s)
+    [event] = events_of(s, "task_idle")
+    assert event.payload["reason"] == "QA has not approved"
+
+
+async def test_idle_task_without_pr_is_reported(watch, project):
+    s = WatchSession([idle_task(status=TaskStatus.in_progress, pr_number=None)], project)
+    await merge_watch.watch_idle_tasks(s)
+    [event] = events_of(s, "task_idle")
+    assert event.payload["status"] == "in_progress"

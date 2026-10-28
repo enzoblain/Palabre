@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -20,6 +21,20 @@ MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 log = logging.getLogger(__name__)
+
+
+_lead_woken: dict[int, float] = {}
+
+
+def wake_lead(s: AsyncSession, task: Task, change: str) -> None:
+    """Tell the lead a task moved, at most once per lead_debounce_seconds per task (the lead reads
+    the whole state with get_task, so the changes in the window are grouped)."""
+    now = time.monotonic()
+    task.idle_alert_sha = None  # The task moved: a new stall deserves a new alert
+    if now - _lead_woken.get(task.id, float("-inf")) < settings.lead_debounce_seconds:
+        return
+    _lead_woken[task.id] = now
+    emit_event(s, task.project_id, "task_update", {"task_id": task.id, "change": change}, role="lead")
 
 
 async def announce(s: AsyncSession, task: Task, text: str) -> None:
@@ -328,6 +343,7 @@ async def submit_for_review(
     if process["security_gate"] and task.sensitive:
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
     await announce(s, task, f"PR submitted by {author.name} (round {task.review_round})")
+    wake_lead(s, task, f"PR submitted by {author.name} (round {task.review_round})")
     # In the author's own words, with the link
     await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task
@@ -374,6 +390,7 @@ async def review_task(
         )  # fmt: skip
 
     await announce(s, task, f"{reviewer.name} ({reviewer.title}): {_VERDICT_LABELS[review.verdict]}")
+    wake_lead(s, task, f"{reviewer.name} ({reviewer.title}) {_VERDICT_LABELS[review.verdict]}")
     payload = {"task_id": task.id, "reviewer": reviewer.name}
     if review.verdict == Verdict.changes:
         task.status = TaskStatus.changes_requested
