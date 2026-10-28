@@ -1,12 +1,14 @@
-# Tests and Docker image builds on every pull request and on main. Python and Node match the
-# Dockerfiles (backend: python:3.12, frontend: node:22). The test jobs skip what the branch
-# does not have yet, so the workflow is green before pytest / `npm run check` exist.
+# Tests and Docker image builds on pull requests to dev and main and on pushes to them.
+# Python and Node match the Dockerfiles (backend: python:3.12, frontend: node:22). The test jobs
+# skip what the branch does not have yet, so the workflow is green before pytest /
+# `npm run check` exist.
 name: CI
 
 on:
   pull_request:
+    branches: [dev, main]
   push:
-    branches: [main]
+    branches: [dev, main]
 
 permissions:
   contents: read
@@ -24,8 +26,8 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
@@ -60,8 +62,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
@@ -91,12 +93,26 @@ jobs:
           - { image: palabre, context: ./backend }
           - { image: palabre-web, context: ./frontend }
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       # amd64 only: the multi-arch build (QEMU) stays in release.yml
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ${{ matrix.context }}
           push: false
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # Known vulnerabilities in the pinned backend dependencies. pip-audit lives only in this job:
+  # it is in neither the image nor the requirements files.
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.10.1
+      - run: pip-audit --require-hashes --disable-pip -r backend/requirements.txt
