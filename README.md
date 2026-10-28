@@ -165,13 +165,16 @@ then from `backend/`:
 pip-compile --generate-hashes --strip-extras requirements.in
 pip-compile --generate-hashes --strip-extras requirements-dev.in
 
-# Upgrade one package (or --upgrade for all of them)
+# Upgrade one runtime package (or --upgrade for all of them)
 pip-compile --generate-hashes --strip-extras --upgrade-package fastapi requirements.in
 pip-compile --generate-hashes --strip-extras requirements-dev.in
+
+# Upgrade a test-only package (pytest...)
+pip-compile --generate-hashes --strip-extras --upgrade-package pytest requirements-dev.in
 ```
 
 Always compile `requirements.in` first: the dev file is constrained by it, so both stay on the same
-versions. Use Python 3.12 (as the image and the CI) and commit the `.in` and `.txt` files together.
+versions. Compile on Linux with Python 3.12 (as the image and the CI): platform markers can differ elsewhere and commit the `.in` and `.txt` files together.
 Installs use `pip install --require-hashes -r ...`.
 
 ## Configuration
