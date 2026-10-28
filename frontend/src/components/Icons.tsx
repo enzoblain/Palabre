@@ -10,6 +10,7 @@ function Svg({ size = 18, children }: Props & { children: React.ReactNode }) {
 }
 
 export const PlusIcon = (p: Props) => <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>;
+export const MenuIcon = (p: Props) => <Svg {...p}><path d="M4 6h16M4 12h16M4 18h16" /></Svg>;
 export const BackIcon = (p: Props) => <Svg {...p}><path d="M15 18l-6-6 6-6" /></Svg>;
 export const GearIcon = (p: Props) => (
   <Svg {...p}>

@@ -2,10 +2,11 @@
 
 A company of AI agents (Claude Code) working for you: a software team building your
 app on GitHub, or a research group investigating a topic. You are the CEO; you talk to
-them from the desktop app.
+them from the desktop app or a browser.
 
 - **Server**: runs on your NAS or any machine with Docker (API, agents, database).
 - **Desktop app**: macOS, Windows and Linux, connects to your server.
+- **Web app**: the same app in a browser (phone, tablet...), served by the server.
 
 ## Install the server
 
@@ -21,7 +22,9 @@ docker compose pull
 docker compose up -d
 ```
 
-The server listens on port `2710` (`PALABRE_PORT` in `.env`). To update:
+The server listens on port `2710` (`PALABRE_PORT` in `.env`), and the web app on port
+`2810` (`PALABRE_WEB_PORT`): open `http://<your NAS>:2810` and enter the `ADMIN_TOKEN`
+from `.env`. To update:
 `docker compose pull && docker compose up -d`. `PALABRE_VERSION` in `.env` pins a
 version (e.g. `0.1.0`); the default is the latest release.
 
@@ -41,10 +44,10 @@ On first launch, enter your server's address (e.g. `http://192.168.1.10:2710`) a
 ## Develop
 
 ```sh
-docker compose up -d --build            # server, built from backend/
+docker compose up -d --build            # server and web app, built from backend/ and frontend/
 cd frontend && npm install && npm run tauri dev   # desktop app
 ```
 
 A release is published by pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
-GitHub Actions builds the server image for amd64 and arm64 (`ghcr.io/enzoblain/palabre`)
-and the desktop app for every system, attached to the release.
+GitHub Actions builds the server and web images for amd64 and arm64
+(`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for every system, attached to the release.

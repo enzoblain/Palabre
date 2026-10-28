@@ -357,3 +357,35 @@ details summary { cursor: pointer; margin-top: 6px; }
 .confirm-delete { gap: 8px; font-size: 13px; }
 .btn-danger { background: var(--error); border-color: var(--error); color: #fff; }
 .btn-danger:hover:not(:disabled) { background: var(--error); filter: brightness(1.08); }
+
+/* --- Small screens (the app in a phone's browser) --- */
+.mobile-bar, .nav-backdrop { display: none; }
+@media (max-width: 760px) {
+  .shell { display: flex; flex-direction: column; }
+  .main { flex: 1; min-height: 0; height: auto; }
+  .mobile-bar {
+    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px; flex-shrink: 0;
+    background: var(--sidebar); border-bottom: 1px solid var(--border);
+  }
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;
+    transform: translateX(-100%); transition: transform 0.2s ease;
+  }
+  .nav-open .sidebar { transform: none; }
+  .nav-open .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.35); }
+
+  .page { padding: 20px 16px 32px; }
+  .conv-head { padding: 0 12px; height: 48px; }
+  .conv-head .muted { display: none; }
+  .message { padding-left: 12px; padding-right: 12px; }
+  .intro { margin-left: 12px; margin-right: 12px; }
+  .typing, .composer-error { padding-left: 12px; padding-right: 12px; }
+  .banner { margin-left: 12px; margin-right: 12px; }
+  .composer { margin: 0 8px 8px; }
+  .phase-bar { padding: 8px 12px; }
+  .kinds { grid-template-columns: 1fr; }
+  .axes { grid-template-columns: 1fr; }
+  .connect-card { padding: 24px; }
+  /* Below 16px, iOS zooms in on the field being typed in */
+  input, textarea, select { font-size: 16px; }
+}

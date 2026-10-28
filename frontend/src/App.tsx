@@ -4,6 +4,7 @@ import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { DocumentView } from "./components/DocumentView";
 import { Home } from "./components/Home";
+import { MenuIcon } from "./components/Icons";
 import { Inbox } from "./components/Inbox";
 import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
@@ -67,6 +68,9 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
+  // Small screens: the sidebar slides over the page, and closes once a link is followed
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => setNavOpen(false), [route]);
 
   const reloadProjects = useCallback(() => api.listProjects().then(setProjects).catch(() => {}), []);
   useEffect(() => {
@@ -139,9 +143,17 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   }
 
   return (
-    <div className="shell">
+    <div className={navOpen ? "shell nav-open" : "shell"}>
+      <header className="mobile-bar">
+        <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Menu">
+          <MenuIcon />
+        </button>
+        <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
+        {notifications.length > 0 && <span className="badge-count urgent">{notifications.length}</span>}
+      </header>
       <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
         claudeAccounts={claudeAccounts} notifications={notifications} />
+      <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
       <main className="main">{main}</main>
     </div>
   );

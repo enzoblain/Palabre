@@ -36,6 +36,16 @@ services:
     # Leaves running agents time to stop cleanly
     stop_grace_period: 60s
 
+  web:
+    # The app in a browser (phone...): the interface, with /api passed on to the backend
+    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-latest}
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${PALABRE_WEB_PORT:-2810}:80"
+
 volumes:
   pgdata:
   palabre-data:

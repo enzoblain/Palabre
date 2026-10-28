@@ -4,6 +4,8 @@ import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 // In a plain browser (`npm run dev`), the regular fetch is used.
 const inTauri = "__TAURI_INTERNALS__" in window;
 const doFetch: typeof fetch = inTauri ? tauriFetch : window.fetch.bind(window);
+// Opened from the server's web port: the API is on the page's own address
+export const pageServer: string | null = inTauri || import.meta.env.DEV ? null : location.origin;
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
