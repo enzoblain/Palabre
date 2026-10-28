@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
@@ -37,9 +37,12 @@ jobs:
         run: |
           if [ -f requirements-dev.txt ]; then echo "run=true" >> "$GITHUB_OUTPUT"
           else echo "No requirements-dev.txt: backend tests skipped"; fi
+      # Always installed, so the pip cache folder exists even when the tests are skipped
       - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install test dependencies
         if: steps.detect.outputs.run == 'true'
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt
       - name: pytest
         if: steps.detect.outputs.run == 'true'
         run: |
