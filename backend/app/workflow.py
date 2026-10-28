@@ -1,5 +1,6 @@
 """Task lifecycle: creation, assignment, review and merge, with the mode's merge gates."""
 
+import logging
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -11,10 +12,12 @@ from app import github
 from app.company.team import load_catalog
 from app.models import Employee, Project, Review, Task, TaskKind, TaskStatus, Verdict
 from app.services import WorkflowError, emit_event, post_message
-from app.worktrees import repo_dir
+from app.worktrees import remove_task_worktree, repo_dir
 
 MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
+
+log = logging.getLogger(__name__)
 
 
 def mode_process(mode: str) -> dict:
@@ -371,6 +374,18 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     return blockers
 
 
+async def _clean_up_branch(project: Project, task: Task, repo: str) -> None:
+    """After the merge, the task's branch goes, on GitHub and locally, with its worktree.
+    Best effort: the merge is done whatever happens here."""
+    try:
+        if task.branch:
+            await github.delete_branch(repo, task.branch)
+        await remove_task_worktree(project, task)
+        task.worktree_path = None
+    except github.GitHubError as exc:
+        log.warning("Task #%s merged, but its branch could not be cleaned up: %s", task.id, exc)
+
+
 async def merge_task(
     s: AsyncSession, project_id: int, task_id: int, author: Employee | None, force: bool = False, message: str = ""
 ) -> Task:
@@ -383,8 +398,10 @@ async def merge_task(
     if not force and (blockers := await merge_blockers(s, project, task)):
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
 
-    await github.merge_pull_request(github.repo_slug(project.repo_url), task.pr_number, f"[#{task.id}] {task.title}")
+    repo = github.repo_slug(project.repo_url)
+    await github.merge_pull_request(repo, task.pr_number, f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
+    await _clean_up_branch(project, task, repo)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
     await s.flush()
 

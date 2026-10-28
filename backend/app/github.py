@@ -84,6 +84,15 @@ async def post_review(repo: str, number: int, body: str) -> None:
     await _api("POST", f"/repos/{repo}/pulls/{number}/reviews", json={"body": body, "event": "COMMENT"})
 
 
+async def delete_branch(repo: str, branch: str) -> None:
+    """Delete a branch on GitHub; already gone is fine."""
+    try:
+        await _api("DELETE", f"/repos/{repo}/git/refs/heads/{branch}")
+    except GitHubError as exc:
+        if " 422 " not in str(exc) and " 404 " not in str(exc):
+            raise
+
+
 async def merge_pull_request(repo: str, number: int, title: str) -> None:
     await _api(
         "PUT",

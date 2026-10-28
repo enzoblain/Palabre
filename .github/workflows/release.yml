@@ -53,6 +53,14 @@ jobs:
           script: |
             const tag = context.ref.replace("refs/tags/", "");
             const owner = context.repo.owner;
+            // A re-run reuses the release of the tag
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({ owner, repo: context.repo.repo, tag });
+              core.setOutput("id", data.id);
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
             const { data } = await github.rest.repos.createRelease({
               owner,
               repo: context.repo.repo,

@@ -112,6 +112,21 @@ async def prepare_desk(project: Project, employee: Employee) -> Path:
     return path
 
 
+async def remove_task_worktree(project: Project, task: Task) -> None:
+    """A merged task's worktree and local branch are of no use any more."""
+    path = project_dir(project) / "worktrees" / f"task-{task.id}"
+    async with _repo_locks[project.id]:
+        repo = repo_dir(project)
+        if path.exists():
+            await git(repo, "worktree", "remove", "--force", str(path))
+        await git(repo, "worktree", "prune")
+        if task.branch:
+            try:
+                await git(repo, "branch", "-D", task.branch)
+            except GitHubError:
+                pass  # Never created locally, or already deleted
+
+
 def branch_name(task: Task) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", task.title.lower()).strip("-")[:40].rstrip("-") or "task"
     return f"task/{task.id}-{slug}"
