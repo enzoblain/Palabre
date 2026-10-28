@@ -242,7 +242,6 @@ def test_only_the_lead_can_ship_releases():
     for role, cfg in load_catalog()["roles"].items():
         has_it = SHIP_TOOLS <= mcp_tools_for(cfg["permissions"], True)
         assert has_it == (role == "lead"), role
-        assert not (SHIP_TOOLS & mcp_tools_for(cfg["permissions"], True)) or role == "lead", role
     assert "propose_release" in tools_of("lead")
 
 

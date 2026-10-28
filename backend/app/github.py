@@ -141,12 +141,12 @@ async def delete_branch(repo: str, branch: str) -> None:
             raise
 
 
-async def merge_pull_request(repo: str, number: int, title: str, method: str = "squash") -> None:
-    await _api(
-        "PUT",
-        f"/repos/{repo}/pulls/{number}/merge",
-        json={"merge_method": method, "commit_title": title},
-    )
+async def merge_pull_request(repo: str, number: int, title: str, method: str = "squash", sha: str | None = None) -> None:
+    """With `sha`, GitHub refuses (409) if the PR's head has moved since it was checked."""
+    body = {"merge_method": method, "commit_title": title}
+    if sha:
+        body["sha"] = sha
+    await _api("PUT", f"/repos/{repo}/pulls/{number}/merge", json=body)
 
 
 async def find_pull_request(repo: str, head: str, base: str) -> dict | None:
@@ -173,7 +173,12 @@ async def is_pull_request_open(repo: str, number: int) -> bool:
 async def checks_status(repo: str, number: int) -> str | None:
     """None if CI passed on the PR's head commit, otherwise the reason it did not."""
     pr = await _api("GET", f"/repos/{repo}/pulls/{number}")
-    runs = (await _api("GET", f"/repos/{repo}/commits/{pr['head']['sha']}/check-runs"))["check_runs"]
+    return await commit_checks(repo, pr["head"]["sha"])
+
+
+async def commit_checks(repo: str, sha: str) -> str | None:
+    """None if CI passed on the commit, otherwise the reason it did not."""
+    runs = (await _api("GET", f"/repos/{repo}/commits/{sha}/check-runs"))["check_runs"]
     if not runs:
         return "no CI checks reported"
     if pending := [r["name"] for r in runs if r["status"] != "completed"]:

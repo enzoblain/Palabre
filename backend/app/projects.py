@@ -345,12 +345,12 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     return decision
 
 
-async def settle_release(project: Project, decision: Decision, accepted: bool) -> None:
+async def settle_release(project: Project, decision: Decision, accepted: bool, sha: str | None = None) -> None:
     """The boss's answer to a release: accepted, its PR is merged (a merge commit, so the
     team's branch and production keep the same history); rejected, it is closed."""
     repo = github.repo_slug(project.repo_url)
     if accepted:
-        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge")
+        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge", sha=sha)
     else:
         try:
             await github.close_pull_request(repo, decision.pr_number)
@@ -374,7 +374,10 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
             raise
-    if ci := await github.checks_status(repo, pr["number"]):
+    # CI is checked on this exact commit and the merge is pinned to it: a task merged into
+    # the team's branch in between makes GitHub refuse instead of shipping unchecked code
+    head_sha = pr["head"]["sha"]
+    if ci := await github.commit_checks(repo, head_sha):
         raise WorkflowError(f"The release PR #{pr['number']} cannot be merged: {ci}")
     pending = await s.scalar(
         select(Decision).where(
@@ -384,10 +387,13 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
         )
     )
     if pending is not None:
-        await settle_decision(s, pending, RequestAnswer.validated, "Merged by the lead", wake_proposer=False)
+        await settle_decision(
+            s, pending, RequestAnswer.validated, "Merged by the lead, without the boss's answer",
+            wake_proposer=False, merge_sha=head_sha,
+        )  # fmt: skip
         await s.commit()
     else:
-        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge")
+        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge", sha=head_sha)
     return pr["html_url"], pr["number"]
 
 
@@ -414,6 +420,9 @@ async def publish_version(project: Project, version: str, notes: str) -> str:
         raise WorkflowError(f"The tag {tag} already exists")
     production = await github.resolve_branch(repo, "")
     sha = await github.branch_head(repo, production)
+    # The tag publishes the images the team pulls: production's head must have passed CI
+    if ci := await github.commit_checks(repo, sha):
+        raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
     mismatches = []
     for path, read in VERSION_FILES.items():
         text = await github.file_content(repo, path, sha)
@@ -432,7 +441,13 @@ async def publish_version(project: Project, version: str, notes: str) -> str:
 
 
 async def settle_decision(
-    s: AsyncSession, decision: Decision, answer: RequestAnswer, comment: str = "", *, wake_proposer: bool = True
+    s: AsyncSession,
+    decision: Decision,
+    answer: RequestAnswer,
+    comment: str = "",
+    *,
+    wake_proposer: bool = True,
+    merge_sha: str | None = None,
 ) -> None:
     """Apply the boss's answer to a decision. A release is merged when validated and closed
     when rejected (GitHub refusing the merge raises and leaves everything as it was). A
@@ -441,7 +456,8 @@ async def settle_decision(
     room = await s.get(Room, decision.room_id)
     is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
     if is_release and answer != RequestAnswer.nuanced:
-        await settle_release(await load_project(s, room.project_id), decision, answer == RequestAnswer.validated)
+        project = await load_project(s, room.project_id)
+        await settle_release(project, decision, answer == RequestAnswer.validated, merge_sha)
     if answer == RequestAnswer.nuanced:
         status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
     else:

@@ -10,7 +10,7 @@ from app.models import Decision, DecisionStatus, RequestAnswer
 from app.services import WorkflowError
 
 PROJECT = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
-PR = {"number": 42, "html_url": "https://github.com/acme/app/pull/42"}
+PR = {"number": 42, "html_url": "https://github.com/acme/app/pull/42", "head": {"sha": "pr-head"}}
 
 
 class FakeSession:
@@ -27,7 +27,7 @@ class FakeSession:
 @pytest.fixture
 def gh(monkeypatch):
     state = SimpleNamespace(
-        calls=[], pr=PR, ci=None, tags=set(), files={}, release_args=None,
+        calls=[], checked=[], pr=PR, ci=None, prod_ci=None, tags=set(), files={}, release_args=None,
     )
 
     async def resolve_branch(repo, branch):
@@ -40,11 +40,12 @@ def gh(monkeypatch):
         state.calls.append(("open", head, base))
         return PR
 
-    async def checks_status(repo, number):
-        return state.ci
+    async def commit_checks(repo, sha):
+        state.checked.append(sha)
+        return state.ci if sha == "pr-head" else state.prod_ci
 
-    async def merge(repo, number, title, method="squash"):
-        state.calls.append(("merge", number, method))
+    async def merge(repo, number, title, method="squash", sha=None):
+        state.calls.append(("merge", number, method, sha))
 
     async def tag_exists(repo, tag):
         return tag in state.tags
@@ -60,7 +61,7 @@ def gh(monkeypatch):
         state.release_args = (tag, sha, notes)
         return {"html_url": f"https://github.com/acme/app/releases/tag/{tag}"}
 
-    for fn in (resolve_branch, find_pull_request, open_pull_request, checks_status, tag_exists, branch_head,
+    for fn in (resolve_branch, find_pull_request, open_pull_request, commit_checks, tag_exists, branch_head,
                file_content, create_release):
         monkeypatch.setattr(github, fn.__name__, fn)
     monkeypatch.setattr(github, "merge_pull_request", merge)
@@ -82,7 +83,7 @@ def versioned(version: str) -> dict[str, str]:
 async def test_merge_release_merges_when_ci_is_green(gh):
     url, number = await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
     assert (url, number) == (PR["html_url"], 42)
-    assert gh.calls == [("merge", 42, "merge")]
+    assert gh.calls == [("merge", 42, "merge", "pr-head")]
 
 
 @pytest.mark.parametrize("ci", ["CI failed: backend", "CI still running: tests", "no CI checks reported"])
@@ -96,7 +97,7 @@ async def test_merge_release_refuses_without_green_ci(gh, ci):
 async def test_merge_release_opens_the_pr_when_missing(gh):
     gh.pr = None
     await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
-    assert gh.calls == [("open", "dev", "main"), ("merge", 42, "merge")]
+    assert gh.calls == [("open", "dev", "main"), ("merge", 42, "merge", "pr-head")]
 
 
 async def test_merge_release_refuses_when_the_team_works_on_production(gh):
@@ -109,13 +110,18 @@ async def test_merge_release_settles_the_release_the_boss_was_asked_about(gh, mo
                         status=DecisionStatus.proposed)  # fmt: skip
     settled = []
 
-    async def settle(s, d, answer, comment="", *, wake_proposer=True):
-        settled.append((d, answer, wake_proposer))
+    async def settle(s, d, answer, comment="", *, wake_proposer=True, merge_sha=None):
+        settled.append((d, answer, wake_proposer, merge_sha))
 
     monkeypatch.setattr(projects, "settle_decision", settle)
     await projects.merge_release(FakeSession(decision), PROJECT, "Checkout", "Notes")
-    assert settled == [(decision, RequestAnswer.validated, False)]
+    assert settled == [(decision, RequestAnswer.validated, False, "pr-head")]
     assert gh.calls == []  # settle_decision does the merge
+
+
+async def test_merge_release_checks_the_commit_it_pins(gh):
+    await projects.merge_release(FakeSession(), PROJECT, "Checkout", "Notes")
+    assert gh.checked == ["pr-head"]
 
 
 # --- publish_version -------------------------------------------------------------------
@@ -163,3 +169,10 @@ async def test_publish_version_refuses_unreadable_version_files(gh):
 async def test_publish_version_needs_notes(gh):
     with pytest.raises(WorkflowError, match="notes"):
         await projects.publish_version(PROJECT, "1.2.0", "  ")
+
+
+async def test_publish_version_refuses_when_production_is_not_green(gh):
+    gh.prod_ci = "CI failed: backend"
+    with pytest.raises(WorkflowError, match="not green: CI failed: backend"):
+        await projects.publish_version(PROJECT, "1.2.0", "Notes")
+    assert gh.checked == ["abc123"] and gh.release_args is None
