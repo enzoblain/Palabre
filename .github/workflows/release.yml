@@ -158,8 +158,12 @@ jobs:
             ].join("\n");
             const { data } = await github.rest.repos.getRelease({ owner, repo, release_id });
             const before = process.env.BODY_BEFORE || "";
-            // Changes are what comes before the download text; keep whichever side still has them
-            const changesOf = (body) => body.split(marker)[0].trim();
+            // Changes are what comes before the download text, and only count if they are a
+            // generated list (### sections): a tool's default text is not a list of changes
+            const changesOf = (body) => {
+              const head = body.split(marker)[0].trim();
+              return head.startsWith("### ") ? head : "";
+            };
             const changes = changesOf(data.body || "") || changesOf(before);
             const body = changes ? `${changes}\n\n${download}` : download;
             if (body !== (data.body || "")) {
