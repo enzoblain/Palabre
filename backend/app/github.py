@@ -5,6 +5,7 @@ import base64
 import os
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -66,6 +67,23 @@ async def _api(method: str, path: str, **kwargs) -> dict:
     if response.status_code >= 400:
         raise GitHubError(f"GitHub {method} {path}: {response.status_code} {response.text[:500]}")
     return response.json() if response.content else {}
+
+
+async def resolve_branch(repo: str, branch: str) -> str:
+    """The branch a project works from: `branch` if given, else the repository's default
+    branch. A repository without commits accepts any: the first commit creates it."""
+    default = (await _api("GET", f"/repos/{repo}"))["default_branch"]
+    if not branch:
+        return default
+    if not await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}):
+        return branch
+    try:
+        await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}")
+    except GitHubError as exc:
+        if " 404 " not in str(exc):
+            raise
+        raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')") from None
+    return branch
 
 
 async def open_pull_request(repo: str, head: str, base: str, title: str, body: str) -> dict:

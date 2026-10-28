@@ -89,7 +89,8 @@ class ProjectIn(BaseModel):
     topic: str | None = Field(default=None, max_length=10000)
     # Research: the peer who writes the report (a name); none: drawn at random
     rapporteur: str | None = None
-    default_branch: str = "main"
+    # Company: empty for the repository's default branch on GitHub
+    default_branch: str = ""
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}

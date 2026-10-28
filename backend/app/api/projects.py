@@ -47,7 +47,7 @@ async def create_project(body: ProjectIn, s: SessionDep):
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A research project needs a topic")
     else:
         try:
-            github.repo_slug(body.repo_url)
+            body.default_branch = await github.resolve_branch(github.repo_slug(body.repo_url), body.default_branch.strip())
         except github.GitHubError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
     _check_accounts(body.accounts.values())
