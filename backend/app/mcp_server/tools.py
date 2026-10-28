@@ -267,7 +267,7 @@ async def submit_for_review(ctx: Context, title: str, summary: str, message: str
     opened (or updated). Commit your work first.
     title: the pull request title and squash commit title, in English, Conventional Commits
     format `type(scope): description`, for example `feat(usage): show real Claude usage per model`
-    (the task reference is added for you; refused if the format is not respected).
+    (the PR number is added for you; refused if the format is not respected).
     summary: the pull request description, in English (as detailed as needed).
     message: what you tell the team in the chat, in a sentence or two (the PR link is added).
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
