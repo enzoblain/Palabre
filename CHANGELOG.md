@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
+### Added
+
+- Creating a project detects the repository's production branch instead of assuming one, and seeds an empty repository with an initial commit so tasks can branch from it.
+- Each agent is oriented on its first run only, with a short intro to the project and its role.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added
@@ -209,7 +216,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/enzoblain/Palabre/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/enzoblain/Palabre/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/enzoblain/Palabre/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/enzoblain/Palabre/compare/v0.2.4...v0.3.0
