@@ -121,7 +121,7 @@ async def _fetch(client: httpx.AsyncClient, account: int) -> AccountUsage:
     headers = {
         "Authorization": f"Bearer {token}",
         "anthropic-beta": "oauth-2025-04-20",
-        "User-Agent": "claude-code/2.1.0",
+        "User-Agent": "palabre",
     }
     try:
         resp = await client.get(USAGE_URL, headers=headers)
