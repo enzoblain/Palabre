@@ -1,5 +1,7 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Query, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app import services
 from app.api.deps import SessionDep, get_or_404
@@ -59,5 +61,15 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
         services.emit_event(
             s, room.project_id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id}, role="lead"
         )
-        await s.commit()
+    # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
+    await s.execute(
+        update(Event)
+        .where(
+            Event.type == "conversation_throttled",
+            Event.processed_at.is_(None),
+            Event.payload["conversation_id"].as_integer() == conversation_id,
+        )
+        .values(processed_at=datetime.now(UTC))
+    )
+    await s.commit()
     return message

@@ -22,3 +22,6 @@ export const SendIcon = (p: Props) => <Svg {...p}><path d="M22 2 11 13M22 2l-7 2
 export const ShuffleIcon = (p: Props) => (
   <Svg {...p}><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></Svg>
 );
+export const InboxIcon = (p: Props) => (
+  <Svg {...p}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></Svg>
+);

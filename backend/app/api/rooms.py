@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 from app import services
@@ -17,7 +17,7 @@ from app.api.schemas import (
     RoomPatch,
     TaskOut,
 )
-from app.models import Conversation, Decision, DecisionStatus, Employee, OpenQuestion, Project, Room, Task
+from app.models import Conversation, Decision, DecisionStatus, Employee, Event, OpenQuestion, Project, Room, Task
 
 router = APIRouter(tags=["rooms"])
 
@@ -137,6 +137,16 @@ async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
     )
     if proposer is not None:
         services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
+    # The notification asking you to decide is done
+    await s.execute(
+        update(Event)
+        .where(
+            Event.type == "decision_proposed",
+            Event.processed_at.is_(None),
+            Event.payload["decision_id"].as_integer() == decision.id,
+        )
+        .values(processed_at=datetime.now(UTC))
+    )
     await s.commit()
     return decision
 

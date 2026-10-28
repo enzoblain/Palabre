@@ -6,9 +6,9 @@ from sqlalchemy.orm import selectinload
 
 from app.accounts import assign_accounts
 from app.api.deps import SessionDep, get_or_404
-from app.api.schemas import EmployeeStatus, NotificationOut, OrchestratorStatus, RunOut
+from app.api.schemas import DecisionOut, EmployeeStatus, NotificationOut, OrchestratorStatus, RunOut
 from app.config import settings
-from app.models import AgentRun, Employee, Event, Project, Wakeup
+from app.models import AgentRun, Conversation, Decision, Employee, Event, Message, Project, Wakeup
 from app.orchestrator.dispatcher import orchestrator
 
 router = APIRouter(tags=["monitoring"])
@@ -28,14 +28,29 @@ async def list_notifications(
     s: SessionDep, project_id: int | None = None, unread_only: bool = True, limit: int = Query(100, ge=1, le=500)
 ):
     """What the team escalated to you, decisions to validate, mentions of @boss..."""
-    events = await s.scalars(_boss_events(project_id, unread_only).order_by(Event.id.desc()).limit(limit))
-    return [
-        NotificationOut(
-            id=e.id, project_id=e.project_id, type=e.type, payload=e.payload, created_at=e.created_at,
-            read=e.processed_at is not None,
-        )  # fmt: skip
-        for e in events
-    ]
+    events = list(await s.scalars(_boss_events(project_id, unread_only).order_by(Event.id.desc()).limit(limit)))
+    # An escalation to the boss is also a message mentioning them: show it once
+    escalated = {e.payload.get("message_id") for e in events if e.type == "escalation"}
+    events = [e for e in events if not (e.type == "mention" and e.payload.get("message_id") in escalated)]
+    return [await _notification(s, e) for e in events]
+
+
+async def _notification(s, e: Event) -> NotificationOut:
+    out = NotificationOut(
+        id=e.id, project_id=e.project_id, type=e.type, payload=e.payload, created_at=e.created_at,
+        read=e.processed_at is not None, conversation_id=e.payload.get("conversation_id"),
+        room_id=e.payload.get("room_id"),
+    )  # fmt: skip
+    if message_id := e.payload.get("message_id"):
+        if message := await s.get(Message, message_id):
+            out.author, out.excerpt = message.author_name, message.content[:280]
+    if decision_id := e.payload.get("decision_id"):
+        if decision := await s.get(Decision, decision_id):
+            out.decision = DecisionOut.model_validate(decision)
+            out.author = decision.proposed_by
+    if out.conversation_id and out.room_id is None:
+        out.room_id = await s.scalar(select(Conversation.room_id).where(Conversation.id == out.conversation_id))
+    return out
 
 
 @router.post("/notifications/{event_id}/read", status_code=204)
@@ -46,10 +61,21 @@ async def mark_read(event_id: int, s: SessionDep):
 
 
 @router.post("/notifications/read-all", status_code=204)
-async def mark_all_read(s: SessionDep, project_id: int | None = None):
+async def mark_all_read(
+    s: SessionDep,
+    project_id: int | None = None,
+    conversation_id: int | None = None,
+    types: list[str] | None = Query(None),
+):
+    """Mark notifications as read, optionally only those of a project, a conversation
+    or some types (e.g. the mentions of a conversation once you have read it)."""
     q = update(Event).where(Event.target_role == "boss", Event.processed_at.is_(None))
     if project_id is not None:
         q = q.where(Event.project_id == project_id)
+    if conversation_id is not None:
+        q = q.where(Event.payload["conversation_id"].as_integer() == conversation_id)
+    if types:
+        q = q.where(Event.type.in_(types))
     await s.execute(q.values(processed_at=datetime.now(UTC)))
     await s.commit()
 

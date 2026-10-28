@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type ProjectDetail, type Room, api } from "../api";
+import { ApiError, type Conversation, type EmployeeStatus, type Message, type Notification, type ProjectDetail, type Room, api } from "../api";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
 import { HashIcon, SendIcon } from "./Icons";
@@ -7,12 +7,15 @@ import { Markdown, bossNames, mentionsAny } from "./Markdown";
 
 const POLL_MS = 2000;
 
-export function ConversationView({ conversation, room, project, statuses, bossName }: {
+export function ConversationView({ conversation, room, project, statuses, bossName, notifications, onNotificationsRead }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
   statuses: EmployeeStatus[];
   bossName: string;
+  // Unread notifications of this conversation
+  notifications: Notification[];
+  onNotificationsRead: () => void;
 }) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState("");
@@ -95,6 +98,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
       stickToBottom.current = true;
       append([message]);
       setDraft("");
+      if (throttled) onNotificationsRead(); // Posting lifted the pause
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
@@ -102,6 +106,16 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
       inputRef.current?.focus();
     }
   }
+
+  // Being here means the mentions and escalations of this conversation are read
+  const unreadMentions = notifications.filter((n) => n.type === "mention" || n.type === "escalation").length;
+  useEffect(() => {
+    if (unreadMentions === 0) return;
+    api.markAllRead({ conversation_id: conversation.id, types: ["mention", "escalation"] })
+      .then(onNotificationsRead)
+      .catch(() => {});
+  }, [conversation.id, unreadMentions, onNotificationsRead]);
+  const throttled = notifications.some((n) => n.type === "conversation_throttled");
 
   const busyHere = statuses.filter((s) => s.status === "working" && s.conversation_id === conversation.id);
   const empty = messages !== null && messages.length === 0;
@@ -151,6 +165,11 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         })}
       </div>
 
+      {throttled && (
+        <div className="banner">
+          The team talked too much here: their chatter is paused until you post a message. Work on tasks and reviews goes on.
+        </div>
+      )}
       <div className="typing muted">
         {busyHere.length > 0 && `${busyHere.map((s) => s.name).join(", ")} ${busyHere.length > 1 ? "are" : "is"} thinking…`}
       </div>

@@ -84,6 +84,32 @@ export type AppSettings = {
 };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
+export type Decision = {
+  id: number;
+  room_id: number;
+  title: string;
+  rationale: string;
+  status: "proposed" | "validated" | "rejected";
+  proposed_by: string;
+  created_at: string;
+  decided_at: string | null;
+};
+
+/** Something for the boss: a mention, an escalation, a decision to make... */
+export type Notification = {
+  id: number;
+  project_id: number;
+  type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  read: boolean;
+  conversation_id: number | null;
+  room_id: number | null;
+  author: string | null;
+  excerpt: string | null;
+  decision: Decision | null;
+};
+
 export type Axis = { key: string; label: string; low: string; high: string };
 export type Personality = { levels: number[]; axes: Axis[]; quirks: string[] };
 
@@ -210,6 +236,18 @@ export const api = {
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
+
+  notifications: () => call<Notification[]>("/notifications?unread_only=true&limit=200"),
+  markRead: (id: number) => call<void>(`/notifications/${id}/read`, "POST"),
+  markAllRead: (filters: { project_id?: number; conversation_id?: number; types?: string[] }) => {
+    const params = new URLSearchParams();
+    if (filters.project_id !== undefined) params.set("project_id", String(filters.project_id));
+    if (filters.conversation_id !== undefined) params.set("conversation_id", String(filters.conversation_id));
+    filters.types?.forEach((type) => params.append("types", type));
+    return call<void>(`/notifications/read-all?${params}`, "POST");
+  },
+  decide: (decisionId: number, status: "validated" | "rejected") =>
+    call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

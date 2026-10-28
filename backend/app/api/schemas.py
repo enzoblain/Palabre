@@ -255,6 +255,12 @@ class NotificationOut(ORM):
     payload: dict
     created_at: datetime
     read: bool
+    # Where it happened, and what it is about (filled in when it applies)
+    conversation_id: int | None = None
+    room_id: int | None = None
+    author: str | None = None
+    excerpt: str | None = None
+    decision: DecisionOut | None = None
 
 
 class RunOut(ORM):
