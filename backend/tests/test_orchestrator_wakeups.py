@@ -18,12 +18,13 @@ CONVERSATION_ID = 200
 class FakeEventSession:
     """In-memory stand-in for the queries of `expand_events`, served by what they select."""
 
-    def __init__(self, pending, employees, tasks=(), members=(), room_id=ROOM_ID, conversation_id=CONVERSATION_ID):
+    def __init__(self, pending, employees, tasks=(), members=(), room_id=ROOM_ID, conversation_id=CONVERSATION_ID, room_kind="team"):
         self.pending = list(pending)
         self.employees = list(employees)
         self.tasks = {t.id: t for t in tasks}
         self.members = set(members)
         self.room_id = room_id
+        self.room_kind = room_kind
         self.conversation_id = conversation_id
         self.added: list = []
         self.joined: list[int] = []
@@ -41,6 +42,8 @@ class FakeEventSession:
 
     async def scalar(self, query):
         name = query.column_descriptions[0]["name"]
+        if name == "kind":
+            return self.room_kind
         if name == "room_id":
             return self.room_id
         if name == "id":  # last conversation of the room(s)
@@ -178,6 +181,17 @@ async def test_boss_message_goes_to_the_role_even_if_the_catalog_does_not_list_i
     )  # fmt: skip
     await expand_events(s)
     assert len(s.wakeups) == 1
+
+
+async def test_only_the_lead_is_woken_in_the_direction_channel(team):
+    s = FakeEventSession(
+        [event("mention", {"conversation_id": CONVERSATION_ID, "message_id": 9}, employee_id=team.dev.id),
+         event("mention", {"conversation_id": CONVERSATION_ID, "message_id": 9}, employee_id=team.lead.id)],
+        everyone(team), members=[team.lead.id], room_kind="direction",
+    )  # fmt: skip
+    await expand_events(s)
+    assert woken(s) == {"Louise"}
+    assert s.joined == []  # nobody is called into direction
 
 
 async def test_event_without_target_and_unlisted_type_wakes_nobody(team):

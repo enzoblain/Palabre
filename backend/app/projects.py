@@ -88,6 +88,7 @@ async def create_project(
     ]
     s.add(project)
     await _open_channels(s, project)
+    await ensure_direction(s, project)
     await s.commit()
     if kind == "research" and topic:
         await _kick_off_research(s, project, topic)
@@ -125,6 +126,29 @@ async def _open_channels(s: AsyncSession, project: Project) -> None:
         await s.flush()
         s.add(Conversation(room_id=room.id, title="Kickoff"))
         groups.append(names)
+
+
+async def ensure_direction(s: AsyncSession, project: Project) -> None:
+    """A company has a "direction" channel: the boss and the lead, nobody else. It is
+    created after the team channels, so the first room stays the team's."""
+    lead = next((e for e in project.employees if "lead" in e.roles), None)
+    if project.kind != "company" or lead is None:
+        return
+    existing = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
+    if existing is not None:
+        existing.members = [lead]  # A new lead (change of company size) takes the seat
+        return
+    room = Room(project=project, name=services.DIRECTION, kind=services.DIRECTION, members=[lead])
+    s.add(room)
+    await s.flush()
+    s.add(Conversation(room_id=room.id, title="Direction"))
+
+
+async def ensure_all_directions(s: AsyncSession) -> None:
+    """Existing companies get their direction channel (their rooms stay team channels)."""
+    for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
+        await ensure_direction(s, await load_project(s, project_id))
+    await s.commit()
 
 
 def team_of(project: Project) -> Team:
@@ -206,6 +230,8 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     channels = {c["name"]: c for c in load_catalog()["channels"]}
     for i, room in enumerate(project.rooms):
         room.members = [m for m in room.members if m not in remaining]
+        if room.kind == services.DIRECTION:
+            continue
         # Newcomers join the general room and the channels of their roles
         channel = channels.get(room.name)
         room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
@@ -214,6 +240,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur
     project.mode = mode
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
+    await ensure_direction(s, project)
     await s.commit()
     return await load_project(s, project.id)
 

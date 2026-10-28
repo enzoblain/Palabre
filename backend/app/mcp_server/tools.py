@@ -41,16 +41,32 @@ async def _check_chat(s, project_id: int, content: str) -> None:
 
 
 @tool
-async def send_message(ctx: Context, content: str) -> dict:
+async def send_message(ctx: Context, content: str, channel: str | None = None) -> dict:
     """Post a message in the current conversation, signed with your name: a short chat
     message, like you would send a colleague (a long or report-like one is refused).
-    Mention colleagues with @Name (or @boss) to get their attention."""
+    Mention colleagues with @Name (or @boss) to get their attention.
+    channel: only the lead may name another channel (e.g. "direction") to relay there."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
         me = await s.get(Employee, c.employee_id)
-        msg = await services.post_message(s, c.project_id, c.conversation_id, content, me)
+        conversation_id = c.conversation_id
+        if channel is not None:
+            if "create_channel" not in c.tools:  # held by the lead only
+                raise services.WorkflowError("Only the lead can post in another channel")
+            conversation_id = await services.channel_conversation_id(s, c.project_id, channel)
+        msg = await services.post_message(s, c.project_id, conversation_id, content, me)
     return {"id": msg.id}
+
+
+@tool
+async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
+    """Create a team channel (e.g. "backend", "front", "quality") with the given members,
+    by first name. You are always in it. The boss reads it but cannot write in it."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        room = await services.create_channel(s, c.project_id, name, members)
+    return {"id": room.id, "name": room.name}
 
 
 @tool
@@ -151,11 +167,12 @@ async def create_task(
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
+        room_id, conversation_id = await services.team_context(s, c.project_id, c.room_id, c.conversation_id)
         task = await workflow.create_task(
             s,
             project_id=c.project_id,
-            room_id=c.room_id,
-            conversation_id=c.conversation_id,
+            room_id=room_id,
+            conversation_id=conversation_id,
             author=me,
             title=title,
             description=description,
@@ -280,11 +297,12 @@ async def report_bug(
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
+        room_id, conversation_id = await services.team_context(s, c.project_id, c.room_id, c.conversation_id)
         task = await workflow.report_bug(
             s,
             project_id=c.project_id,
-            room_id=c.room_id,
-            conversation_id=c.conversation_id,
+            room_id=room_id,
+            conversation_id=conversation_id,
             author=me,
             title=title,
             steps=steps,

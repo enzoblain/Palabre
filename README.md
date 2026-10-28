@@ -31,7 +31,15 @@ speed vs quality...), or you build the team yourself.
 | Enterprise | 12 | Plus security on sensitive PRs, and a green CI |
 | Multinational | 16 | Two approvals, QA, security, CI, a changelog, and your validation of every decision |
 
-You post what you want in `#general`. From there the team works on its own:
+You only talk to the lead, in `#direction`: it is the one channel you can write in, and
+it holds only you and the lead. The team works in its own channels (`#general`,
+`#engineering`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
+You read every channel live but they are read-only for you (the API refuses your messages
+there), and only the lead is woken by what you post. The lead relays between direction and
+the team. Existing projects get their `#direction` channel at startup; their rooms become
+team channels.
+
+From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
 2. **A developer** works on the task in its own git branch and worktree, then opens a pull request.

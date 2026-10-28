@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AppSetting,
+    Conversation,
     Decision,
     DecisionStatus,
     Employee,
@@ -30,6 +31,7 @@ _CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
 _LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+", re.M)
 BOSS_ALIASES = {"boss", "ceo"}
+DIRECTION = "direction"
 
 
 class WorkflowError(Exception):
@@ -164,13 +166,78 @@ async def post_message(
         if mentioned & boss_names:
             emit_event(s, project_id, "mention", payload, role="boss")
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        in_direction = await s.scalar(
+            select(Room.id)
+            .join(Conversation, Conversation.room_id == Room.id)
+            .where(Conversation.id == conversation_id, Room.kind == DIRECTION)
+        )
         for employee in employees:
+            if in_direction and "lead" not in employee.roles:
+                continue  # Direction is between the boss and the lead
             if employee.name.lower() in mentioned and (author is None or employee.id != author.id):
                 emit_event(s, project_id, "mention", payload, employee_id=employee.id)
 
     await s.commit()
     await s.refresh(msg)
     return msg
+
+
+# --- Channels ----------------------------------------------------------------------
+
+
+async def create_channel(s: AsyncSession, project_id: int, name: str, member_names: list[str]) -> Room:
+    """A team channel (a room with a first conversation). The lead is always in it."""
+    name = name.strip().lstrip("#").strip()
+    if not name:
+        raise WorkflowError("A channel needs a name")
+    rooms = await s.scalars(select(Room).where(Room.project_id == project_id))
+    if any(r.name.lower() == name.lower() for r in rooms):
+        raise WorkflowError(f"A channel named {name} already exists")
+    employees = list(await s.scalars(select(Employee).where(Employee.project_id == project_id)))
+    wanted = {n.lstrip("@").lower() for n in member_names}
+    unknown = wanted - {e.name.lower() for e in employees}
+    if unknown:
+        raise WorkflowError(f"Unknown employees: {', '.join(sorted(unknown))}")
+    members = [e for e in employees if e.name.lower() in wanted or "lead" in e.roles]
+    room = Room(project_id=project_id, name=name, members=members)
+    s.add(room)
+    await s.flush()
+    s.add(Conversation(room_id=room.id, title="General"))
+    await s.commit()
+    return room
+
+
+async def team_context(s: AsyncSession, project_id: int, room_id: int, conversation_id: int) -> tuple[int, int]:
+    """Where a task lives. Called from direction, it goes to the first team channel: the
+    people it concerns (reviewers, QA...) are not in direction and cannot be woken there."""
+    if await s.scalar(select(Room.kind).where(Room.id == room_id)) != DIRECTION:
+        return room_id, conversation_id
+    team_room_id = await s.scalar(
+        select(Room.id).where(Room.project_id == project_id, Room.kind != DIRECTION).order_by(Room.id).limit(1)
+    )
+    if team_room_id is None:
+        raise WorkflowError("There is no team channel to put the task in")
+    team_conversation_id = await s.scalar(
+        select(Conversation.id).where(Conversation.room_id == team_room_id).order_by(Conversation.id.desc()).limit(1)
+    )
+    return team_room_id, team_conversation_id
+
+
+async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -> int:
+    """The conversation to post in for the channel `name`."""
+    wanted = name.strip().lstrip("#").lower()
+    # Direction is found by its kind: a rename must not break the relay
+    named = Room.kind == DIRECTION if wanted == DIRECTION else func.lower(Room.name) == wanted
+    conversation_id = await s.scalar(
+        select(Conversation.id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.project_id == project_id, named)
+        .order_by(Conversation.id.desc())  # the active one is the latest
+        .limit(1)
+    )
+    if conversation_id is None:
+        raise WorkflowError(f"No channel named {name}")
+    return conversation_id
 
 
 # --- Room document -----------------------------------------------------------------

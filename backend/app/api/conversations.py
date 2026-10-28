@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select, update
 
 from app import services
@@ -46,10 +46,16 @@ async def list_messages(
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
 async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
-    """Post as the boss. @mentioned employees are woken up; without any mention, the
-    lead is (a company), or the group starts researching it (a research group)."""
+    """Post as the boss. In a company the boss only writes in the direction channel, and
+    only the lead is woken up. A research group starts researching the question instead."""
     conversation = await get_or_404(s, Conversation, conversation_id)
     room = await get_or_404(s, Room, conversation.room_id)
+    project = await get_or_404(s, Project, room.project_id)
+    if project.kind == "company" and room.kind != services.DIRECTION:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "The boss only writes in the direction channel; the other channels are read-only",
+        )
     message = await services.post_message(s, room.project_id, conversation_id, body.content, None)
     mentioned = await s.scalar(
         select(Event.id).where(
@@ -59,7 +65,6 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
         )
     )
     if mentioned is None:
-        project = await get_or_404(s, Project, room.project_id)
         if project.kind == "research":
             # A new question for the group: it goes through the research phases again
             start_question(s, project, conversation_id, message.id)

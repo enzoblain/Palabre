@@ -119,6 +119,7 @@ class RoomOut(ORM):
     id: int
     project_id: int
     name: str
+    kind: str
     objective: str
     summary: str
     created_at: datetime
