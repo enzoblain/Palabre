@@ -1,4 +1,8 @@
-# Tests and Docker image builds on pull requests to dev and main and on pushes to them.
+# Tests and Docker image builds on pull requests to dev and main and on every push.
+# Why every push: a pull_request run needs GitHub to compute a test merge commit. When the
+# branch conflicts, or the PR was opened/retargeted right after a rename or force-push, GitHub
+# silently starts no run and the PR shows "no CI checks reported". A push run is tied to the
+# head commit, so the checks always exist on it and show on the PR.
 # Python and Node match the Dockerfiles (backend: python:3.12, frontend: node:22). The test jobs
 # skip what the branch does not have yet, so the workflow is green before pytest /
 # `npm run check` exist.
@@ -7,15 +11,17 @@ name: CI
 on:
   pull_request:
     branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   push:
-    branches: [dev, main]
+    branches: ["**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:

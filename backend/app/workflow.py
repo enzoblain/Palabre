@@ -251,18 +251,19 @@ CONVENTIONAL_TITLE = re.compile(
 _TASK_REF = re.compile(r"\s*\(#\d+\)$")
 
 
-def conventional_title(title: str, task_id: int) -> str:
-    """The English Conventional Commits title of a task's PR and squash commit, with the task
-    reference last: `feat(usage): show real usage (#60)`. Raises WorkflowError if it does not follow the format."""
+def conventional_title(title: str, pr_number: int | None = None) -> str:
+    """The English Conventional Commits title of a task's PR and squash commit, with the PR
+    number last once the PR exists: `feat(usage): show real usage (#60)`. The task number never goes
+    there: on GitHub `#N` is a PR. Raises WorkflowError if it does not follow the format."""
     title = _TASK_REF.sub("", title.strip())
     if len(title) > 100 or not CONVENTIONAL_TITLE.fullmatch(title) or not title.isascii():
         raise WorkflowError(
             f"Invalid title {title!r}: use an English Conventional Commits title of at most 100 ASCII characters, "
             "`type(scope): description` with type among feat, fix, chore, docs, refactor, test, ci, perf, build, "
             "style, revert; for example `feat(usage): show real Claude usage per model`. "
-            "The task reference is added for you."
+            "The PR number is added for you."
         )
-    return f"{title} (#{task_id})"
+    return title if pr_number is None else f"{title} (#{pr_number})"
 
 
 async def submit_for_review(
@@ -279,13 +280,12 @@ async def submit_for_review(
         raise WorkflowError(f"Task #{task.id} is {task.status.value}, it cannot be submitted")
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet")
-    pr_title = conventional_title(title, task.id)
+    bare_title = conventional_title(title)
     if task.pr_number is None and github.is_task_branch_name(task.branch):
         # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
-        await rename_branch(task, final_branch_name(pr_title, task.id))
+        await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
-    task.pr_title = pr_title
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
@@ -300,15 +300,19 @@ async def submit_for_review(
             repo,
             head=task.branch,
             base=project.default_branch,
-            title=pr_title,
+            title=bare_title,
             body=(
                 f"{task.description}\n\n**Acceptance criteria**\n{criteria}\n\n"
                 f"**Summary from {author.name}**\n{summary}\n\n_Palabre task #{task.id}_"
             ),
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
+        # The PR number is only known now: it goes last in the title, which becomes the squash commit's
+        task.pr_title = conventional_title(bare_title, task.pr_number)
+        await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
     else:
-        await github.set_pull_request_title(repo, task.pr_number, pr_title)
+        task.pr_title = conventional_title(bare_title, task.pr_number)
+        await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
     task.status = TaskStatus.review
