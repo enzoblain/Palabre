@@ -1,4 +1,4 @@
-"""Launches one agent run: `claude -p`, billed on the subscription (CLAUDE_CODE_OAUTH_TOKEN)."""
+"""Launches one agent run: `claude -p`, billed on the subscription of the employee's account."""
 
 import asyncio
 import json
@@ -14,10 +14,11 @@ from app.mcp_server.server import SERVER_NAME
 
 log = logging.getLogger(__name__)
 
-# Only these variables reach the agent: no database URL, GitHub token or API key.
+# Only these variables reach the agent: no database URL, GitHub token, API key, or the
+# other accounts' tokens (its own is added as CLAUDE_CODE_OAUTH_TOKEN).
 ENV_ALLOWLIST = (
     "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR",
-    "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
+    "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
 )  # fmt: skip
 
 
@@ -39,6 +40,8 @@ class RunSpec:
     mcp_tools: list[str]
     claude_tools: list[str]
     model: str
+    # Token of the Claude account the employee runs on
+    oauth_token: str | None = None
     resume_session_id: str | None = None
 
 
@@ -51,10 +54,11 @@ class RunResult:
     cost_usd: float | None
 
 
-def _env(author_name: str) -> dict[str, str]:
+def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
-    if not env.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKEN is not set (generate one with `claude setup-token`)")
+    if not oauth_token:
+        raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
+    env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
     # Commits made by the agent are signed with its name
     email = re.sub(r"[^a-z0-9]+", ".", author_name.lower()).strip(".") + "@palabre.local"
     env |= {
@@ -98,7 +102,7 @@ async def run_claude(spec: RunSpec) -> RunResult:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=spec.cwd,
-                env=_env(spec.author_name),
+                env=_env(spec.author_name, spec.oauth_token),
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

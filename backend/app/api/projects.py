@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app import github, projects
+from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import (
     EmployeeDetail,
@@ -40,8 +41,17 @@ async def create_project(body: ProjectIn, s: SessionDep):
         github.repo_slug(body.repo_url)
     except github.GitHubError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+    _check_accounts(body.accounts.values())
     project = await projects.create_project(s, **body.model_dump())
     return await _project(s, project.id)
+
+
+def _check_accounts(accounts) -> None:
+    n = account_count()
+    if any(not 1 <= a <= n for a in accounts):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"Account must be between 1 and {n} (CLAUDE_CODE_OAUTH_TOKENS)"
+        )
 
 
 @router.get("/projects/{project_id}", response_model=ProjectDetail)
@@ -84,11 +94,15 @@ async def get_employee(employee_id: int, s: SessionDep):
 
 @router.patch("/employees/{employee_id}", response_model=EmployeeOut)
 async def update_employee(employee_id: int, body: EmployeePatch, s: SessionDep):
-    """Edit an employee's personality or model by hand."""
+    """Edit an employee's personality, model or Claude account by hand."""
     employee = await get_or_404(s, Employee, employee_id)
     projects.validate_personality(body.traits, body.style)
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_none=True, exclude={"account"}).items():
         setattr(employee, field, value)
+    if "account" in body.model_fields_set:  # null puts the employee back in the automatic spread
+        if body.account is not None:
+            _check_accounts([body.account])
+        employee.account = body.account
     await s.commit()
     return employee
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
+from app.accounts import assign_accounts
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import EmployeeStatus, NotificationOut, OrchestratorStatus, RunOut
 from app.config import settings
@@ -85,9 +86,10 @@ async def team_status(project_id: int, s: SessionDep):
             select(AgentRun).where(AgentRun.employee_id.in_(ids), AgentRun.finished_at.is_(None)).order_by(AgentRun.id)
         )
     }
+    accounts = assign_accounts(employees)
     statuses = []
     for e in employees:
-        out = EmployeeStatus(employee_id=e.id, name=e.name, title=e.title, status="resting")
+        out = EmployeeStatus(employee_id=e.id, name=e.name, title=e.title, status="resting", account=accounts[e.id])
         if not settings.orchestrator_enabled:
             out.status = "offline"
         elif e.id in running:

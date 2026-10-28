@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ApiError, type Mode, type Personality, type ProjectDetail, type TeamMember, type TeamPreview, api } from "../api";
 import { go } from "../router";
+import { spreadAccounts } from "../util";
+import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
 
@@ -24,7 +26,10 @@ function traitChips(member: TeamMember, personality: Personality | null): { text
     }));
 }
 
-export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) => void }) {
+export function NewProject({ claudeAccounts, onCreated }: {
+  claudeAccounts: number;
+  onCreated: (project: ProjectDetail) => void;
+}) {
   const [modes, setModes] = useState<Record<string, Mode> | null>(null);
   const [personality, setPersonality] = useState<Personality | null>(null);
   const [name, setName] = useState("");
@@ -32,6 +37,8 @@ export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) 
   const [branch, setBranch] = useState("main");
   const [mode, setMode] = useState("startup");
   const [team, setTeam] = useState<TeamPreview | null>(null);
+  // First name → Claude account chosen by hand; the others are spread automatically
+  const [accounts, setAccounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,11 +49,13 @@ export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) 
 
   function draw(forMode: string) {
     setTeam(null);
+    setAccounts({});
     api.previewTeam(forMode).then(setTeam).catch((err) => setError(String(err.message ?? err)));
   }
   useEffect(() => draw(mode), [mode]);
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
+  const effective = team ? spreadAccounts(team.employees.map((m) => accounts[m.name]), claudeAccounts) : [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +69,7 @@ export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) 
         mode,
         default_branch: branch.trim() || "main",
         seed: team.seed,
+        accounts,
       });
       onCreated(project);
     } catch (err) {
@@ -114,7 +124,7 @@ export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) 
         </div>
         {team ? (
           <ul className="team-grid">
-            {team.employees.map((member) => (
+            {team.employees.map((member, i) => (
               <li key={member.name} className="member-card">
                 <Avatar name={member.name} size={36} />
                 <div>
@@ -126,6 +136,11 @@ export function NewProject({ onCreated }: { onCreated: (project: ProjectDetail) 
                     ))}
                     <span className="chip chip-style">{member.style.tone}</span>
                   </div>
+                  {claudeAccounts > 1 && (
+                    <AccountSelect value={accounts[member.name] ?? null} effective={effective[i]} count={claudeAccounts}
+                      onChange={(account) => setAccounts(({ [member.name]: _, ...rest }) =>
+                        account === null ? rest : { ...rest, [member.name]: account })} />
+                  )}
                 </div>
               </li>
             ))}

@@ -24,6 +24,7 @@ async def create_project(
     mode: str,
     default_branch: str = "main",
     seed: int | None = None,
+    accounts: dict[str, int] | None = None,
 ) -> Project:
     github.repo_slug(repo_url)  # GitHub URLs only
     team = generate_team(mode, seed)
@@ -31,7 +32,8 @@ async def create_project(
         name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed
     )
     project.employees = [
-        Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)) for member in team.employees
+        Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))
+        for member in team.employees
     ]
     s.add(project)
     await _open_channels(s, project)

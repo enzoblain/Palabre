@@ -17,6 +17,11 @@ class AppSettings(BaseModel):
     boss_name: str = Field(max_length=100)
 
 
+class AppSettingsOut(AppSettings):
+    # Claude accounts configured in CLAUDE_CODE_OAUTH_TOKENS
+    claude_accounts: int
+
+
 # --- Employees ---------------------------------------------------------------------
 
 
@@ -34,6 +39,8 @@ class EmployeeOut(EmployeeBrief):
     traits: dict[str, int]
     quirks: list[str]
     style: dict[str, str]
+    # Claude account chosen by the boss (None: spread automatically)
+    account: int | None
 
 
 class EmployeeDetail(EmployeeOut):
@@ -45,6 +52,8 @@ class EmployeePatch(BaseModel):
     traits: dict[str, int] | None = None
     quirks: list[str] | None = None
     style: dict[str, str] | None = None
+    # Claude account (1, 2...); null: spread automatically
+    account: int | None = Field(default=None, ge=1)
 
 
 # --- Projects ----------------------------------------------------------------------
@@ -56,6 +65,8 @@ class ProjectIn(BaseModel):
     mode: str = "startup"
     default_branch: str = "main"
     seed: int | None = None
+    # Employee first name → Claude account; the others are spread automatically
+    accounts: dict[str, int] = {}
 
 
 class ProjectOut(ORM):
@@ -266,6 +277,8 @@ class EmployeeStatus(BaseModel):
     name: str
     title: str
     status: Literal["working", "waiting", "resting", "offline"]
+    # Claude account the employee runs on
+    account: int
     # What the current run is about
     kind: str | None = None
     conversation_id: int | None = None

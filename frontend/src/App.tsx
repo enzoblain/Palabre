@@ -57,6 +57,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const route = useRoute();
   const [projects, setProjects] = useState<Project[]>([]);
   const [bossName, setBossName] = useState("");
+  const [claudeAccounts, setClaudeAccounts] = useState(1);
   const projectId = route.name === "project" ? route.projectId : null;
   const { project, error } = useProject(projectId);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
@@ -66,6 +67,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     reloadProjects();
     api.getSettings().then((s) => {
       setBossName(s.boss_name);
+      setClaudeAccounts(s.claude_accounts);
       if (!s.boss_name) go("/settings"); // First time: the team needs a name for its CEO
     }).catch(() => {});
   }, [reloadProjects]);
@@ -91,12 +93,13 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
 
   let main: React.ReactNode;
   if (route.name === "new") {
-    main = <NewProject onCreated={(p) => {
+    main = <NewProject claudeAccounts={claudeAccounts} onCreated={(p) => {
       reloadProjects();
       go(`/p/${p.id}`);
     }} />;
   } else if (route.name === "settings") {
-    main = <Settings bossName={bossName} onSaved={setBossName} onDisconnect={onDisconnect} />;
+    main = <Settings bossName={bossName} claudeAccounts={claudeAccounts} projects={projects}
+      onSaved={setBossName} onDisconnect={onDisconnect} />;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
@@ -115,7 +118,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
 
   return (
     <div className="shell">
-      <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName} />
+      <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
+        claudeAccounts={claudeAccounts} />
       <main className="main">{main}</main>
     </div>
   );

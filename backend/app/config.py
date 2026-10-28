@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     # Temporary files of runs (MCP configs), kept outside the repositories
     runtime_dir: Path = Path("/data/runtime")
 
-    # Agents (`claude -p`, billed on the subscription through CLAUDE_CODE_OAUTH_TOKEN)
+    # Agents (`claude -p`, billed on Claude subscriptions). One token per account,
+    # separated by "|": the employees are spread over the accounts.
+    claude_code_oauth_tokens: str = ""
+    # Former single-account setting, still accepted
+    claude_code_oauth_token: str = ""
     claude_bin: str = "claude"
     claude_max_turns: int = 30
     agent_timeout_s: int = 1800
@@ -27,6 +31,7 @@ class Settings(BaseSettings):
     # Orchestrator
     orchestrator_enabled: bool = True
     poll_interval_s: float = 2.0
+    # Per Claude account
     max_concurrent_agents: int = 3
     # Rounds of "changes requested" on a task before the lead has to step in
     max_review_rounds: int = 3
@@ -36,6 +41,11 @@ class Settings(BaseSettings):
     daily_time: str = "09:30"
     # Quiet minutes before the scribe is asked to update the room document
     idle_minutes: int = 10
+
+    @property
+    def claude_tokens(self) -> list[str]:
+        tokens = [t.strip() for t in self.claude_code_oauth_tokens.split("|") if t.strip()]
+        return tokens or ([self.claude_code_oauth_token.strip()] if self.claude_code_oauth_token.strip() else [])
 
 
 settings = Settings()

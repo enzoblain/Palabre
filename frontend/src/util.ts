@@ -50,3 +50,18 @@ export const MENTION_EVENT = "palabre:mention";
 export function mention(name: string): void {
   window.dispatchEvent(new CustomEvent(MENTION_EVENT, { detail: name }));
 }
+
+/** Same spreading as backend/app/accounts.py: custom accounts are kept, the others
+ * fill the least loaded account. `members` must be in creation order. */
+export function spreadAccounts(members: (number | null | undefined)[], count: number): number[] {
+  const n = Math.max(count, 1);
+  const load = new Array(n).fill(0);
+  const result = members.map((a) => (a && a >= 1 && a <= n ? a : 0));
+  result.forEach((a) => a && load[a - 1]++);
+  return result.map((a) => {
+    if (a) return a;
+    const least = load.indexOf(Math.min(...load));
+    load[least]++;
+    return least + 1;
+  });
+}

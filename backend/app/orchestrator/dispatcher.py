@@ -1,4 +1,4 @@
-"""Runs the wakeups: at most one run per employee, and a global limit (shared subscription)."""
+"""Runs the wakeups: at most one run per employee, and a limit per Claude account."""
 
 import asyncio
 import logging
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import services
+from app.accounts import assign_accounts, token_for
 from app.company.team import render_system_prompt
 from app.config import settings
 from app.db import SessionLocal
@@ -39,6 +40,7 @@ class Orchestrator:
     def __init__(self) -> None:
         self._loops: list[asyncio.Task] = []
         self._runs: dict[int, asyncio.Task] = {}  # employee id → its current run
+        self._run_accounts: dict[int, int] = {}  # employee id → account of its current run
         self._repo_synced_at: dict[int, float] = {}
         self._throttled_at: dict[int, datetime] = {}
 
@@ -79,29 +81,52 @@ class Orchestrator:
             await asyncio.sleep(settings.poll_interval_s)
 
     async def _dispatch(self) -> None:
-        free = settings.max_concurrent_agents - len(self._runs)
-        if free <= 0:
-            return
-        batches: list[tuple[int, list[int]]] = []
+        batches: list[tuple[int, int, list[int]]] = []
         async with SessionLocal() as s:
             pending: dict[int, list[Wakeup]] = {}
             for w in await s.scalars(select(Wakeup).where(Wakeup.started_at.is_(None)).order_by(Wakeup.id)):
                 if w.employee_id not in self._runs:
                     pending.setdefault(w.employee_id, []).append(w)
+            if not pending:
+                return
+            accounts = await self._accounts_of(s, list(pending))
+            busy: dict[int, int] = {}
+            for account in self._run_accounts.values():
+                busy[account] = busy.get(account, 0) + 1
             now = datetime.now(UTC)
-            for employee_id, wakeups in list(pending.items())[:free]:
+            for employee_id, wakeups in pending.items():
+                account = accounts.get(employee_id, 1)
+                if busy.get(account, 0) >= settings.max_concurrent_agents:
+                    continue
+                busy[account] = busy.get(account, 0) + 1
                 # One run per context: every pending reason for the same conversation/task at once
                 first = wakeups[0]
                 batch = [w for w in wakeups if (w.kind, w.conversation_id, w.task_id) == (first.kind, first.conversation_id, first.task_id)]  # fmt: skip
                 for w in batch:
                     w.started_at = now
-                batches.append((employee_id, [w.id for w in batch]))
+                batches.append((employee_id, account, [w.id for w in batch]))
             await s.commit()
 
-        for employee_id, wakeup_ids in batches:
+        for employee_id, account, wakeup_ids in batches:
             run = asyncio.create_task(self._run(employee_id, wakeup_ids), name=f"run-employee-{employee_id}")
             self._runs[employee_id] = run
-            run.add_done_callback(lambda _, e=employee_id: self._runs.pop(e, None))
+            self._run_accounts[employee_id] = account
+            run.add_done_callback(lambda _, e=employee_id: self._run_done(e))
+
+    def _run_done(self, employee_id: int) -> None:
+        self._runs.pop(employee_id, None)
+        self._run_accounts.pop(employee_id, None)
+
+    async def _accounts_of(self, s: AsyncSession, employee_ids: list[int]) -> dict[int, int]:
+        """Account of each employee, computed over their whole project (spreading)."""
+        projects = select(Employee.project_id).where(Employee.id.in_(employee_ids))
+        by_project: dict[int, list[Employee]] = {}
+        for e in await s.scalars(select(Employee).where(Employee.project_id.in_(projects))):
+            by_project.setdefault(e.project_id, []).append(e)
+        accounts: dict[int, int] = {}
+        for employees in by_project.values():
+            accounts |= assign_accounts(employees)
+        return accounts
 
     async def _run(self, employee_id: int, wakeup_ids: list[int]) -> None:
         # Phase 1: prepare (short DB session)
@@ -192,6 +217,7 @@ class Orchestrator:
         member = next(m for m in team.employees if m.name == employee.name)
         system_prompt = render_system_prompt(team, member, services.boss_display_name()) + "\n\n" + OPERATING_RULES
         headers = {"Authorization": f"Bearer {employee.mcp_token}"}
+        oauth_token = token_for(assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
 
         if first.kind == "task":
@@ -210,6 +236,7 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=True)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
+                oauth_token=oauth_token,
             )
         else:
             await self._check_rate(s, project, first.conversation_id, run_id)
@@ -223,6 +250,7 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
                 claude_tools=READ_ONLY_TOOLS if claude_tools_for(employee.permissions) else [],
                 model=employee.model,
+                oauth_token=oauth_token,
             )
 
         spec.resume_session_id = await s.scalar(

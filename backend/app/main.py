@@ -9,7 +9,7 @@ from app import services
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.config import settings
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
@@ -28,7 +28,7 @@ mcp_app = mcp.streamable_http_app(
 async def lifespan(_: FastAPI):
     # TODO: Alembic migrations
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(upgrade_schema)
     async with SessionLocal() as s:
         await services.load_app_settings(s)
     async with mcp.session_manager.run():

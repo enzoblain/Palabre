@@ -27,6 +27,8 @@ export type Employee = EmployeeBrief & {
   traits: Record<string, number>;
   quirks: string[];
   style: Record<string, string>;
+  // Claude account chosen by the boss; null: spread automatically
+  account: number | null;
 };
 
 export type Room = {
@@ -57,6 +59,7 @@ export type EmployeeStatus = {
   name: string;
   title: string;
   status: "working" | "waiting" | "resting" | "offline";
+  account: number;
   kind: string | null;
   conversation_id: number | null;
   task_id: number | null;
@@ -70,7 +73,9 @@ export type Mode = {
   process: Record<string, unknown>;
 };
 
-export type TeamMember = Omit<Employee, "id" | "project_id">;
+export type TeamMember = Omit<Employee, "id" | "project_id" | "account">;
+
+export type AppSettings = { boss_name: string; claude_accounts: number };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
 export type Axis = { key: string; label: string; low: string; high: string };
@@ -177,8 +182,8 @@ export async function testConnection(conn: Connection): Promise<void> {
 // --- Endpoints ---------------------------------------------------------------------
 
 export const api = {
-  getSettings: () => call<{ boss_name: string }>("/settings"),
-  saveSettings: (boss_name: string) => call<{ boss_name: string }>("/settings", "PUT", { boss_name }),
+  getSettings: () => call<AppSettings>("/settings"),
+  saveSettings: (boss_name: string) => call<AppSettings>("/settings", "PUT", { boss_name }),
 
   modes: () => call<Record<string, Mode>>("/catalog/modes"),
   personality: () => call<Personality>("/catalog/personality"),
@@ -187,8 +192,16 @@ export const api = {
 
   listProjects: () => call<Project[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
-  createProject: (body: { name: string; repo_url: string; mode: string; default_branch: string; seed: number }) =>
-    call<ProjectDetail>("/projects", "POST", body),
+  createProject: (body: {
+    name: string;
+    repo_url: string;
+    mode: string;
+    default_branch: string;
+    seed: number;
+    accounts: Record<string, number>;
+  }) => call<ProjectDetail>("/projects", "POST", body),
+  setAccount: (employeeId: number, account: number | null) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),

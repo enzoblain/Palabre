@@ -115,6 +115,8 @@ class Employee(Base):
     traits: Mapped[dict[str, int]] = mapped_column(JSON)
     quirks: Mapped[list[str]] = mapped_column(JSON)
     style: Mapped[dict[str, str]] = mapped_column(JSON)
+    # Claude account it runs on (1, 2...), chosen by the boss; None: spread automatically
+    account: Mapped[int | None]
     # MCP token; the backend needs it in clear text to write each run's --mcp-config.
     mcp_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = created_at_column()

@@ -18,18 +18,19 @@ function activity(status: EmployeeStatus, project: ProjectState): string {
   return room ? `Talking in #${room.name}` : "Working";
 }
 
-export function Sidebar({ route, projects, project, statuses, bossName }: {
+export function Sidebar({ route, projects, project, statuses, bossName, claudeAccounts }: {
   route: Route;
   projects: Project[];
   project: ProjectState | null;
   statuses: EmployeeStatus[];
   bossName: string;
+  claudeAccounts: number;
 }) {
   const inProject = route.name === "project";
   return (
     <aside className="sidebar">
       {inProject ? (
-        <ProjectNav route={route} project={project} statuses={statuses} />
+        <ProjectNav route={route} project={project} statuses={statuses} showAccounts={claudeAccounts > 1} />
       ) : (
         <>
           <header className="sidebar-head">
@@ -60,10 +61,11 @@ export function Sidebar({ route, projects, project, statuses, bossName }: {
   );
 }
 
-function ProjectNav({ route, project, statuses }: {
+function ProjectNav({ route, project, statuses, showAccounts }: {
   route: Extract<Route, { name: "project" }>;
   project: ProjectState | null;
   statuses: EmployeeStatus[];
+  showAccounts: boolean;
 }) {
   const sorted = [...statuses].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
   const working = statuses.filter((s) => s.status === "working").length;
@@ -110,7 +112,10 @@ function ProjectNav({ route, project, statuses }: {
                 <span className={`dot dot-${s.status}`} />
               </span>
               <span className="member-text">
-                <span className="truncate">{s.name}</span>
+                <span className="member-line">
+                  <span className="truncate">{s.name}</span>
+                  {showAccounts && <span className="account-tag" title={`Runs on Claude account ${s.account}`}>{s.account}</span>}
+                </span>
                 <span className={`member-status status-${s.status} truncate`}>{activity(s, project)}</span>
               </span>
             </button>
