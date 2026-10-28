@@ -39,7 +39,7 @@ deliverables = ["Task plan", "Arbitrations", "Merged PRs"]
 escalation = "If an arbitration is beyond your scope (budget, product priority, major risk), escalate to the boss."
 success = "The team ships what the boss asked for, with no lasting blockers."
 permissions = ["conversation", "propose_decision", "manage_tasks", "merge", "ship_release", "manage_toolchains", "manage_channels"]
-wakes_on = ["objective_set", "escalation", "pr_approved", "daily", "mention"]
+wakes_on = ["objective_set", "escalation", "pr_approved", "merge_reminder", "daily", "mention"]
 
 [roles.architect]
 title = "Architect"

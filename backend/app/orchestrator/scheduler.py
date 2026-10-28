@@ -1,5 +1,5 @@
 """Company rituals: the daily stand-up, the scribe once a conversation goes quiet,
-retries of task runs that failed, and the phases of research questions."""
+retries of task runs that failed, merge reminders, and the phases of research questions."""
 
 import asyncio
 import logging
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Conversation, Event, Message, Project, Room
+from app.orchestrator.merge_watch import watch_mergeable_tasks
 from app.orchestrator.research import advance_research
 from app.orchestrator.retries import retry_failed_tasks
 from app.services import emit_event
@@ -33,6 +34,7 @@ async def run_scheduler() -> None:
                 await _daily(s)
                 await _idle_conversations(s)
                 await retry_failed_tasks(s)
+                await watch_mergeable_tasks(s)
                 await advance_research(s)
         except asyncio.CancelledError:
             raise

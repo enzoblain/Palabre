@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # Quiet minutes before the scribe is asked to update the room document
     idle_minutes: int = 10
 
+    # Minutes a mergeable task may wait before the lead is reminded (once)
+    merge_reminder_minutes: int = 10
+
     @property
     def claude_tokens(self) -> list[str]:
         return [t.strip() for t in self.claude_code_oauth_tokens.split("|") if t.strip()]

@@ -31,6 +31,7 @@ _CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
 _LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+", re.M)
 BOSS_ALIASES = {"boss", "ceo"}
+SYSTEM_AUTHOR = "Palabre"
 DIRECTION = "direction"
 
 
@@ -188,6 +189,13 @@ async def post_message(
     await s.commit()
     await s.refresh(msg)
     return msg
+
+
+async def post_system_message(s: AsyncSession, conversation_id: int, content: str) -> None:
+    """A short automatic line (step of a task) from the platform itself. Not committed: the
+    caller's transaction carries it. It mentions nobody, so it never wakes anyone up."""
+    s.add(Message(conversation_id=conversation_id, employee_id=None, author_name=SYSTEM_AUTHOR, content=content))
+    await s.flush()
 
 
 # --- Requests to the boss ----------------------------------------------------------

@@ -47,6 +47,12 @@ From there the team works on its own:
    company's rules require.
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
+The platform keeps the lead on track. Every step of a task (pull request submitted, each
+review, QA or security verdict with its author, merge) is announced by a short "Palabre"
+line in the task's channel, with the link. As soon as a task meets every merge rule of the
+company's size (including a CI that turns green later), the lead is woken up to merge it,
+and reminded once if it is still not merged after `MERGE_REMINDER_MINUTES` (10 by default).
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
 worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
@@ -238,6 +244,7 @@ All optional, in `.env`:
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
+| `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 

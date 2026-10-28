@@ -247,6 +247,9 @@ class Task(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Incremented on each submission; only reviews of the current round count
     review_round: Mapped[int] = mapped_column(default=0)
+    # When the lead was told every merge rule is met, and when it was reminded (once); reset on submission
+    merge_ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    merge_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_column()
     updated_at: Mapped[datetime] = updated_at_column()
 
