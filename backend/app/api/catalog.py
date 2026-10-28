@@ -1,3 +1,5 @@
+"""REST endpoints exposing the company catalog and team generation."""
+
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status

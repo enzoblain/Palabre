@@ -32,7 +32,7 @@ def test_existing_reference_is_not_doubled():
         "feat(Usage): uppercase scope",
         "feat:no space",
         "feat: ",
-        "feat: indicateur affiché à l'écran é",
+        "feat: indicator shown on screen é",
         "feat: " + "x" * 100,
         "",
     ],
@@ -43,4 +43,4 @@ def test_invalid_titles_are_refused_with_a_clear_message(title):
 
 
 def test_branch_name_ignores_the_title():
-    assert branch_name(make_task(id=70, title="Règles : commits en anglais")) == "task/70"
+    assert branch_name(make_task(id=70, title="Rules: commits in English")) == "task/70"

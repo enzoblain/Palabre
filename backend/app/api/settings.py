@@ -1,3 +1,5 @@
+"""REST endpoints for application settings."""
+
 from dataclasses import asdict
 from datetime import UTC, datetime
 

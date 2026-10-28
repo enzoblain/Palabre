@@ -1,3 +1,5 @@
+"""REST endpoints for tasks."""
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload

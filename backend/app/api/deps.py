@@ -1,3 +1,5 @@
+"""Shared FastAPI dependencies: authentication and lookups."""
+
 import secrets
 from typing import Annotated, TypeVar
 
