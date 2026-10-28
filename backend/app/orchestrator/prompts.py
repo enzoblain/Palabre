@@ -96,6 +96,15 @@ LANGUAGE_RULE = """## Language
 Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
 Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
+VERSION_RULE = """## Versions
+Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
+
+VERSION_ROLES = {"lead", "devops"}
+
+
+def version_rule(roles: list[str]) -> str | None:
+    return VERSION_RULE if VERSION_ROLES & set(roles) else None
+
 
 def language_rule(language: str) -> str:
     return LANGUAGE_RULE.format(language=language)
