@@ -64,6 +64,8 @@ export type Message = {
   author_name: string;
   content: string;
   created_at: string;
+  // Automatic line from the platform (not the CEO, although it has no employee)
+  is_system: boolean;
   // Set when the lead asks the CEO something (Validate / Reject / Nuance)
   request_kind: string | null;
   request_status: "pending" | RequestAnswer | null;
@@ -120,6 +122,18 @@ export type Usage = {
   employees: UsageEntry[];
   projects: UsageEntry[];
 } & Record<UsagePeriod, UsageTotals>;
+// Real quota of a Claude account, as /usage shows it. `resets_at` is null when unknown
+export type QuotaWindow = { used_percent: number; resets_at: string | null };
+export type ModelQuota = QuotaWindow & { model: string };
+// On error, `error` says why and the windows are empty
+export type AccountQuota = {
+  account: number;
+  error: string | null;
+  session: QuotaWindow | null;
+  week: QuotaWindow | null;
+  models: ModelQuota[];
+};
+export type Quota = { accounts: AccountQuota[] };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
 export type Decision = {
@@ -259,6 +273,7 @@ export async function testConnection(conn: Connection): Promise<void> {
 // --- Endpoints ---------------------------------------------------------------------
 
 export const api = {
+  getQuota: () => call<Quota>("/settings/quota"),
   getUsage: () => call<Usage>("/settings/usage"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>

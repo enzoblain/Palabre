@@ -121,21 +121,24 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
   title: string | undefined;
   selfNames: string[];
 }) {
-  const boss = m.employee_id === null;
-  const forMe = !boss && mentionsAny(m.content, selfNames);
+  const system = m.is_system;
+  const boss = m.employee_id === null && !system;
+  const forMe = !boss && !system && mentionsAny(m.content, selfNames);
   return (
-    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${forMe ? " mentions-me" : ""}`}>
-      <div className="message-avatar">{!grouped && <Avatar name={m.author_name} boss={boss} size={34} />}</div>
+    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
+      <div className="message-avatar">{!grouped && (system
+          ? <span className="avatar avatar-system" aria-hidden="true" style={{ width: 34, height: 34 }}>•</span>
+          : <Avatar name={m.author_name} boss={boss} size={34} />)}</div>
       <div className="message-main">
         {!grouped && (
           <div className="message-meta">
             <strong>{m.author_name}</strong>
-            <span className="muted">{boss ? "CEO" : title}</span>
+            <span className="muted">{system ? "Platform" : boss ? "CEO" : title}</span>
             <time className="muted">{formatTime(m.created_at)}</time>
           </div>
         )}
         <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>
-        {m.request_status && !boss && <RequestBox message={m} onAnswered={onAnswered} />}
+        {m.request_status && !boss && !system && <RequestBox message={m} onAnswered={onAnswered} />}
       </div>
     </div>
   );

@@ -223,6 +223,8 @@ class MessageOut(ORM):
     author_name: str
     content: str
     created_at: datetime
+    # Automatic line from the platform, not from the boss
+    is_system: bool = False
     # Set when the message asks the boss something (see services.ask_boss)
     request_kind: str | None = None
     request_status: str | None = None
@@ -381,3 +383,26 @@ class OrchestratorStatus(BaseModel):
     enabled: bool
     running_employee_ids: list[int]
     pending_wakeups: int
+
+
+class UsageWindowOut(BaseModel):
+    used_percent: float
+    resets_at: datetime | None
+
+
+class ModelUsageOut(UsageWindowOut):
+    model: str
+
+
+class AccountQuotaOut(BaseModel):
+    """What /usage shows for one account; on error, `error` says why and the windows are empty."""
+
+    account: int
+    error: str | None = None
+    session: UsageWindowOut | None = None
+    week: UsageWindowOut | None = None
+    models: list[ModelUsageOut] = []
+
+
+class QuotaOut(BaseModel):
+    accounts: list[AccountQuotaOut]

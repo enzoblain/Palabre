@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  ApiError, type AppSettings, type Project, type ProjectDetail, type Usage, type UsageEntry, type UsagePeriod,
+  ApiError, type AccountQuota, type AppSettings, type QuotaWindow, type Project, type ProjectDetail, type Usage, type UsageEntry, type UsagePeriod,
   type UsageTotals, api,   getConnection,
 } from "../api";
-import { spreadAccounts } from "../util";
+import { parseDate, spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 
@@ -48,6 +48,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
+      <QuotaSection />
       <UsageSection />
       <Projects projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
@@ -251,6 +252,76 @@ const PERIODS: { key: UsagePeriod; label: string }[] = [
   { key: "total", label: "Total" },
 ];
 const number = new Intl.NumberFormat();
+
+function QuotaSection() {
+  const [accounts, setAccounts] = useState<AccountQuota[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const refresh = () => {
+    setLoading(true);
+    api.getQuota()
+      .then((q) => { setAccounts(q.accounts); setError(null); })
+      .catch((err) => setError(err instanceof ApiError ? err.message : String(err)))
+      .finally(() => setLoading(false));
+  };
+  useEffect(refresh, []);
+
+  return (
+    <section className="panel">
+      <h2>Account usage</h2>
+      <p className="muted">What <code>/usage</code> shows in Claude Code, for each account.</p>
+      <div className="row">
+        <button className="btn btn-small" onClick={refresh} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
+      </div>
+      {error && <p className="error" role="alert">{error}</p>}
+      {!accounts && !error && <p className="muted">Loading…</p>}
+      {accounts?.length === 0 && <p className="muted">No Claude account configured.</p>}
+      {accounts?.map((a) => (
+        <div key={a.account} className="quota-account">
+          <h3>Account {a.account}</h3>
+          {a.error ? (
+            <p className="error" role="alert">Usage unavailable: {a.error}</p>
+          ) : (
+            <>
+              <QuotaBar label="Current session (5h)" window={a.session} />
+              <QuotaBar label="Current week (all models)" window={a.week} />
+              {a.models.map((m) => <QuotaBar key={m.model} label={`Current week (${m.model})`} window={m} />)}
+            </>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function resetText(value: string | null): string {
+  if (!value) return "";
+  const date = parseDate(value);
+  const ms = date.getTime() - Date.now();
+  if (ms <= 0) return "resets now";
+  if (ms < 24 * 3600 * 1000) {
+    const minutes = Math.round(ms / 60000);
+    return minutes < 60 ? `resets in ${minutes}m` : `resets in ${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+  }
+  return `resets ${date.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function QuotaBar({ label, window }: { label: string; window: QuotaWindow | null }) {
+  if (!window) return null;
+  const percent = Math.max(0, Math.min(100, Math.round(window.used_percent)));
+  return (
+    <div className="quota-row">
+      <div className="quota-head">
+        <span>{label}</span>
+        <span className="muted">{percent}% used{window.resets_at ? ` · ${resetText(window.resets_at)}` : ""}</span>
+      </div>
+      <div className={`quota-bar${percent >= 90 ? " quota-high" : ""}`} role="progressbar" aria-label={label}
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+        <div className="quota-fill" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function UsageSection() {
   const [usage, setUsage] = useState<Usage | null>(null);

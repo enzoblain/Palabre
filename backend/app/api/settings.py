@@ -5,10 +5,20 @@ from fastapi import APIRouter, HTTPException, status
 
 from sqlalchemy import select
 
-from app import services, usage
+from app import claude_usage, services, usage
 from app.accounts import account_count
 from app.api.deps import SessionDep
-from app.api.schemas import AppSettingsIn, AppSettingsOut, UsageEntry, UsageOut, UsageTotals
+from app.api.schemas import (
+    AccountQuotaOut,
+    AppSettingsIn,
+    AppSettingsOut,
+    ModelUsageOut,
+    QuotaOut,
+    UsageEntry,
+    UsageOut,
+    UsageTotals,
+    UsageWindowOut,
+)
 from app.models import AgentRun, Employee, Project
 
 router = APIRouter(tags=["settings"])
@@ -53,6 +63,28 @@ def _entries(by_period: dict[str, dict], names: dict[int | None, str]) -> list[U
         )
         for k in sorted(keys, key=lambda k: (k is None, k))
     ]
+
+
+def _window(w: claude_usage.Window | None) -> UsageWindowOut | None:
+    return UsageWindowOut(used_percent=w.used_percent, resets_at=w.resets_at) if w else None
+
+
+@router.get("/settings/quota", response_model=QuotaOut)
+async def get_quota():
+    """Real quota of each Claude account, as /usage shows it: 5h session, week, week by model.
+    Read from Claude's usage API (cached ~1 min); an account that fails gets an `error`, the others are unaffected."""
+    return QuotaOut(
+        accounts=[
+            AccountQuotaOut(
+                account=a.account,
+                error=a.error,
+                session=_window(a.session),
+                week=_window(a.week),
+                models=[ModelUsageOut(model=m, used_percent=w.used_percent, resets_at=w.resets_at) for m, w in sorted(a.models.items())],
+            )
+            for a in await claude_usage.fetch_all()
+        ]
+    )
 
 
 @router.get("/settings/usage", response_model=UsageOut)
