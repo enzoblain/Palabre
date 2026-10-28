@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
@@ -20,6 +21,28 @@ MAX_DIFF_CHARS = 100_000
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 log = logging.getLogger(__name__)
+
+
+# Changes of each task waiting to reach the lead: (project id, first seen at, changes). In memory:
+# a restart loses at most the last window, and the idle watchdog catches what stays stuck.
+_lead_pending: dict[int, tuple[int, float, list[str]]] = {}
+
+
+def wake_lead(task: Task, change: str) -> None:
+    """Note a task change for the lead; flush_lead_updates sends the changes of a task together
+    once lead_debounce_seconds have passed since the first one."""
+    task.idle_alert_sha = None  # The task moved: a new stall deserves a new alert
+    _, since, changes = _lead_pending.get(task.id, (task.project_id, time.monotonic(), []))
+    _lead_pending[task.id] = (task.project_id, since, [*changes, change])
+
+
+def flush_lead_updates(s: AsyncSession) -> None:
+    """Emit one task_update per task whose window is over, with all its changes."""
+    now = time.monotonic()
+    for task_id, (project_id, since, changes) in list(_lead_pending.items()):
+        if now - since >= settings.lead_debounce_seconds:
+            del _lead_pending[task_id]
+            emit_event(s, project_id, "task_update", {"task_id": task_id, "change": "; ".join(changes)}, role="lead")
 
 
 async def announce(s: AsyncSession, task: Task, text: str) -> None:
@@ -240,6 +263,7 @@ async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: E
         statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
         if any(st != TaskStatus.done for st in statuses):
             raise WorkflowError(f"Task #{task.id} is still waiting for tasks {task.depends_on}")
+    task.idle_alert_sha = None  # Back at work: a new stall deserves a new alert
     emit_event(s, project_id, "task_resume", {"task_id": task.id}, employee_id=employee.id)
     await s.commit()
     return task
@@ -328,6 +352,7 @@ async def submit_for_review(
     if process["security_gate"] and task.sensitive:
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
     await announce(s, task, f"PR submitted by {author.name} (round {task.review_round})")
+    wake_lead(task, f"PR submitted by {author.name} (round {task.review_round})")
     # In the author's own words, with the link
     await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
     return task
@@ -374,6 +399,7 @@ async def review_task(
         )  # fmt: skip
 
     await announce(s, task, f"{reviewer.name} ({reviewer.title}): {_VERDICT_LABELS[review.verdict]}")
+    wake_lead(task, f"{reviewer.name} ({reviewer.title}) {_VERDICT_LABELS[review.verdict]}")
     payload = {"task_id": task.id, "reviewer": reviewer.name}
     if review.verdict == Verdict.changes:
         task.status = TaskStatus.changes_requested
