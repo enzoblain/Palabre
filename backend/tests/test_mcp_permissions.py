@@ -12,7 +12,7 @@ from app.mcp_server.auth import AgentAuthMiddleware, Caller
 from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_for, mcp_tools_for
 
 CONVERSATION_TOOLS = {name for name, perms in MCP_TOOLS.items() if perms == {"conversation"}}
-SHIP_TOOLS = {"merge_release", "publish_version"}
+SHIP_TOOLS = {"merge_release", "publish_version", "fix_release"}
 MERGE_TOOLS = {"merge_task", "set_working_branch", "propose_release", "list_pull_requests", "close_pull_request"} | SHIP_TOOLS
 MANAGE_TOOLS = {"create_task", "assign_task", "update_task"}
 REVIEW_TOOLS = {"review_task"}

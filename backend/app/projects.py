@@ -408,14 +408,12 @@ VERSION_FILES = {
 }
 
 
-async def publish_version(project: Project, version: str, notes: str) -> str:
+async def publish_version(project: Project, version: str) -> str:
     """Tag the head of production with vX.Y.Z and publish the GitHub Release (the tag starts
     release.yml). Refused for a malformed version, an existing tag or files at another version."""
     version = version.strip().removeprefix("v")
     if not SEMVER_RE.match(version):
         raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
-    if not notes.strip():
-        raise WorkflowError("A release needs notes")
     tag = f"v{version}"
     repo = github.repo_slug(project.repo_url)
     if await github.tag_exists(repo, tag):
@@ -438,7 +436,22 @@ async def publish_version(project: Project, version: str, notes: str) -> str:
             mismatches.append(f"{path} says {found}")
     if mismatches:
         raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")
-    release = await github.create_release(repo, tag, sha, notes.strip())
+    release = await github.create_release(repo, tag, sha)
+    return release["html_url"]
+
+
+async def fix_release(project: Project, version: str) -> str:
+    """Reset the name and notes of an existing release to the standard ones."""
+    version = version.strip().removeprefix("v")
+    if not SEMVER_RE.match(version):
+        raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
+    repo = github.repo_slug(project.repo_url)
+    if not await github.tag_exists(repo, f"v{version}"):
+        raise WorkflowError(f"The tag v{version} does not exist")
+    try:
+        release = await github.update_release(repo, f"v{version}")
+    except github.GitHubError as exc:
+        raise WorkflowError(f"v{version} has no release to fix: {exc}") from exc
     return release["html_url"]
 
 
