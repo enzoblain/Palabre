@@ -149,7 +149,7 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Test reports", "Bug tickets"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "No obvious bug reaches main."
-permissions = ["conversation", "read_code", "run_tests", "report_bug"]
+permissions = ["conversation", "read_code", "run_tests", "review", "report_bug"]
 wakes_on = ["pr_ready", "before_merge", "milestone_end", "mention"]
 
 [roles.scribe]
