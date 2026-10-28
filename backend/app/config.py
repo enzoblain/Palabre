@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     # Former single-account setting, still accepted
     claude_code_oauth_token: str = ""
     claude_bin: str = "claude"
+    # Turns per run: a conversation turn is short, work on a task can take long
     claude_max_turns: int = 30
+    claude_task_max_turns: int = 100
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
     mcp_url: str = "http://127.0.0.1:8000/mcp/"

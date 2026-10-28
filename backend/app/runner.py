@@ -43,6 +43,7 @@ class RunSpec:
     model: str
     # Token of the Claude account the employee runs on
     oauth_token: str | None = None
+    max_turns: int | None = None
     resume_session_id: str | None = None
 
 
@@ -99,7 +100,7 @@ async def run_claude(spec: RunSpec) -> RunResult:
         "--tools", ",".join(spec.claude_tools),
         "--allowedTools", ",".join(allowed),
         "--append-system-prompt", spec.system_prompt,
-        "--max-turns", str(settings.claude_max_turns),
+        "--max-turns", str(spec.max_turns or settings.claude_max_turns),
         "--model", spec.model,
     ]  # fmt: skip
     if spec.resume_session_id:

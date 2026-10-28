@@ -15,6 +15,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "create_task": {"manage_tasks"},
     "assign_task": {"manage_tasks"},
     "update_task": {"manage_tasks"},
+    "start_task": {"request_review"},
     "report_progress": {"request_review"},
     "submit_for_review": {"request_review"},
     "get_diff": {"review", "read_code"},

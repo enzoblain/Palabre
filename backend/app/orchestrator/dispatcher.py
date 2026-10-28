@@ -252,6 +252,7 @@ class Orchestrator:
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
                 oauth_token=oauth_token,
+                max_turns=settings.claude_task_max_turns,
             )
         else:
             await self._check_rate(s, project, first.conversation_id, run_id, {w.event_type for w in wakeups})

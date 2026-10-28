@@ -23,6 +23,7 @@ REASONS: dict[str, str] = {
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",
     "review_rounds_exceeded": "Task #{task_id} went through {rounds} rounds of requested changes without converging. Step in: decide, reassign it, or split it.",
     "conversation_throttled": "The team talked too much in conversation #{conversation_id} within an hour: their chatter is paused there until you post in it (work on tasks and reviews goes on).",
+    "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, tell them with @boss; otherwise reassign or split the task.",
     "research_start": "Phase 1, research. The boss asked a question (message #{message_id}). Research it from your angle: search the web, read the sources, then post what you found in the chat, one finding per message with its link. Do not wait for the others and do not answer for the whole group.",
@@ -46,6 +47,7 @@ OPERATING_RULES = """## How Palabre works
 - In a conversation you work in your own desk: a private copy of the repository (your current directory), with your position's tools. Read the code, run commands and tests, try things. To test a task's branch: `git checkout --detach <branch>` (the branch is in get_task). Your desk is reset to the default branch every time you are woken up, and nothing in it is ever pushed.
 - Never ask the boss for write or execution rights: your position's tools are all you get, and they are already allowed.
 - A missing toolchain (Node.js, Go) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
+- Your task's code only changes in a task run, in the task's worktree. When you are woken up in a conversation and it is time to work on your task (you were unblocked, someone asks you to start or to fix something), call start_task and stop: you are woken up in the worktree right after. Never cd into a task worktree from your desk, and never push: you have no credentials, submit_for_review does it.
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git worktree, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
 RESEARCH_RULES = """## How Palabre works

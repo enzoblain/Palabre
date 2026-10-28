@@ -208,6 +208,23 @@ async def _commits_ahead(project: Project, task: Task) -> int:
     return int((await github.git(task.worktree_path, "rev-list", "--count", f"{base}..HEAD")).strip())
 
 
+async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
+    """Wake the assignee up on their task (from a conversation): the work itself only
+    happens in a task run, in the task's worktree."""
+    task = await get_task(s, project_id, task_id)
+    if task.assignee_id != employee.id:
+        raise WorkflowError(f"Task #{task.id} is not assigned to you")
+    if task.status not in {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}:
+        raise WorkflowError(f"Task #{task.id} is {task.status.value}: there is nothing to work on")
+    if task.depends_on:
+        statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
+        if any(st != TaskStatus.done for st in statuses):
+            raise WorkflowError(f"Task #{task.id} is still waiting for tasks {task.depends_on}")
+    emit_event(s, project_id, "task_resume", {"task_id": task.id}, employee_id=employee.id)
+    await s.commit()
+    return task
+
+
 async def submit_for_review(
     s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
     message: str = "",

@@ -200,6 +200,19 @@ async def update_task(
         return await workflow.task_detail(s, c.project_id, task.id)
 
 
+@tool
+async def start_task(ctx: Context, task_id: int) -> str:
+    """Go work on your task: you are woken up again in a moment in the task's own
+    worktree, where you can code, commit and submit_for_review. Call it from a
+    conversation when it is time to work on your task (you were unblocked, someone
+    asked you to start), then stop: never code a task from a conversation."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        me = await s.get(Employee, c.employee_id)
+        task = await workflow.start_task(s, c.project_id, task_id, me)
+    return f"You will be woken up on task #{task.id} in its worktree in a moment. Stop here."
+
+
 # --- Task run (assignee only) ------------------------------------------------------
 
 
