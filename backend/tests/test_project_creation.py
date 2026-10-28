@@ -82,6 +82,9 @@ async def test_create_project_stores_dev_for_a_company(repo, monkeypatch):
         def add(self, obj):
             added.append(obj)
 
+        async def flush(self):  # `ensure_direction` flushes the direction room
+            pass
+
         async def commit(self):
             pass
 
