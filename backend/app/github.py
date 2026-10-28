@@ -14,6 +14,8 @@ from app.config import settings
 API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
+# A branch name we accept: no spaces, "..", leading "-" or trailing "/" or "."
+BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$"
 
 
 class GitHubError(RuntimeError):

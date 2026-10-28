@@ -1,7 +1,10 @@
+import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.github import BRANCH_PATTERN
 
 
 class ORM(BaseModel):
@@ -132,8 +135,15 @@ class ModeChange(BaseModel):
 
 
 class BranchChange(BaseModel):
-    # A git branch name: no spaces, "..", leading "-" or trailing "/"
-    branch: str = Field(pattern=r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$")
+    branch: str
+
+    # Python's re, not pydantic's pattern: the pattern uses look-arounds
+    @field_validator("branch")
+    @classmethod
+    def _valid_branch(cls, value: str) -> str:
+        if not re.match(BRANCH_PATTERN, value):
+            raise ValueError("not a valid branch name")
+        return value
 
 
 # --- Rooms and their document ------------------------------------------------------
