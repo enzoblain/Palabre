@@ -230,13 +230,14 @@ class Orchestrator:
         if first.kind == "task":
             task = await s.get(Task, first.task_id)
             await self._check_task(s, project, employee, task, wakeups)
+            await self._refresh_repo(project)  # origin/<default branch> up to date for a rebase
             branch, path = await prepare_worktree(project, task)
             task.branch, task.worktree_path, task.status = branch, str(path), TaskStatus.in_progress
             await s.commit()
             scope = f"task:{task.id}"
             spec = RunSpec(
                 author_name=employee.name,
-                system_prompt=system_prompt + "\n\n" + task_rules(task),
+                system_prompt=system_prompt + "\n\n" + task_rules(task, project.default_branch),
                 prompt=wake_prompt([w.reason for w in wakeups]),
                 cwd=path,
                 mcp_headers=headers | {"X-Palabre-Task": str(task.id)},
@@ -269,8 +270,11 @@ class Orchestrator:
         return spec, scope
 
     async def _desk(self, project: Project, employee: Employee):
-        """The employee's desk, from the main checkout refreshed at most every
-        REPO_SYNC_INTERVAL_S."""
+        await self._refresh_repo(project)
+        return await prepare_desk(project, employee)
+
+    async def _refresh_repo(self, project: Project) -> None:
+        """Fetch the repository, at most every REPO_SYNC_INTERVAL_S."""
         if time.monotonic() - self._repo_synced_at.get(project.id, float("-inf")) > REPO_SYNC_INTERVAL_S:
             try:
                 await sync_repo(project)
@@ -279,7 +283,6 @@ class Orchestrator:
                 if not (repo_dir(project) / ".git").exists():
                     raise
                 log.warning("Project %s: could not refresh the repository, using the last state", project.id)
-        return await prepare_desk(project, employee)
 
     async def _check_task(
         self, s: AsyncSession, project: Project, employee: Employee, task: Task | None, wakeups: list[Wakeup]

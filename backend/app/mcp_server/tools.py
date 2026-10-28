@@ -299,8 +299,9 @@ async def resolve_question(ctx: Context, question_id: int, answer: str) -> dict:
 
 @tool
 async def merge_task(ctx: Context, task_id: int) -> dict:
-    """Merge a task's pull request. Refused, with the reasons, until every rule of the
-    company's mode is met (approvals, QA, security, CI, changelog)."""
+    """Merge a task's pull request (always a squash merge: one commit on the default
+    branch). Refused, with the reasons, until every rule of the company's mode is met
+    (approvals, QA, security, CI, changelog)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)

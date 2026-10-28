@@ -223,7 +223,12 @@ async def submit_for_review(
         raise WorkflowError("No commits on your branch: commit your work before submitting")
 
     repo = github.repo_slug(project.repo_url)
-    await github.git(task.worktree_path, "push", "--set-upstream", "origin", task.branch, repo_url=project.repo_url)
+    # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
+    # unless someone else pushed to it in the meantime (lease)
+    await github.git(
+        task.worktree_path, "push", "--force-with-lease", "--set-upstream", "origin", task.branch,
+        repo_url=project.repo_url,
+    )  # fmt: skip
     if task.pr_number is None:
         criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(

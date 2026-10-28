@@ -70,13 +70,14 @@ You are working on task #{task_id} « {title} », in its own git worktree (your 
 - Stay within the task. Run the tests before submitting.
 - Your position's tools are allowed in your worktree: if you have Bash, you can run commands (python3, git, tests...) there.
 - The machine has git and Python 3. Other toolchains (Node.js...) are only there if the boss installed them: if one you need is missing, escalate to the boss instead of working around it.
-- Commit your work with clear messages (`git commit`). Never push: submit_for_review pushes and opens the pull request.
+- Commit your work with clear messages (`git commit`). Never push and never ask for git credentials: you have none, by design. submit_for_review pushes your branch and opens or updates the pull request.
+- To bring your branch up to date, rebase it on `origin/{default_branch}` (`git fetch` is not needed: the repository is kept up to date for you), then call submit_for_review again: it force-pushes your own task branch. Never work around it with `merge -s ours` or duplicated commits.
 - Post short progress updates with report_progress. If you are blocked, say so, or escalate.
 - When the work is done and committed, call submit_for_review."""
 
 
-def task_rules(task: Task) -> str:
-    return TASK_RULES.format(task_id=task.id, title=task.title, branch=task.branch)
+def task_rules(task: Task, default_branch: str) -> str:
+    return TASK_RULES.format(task_id=task.id, title=task.title, branch=task.branch, default_branch=default_branch)
 
 
 def wake_prompt(reasons: list[str]) -> str:
