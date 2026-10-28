@@ -381,3 +381,26 @@ class OrchestratorStatus(BaseModel):
     enabled: bool
     running_employee_ids: list[int]
     pending_wakeups: int
+
+
+class UsageWindowOut(BaseModel):
+    used_percent: float
+    resets_at: datetime | None
+
+
+class ModelUsageOut(UsageWindowOut):
+    model: str
+
+
+class AccountQuotaOut(BaseModel):
+    """What /usage shows for one account; on error, `error` says why and the windows are empty."""
+
+    account: int
+    error: str | None = None
+    session: UsageWindowOut | None = None
+    week: UsageWindowOut | None = None
+    models: list[ModelUsageOut] = []
+
+
+class QuotaOut(BaseModel):
+    accounts: list[AccountQuotaOut]
