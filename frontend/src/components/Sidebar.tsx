@@ -2,7 +2,7 @@ import type { Conversation, EmployeeStatus, Notification, Project, ProjectDetail
 import { type Route, go } from "../router";
 import { mention } from "../util";
 import { Avatar } from "./Avatar";
-import { BackIcon, GearIcon, HashIcon, InboxIcon, PlusIcon } from "./Icons";
+import { BackIcon, DocumentIcon, GearIcon, HashIcon, InboxIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
@@ -34,7 +34,7 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
   claudeAccounts: number;
   notifications: Notification[];
 }) {
-  const inProject = route.name === "project" || route.name === "inbox";
+  const inProject = "projectId" in route;
   return (
     <aside className="sidebar">
       {inProject ? (
@@ -72,7 +72,7 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
 }
 
 function ProjectNav({ route, project, statuses, showAccounts, notifications }: {
-  route: Extract<Route, { name: "project" | "inbox" }>;
+  route: Extract<Route, { projectId: number }>;
   project: ProjectState | null;
   statuses: EmployeeStatus[];
   showAccounts: boolean;
@@ -95,6 +95,9 @@ function ProjectNav({ route, project, statuses, showAccounts, notifications }: {
         <a className={`nav-item${route.name === "inbox" ? " active" : ""}`} href={`#/p/${route.projectId}/inbox`}>
           <InboxIcon size={15} /> <span className="truncate">Inbox</span>
           <Badge count={notifications.length} urgent />
+        </a>
+        <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${route.projectId}/report`}>
+          <DocumentIcon size={15} /> <span className="truncate">{project?.detail.kind === "research" ? "Report" : "Document"}</span>
         </a>
         <div className="section-label">Channels</div>
         {project?.detail.rooms.map((room) => {

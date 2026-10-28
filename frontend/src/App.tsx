@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type AppSettings, type Connection, type EmployeeStatus, type Notification, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
+import { DocumentView } from "./components/DocumentView";
 import { Home } from "./components/Home";
 import { Inbox } from "./components/Inbox";
 import { NewProject } from "./components/NewProject";
@@ -63,7 +64,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   });
   const bossName = settings.boss_name;
   const claudeAccounts = settings.claude_accounts;
-  const projectId = route.name === "project" || route.name === "inbox" ? route.projectId : null;
+  const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
 
@@ -108,6 +109,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }} />;
   } else if (route.name === "settings") {
     main = <Settings settings={settings} projects={projects} onSaved={setSettings} onDisconnect={onDisconnect} />;
+  } else if (route.name === "report") {
+    if (error) main = <p className="error center">{error}</p>;
+    else if (project) main = <DocumentView project={project} onDecided={refreshNotifications} />;
+    else main = <p className="muted center">Loading…</p>;
   } else if (route.name === "inbox") {
     if (error) main = <p className="error center">{error}</p>;
     else if (project) {

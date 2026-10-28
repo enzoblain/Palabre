@@ -34,6 +34,8 @@ CLAUDE_TOOLS: dict[str, list[str]] = {
     "run_tests": ["Read", "Grep", "Glob", "Bash"],
     "read_code": ["Read", "Grep", "Glob"],
     "edit_docs": ["Read", "Grep", "Glob", "Edit(**/*.md)", "Write(**/*.md)"],
+    # Research groups: the web, and drafts in their own folder
+    "research": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", "Write", "Edit"],
 }
 
 

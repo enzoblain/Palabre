@@ -6,14 +6,14 @@ import { Avatar } from "./Avatar";
 import { Markdown } from "./Markdown";
 import type { ProjectState } from "./Sidebar";
 
-function title(n: Notification, room: string): string {
+function title(n: Notification, room: string, research: boolean): string {
   switch (n.type) {
     case "mention":
       return `${n.author ?? "Someone"} mentioned you in #${room}`;
     case "escalation":
       return `${n.author ?? "Someone"} needs you in #${room}`;
     case "decision_proposed":
-      return `${n.author ?? "Someone"} proposes a decision in #${room}`;
+      return `${n.author ?? "Someone"} proposes a ${research ? "conclusion" : "decision"} in #${room}`;
     case "conversation_throttled":
       return `The team talked too much in #${room}`;
     default:
@@ -79,7 +79,7 @@ export function Inbox({ project, notifications, bossName, onChanged }: {
             </div>
             <div className="notification-main">
               <div className="notification-title">
-                <strong>{title(n, roomName(n))}</strong>
+                <strong>{title(n, roomName(n), project.detail.kind === "research")}</strong>
                 <time className="muted">{formatTime(n.created_at)}</time>
               </div>
               {n.excerpt && (

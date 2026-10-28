@@ -86,7 +86,11 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(200))
     repo_url: Mapped[str] = mapped_column(String(500))
     default_branch: Mapped[str] = mapped_column(String(200), default="main")
-    # Company mode (catalog.toml) and the seed the team was drawn with
+    # "company": a software company on a GitHub repository; "research": peers who
+    # investigate `topic` (repo_url is then empty)
+    kind: Mapped[str] = mapped_column(String(20), default="company", server_default="company")
+    topic: Mapped[str | None] = mapped_column(Text)
+    # Mode (catalog.toml) and the seed the team was drawn with
     mode: Mapped[str] = mapped_column(String(50))
     seed: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = created_at_column()

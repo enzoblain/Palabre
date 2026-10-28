@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app import github
+from app import github, services
 from app.company.team import Employee as TeamMember
-from app.company.team import Team, custom_employee, generate_team, load_catalog, reroll_employee
+from app.company.team import Team, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for, reroll_employee
 from app.models import Conversation, Employee, Project, Room
 from app.services import WorkflowError
 
@@ -27,16 +27,23 @@ async def create_project(
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,
+    topic: str | None = None,
+    kind: str | None = None,
 ) -> Project:
-    """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode."""
-    github.repo_slug(repo_url)  # GitHub URLs only
+    """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
+    A research project (research mode) has a `topic` and no repository."""
+    kind = kind_of_mode(mode)
+    if kind == "company":
+        github.repo_slug(repo_url)  # GitHub URLs only
+    else:
+        repo_url = ""
     if employees:
         seed = random.SystemRandom().randrange(2**32) if seed is None else seed
         accounts = {**(accounts or {}), **{m["name"]: m["account"] for m in employees if m.get("account")}}
         members = [
             custom_employee(
                 m["roles"], m["name"], traits=m.get("traits"), quirks=m.get("quirks"), style=m.get("style"),
-                model=m.get("model"), seed=seed + i,
+                model=m.get("model"), seed=seed + i, kind=kind,
             )  # fmt: skip
             for i, m in enumerate(employees)
         ]
@@ -44,7 +51,8 @@ async def create_project(
     else:
         team = generate_team(mode, seed)
     project = Project(
-        name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed
+        name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
+        kind=kind, topic=topic if kind == "research" else None,
     )
     project.employees = [
         Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))
@@ -53,7 +61,20 @@ async def create_project(
     s.add(project)
     await _open_channels(s, project)
     await s.commit()
+    if kind == "research" and topic:
+        await _kick_off_research(s, project, topic)
     return project
+
+
+async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
+    """The topic becomes the objective of the general room and the boss's first message,
+    which wakes the whole group up."""
+    room = project.rooms[0]
+    room.objective = topic
+    conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
+    message = await services.post_message(s, project.id, conversation_id, topic, None)
+    services.emit_event(s, project.id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id})
+    await s.commit()
 
 
 def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]:
@@ -111,10 +132,10 @@ async def reroll_personality(s: AsyncSession, employee: Employee) -> Employee:
 
 
 def validate_personality(
-    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False
+    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False, kind: str = "company"
 ) -> None:
     """partial: some axes or style keys may be left out (they are drawn at random)."""
-    personality = load_catalog()["personality"]
+    personality = personality_for(kind)
     if traits is not None:
         axes = {a["key"] for a in personality["axes"]}
         if (not set(traits) <= axes) if partial else (set(traits) != axes):

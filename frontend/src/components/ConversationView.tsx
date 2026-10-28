@@ -133,9 +133,15 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {messages === null && <p className="muted center">Loading…</p>}
         {empty && (
           <div className="intro">
-            <h2>{isGeneral ? `Tell your team about ${project.name}` : `This is the start of #${room.name}`}</h2>
+            <h2>
+              {isGeneral && project.kind === "research"
+                ? "Give the group your topic"
+                : isGeneral ? `Tell your team about ${project.name}` : `This is the start of #${room.name}`}
+            </h2>
             <p className="muted">
-              {isGeneral
+              {isGeneral && project.kind === "research"
+                ? "Every member of the group reads your message, searches the web and starts the debate."
+                : isGeneral
                 ? `What are you building, for whom, and what matters most? ${lead ? `${lead.name} (${lead.title}) will read it and organize the work.` : ""}`
                 : `Members: ${room.members.map((m) => m.name).join(", ")}.`}
             </p>

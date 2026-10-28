@@ -7,9 +7,14 @@ const doFetch: typeof fetch = inTauri ? tauriFetch : window.fetch.bind(window);
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
+export type ProjectKind = "company" | "research";
+
 export type Project = {
   id: number;
   name: string;
+  // "company": a software company on a GitHub repository; "research": peers on a topic
+  kind: ProjectKind;
+  topic: string | null;
   repo_url: string;
   default_branch: string;
   mode: string;
@@ -237,9 +242,9 @@ export const api = {
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),
 
-  modes: () => call<Record<string, Mode>>("/catalog/modes"),
-  personality: () => call<Personality>("/catalog/personality"),
-  roles: () => call<Record<string, Role>>("/catalog/roles"),
+  modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
+  personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
+  roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
   names: () => call<string[]>("/catalog/names"),
   previewTeam: (mode: string, seed?: number) =>
     call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),
@@ -248,9 +253,10 @@ export const api = {
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   createProject: (body: {
     name: string;
-    repo_url: string;
+    repo_url?: string;
+    topic?: string;
     mode: string;
-    default_branch: string;
+    default_branch?: string;
     seed: number;
     accounts: Record<string, number>;
     employees?: MemberIn[];
@@ -268,6 +274,7 @@ export const api = {
     filters.types?.forEach((type) => params.append("types", type));
     return call<void>(`/notifications/read-all?${params}`, "POST");
   },
+  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
   decide: (decisionId: number, status: "validated" | "rejected") =>
     call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 

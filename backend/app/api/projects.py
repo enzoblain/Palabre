@@ -14,7 +14,7 @@ from app.api.schemas import (
     ProjectIn,
     ProjectOut,
 )
-from app.company.team import load_catalog, render_system_prompt
+from app.company.team import kind_of_mode, load_catalog, render_system_prompt
 from app.models import Employee, Project
 from app.services import boss_display_name
 
@@ -35,32 +35,38 @@ async def list_projects(s: SessionDep):
 
 @router.post("/projects", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
 async def create_project(body: ProjectIn, s: SessionDep):
-    """Create a project: the team is drawn at random for the chosen mode."""
+    """Create a project: a company on a GitHub repository, or a research group on a topic
+    (the mode says which). The team is drawn at random for the mode, or built by hand."""
     if body.mode not in load_catalog()["modes"]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown mode: {body.mode}")
-    try:
-        github.repo_slug(body.repo_url)
-    except github.GitHubError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+    kind = kind_of_mode(body.mode)
+    if kind == "research":
+        if not (body.topic or "").strip():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A research project needs a topic")
+    else:
+        try:
+            github.repo_slug(body.repo_url)
+        except github.GitHubError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
     _check_accounts(body.accounts.values())
     if body.employees is not None:
-        _check_team(body.employees)
+        _check_team(body.employees, kind)
     project = await projects.create_project(s, **body.model_dump())
     return await _project(s, project.id)
 
 
-def _check_team(employees: list[MemberIn]) -> None:
-    """A team built by hand: valid roles and personalities, unique names, and a lead
-    (they organize the work and merge)."""
-    roles = load_catalog()["roles"]
+def _check_team(employees: list[MemberIn], kind: str) -> None:
+    """A team built by hand: valid roles and personalities, unique names, and for a
+    company a lead (they organize the work and merge)."""
+    roles = {k for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Two employees have the same name")
     for e in employees:
         if unknown := [r for r in e.roles if r not in roles]:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"{e.name}: unknown roles {', '.join(unknown)}")
-        projects.validate_personality(e.traits, e.style, partial=True)
-    if not any("lead" in e.roles for e in employees):
+        projects.validate_personality(e.traits, e.style, partial=True, kind=kind)
+    if kind == "company" and not any("lead" in e.roles for e in employees):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The team needs a lead (they organize and merge)")
     _check_accounts([e.account for e in employees if e.account is not None])
 
@@ -87,9 +93,10 @@ async def delete_project(project_id: int, s: SessionDep):
 @router.put("/projects/{project_id}/mode", response_model=ProjectDetail)
 async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     """Grow or shrink the company (e.g. startup → scaleup)."""
-    if body.mode not in load_catalog()["modes"]:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown mode: {body.mode}")
-    return await projects.change_mode(s, await _project(s, project_id), body.mode)
+    project = await _project(s, project_id)
+    if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown {project.kind} mode: {body.mode}")
+    return await projects.change_mode(s, project, body.mode)
 
 
 # --- Employees ---------------------------------------------------------------------
@@ -115,7 +122,8 @@ async def get_employee(employee_id: int, s: SessionDep):
 async def update_employee(employee_id: int, body: EmployeePatch, s: SessionDep):
     """Edit an employee's personality, model or Claude account by hand."""
     employee = await get_or_404(s, Employee, employee_id)
-    projects.validate_personality(body.traits, body.style)
+    project = await get_or_404(s, Project, employee.project_id)
+    projects.validate_personality(body.traits, body.style, kind=project.kind)
     for field, value in body.model_dump(exclude_none=True, exclude={"account"}).items():
         setattr(employee, field, value)
     if "account" in body.model_fields_set:  # null puts the employee back in the automatic spread

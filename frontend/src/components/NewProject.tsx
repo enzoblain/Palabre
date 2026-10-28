@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
@@ -8,6 +8,7 @@ import { ShuffleIcon } from "./Icons";
 import { TeamEditor, teamProblems } from "./TeamEditor";
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
+const DEFAULT_MODE: Record<ProjectKind, string> = { company: "startup", research: "panel" };
 
 function teamSize(mode: Mode): number {
   return mode.seats.reduce((n, seat) => n + (seat.count ?? 1), 0);
@@ -31,12 +32,15 @@ export function NewProject({ claudeAccounts, onCreated }: {
   claudeAccounts: number;
   onCreated: (project: ProjectDetail) => void;
 }) {
+  const [kind, setKind] = useState<ProjectKind>("company");
   const [modes, setModes] = useState<Record<string, Mode> | null>(null);
   const [personality, setPersonality] = useState<Personality | null>(null);
   const [name, setName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("main");
-  const [mode, setMode] = useState("startup");
+  const [topic, setTopic] = useState("");
+  const [mode, setMode] = useState(DEFAULT_MODE.company);
+  const research = kind === "research";
   const [team, setTeam] = useState<TeamPreview | null>(null);
   // Team built by hand (null: the team drawn at random is used)
   const [custom, setCustom] = useState<MemberIn[] | null>(null);
@@ -48,11 +52,20 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.modes().then(setModes).catch((err) => setError(String(err.message ?? err)));
-    api.personality().then(setPersonality).catch(() => {});
-    api.roles().then(setRoles).catch(() => {});
     api.names().then(setNames).catch(() => {});
   }, []);
+
+  // Each kind of project has its own modes, roles and personality axes
+  useEffect(() => {
+    setModes(null);
+    setRoles(null);
+    setPersonality(null);
+    setCustom(null);
+    setMode(DEFAULT_MODE[kind]);
+    api.modes(kind).then(setModes).catch((err) => setError(String(err.message ?? err)));
+    api.personality(kind).then(setPersonality).catch(() => {});
+    api.roles(kind).then(setRoles).catch(() => {});
+  }, [kind]);
 
   // Building by hand starts from an empty team
   function buildByHand() {
@@ -64,10 +77,14 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setAccounts({});
     api.previewTeam(forMode).then(setTeam).catch((err) => setError(String(err.message ?? err)));
   }
-  useEffect(() => draw(mode), [mode]);
+  // Only once the modes of the current kind are known (the mode resets with the kind)
+  useEffect(() => {
+    if (modes && modes[mode]) draw(mode);
+  }, [mode, modes]);
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
-  const problems = custom ? teamProblems(custom) : [];
+  const sourceValid = research ? topic.trim().length > 0 : repoValid;
+  const problems = custom ? teamProblems(custom, !research) : [];
   const effective = team ? spreadAccounts(team.employees.map((m) => accounts[m.name]), claudeAccounts) : [];
 
   async function submit(e: React.FormEvent) {
@@ -78,9 +95,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
     try {
       const project = await api.createProject({
         name: name.trim(),
-        repo_url: repoUrl.trim(),
         mode,
-        default_branch: branch.trim() || "main",
+        ...(research ? { topic: topic.trim() } : { repo_url: repoUrl.trim(), default_branch: branch.trim() || "main" }),
         seed: team.seed,
         accounts: custom ? {} : accounts,
         ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
@@ -96,23 +112,44 @@ export function NewProject({ claudeAccounts, onCreated }: {
     <form className="page new-project" onSubmit={submit}>
       <h1>New project</h1>
 
+      <div className="kinds">
+        <button type="button" className={`kind${!research ? " selected" : ""}`} onClick={() => setKind("company")}>
+          <strong>Software company</strong>
+          <span className="muted">A team with roles and a hierarchy builds your app on GitHub.</span>
+        </button>
+        <button type="button" className={`kind${research ? " selected" : ""}`} onClick={() => setKind("research")}>
+          <strong>Research group</strong>
+          <span className="muted">Peers search the web, debate and write a sourced report on your topic.</span>
+        </button>
+      </div>
+
       <section className="panel">
-        <h2>Project</h2>
+        <h2>{research ? "Research" : "Project"}</h2>
         <label>
           Name
           <input autoFocus required maxLength={200} value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="My product" />
+            placeholder={research ? "Nuclear and climate" : "My product"} />
         </label>
-        <label>
-          GitHub repository
-          <input required value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} spellCheck={false}
-            placeholder="https://github.com/you/your-repo" autoCapitalize="off" />
-        </label>
-        {repoUrl && !repoValid && <p className="error">Expected a GitHub URL, like https://github.com/owner/repo</p>}
-        <label className="narrow">
-          Default branch
-          <input value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false} />
-        </label>
+        {research ? (
+          <label>
+            Topic
+            <textarea required rows={4} maxLength={10000} value={topic} onChange={(e) => setTopic(e.target.value)}
+              placeholder="What should they investigate? The question, what you want to know, what to focus on…" />
+          </label>
+        ) : (
+          <>
+            <label>
+              GitHub repository
+              <input required value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} spellCheck={false}
+                placeholder="https://github.com/you/your-repo" autoCapitalize="off" />
+            </label>
+            {repoUrl && !repoValid && <p className="error">Expected a GitHub URL, like https://github.com/owner/repo</p>}
+            <label className="narrow">
+              Default branch
+              <input value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false} />
+            </label>
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -126,12 +163,16 @@ export function NewProject({ claudeAccounts, onCreated }: {
           </div>
         </div>
         <p className="muted">
-          {custom
-            ? "The company size sets the rules before merging (approvals, QA, CI). Pick the agents yourself below."
-            : "The bigger the company, the more roles, and the stricter the rules before merging."}
+          {research
+            ? custom
+              ? "Peers of equal standing, each with their own angle. Pick them yourself below."
+              : "Peers of equal standing, each with their own angle on the topic."
+            : custom
+              ? "The company size sets the rules before merging (approvals, QA, CI). Pick the agents yourself below."
+              : "The bigger the company, the more roles, and the stricter the rules before merging."}
         </p>
         <div className="modes">
-          {modes &&
+          {modes && modes[mode] &&
             Object.entries(modes).map(([key, m]) => (
               <button type="button" key={key} className={`mode${key === mode ? " selected" : ""}`}
                 onClick={() => setMode(key)}>
@@ -187,8 +228,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
       {error && <p className="error">{error}</p>}
       <div className="row actions">
         <button type="button" className="btn" onClick={() => go("/")}>Cancel</button>
-        <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !repoValid || problems.length > 0}>
-          {busy ? "Creating…" : "Create project"}
+        <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !sourceValid || problems.length > 0}>
+          {busy ? "Creating…" : research ? "Start the research" : "Create project"}
         </button>
       </div>
     </form>

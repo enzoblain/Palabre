@@ -80,9 +80,13 @@ class MemberIn(BaseModel):
 
 class ProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    repo_url: str
-    # Company mode: its rules (approvals, QA, CI...) and, without `employees`, its seats
+    # Mode: company (startup...) or research (duo...). It sets the rules and, without
+    # `employees`, the seats
     mode: str = "startup"
+    # Company: the GitHub repository
+    repo_url: str = ""
+    # Research: what the group investigates (posted as your first message)
+    topic: str | None = Field(default=None, max_length=10000)
     default_branch: str = "main"
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
@@ -94,6 +98,8 @@ class ProjectIn(BaseModel):
 class ProjectOut(ORM):
     id: int
     name: str
+    kind: str
+    topic: str | None
     repo_url: str
     default_branch: str
     mode: str

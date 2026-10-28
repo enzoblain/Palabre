@@ -1,25 +1,29 @@
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, status
 
-from app.company.team import generate_team, load_catalog
+from app.company.team import generate_team, load_catalog, personality_for
+
+Kind = Literal["company", "research"]
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
 @router.get("/modes")
-async def list_modes() -> dict:
-    """Company modes: seats (combined roles), rules and merge process."""
-    return load_catalog()["modes"]
+async def list_modes(kind: Kind = "company") -> dict:
+    """Modes of a kind of project: seats (combined roles), rules and merge process."""
+    return {k: m for k, m in load_catalog()["modes"].items() if m["kind"] == kind}
 
 
 @router.get("/roles")
-async def list_roles() -> dict:
-    return load_catalog()["roles"]
+async def list_roles(kind: Kind = "company") -> dict:
+    return {k: r for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
 
 
 @router.get("/personality")
-async def personality_options() -> dict:
+async def personality_options(kind: Kind = "company") -> dict:
     """Axes, levels, quirks and styles an employee's personality is made of."""
-    return load_catalog()["personality"]
+    return personality_for(kind)
 
 
 @router.get("/modes/{mode}/team")

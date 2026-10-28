@@ -20,13 +20,18 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 
 def upgrade_schema(conn: Connection) -> None:
-    """Create missing tables, and add the nullable columns added since a table was
-    created (until Alembic migrations exist)."""
+    """Create missing tables, and add the columns added since a table was created:
+    nullable ones, or ones with a text server default (until Alembic migrations exist)."""
     Base.metadata.create_all(conn)
     existing = inspect(conn)
     for table in Base.metadata.sorted_tables:
         present = {c["name"] for c in existing.get_columns(table.name)}
         for column in table.columns:
-            if column.name not in present and column.nullable:
-                ddl_type = column.type.compile(dialect=conn.dialect)
-                conn.exec_driver_sql(f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {ddl_type}')
+            if column.name in present:
+                continue
+            ddl = f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {column.type.compile(dialect=conn.dialect)}'
+            default = column.server_default.arg if column.server_default is not None else None
+            if isinstance(default, str):
+                conn.exec_driver_sql(ddl + " NOT NULL DEFAULT '" + default.replace("'", "''") + "'")
+            elif column.nullable:
+                conn.exec_driver_sql(ddl)

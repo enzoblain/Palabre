@@ -2,6 +2,10 @@
 
 When a project is created: `team = generate_team("startup")`, store `team.to_dict()`,
 then `render_system_prompt(team, employee, boss_name)` gives each employee's prompt.
+
+Two kinds of projects: "company" (a software company working on a repository) and
+"research" (peers investigating a topic). Their roles and modes share one namespace
+(each one carries its `kind`); each kind has its own personality axes and boss prompt.
 """
 
 import random
@@ -15,10 +19,33 @@ MODEL_RANK = {"haiku": 0, "sonnet": 1, "opus": 2}
 DIVERSITY_ATTEMPTS = 1000
 
 
+KINDS = ("company", "research")
+
+
 @cache
 def load_catalog() -> dict:
+    """The catalog, with the research roles and modes merged into `roles` and `modes`."""
     with CATALOG_PATH.open("rb") as f:
-        return tomllib.load(f)
+        catalog = tomllib.load(f)
+    research = catalog["research"]
+    for section in ("roles", "modes"):
+        catalog[section] = {k: {**v, "kind": "company"} for k, v in catalog[section].items()}
+        catalog[section] |= {k: {**v, "kind": "research"} for k, v in research[section].items()}
+    return catalog
+
+
+def kind_of_mode(mode: str) -> str:
+    return load_catalog()["modes"][mode]["kind"]
+
+
+def personality_for(kind: str) -> dict:
+    catalog = load_catalog()
+    return catalog["research"]["personality"] if kind == "research" else catalog["personality"]
+
+
+def boss_for(kind: str) -> dict:
+    catalog = load_catalog()
+    return catalog["research"]["boss"] if kind == "research" else catalog["boss"]
 
 
 @dataclass
@@ -58,11 +85,12 @@ def generate_team(mode: str, seed: int | None = None) -> Team:
     rng = random.Random(seed)
 
     mode_cfg = catalog["modes"][mode]
+    personality = personality_for(mode_cfg["kind"])
     seats = [seat["roles"] for seat in mode_cfg["seats"] for _ in range(seat.get("count", 1))]
     names = rng.sample(catalog["people"]["names"], len(seats))
-    traits = _draw_traits(rng, catalog["personality"], len(seats))
+    traits = _draw_traits(rng, personality, len(seats))
     employees = [
-        _make_employee(rng, catalog, roles, name, t) for roles, name, t in zip(seats, names, traits)
+        _make_employee(rng, catalog, personality, roles, name, t) for roles, name, t in zip(seats, names, traits)
     ]
     return Team(mode=mode, seed=seed, process=dict(mode_cfg["process"]), employees=employees)
 
@@ -76,18 +104,20 @@ def custom_employee(
     style: dict[str, str] | None = None,
     model: str | None = None,
     seed: int | None = None,
+    kind: str = "company",
 ) -> Employee:
-    """An employee chosen by the boss. The roles set the title, permissions and default
-    model; whatever part of the personality is left out is drawn at random."""
+    """An employee chosen by the boss. The roles (of this kind of project) set the title,
+    permissions and default model; whatever part of the personality is left out is drawn
+    at random."""
     catalog = load_catalog()
     roles = list(dict.fromkeys(roles))
-    unknown = [r for r in roles if r not in catalog["roles"]]
+    unknown = [r for r in roles if catalog["roles"].get(r, {}).get("kind") != kind]
     if not roles or unknown:
         raise ValueError(f"Unknown roles: {', '.join(unknown)}" if unknown else "An employee needs a role")
     rng = random.Random(seed)
-    personality = catalog["personality"]
+    personality = personality_for(kind)
     drawn = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
-    member = _make_employee(rng, catalog, roles, name, {**drawn, **(traits or {})})
+    member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **(traits or {})})
     if quirks is not None:
         member.quirks = list(quirks)
     if style is not None:
@@ -102,9 +132,9 @@ def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee
     catalog = load_catalog()
     rng = random.Random(seed)
     old = team.employees[index]
-    axes = catalog["personality"]["axes"]
-    traits = {a["key"]: rng.choice(catalog["personality"]["levels"]) for a in axes}
-    team.employees[index] = _make_employee(rng, catalog, old.roles, old.name, traits)
+    personality = personality_for(kind_of_mode(team.mode))
+    traits = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
+    team.employees[index] = _make_employee(rng, catalog, personality, old.roles, old.name, traits)
     return team.employees[index]
 
 
@@ -132,10 +162,9 @@ def _draw_traits(rng: random.Random, personality: dict, n: int) -> list[dict[str
 
 
 def _make_employee(
-    rng: random.Random, catalog: dict, role_keys: list[str], name: str, traits: dict[str, int]
+    rng: random.Random, catalog: dict, personality: dict, role_keys: list[str], name: str, traits: dict[str, int]
 ) -> Employee:
     roles = [catalog["roles"][k] for k in role_keys]
-    personality = catalog["personality"]
     return Employee(
         name=name,
         roles=list(role_keys),
@@ -154,16 +183,24 @@ def _make_employee(
 def render_system_prompt(team: Team, employee: Employee, boss_name: str) -> str:
     """`boss_name` is the name of the person using Palabre (the CEO)."""
     catalog = load_catalog()
-    boss = {**catalog["boss"], "name": boss_name}
     mode = catalog["modes"][team.mode]
+    kind = mode["kind"]
+    boss = {**boss_for(kind), "name": boss_name}
+    if kind == "research":
+        intro = catalog["research"]["intro"].format(name=employee.name, title=employee.title, label=mode["label"])
+    else:
+        intro = (
+            f"You are {employee.name}, {employee.title}, in a software development company "
+            f"organized as a {mode['label']}."
+        )
     sections = [
-        f"You are {employee.name}, {employee.title}, in a software development company "
-        f"organized as a {mode['label']}.",
+        intro,
         "## Your boss\n" + boss["prompt"].strip().format(**boss),
         "## The team\n" + _render_roster(team, employee, boss),
         *(_render_role(catalog["roles"][k]) for k in employee.roles),
-        "## Your personality\n" + _render_personality(employee, catalog["personality"]),
-        "## Company process\n" + "\n".join(f"- {r}" for r in mode["rules"]),
+        "## Your personality\n" + _render_personality(employee, personality_for(kind)),
+        ("## Group rules\n" if kind == "research" else "## Company process\n")
+        + "\n".join(f"- {r}" for r in mode["rules"]),
     ]
     return "\n\n".join(sections)
 

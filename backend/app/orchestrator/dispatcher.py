@@ -18,12 +18,12 @@ from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Message, Project, Task, TaskStatus, Wakeup
 from app.orchestrator.events import expand_events
-from app.orchestrator.prompts import CHAT_RULES, OPERATING_RULES, language_rule, task_rules, wake_prompt
+from app.orchestrator.prompts import CHAT_RULES, OPERATING_RULES, RESEARCH_RULES, language_rule, task_rules, wake_prompt
 from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
 from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, run_claude
-from app.worktrees import prepare_desk, prepare_worktree, repo_dir, sync_repo
+from app.worktrees import desk_dir, prepare_desk, prepare_worktree, repo_dir, sync_repo
 
 log = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class Orchestrator:
         member = next(m for m in team.employees if m.name == employee.name)
         system_prompt = "\n\n".join([
             render_system_prompt(team, member, services.boss_display_name()),
-            OPERATING_RULES,
+            RESEARCH_RULES if project.kind == "research" else OPERATING_RULES,
             CHAT_RULES,
             language_rule(services.team_language()),
         ])  # fmt: skip
@@ -270,6 +270,10 @@ class Orchestrator:
         return spec, scope
 
     async def _desk(self, project: Project, employee: Employee):
+        if project.kind == "research":  # No repository: a plain drafts folder
+            path = desk_dir(project, employee)
+            path.mkdir(parents=True, exist_ok=True)
+            return path
         await self._refresh_repo(project)
         return await prepare_desk(project, employee)
 

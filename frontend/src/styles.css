@@ -319,3 +319,26 @@ select:focus { border-color: var(--accent); }
 .quirk { flex-direction: row; align-items: flex-start; gap: 8px; font-weight: 400; }
 .quirk input { margin-top: 3px; }
 .custom-quirk input { flex: 1; padding: 5px 8px; }
+
+/* --- Kind of project --- */
+.kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kind {
+  display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 16px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+}
+.kind strong { font-size: 15px; }
+.kind span { font-size: 13px; }
+.kind:hover { border-color: var(--accent); }
+.kind.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+textarea { resize: vertical; line-height: 1.5; }
+
+/* --- Document / report --- */
+.document .markdown { font-size: 14px; }
+.decision { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.decision.proposed { background: var(--mention-me-bg); border-color: transparent; box-shadow: inset 3px 0 0 var(--mention-me-border); }
+.decision.validated { background: var(--bg-soft); }
+.decision.rejected { opacity: 0.6; margin-top: 6px; }
+.decision-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.decision-head .muted { font-size: 12px; }
+.questions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+details summary { cursor: pointer; margin-top: 6px; }

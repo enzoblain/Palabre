@@ -43,11 +43,12 @@ function freeName(names: string[], taken: string[]): string {
   return free.length ? pick(free) : "";
 }
 
-/** Problems that keep the team from being created (the server checks them too). */
-export function teamProblems(members: MemberIn[]): string[] {
+/** Problems that keep the team from being created (the server checks them too).
+ * needsLead: a company needs one (they organize the work and merge). */
+export function teamProblems(members: MemberIn[], needsLead: boolean): string[] {
   const problems: string[] = [];
   if (!members.length) problems.push("Add at least one agent.");
-  if (members.length && !members.some((m) => m.roles.includes("lead"))) {
+  if (needsLead && members.length && !members.some((m) => m.roles.includes("lead"))) {
     problems.push("The team needs a lead: they organize the work and merge.");
   }
   const names = members.map((m) => m.name.toLowerCase());
