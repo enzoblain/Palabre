@@ -7,7 +7,9 @@ Palabre is a company of AI agents that works for its CEO (the user): a lead spli
 - Backend (`backend/`): Python 3.12+, FastAPI, SQLAlchemy async on PostgreSQL, the `mcp` SDK, httpx.
 - Frontend (`frontend/`): React + TypeScript + Vite, packaged for desktop with Tauri (`src-tauri/`) and served by nginx for the browser.
 
-## Module map (`backend/app/`)
+## Module map
+
+Backend, in `backend/app/`:
 
 - `main.py`: FastAPI app, startup, mounts the API, the MCP server and the scheduler.
 - `config.py`: settings from environment variables (see [Configuration](README.md#configuration)).
@@ -24,17 +26,18 @@ Palabre is a company of AI agents that works for its CEO (the user): a lead spli
 - `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals, retries and research phases (`scheduler.py`, `retries.py`, `research.py`).
 - `mcp_server/`: the agents' tools (`tools.py`), which role gets which (`permissions.py`), request auth (`auth.py`), server setup (`server.py`).
 
-Frontend: `frontend/src/` (`api.ts` backend client, `router.ts`, `components/`), `frontend/src-tauri/` for the desktop shell.
+Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`), `src-tauri/` for the desktop shell.
 
 ## Run and check
 
+How to run the app: see [Develop](README.md#develop). Checks:
+
 ```sh
-docker compose up -d --build                     # server (:2710) and web app (:2810)
-cd frontend && npm install && npm run tauri dev  # desktop app
-cd frontend && npm run build                     # front check: tsc --noEmit, then vite build
+cd backend && python -m pytest   # backend tests, fixtures in the README's Tests section
+cd frontend && npm run check     # front check
 ```
 
-There is no backend test suite yet. To check backend changes, run the stack with docker compose (PostgreSQL included) and hit `/health`, or at least `python -m compileall backend/app`. If you add tests, say how to run them here.
+Details: [Tests](README.md#tests).
 
 ## Conventions
 
