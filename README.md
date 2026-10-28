@@ -183,6 +183,9 @@ docker compose up -d --build                     # server and web app, from back
 cd frontend && npm install && npm run tauri dev  # desktop app
 ```
 
+To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
+`frontend/`. No linter is configured yet.
+
 Roles, company sizes, research angles and personalities are all defined in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
 
