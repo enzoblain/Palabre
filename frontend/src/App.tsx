@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { type Connection, type EmployeeStatus, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type EmployeeStatus, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { Home } from "./components/Home";
@@ -56,8 +56,11 @@ function useProject(projectId: number | null) {
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const route = useRoute();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [bossName, setBossName] = useState("");
-  const [claudeAccounts, setClaudeAccounts] = useState(1);
+  const [settings, setSettings] = useState<AppSettings>({
+    boss_name: "", language: "French", languages: {}, claude_accounts: 1,
+  });
+  const bossName = settings.boss_name;
+  const claudeAccounts = settings.claude_accounts;
   const projectId = route.name === "project" ? route.projectId : null;
   const { project, error } = useProject(projectId);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
@@ -66,8 +69,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   useEffect(() => {
     reloadProjects();
     api.getSettings().then((s) => {
-      setBossName(s.boss_name);
-      setClaudeAccounts(s.claude_accounts);
+      setSettings(s);
       if (!s.boss_name) go("/settings"); // First time: the team needs a name for its CEO
     }).catch(() => {});
   }, [reloadProjects]);
@@ -98,8 +100,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       go(`/p/${p.id}`);
     }} />;
   } else if (route.name === "settings") {
-    main = <Settings bossName={bossName} claudeAccounts={claudeAccounts} projects={projects}
-      onSaved={setBossName} onDisconnect={onDisconnect} />;
+    main = <Settings settings={settings} projects={projects} onSaved={setSettings} onDisconnect={onDisconnect} />;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);

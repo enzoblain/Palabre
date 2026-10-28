@@ -88,7 +88,8 @@ async def add_question(ctx: Context, question: str) -> dict:
 
 @tool
 async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lead") -> dict:
-    """Escalate a blocker or disagreement you cannot resolve at your level."""
+    """Escalate a blocker or disagreement you cannot resolve at your level.
+    `reason` is posted in the conversation as a message to them: write it as you would say it."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)

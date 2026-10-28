@@ -18,7 +18,7 @@ from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Project, Task, TaskStatus, Wakeup
 from app.orchestrator.events import expand_events
-from app.orchestrator.prompts import OPERATING_RULES, task_rules, wake_prompt
+from app.orchestrator.prompts import CHAT_RULES, OPERATING_RULES, language_rule, task_rules, wake_prompt
 from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
@@ -215,7 +215,12 @@ class Orchestrator:
         )
         team = team_of(project)
         member = next(m for m in team.employees if m.name == employee.name)
-        system_prompt = render_system_prompt(team, member, services.boss_display_name()) + "\n\n" + OPERATING_RULES
+        system_prompt = "\n\n".join([
+            render_system_prompt(team, member, services.boss_display_name()),
+            OPERATING_RULES,
+            CHAT_RULES,
+            language_rule(services.team_language()),
+        ])  # fmt: skip
         headers = {"Authorization": f"Bearer {employee.mcp_token}"}
         oauth_token = token_for(assign_accounts(project.employees)[employee.id])
         first = wakeups[0]

@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
-import { ApiError, type Project, type ProjectDetail, api, getConnection } from "../api";
+import { ApiError, type AppSettings, type Project, type ProjectDetail, api, getConnection } from "../api";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 
-export function Settings({ bossName, claudeAccounts, projects, onSaved, onDisconnect }: {
-  bossName: string;
-  claudeAccounts: number;
+export function Settings({ settings, projects, onSaved, onDisconnect }: {
+  settings: AppSettings;
   projects: Project[];
-  onSaved: (name: string) => void;
+  onSaved: (settings: AppSettings) => void;
   onDisconnect: () => void;
 }) {
+  const bossName = settings.boss_name;
   const [name, setName] = useState(bossName);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setName(bossName), [bossName]);
@@ -18,8 +18,7 @@ export function Settings({ bossName, claudeAccounts, projects, onSaved, onDiscon
   async function save(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const saved = await api.saveSettings(name);
-      onSaved(saved.boss_name);
+      onSaved(await api.saveSettings({ boss_name: name }));
       setStatus({ ok: true, text: "Saved. Your team now knows you by this name." });
     } catch (err) {
       setStatus({ ok: false, text: err instanceof ApiError ? err.message : String(err) });
@@ -43,7 +42,8 @@ export function Settings({ bossName, claudeAccounts, projects, onSaved, onDiscon
           {status && <span className={status.ok ? "success" : "error"}>{status.text}</span>}
         </div>
       </form>
-      <ClaudeAccounts count={claudeAccounts} projects={projects} />
+      <TeamLanguage settings={settings} onSaved={onSaved} />
+      <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
       <section className="panel">
         <h2>Server</h2>
         <p className="muted">Connected to <code>{getConnection()?.server}</code></p>
@@ -52,6 +52,38 @@ export function Settings({ bossName, claudeAccounts, projects, onSaved, onDiscon
         </div>
       </section>
     </div>
+  );
+}
+
+function TeamLanguage({ settings, onSaved }: { settings: AppSettings; onSaved: (settings: AppSettings) => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function change(language: string) {
+    setError(null);
+    setSaved(false);
+    try {
+      onSaved(await api.saveSettings({ language }));
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Team language</h2>
+      <p className="muted">Your agents speak and write in this language: messages, tasks, reviews and documents.</p>
+      <div className="row">
+        <select value={settings.language} onChange={(e) => change(e.target.value)} aria-label="Team language">
+          {Object.entries(settings.languages).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        {saved && <span className="success">Saved. It applies from their next message.</span>}
+        {error && <span className="error">{error}</span>}
+      </div>
+    </section>
   );
 }
 

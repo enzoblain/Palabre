@@ -28,34 +28,49 @@ class WorkflowError(Exception):
     """A rule of the company was not respected; the message is shown to the agent."""
 
 
+# Languages the team can work in: key (stored) → name in that language (shown in the UI)
+LANGUAGES = {
+    "French": "Français",
+    "English": "English",
+    "Spanish": "Español",
+    "German": "Deutsch",
+    "Italian": "Italiano",
+    "Portuguese": "Português",
+    "Dutch": "Nederlands",
+}
+DEFAULT_SETTINGS = {"boss_name": "", "language": "French"}
+
 # Loaded from the database at startup, changed from the UI's settings page
-_boss_name = ""
+_app_settings = dict(DEFAULT_SETTINGS)
 
 
 async def load_app_settings(s: AsyncSession) -> None:
-    global _boss_name
-    row = await s.get(AppSetting, "boss_name")
-    _boss_name = row.value if row else ""
+    for row in await s.scalars(select(AppSetting).where(AppSetting.key.in_(DEFAULT_SETTINGS))):
+        _app_settings[row.key] = row.value
+
+
+async def set_app_setting(s: AsyncSession, key: str, value: str) -> None:
+    row = await s.get(AppSetting, key)
+    if row is None:
+        s.add(AppSetting(key=key, value=value))
+    else:
+        row.value = value
+    await s.commit()
+    _app_settings[key] = value
 
 
 def boss_name() -> str:
     """The name the user gave in the settings (empty until they do)."""
-    return _boss_name
+    return _app_settings["boss_name"]
 
 
 def boss_display_name() -> str:
-    return _boss_name or "Boss"
+    return boss_name() or "Boss"
 
 
-async def set_boss_name(s: AsyncSession, name: str) -> None:
-    global _boss_name
-    row = await s.get(AppSetting, "boss_name")
-    if row is None:
-        s.add(AppSetting(key="boss_name", value=name))
-    else:
-        row.value = name
-    await s.commit()
-    _boss_name = name
+def team_language() -> str:
+    """The language the employees speak and write in."""
+    return _app_settings["language"]
 
 
 def emit_event(
@@ -115,7 +130,7 @@ async def post_message(
     mentioned = {m.lower() for m in MENTION_RE.findall(content)}
     if mentioned:
         payload = {"conversation_id": conversation_id, "message_id": msg.id}
-        boss_names = BOSS_ALIASES | ({_boss_name.lower()} if _boss_name else set())
+        boss_names = BOSS_ALIASES | ({boss_name().lower()} if boss_name() else set())
         if mentioned & boss_names:
             emit_event(s, project_id, "mention", payload, role="boss")
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
@@ -230,8 +245,14 @@ async def escalate(
     s: AsyncSession, project_id: int, conversation_id: int, author: Employee, to: str, reason: str
 ) -> Message:
     target = "boss" if to == "boss" else "lead"
-    label = boss_display_name() if target == "boss" else "the lead"
-    msg = await post_message(s, project_id, conversation_id, f"⚠️ Escalation to {label}: {reason}", author)
+    if target == "boss":
+        name = boss_name() or "boss"
+    else:
+        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        name = next((e.name for e in employees if "lead" in e.roles), "lead")
+    # Written like any message to them; the escalation event is what routes it
+    content = reason if f"@{name}".lower() in reason.lower() else f"@{name} {reason}"
+    msg = await post_message(s, project_id, conversation_id, content, author)
     emit_event(
         s,
         project_id,

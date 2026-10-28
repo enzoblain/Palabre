@@ -75,7 +75,13 @@ export type Mode = {
 
 export type TeamMember = Omit<Employee, "id" | "project_id" | "account">;
 
-export type AppSettings = { boss_name: string; claude_accounts: number };
+export type AppSettings = {
+  boss_name: string;
+  // Language the agents speak and write in: a key of `languages` (key → native name)
+  language: string;
+  languages: Record<string, string>;
+  claude_accounts: number;
+};
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
 export type Axis = { key: string; label: string; low: string; high: string };
@@ -183,7 +189,8 @@ export async function testConnection(conn: Connection): Promise<void> {
 
 export const api = {
   getSettings: () => call<AppSettings>("/settings"),
-  saveSettings: (boss_name: string) => call<AppSettings>("/settings", "PUT", { boss_name }),
+  saveSettings: (changes: { boss_name?: string; language?: string }) =>
+    call<AppSettings>("/settings", "PUT", changes),
 
   modes: () => call<Record<string, Mode>>("/catalog/modes"),
   personality: () => call<Personality>("/catalog/personality"),

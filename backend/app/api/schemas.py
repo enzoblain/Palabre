@@ -13,11 +13,17 @@ def _name_of(value: Any) -> Any:
     return getattr(value, "name", value)
 
 
-class AppSettings(BaseModel):
-    boss_name: str = Field(max_length=100)
+class AppSettingsIn(BaseModel):
+    # Fields left out are unchanged
+    boss_name: str | None = Field(default=None, max_length=100)
+    language: str | None = None
 
 
-class AppSettingsOut(AppSettings):
+class AppSettingsOut(BaseModel):
+    boss_name: str
+    # Language the employees speak and write in (a key of `languages`)
+    language: str
+    languages: dict[str, str]
     # Claude accounts configured in CLAUDE_CODE_OAUTH_TOKENS
     claude_accounts: int
 
