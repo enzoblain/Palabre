@@ -129,8 +129,14 @@ async def watch_idle_tasks(s: AsyncSession) -> None:
         if now - _last_idle_check.get(task.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
             continue
         _last_idle_check[task.id] = now
-        # The task row does not change while its dev works: a running agent is activity
-        running = await s.scalar(select(AgentRun.id).where(AgentRun.task_id == task.id, AgentRun.finished_at.is_(None)).limit(1))
+        # The task row does not change while its dev works: a running agent is activity (a run older
+        # than the timeout was cut by a restart and never finished)
+        started_after = datetime.now(UTC) - timedelta(seconds=settings.agent_timeout_s)
+        running = await s.scalar(
+            select(AgentRun.id)
+            .where(AgentRun.task_id == task.id, AgentRun.finished_at.is_(None), AgentRun.started_at > started_after)
+            .limit(1)
+        )
         if running is not None:
             continue
         project = await s.get(Project, task.project_id)
