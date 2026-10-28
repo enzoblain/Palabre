@@ -176,8 +176,14 @@ async def test_initial_commit_has_a_readme_and_gitignore(repo, monkeypatch, tmp_
     assert [a[-1] for a in calls if a[0] == "push"] == ["main:refs/heads/main"]
 
 
-def test_orientation_points_to_readme_and_branch():
+def test_orientation_only_on_the_first_run():
     from app.orchestrator.prompts import orientation_rule
 
-    text = orientation_rule("master")
-    assert "`master`" in text and "README" in text
+    first = orientation_rule("master")
+    assert "`master`" in first and "README" in first
+    later = orientation_rule("master", first_run=False)
+    assert "`master`" in later and "README" not in later
+
+
+async def test_working_branch_without_a_branch_resolves_production(repo):
+    assert await projects.working_branch(URL, "") == "dev"

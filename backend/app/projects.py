@@ -35,7 +35,9 @@ async def working_branch(repo_url: str, branch: str) -> str:
     An empty repository has no branch to create it from: `dev` is named anyway and its
     first commit (worktrees._initial_commit) creates production, then `dev`."""
     repo = github.repo_slug(repo_url)
-    if branch != await github.resolve_branch(repo, ""):
+    production = await github.resolve_branch(repo, "")
+    branch = branch or production
+    if branch != production:
         return branch
     if await github.has_commits(repo) and not await github.branch_exists(repo, github.WORKING_BRANCH):
         await github.create_branch(repo, github.WORKING_BRANCH, branch)
