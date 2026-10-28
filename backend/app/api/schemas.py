@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.github import BRANCH_PATTERN
 
@@ -119,6 +119,7 @@ class RoomOut(ORM):
     id: int
     project_id: int
     name: str
+    kind: str
     objective: str
     summary: str
     created_at: datetime
@@ -222,6 +223,23 @@ class MessageOut(ORM):
     author_name: str
     content: str
     created_at: datetime
+    # Set when the message asks the boss something (see services.ask_boss)
+    request_kind: str | None = None
+    request_status: str | None = None
+    request_comment: str | None = None
+    request_answered_at: datetime | None = None
+    request_decision_id: int | None = None
+
+
+class RequestAnswerIn(BaseModel):
+    answer: Literal["validated", "rejected", "nuanced"]
+    comment: str = ""
+
+    @model_validator(mode="after")
+    def nuance_needs_a_comment(self):
+        if self.answer == "nuanced" and not self.comment.strip():
+            raise ValueError("A nuanced answer needs a comment")
+        return self
 
 
 # --- Tasks -------------------------------------------------------------------------
@@ -289,22 +307,7 @@ class MergeIn(BaseModel):
     force: bool = False
 
 
-# --- Notifications and runs --------------------------------------------------------
-
-
-class NotificationOut(ORM):
-    id: int
-    project_id: int
-    type: str
-    payload: dict
-    created_at: datetime
-    read: bool
-    # Where it happened, and what it is about (filled in when it applies)
-    conversation_id: int | None = None
-    room_id: int | None = None
-    author: str | None = None
-    excerpt: str | None = None
-    decision: DecisionOut | None = None
+# --- Runs ----------------------------------------------------------------------------
 
 
 class RunOut(ORM):
@@ -323,6 +326,38 @@ class RunOut(ORM):
     cost_usd: float | None
 
     _employee_name = field_validator("employee", mode="before")(_name_of)
+
+
+class UsageTotals(BaseModel):
+    """Sums over the runs that reported the data; the runs_without_* counters say how many did not."""
+
+    runs: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_tokens: int = 0
+    cache_read_tokens: int = 0
+    cost_usd: float = 0.0
+    runs_without_tokens: int = 0
+    runs_without_cost: int = 0
+
+
+class UsageEntry(BaseModel):
+    """One account, employee or project; id and name are None where unknown (account: runs before it was recorded)."""
+
+    id: int | None
+    name: str | None = None
+    day: UsageTotals
+    week: UsageTotals
+    total: UsageTotals
+
+
+class UsageOut(BaseModel):
+    accounts: list[UsageEntry]
+    employees: list[UsageEntry]
+    projects: list[UsageEntry]
+    day: UsageTotals
+    week: UsageTotals
+    total: UsageTotals
 
 
 class EmployeeStatus(BaseModel):

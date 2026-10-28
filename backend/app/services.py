@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AppSetting,
+    Conversation,
     Decision,
     DecisionStatus,
     Employee,
@@ -30,6 +31,7 @@ _CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
 _LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+", re.M)
 BOSS_ALIASES = {"boss", "ceo"}
+DIRECTION = "direction"
 
 
 class WorkflowError(Exception):
@@ -145,14 +147,25 @@ async def last_message_id(s: AsyncSession, conversation_id: int) -> int:
 
 
 async def post_message(
-    s: AsyncSession, project_id: int, conversation_id: int, content: str, author: Employee | None
+    s: AsyncSession,
+    project_id: int,
+    conversation_id: int,
+    content: str,
+    author: Employee | None,
+    *,
+    request_kind: str | None = None,
+    request_decision_id: int | None = None,
 ) -> Message:
-    """Post a message (author None = the boss) and wake up everyone @mentioned."""
+    """Post a message (author None = the boss) and wake up everyone @mentioned.
+    With a request_kind, the message asks the boss something (see ask_boss)."""
     msg = Message(
         conversation_id=conversation_id,
         employee_id=author.id if author else None,
         author_name=author.name if author else boss_display_name(),
         content=content,
+        request_kind=request_kind,
+        request_status="pending" if request_kind else None,
+        request_decision_id=request_decision_id,
     )
     s.add(msg)
     await s.flush()
@@ -160,17 +173,115 @@ async def post_message(
     mentioned = {m.lower() for m in MENTION_RE.findall(content)}
     if mentioned:
         payload = {"conversation_id": conversation_id, "message_id": msg.id}
-        boss_names = BOSS_ALIASES | ({boss_name().lower()} if boss_name() else set())
-        if mentioned & boss_names:
-            emit_event(s, project_id, "mention", payload, role="boss")
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        in_direction = await s.scalar(
+            select(Room.id)
+            .join(Conversation, Conversation.room_id == Room.id)
+            .where(Conversation.id == conversation_id, Room.kind == DIRECTION)
+        )
         for employee in employees:
+            if in_direction and "lead" not in employee.roles:
+                continue  # Direction is between the boss and the lead
             if employee.name.lower() in mentioned and (author is None or employee.id != author.id):
                 emit_event(s, project_id, "mention", payload, employee_id=employee.id)
 
     await s.commit()
     await s.refresh(msg)
     return msg
+
+
+# --- Requests to the boss ----------------------------------------------------------
+
+REQUEST_KINDS = {"decision", "release", "escalation", "question"}
+
+
+async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
+    """The active conversation of the direction channel (research groups have none)."""
+    return await s.scalar(
+        select(Conversation.id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.project_id == project_id, Room.kind == DIRECTION)
+        .order_by(Conversation.id.desc())
+        .limit(1)
+    )
+
+
+async def ask_boss(
+    s: AsyncSession,
+    project_id: int,
+    author: Employee,
+    content: str,
+    kind: str,
+    decision_id: int | None = None,
+) -> Message | None:
+    """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    Returns None where there is no direction (research groups): the boss reads the room instead."""
+    if kind not in REQUEST_KINDS:
+        raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
+    conversation_id = await direction_conversation_id(s, project_id)
+    if conversation_id is None:
+        return None
+    return await post_message(
+        s, project_id, conversation_id, content, author, request_kind=kind, request_decision_id=decision_id
+    )
+
+
+# --- Channels ----------------------------------------------------------------------
+
+
+async def create_channel(s: AsyncSession, project_id: int, name: str, member_names: list[str]) -> Room:
+    """A team channel (a room with a first conversation). The lead is always in it."""
+    name = name.strip().lstrip("#").strip()
+    if not name:
+        raise WorkflowError("A channel needs a name")
+    rooms = await s.scalars(select(Room).where(Room.project_id == project_id))
+    if any(r.name.lower() == name.lower() for r in rooms):
+        raise WorkflowError(f"A channel named {name} already exists")
+    employees = list(await s.scalars(select(Employee).where(Employee.project_id == project_id)))
+    wanted = {n.lstrip("@").lower() for n in member_names}
+    unknown = wanted - {e.name.lower() for e in employees}
+    if unknown:
+        raise WorkflowError(f"Unknown employees: {', '.join(sorted(unknown))}")
+    members = [e for e in employees if e.name.lower() in wanted or "lead" in e.roles]
+    room = Room(project_id=project_id, name=name, members=members)
+    s.add(room)
+    await s.flush()
+    s.add(Conversation(room_id=room.id, title="General"))
+    await s.commit()
+    return room
+
+
+async def team_context(s: AsyncSession, project_id: int, room_id: int, conversation_id: int) -> tuple[int, int]:
+    """Where a task lives. Called from direction, it goes to the first team channel: the
+    people it concerns (reviewers, QA...) are not in direction and cannot be woken there."""
+    if await s.scalar(select(Room.kind).where(Room.id == room_id)) != DIRECTION:
+        return room_id, conversation_id
+    team_room_id = await s.scalar(
+        select(Room.id).where(Room.project_id == project_id, Room.kind != DIRECTION).order_by(Room.id).limit(1)
+    )
+    if team_room_id is None:
+        raise WorkflowError("There is no team channel to put the task in")
+    team_conversation_id = await s.scalar(
+        select(Conversation.id).where(Conversation.room_id == team_room_id).order_by(Conversation.id.desc()).limit(1)
+    )
+    return team_room_id, team_conversation_id
+
+
+async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -> int:
+    """The conversation to post in for the channel `name`."""
+    wanted = name.strip().lstrip("#").lower()
+    # Direction is found by its kind: a rename must not break the relay
+    named = Room.kind == DIRECTION if wanted == DIRECTION else func.lower(Room.name) == wanted
+    conversation_id = await s.scalar(
+        select(Conversation.id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.project_id == project_id, named)
+        .order_by(Conversation.id.desc())  # the active one is the latest
+        .limit(1)
+    )
+    if conversation_id is None:
+        raise WorkflowError(f"No channel named {name}")
+    return conversation_id
 
 
 # --- Room document -----------------------------------------------------------------
@@ -226,8 +337,9 @@ async def add_decision(
     decision = Decision(room_id=room_id, title=title, rationale=rationale, proposed_by=author.name)
     s.add(decision)
     await s.flush()
-    emit_event(s, project_id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
     await s.commit()
+    text = f"Decision to validate: {title}" + (f"\n\n{rationale}" if rationale else "")
+    await ask_boss(s, project_id, author, text, "decision", decision.id)
     return decision
 
 
@@ -274,12 +386,13 @@ async def write_notes(s: AsyncSession, employee_id: int, content: str, append: b
 async def escalate(
     s: AsyncSession, project_id: int, conversation_id: int, author: Employee, to: str, reason: str
 ) -> Message:
-    target = "boss" if to == "boss" else "lead"
-    if target == "boss":
-        name = boss_name() or "boss"
-    else:
-        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
-        name = next((e.name for e in employees if "lead" in e.roles), "lead")
+    if to == "boss":
+        # An interactive request in direction; where there is none, a plain message in the room
+        if msg := await ask_boss(s, project_id, author, reason, "escalation"):
+            return msg
+        return await post_message(s, project_id, conversation_id, f"@{boss_name() or 'boss'} {reason}", author)
+    employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+    name = next((e.name for e in employees if "lead" in e.roles), "lead")
     # Written like any message to them; the escalation event is what routes it
     content = reason if f"@{name}".lower() in reason.lower() else f"@{name} {reason}"
     msg = await post_message(s, project_id, conversation_id, content, author)
@@ -288,7 +401,7 @@ async def escalate(
         project_id,
         "escalation",
         {"conversation_id": conversation_id, "message_id": msg.id, "from": author.name},
-        role=target,
+        role="lead",
     )
     await s.commit()
     return msg

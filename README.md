@@ -31,7 +31,15 @@ speed vs quality...), or you build the team yourself.
 | Enterprise | 12 | Plus security on sensitive PRs, and a green CI |
 | Multinational | 16 | Two approvals, QA, security, CI, a changelog, and your validation of every decision |
 
-You post what you want in `#general`. From there the team works on its own:
+You only talk to the lead, in `#direction`: it is the one channel you can write in, and
+it holds only you and the lead. The team works in its own channels (`#general`,
+`#engineering`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
+You read every channel live but they are read-only for you (the API refuses your messages
+there), and only the lead is woken by what you post. The lead relays between direction and
+the team. Existing projects get their `#direction` channel at startup; their rooms become
+team channels.
+
+From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
 2. **A developer** works on the task in its own git branch and worktree, then opens a pull request.
@@ -39,14 +47,39 @@ You post what you want in `#general`. From there the team works on its own:
    company's rules require.
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
-Along the way the team holds a daily stand-up, records decisions in each room's shared
-document, and asks you when something is yours to decide. Decisions and questions waiting
-for you land in your inbox.
+Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
+closes its PR if still open and deletes its `task/...` branch (on GitHub and locally) and its
+worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
+release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
+and GitHub errors (404...) are only logged.
 
-The team merges into the project's branch: point it at a `dev` branch in the settings, or
-let the lead do it. When a step is ready, the lead opens the pull request from `dev` to
-`main` and you get it in your inbox: one click merges it, or reject it to close it. The
-lead never merges into the repository's default branch: that one is yours.
+Along the way the team holds a daily stand-up, records decisions in each room's shared
+document, and asks you when something is yours to decide. There is no inbox: the lead puts
+what waits for you in the direction channel as a request, a message with three answers,
+Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
+in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
+Proposed decisions, releases and escalations to the boss become such requests on their own,
+and the lead can ask for anything else with `ask_ceo`. A research group has no direction
+channel: its decisions are only in the room document. On upgrade, what waited in the old
+inbox is turned into requests in direction.
+
+A new project works on a `dev` branch, created from the repository's default branch if
+missing (an empty repository gets `main` then `dev` from its first commit), and every
+task's pull request targets it. Only a release reaches production. To switch an existing
+project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
+(`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
+request from `dev` to `main` and asks you in direction: Validate merges it, Reject closes
+it, Nuance leaves it open for the lead to rework. The lead never merges into the
+repository's default branch: that one is yours.
+
+The lead can also deliver alone. `merge_release` merges the release pull request once CI is
+green on it, whatever the company size, and only if the PR has not moved since (a task
+merged meanwhile makes GitHub refuse), and tells you in direction, with nothing to answer; `publish_version`
+tags the head of the default branch `vX.Y.Z` (CI must be green on it) and publishes the GitHub Release with its notes,
+which starts the release workflow. It refuses a version that is not `X.Y.Z`, a tag that
+already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
+`Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
+the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
 ### Research group
 

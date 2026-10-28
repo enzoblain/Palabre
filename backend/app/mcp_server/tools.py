@@ -41,16 +41,48 @@ async def _check_chat(s, project_id: int, content: str) -> None:
 
 
 @tool
-async def send_message(ctx: Context, content: str) -> dict:
+async def send_message(ctx: Context, content: str, channel: str | None = None) -> dict:
     """Post a message in the current conversation, signed with your name: a short chat
     message, like you would send a colleague (a long or report-like one is refused).
-    Mention colleagues with @Name (or @boss) to get their attention."""
+    Mention colleagues with @Name to get their attention.
+    channel: only the lead may name another channel (e.g. "direction") to relay there."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
         me = await s.get(Employee, c.employee_id)
-        msg = await services.post_message(s, c.project_id, c.conversation_id, content, me)
+        conversation_id = c.conversation_id
+        if channel is not None:
+            if "create_channel" not in c.tools:  # held by the lead only
+                raise services.WorkflowError("Only the lead can post in another channel")
+            conversation_id = await services.channel_conversation_id(s, c.project_id, channel)
+        msg = await services.post_message(s, c.project_id, conversation_id, content, me)
     return {"id": msg.id}
+
+
+@tool
+async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
+    """Create a team channel (e.g. "backend", "front", "quality") with the given members,
+    by first name. You are always in it. The boss reads it but cannot write in it."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        room = await services.create_channel(s, c.project_id, name, members)
+    return {"id": room.id, "name": room.name}
+
+
+@tool
+async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "question", "escalation"] = "question") -> dict:
+    """Ask the boss something in the direction channel. They answer with Validate, Reject or
+    Nuance (a free comment), and you are woken up with their answer. Use it when you need
+    their go or arbitration; a plain update is a send_message with channel="direction".
+    content: what you ask, short and self-contained, with your recommendation."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, content)
+        me = await s.get(Employee, c.employee_id)
+        msg = await services.ask_boss(s, c.project_id, me, content, kind)
+    if msg is None:
+        raise services.WorkflowError("This project has no direction channel to ask the boss in")
+    return {"message_id": msg.id, "status": "waiting for the boss"}
 
 
 @tool
@@ -151,11 +183,12 @@ async def create_task(
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
+        room_id, conversation_id = await services.team_context(s, c.project_id, c.room_id, c.conversation_id)
         task = await workflow.create_task(
             s,
             project_id=c.project_id,
-            room_id=c.room_id,
-            conversation_id=c.conversation_id,
+            room_id=room_id,
+            conversation_id=conversation_id,
             author=me,
             title=title,
             description=description,
@@ -280,11 +313,12 @@ async def report_bug(
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
+        room_id, conversation_id = await services.team_context(s, c.project_id, c.room_id, c.conversation_id)
         task = await workflow.report_bug(
             s,
             project_id=c.project_id,
-            room_id=c.room_id,
-            conversation_id=c.conversation_id,
+            room_id=room_id,
+            conversation_id=conversation_id,
             author=me,
             title=title,
             steps=steps,
@@ -353,7 +387,7 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
 async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to
-    accept it: they merge it with one click from their inbox. One release at a time.
+    accept it: a request in direction that merges it when they validate it. One release at a time.
     title: what ships, e.g. "Checkout and order history".
     summary: for the boss, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
@@ -363,8 +397,54 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         decision = await projects.propose_release(s, project, c.room_id, title.strip(), summary.strip(), me)
-        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({decision.pr_url})", me)
+        text = f"{message.strip()} ({decision.pr_url})"
+        if await services.ask_boss(s, c.project_id, me, text, "release", decision.id) is None:
+            await services.post_message(s, c.project_id, c.conversation_id, text, me)
     return {"decision_id": decision.id, "pr_url": decision.pr_url, "status": "waiting for the boss"}
+
+
+@tool
+async def merge_release(ctx: Context, title: str, summary: str, message: str) -> dict:
+    """Merge the release pull request (the team's branch into production) yourself, without
+    waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
+    once the checks of a freshly opened PR are done), and the merge fails if the head moved
+    meanwhile. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
+    opinion first, use propose_release.
+    title: what ships, e.g. "Checkout and order history".
+    summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        pr_url, number = await projects.merge_release(s, project, title.strip(), summary.strip())
+        text = f"{message.strip()} (release merged: {pr_url})"
+        direction = await services.direction_conversation_id(s, c.project_id)
+        await services.post_message(s, c.project_id, direction or c.conversation_id, text, me)
+        if direction and direction != c.conversation_id:
+            await services.post_message(s, c.project_id, c.conversation_id, text, me)
+    return {"merged": True, "pr_number": number, "pr_url": pr_url}
+
+
+@tool
+async def publish_version(ctx: Context, version: str, notes: str, message: str) -> dict:
+    """Tag the head of production (the default branch) vX.Y.Z and publish the GitHub Release
+    with its notes; the tag builds the images and the desktop app. Refused for a version that
+    is not X.Y.Z, a tag that already exists, or a version that differs from the one in the
+    repository's files (frontend/package.json, tauri.conf.json, Cargo.toml: the ones that exist),
+    or when CI is not green on production's head. Merge a version bump first.
+    version: e.g. "1.4.0".
+    notes: the release notes, in Markdown.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        url = await projects.publish_version(project, version, notes)
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} ({url})", me)
+    return {"version": version.strip().removeprefix("v"), "release_url": url}
 
 
 # --- Toolchains (lead, devops) -------------------------------------------------------

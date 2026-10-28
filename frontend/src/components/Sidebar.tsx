@@ -1,8 +1,8 @@
-import type { Conversation, EmployeeStatus, Notification, Project, ProjectDetail } from "../api";
+import type { Conversation, EmployeeStatus, Project, ProjectDetail, Room } from "../api";
 import { type Route, go } from "../router";
 import { mention } from "../util";
 import { Avatar } from "./Avatar";
-import { BackIcon, DocumentIcon, GearIcon, HashIcon, InboxIcon, PlusIcon } from "./Icons";
+import { BackIcon, DocumentIcon, GearIcon, HashIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
@@ -18,28 +18,28 @@ function activity(status: EmployeeStatus, project: ProjectState): string {
   return room ? `Talking in #${room.name}` : "Working";
 }
 
-// Notifications that point at a message in a conversation (the rest are in the inbox only)
-const CONVERSATION_TYPES = new Set(["mention", "escalation", "conversation_throttled"]);
-
-function Badge({ count, urgent = false }: { count: number; urgent?: boolean }) {
-  return count > 0 ? <span className={`badge-count${urgent ? " urgent" : ""}`}>{count}</span> : null;
+function Badge({ count, label, quiet }: { count: number; label: string; quiet?: boolean }) {
+  // The count is text, and the label tells what it counts: no meaning carried by color alone
+  return count > 0 ? <span className={quiet ? "badge-count" : "badge-count urgent"} aria-label={label}>{count}</span> : null;
 }
 
-export function Sidebar({ route, projects, project, statuses, bossName, claudeAccounts, notifications }: {
+export function Sidebar({ route, projects, project, statuses, bossName, claudeAccounts, pending, unread }: {
   route: Route;
   projects: Project[];
   project: ProjectState | null;
   statuses: EmployeeStatus[];
   bossName: string;
   claudeAccounts: number;
-  notifications: Notification[];
+  // Requests of the lead waiting for the CEO in the current project
+  pending: number;
+  // Unread messages per conversation
+  unread: Record<number, number>;
 }) {
   const inProject = "projectId" in route;
   return (
     <aside className="sidebar">
       {inProject ? (
-        <ProjectNav route={route} project={project} statuses={statuses} showAccounts={claudeAccounts > 1}
-          notifications={notifications.filter((n) => n.project_id === route.projectId)} />
+        <ProjectNav route={route} project={project} statuses={statuses} showAccounts={claudeAccounts > 1} pending={pending} unread={unread} />
       ) : (
         <>
           <header className="sidebar-head">
@@ -52,7 +52,6 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
               <a key={p.id} className="nav-item" href={`#/p/${p.id}`}>
                 <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
                 <span className="truncate">{p.name}</span>
-                <Badge count={notifications.filter((n) => n.project_id === p.id).length} urgent />
               </a>
             ))}
             <a className={`nav-item muted${route.name === "new" ? " active" : ""}`} href="#/new">
@@ -71,16 +70,15 @@ export function Sidebar({ route, projects, project, statuses, bossName, claudeAc
   );
 }
 
-function ProjectNav({ route, project, statuses, showAccounts, notifications }: {
+function ProjectNav({ route, project, statuses, showAccounts, pending, unread }: {
   route: Extract<Route, { projectId: number }>;
   project: ProjectState | null;
   statuses: EmployeeStatus[];
   showAccounts: boolean;
-  notifications: Notification[];
+  pending: number;
+  unread: Record<number, number>;
 }) {
   const activeConversation = route.name === "project" ? route.conversationId : null;
-  const unreadIn = (conversationIds: number[]) =>
-    notifications.filter((n) => CONVERSATION_TYPES.has(n.type) && conversationIds.includes(n.conversation_id ?? -1)).length;
   const sorted = [...statuses].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
   const working = statuses.filter((s) => s.status === "working").length;
   return (
@@ -92,35 +90,15 @@ function ProjectNav({ route, project, statuses, showAccounts, notifications }: {
         <span className="sidebar-title truncate">{project?.detail.name ?? "…"}</span>
       </header>
       <nav className="sidebar-nav">
-        <a className={`nav-item${route.name === "inbox" ? " active" : ""}`} href={`#/p/${route.projectId}/inbox`}>
-          <InboxIcon size={15} /> <span className="truncate">Inbox</span>
-          <Badge count={notifications.length} urgent />
-        </a>
         <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${route.projectId}/report`}>
           <DocumentIcon size={15} /> <span className="truncate">{project?.detail.kind === "research" ? "Report" : "Document"}</span>
         </a>
-        <div className="section-label">Channels</div>
-        {project?.detail.rooms.map((room) => {
-          const conversations = project.conversations[room.id] ?? [];
-          const first = conversations[0];
-          const active = conversations.some((c) => c.id === activeConversation);
-          return (
-            <div key={room.id}>
-              <a className={`nav-item${active && conversations.length === 1 ? " active" : ""}`}
-                href={first ? `#/p/${project.detail.id}/c/${first.id}` : undefined}>
-                <HashIcon size={15} /> <span className="truncate">{room.name}</span>
-                <Badge count={unreadIn(conversations.map((c) => c.id))} />
-              </a>
-              {conversations.length > 1 &&
-                conversations.map((c) => (
-                  <a key={c.id} className={`nav-item nav-sub${c.id === activeConversation ? " active" : ""}`}
-                    href={`#/p/${project.detail.id}/c/${c.id}`}>
-                    <span className="truncate">{c.title}</span>
-                  </a>
-                ))}
-            </div>
-          );
-        })}
+        {project && <Channels project={project} rooms={project.detail.rooms.filter((r) => r.kind === "direction")}
+          label="Direction" activeConversation={activeConversation} pending={pending}
+          unread={unread} statuses={statuses} />}
+        {project && <Channels project={project} rooms={project.detail.rooms.filter((r) => r.kind !== "direction")}
+          label="Channels" activeConversation={activeConversation} pending={0}
+          unread={unread} statuses={statuses} />}
 
         <div className="section-label team-label">
           Team <span className="count">{working ? `${working} working` : "all resting"}</span>
@@ -143,6 +121,51 @@ function ProjectNav({ route, project, statuses, showAccounts, notifications }: {
             </button>
           ))}
       </nav>
+    </>
+  );
+}
+
+/** A section of channels. Direction is the CEO's own; the others are read-only for them. */
+function Channels({ project, rooms, label, activeConversation, pending, unread, statuses }: {
+  project: ProjectState;
+  rooms: Room[];
+  label: string;
+  activeConversation: number | null;
+  pending: number;
+  unread: Record<number, number>;
+  statuses: EmployeeStatus[];
+}) {
+  if (rooms.length === 0) return null;
+  return (
+    <>
+      <div className="section-label">{label}</div>
+      {rooms.map((room) => {
+        const conversations = project.conversations[room.id] ?? [];
+        const first = conversations[0];
+        const active = conversations.some((c) => c.id === activeConversation);
+        const live = statuses.some((s) => s.status === "working" && conversations.some((c) => c.id === s.conversation_id));
+        const fresh = conversations.reduce((n, c) => n + (c.id === activeConversation ? 0 : unread[c.id] ?? 0), 0);
+        return (
+          <div key={room.id}>
+            <a className={`nav-item${active && conversations.length === 1 ? " active" : ""}`}
+              aria-current={active && conversations.length === 1 ? "page" : undefined}
+              href={first ? `#/p/${project.detail.id}/c/${first.id}` : undefined}>
+              <HashIcon size={15} /> <span className="truncate">{room.name}</span>
+              {live && <span className="dot dot-working live-dot" role="img" aria-label="An agent is working here" />}
+              {room.kind === "direction" && pending > 0
+                ? <Badge count={pending} label={`${pending} waiting for you`} />
+                : <Badge count={fresh} label={`${fresh} new messages`} quiet />}
+            </a>
+            {conversations.length > 1 &&
+              conversations.map((c) => (
+                <a key={c.id} className={`nav-item nav-sub${c.id === activeConversation ? " active" : ""}`}
+                  href={`#/p/${project.detail.id}/c/${c.id}`}>
+                  <span className="truncate">{c.title}</span>
+                </a>
+              ))}
+          </div>
+        );
+      })}
     </>
   );
 }

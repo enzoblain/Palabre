@@ -54,6 +54,11 @@ class RunResult:
     is_error: bool
     num_turns: int | None
     cost_usd: float | None
+    # From claude's `usage`; None when the output has no such field
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_creation_tokens: int | None = None
+    cache_read_tokens: int | None = None
 
 
 def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
@@ -85,6 +90,17 @@ def _write_mcp_config(headers: dict[str, str]) -> Path:
     path.touch(mode=0o600)
     path.write_text(json.dumps(config))
     return path
+
+
+def _usage(usage: object) -> dict[str, int | None]:
+    fields = {
+        "input_tokens": "input_tokens",
+        "output_tokens": "output_tokens",
+        "cache_creation_tokens": "cache_creation_input_tokens",
+        "cache_read_tokens": "cache_read_input_tokens",
+    }
+    usage = usage if isinstance(usage, dict) else {}
+    return {k: v if isinstance(v := usage.get(src), int) else None for k, src in fields.items()}
 
 
 async def run_claude(spec: RunSpec) -> RunResult:
@@ -144,6 +160,7 @@ async def run_claude(spec: RunSpec) -> RunResult:
         is_error=bool(data.get("is_error")),
         num_turns=data.get("num_turns"),
         cost_usd=data.get("total_cost_usd"),
+        **_usage(data.get("usage")),
     )
     if result.is_error:
         log.warning("%s: run ended with an error: %s", spec.author_name, result.text or data.get("subtype"))

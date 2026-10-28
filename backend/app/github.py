@@ -77,13 +77,20 @@ async def _api(method: str, path: str, **kwargs) -> dict:
     return response.json() if response.content else {}
 
 
+WORKING_BRANCH = "dev"
+
+
+async def has_commits(repo: str) -> bool:
+    return bool(await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}))
+
+
 async def resolve_branch(repo: str, branch: str) -> str:
     """The branch a project works from: `branch` if given, else the repository's default
     branch. A repository without commits accepts any: the first commit creates it."""
     default = (await _api("GET", f"/repos/{repo}"))["default_branch"]
     if not branch:
         return default
-    if not await _api("GET", f"/repos/{repo}/branches", params={"per_page": 1}):
+    if not await has_commits(repo):
         return branch
     if not await branch_exists(repo, branch):
         raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')")
@@ -134,12 +141,12 @@ async def delete_branch(repo: str, branch: str) -> None:
             raise
 
 
-async def merge_pull_request(repo: str, number: int, title: str, method: str = "squash") -> None:
-    await _api(
-        "PUT",
-        f"/repos/{repo}/pulls/{number}/merge",
-        json={"merge_method": method, "commit_title": title},
-    )
+async def merge_pull_request(repo: str, number: int, title: str, method: str = "squash", sha: str | None = None) -> None:
+    """With `sha`, GitHub refuses (409) if the PR's head has moved since it was checked."""
+    body = {"merge_method": method, "commit_title": title}
+    if sha:
+        body["sha"] = sha
+    await _api("PUT", f"/repos/{repo}/pulls/{number}/merge", json=body)
 
 
 async def find_pull_request(repo: str, head: str, base: str) -> dict | None:
@@ -153,10 +160,25 @@ async def close_pull_request(repo: str, number: int) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"state": "closed"})
 
 
+async def is_pull_request_open(repo: str, number: int) -> bool:
+    """Whether the PR is still open; a PR that no longer exists is not."""
+    try:
+        return (await _api("GET", f"/repos/{repo}/pulls/{number}"))["state"] == "open"
+    except GitHubError as exc:
+        if " 404 " not in str(exc):
+            raise
+        return False
+
+
 async def checks_status(repo: str, number: int) -> str | None:
     """None if CI passed on the PR's head commit, otherwise the reason it did not."""
     pr = await _api("GET", f"/repos/{repo}/pulls/{number}")
-    runs = (await _api("GET", f"/repos/{repo}/commits/{pr['head']['sha']}/check-runs"))["check_runs"]
+    return await commit_checks(repo, pr["head"]["sha"])
+
+
+async def commit_checks(repo: str, sha: str) -> str | None:
+    """None if CI passed on the commit, otherwise the reason it did not."""
+    runs = (await _api("GET", f"/repos/{repo}/commits/{sha}/check-runs"))["check_runs"]
     if not runs:
         return "no CI checks reported"
     if pending := [r["name"] for r in runs if r["status"] != "completed"]:
@@ -164,3 +186,38 @@ async def checks_status(repo: str, number: int) -> str | None:
     if failed := [r["name"] for r in runs if r["conclusion"] not in OK_CONCLUSIONS]:
         return f"CI failed: {', '.join(failed)}"
     return None
+
+
+async def file_content(repo: str, path: str, ref: str) -> str | None:
+    """A text file of the repository at `ref`; None if it does not exist there."""
+    try:
+        data = await _api("GET", f"/repos/{repo}/contents/{quote(path, safe='/')}", params={"ref": ref})
+    except GitHubError as exc:
+        if " 404 " not in str(exc):
+            raise
+        return None
+    return base64.b64decode(data["content"]).decode(errors="replace")
+
+
+async def tag_exists(repo: str, tag: str) -> bool:
+    try:
+        await _api("GET", f"/repos/{repo}/git/ref/tags/{quote(tag, safe='')}")
+    except GitHubError as exc:
+        if " 404 " not in str(exc):
+            raise
+        return False
+    return True
+
+
+async def branch_head(repo: str, branch: str) -> str:
+    """The commit SHA at the tip of a branch."""
+    return (await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}"))["commit"]["sha"]
+
+
+async def create_release(repo: str, tag: str, sha: str, notes: str) -> dict:
+    """Tag `sha` and publish the GitHub Release for it, in one call. The tag push starts release.yml."""
+    return await _api(
+        "POST",
+        f"/repos/{repo}/releases",
+        json={"tag_name": tag, "target_commitish": sha, "name": tag, "body": notes},
+    )

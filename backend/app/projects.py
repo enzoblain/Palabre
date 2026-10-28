@@ -1,11 +1,14 @@
 """Project creation: the team is drawn at random from the catalog."""
 
+import json
 import random
 import re
 import secrets
+import tomllib
 from dataclasses import asdict
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,12 +18,28 @@ from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
     reroll_employee,
 )  # fmt: skip
-from app.models import Conversation, Decision, DecisionStatus, Employee, Project, Room, Task, TaskStatus
+from app.models import (
+    Conversation, Decision, DecisionStatus, Employee, Event, Message, Project, RequestAnswer, Room, Task, TaskStatus,
+)  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
 from app.worktrees import sync_repo
 
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
+
+
+async def working_branch(repo_url: str, branch: str) -> str:
+    """The branch a new development project works on. `branch` is the one resolved at
+    creation: when it is the repository's default branch (production), the team works on
+    `dev` instead, created from it if missing, and only propose_release reaches production.
+    An empty repository has no branch to create it from: `dev` is named anyway and its
+    first commit (worktrees._initial_commit) creates production, then `dev`."""
+    repo = github.repo_slug(repo_url)
+    if branch != await github.resolve_branch(repo, ""):
+        return branch
+    if await github.has_commits(repo) and not await github.branch_exists(repo, github.WORKING_BRANCH):
+        await github.create_branch(repo, github.WORKING_BRANCH, branch)
+    return github.WORKING_BRANCH
 
 
 async def create_project(
@@ -43,6 +62,7 @@ async def create_project(
     kind = kind_of_mode(mode)
     if kind == "company":
         repo_url = github.https_url(repo_url)  # GitHub URLs only
+        default_branch = await working_branch(repo_url, default_branch)
     else:
         repo_url = ""
     if employees:
@@ -73,6 +93,7 @@ async def create_project(
     ]
     s.add(project)
     await _open_channels(s, project)
+    await ensure_direction(s, project)
     await s.commit()
     if kind == "research" and topic:
         await _kick_off_research(s, project, topic)
@@ -110,6 +131,60 @@ async def _open_channels(s: AsyncSession, project: Project) -> None:
         await s.flush()
         s.add(Conversation(room_id=room.id, title="Kickoff"))
         groups.append(names)
+
+
+async def ensure_direction(s: AsyncSession, project: Project) -> None:
+    """A company has a "direction" channel: the boss and the lead, nobody else. It is
+    created after the team channels, so the first room stays the team's."""
+    lead = next((e for e in project.employees if "lead" in e.roles), None)
+    if project.kind != "company" or lead is None:
+        return
+    existing = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
+    if existing is not None:
+        existing.members = [lead]  # A new lead (change of company size) takes the seat
+        return
+    room = Room(project=project, name=services.DIRECTION, kind=services.DIRECTION, members=[lead])
+    s.add(room)
+    await s.flush()
+    s.add(Conversation(room_id=room.id, title="Direction"))
+
+
+async def ensure_all_directions(s: AsyncSession) -> None:
+    """Existing companies get their direction channel (their rooms stay team channels)."""
+    for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
+        await ensure_direction(s, await load_project(s, project_id))
+    await s.commit()
+
+
+async def migrate_inbox(s: AsyncSession) -> None:
+    """The inbox is gone: what waited in it becomes requests in direction, then its
+    notifications (events for the boss) are purged. Safe to run at every startup."""
+    escalations = await s.scalars(
+        select(Event).where(Event.target_role == "boss", Event.type == "escalation", Event.processed_at.is_(None))
+    )
+    for event in escalations:
+        message = await s.get(Message, event.payload.get("message_id"))
+        if message is not None and message.request_kind is None:
+            message.request_kind, message.request_status = "escalation", "pending"
+    pending = await s.scalars(select(Decision).where(Decision.status == DecisionStatus.proposed))
+    for decision in pending:
+        asked = await s.scalar(select(Message.id).where(Message.request_decision_id == decision.id).limit(1))
+        room = await s.get(Room, decision.room_id)
+        if asked is not None or room is None:
+            continue
+        employees = list(await s.scalars(select(Employee).where(Employee.project_id == room.project_id)))
+        author = next(
+            (e for e in employees if e.name == decision.proposed_by), next((e for e in employees if "lead" in e.roles), None)
+        )
+        if author is None:
+            continue
+        kind = "release" if decision.pr_number is not None else "decision"
+        text = f"{'Release' if kind == 'release' else 'Decision'} to validate: {decision.title}"
+        if decision.pr_url:
+            text += f" ({decision.pr_url})"
+        await services.ask_boss(s, room.project_id, author, text, kind, decision.id)
+    await s.execute(delete(Event).where(Event.target_role == "boss"))
+    await s.commit()
 
 
 def team_of(project: Project) -> Team:
@@ -191,6 +266,8 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     channels = {c["name"]: c for c in load_catalog()["channels"]}
     for i, room in enumerate(project.rooms):
         room.members = [m for m in room.members if m not in remaining]
+        if room.kind == services.DIRECTION:
+            continue
         # Newcomers join the general room and the channels of their roles
         channel = channels.get(room.name)
         room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
@@ -199,6 +276,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur
     project.mode = mode
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
+    await ensure_direction(s, project)
     await s.commit()
     return await load_project(s, project.id)
 
@@ -263,22 +341,176 @@ async def propose_release(s: AsyncSession, project: Project, room_id: int, title
     )  # fmt: skip
     s.add(decision)
     await s.flush()
-    services.emit_event(s, project.id, "decision_proposed", {"room_id": room_id, "decision_id": decision.id}, role="boss")
     await s.commit()
     return decision
 
 
-async def settle_release(project: Project, decision: Decision, accepted: bool) -> None:
+async def settle_release(project: Project, decision: Decision, accepted: bool, sha: str | None = None) -> None:
     """The boss's answer to a release: accepted, its PR is merged (a merge commit, so the
     team's branch and production keep the same history); rejected, it is closed."""
     repo = github.repo_slug(project.repo_url)
     if accepted:
-        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge")
+        await github.merge_pull_request(repo, decision.pr_number, decision.title, method="merge", sha=sha)
     else:
         try:
             await github.close_pull_request(repo, decision.pr_number)
         except github.GitHubError:
             pass  # Already closed or merged on GitHub
+
+
+async def merge_release(s: AsyncSession, project: Project, title: str, summary: str) -> tuple[str, int]:
+    """The lead merges the release PR (team's branch to production) without the boss's answer,
+    under the same CI gate as a task. Opens the PR if there is none; a release the boss
+    was asked about is settled as validated. Returns the PR's URL and number."""
+    repo = github.repo_slug(project.repo_url)
+    production = await github.resolve_branch(repo, "")
+    if project.default_branch == production:
+        raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
+    pr = await github.find_pull_request(repo, project.default_branch, production)
+    if pr is None:
+        try:
+            pr = await github.open_pull_request(repo, project.default_branch, production, title, summary)
+        except github.GitHubError as exc:
+            if "No commits between" in str(exc):
+                raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
+            raise
+    # CI is checked on this exact commit and the merge is pinned to it: a task merged into
+    # the team's branch in between makes GitHub refuse instead of shipping unchecked code
+    head_sha = pr["head"]["sha"]
+    if ci := await github.commit_checks(repo, head_sha):
+        raise WorkflowError(f"The release PR #{pr['number']} cannot be merged: {ci}")
+    pending = await s.scalar(
+        select(Decision).where(
+            Decision.room_id.in_(select(Room.id).where(Room.project_id == project.id)),
+            Decision.pr_number == pr["number"],
+            Decision.status == DecisionStatus.proposed,
+        )
+    )
+    if pending is not None:
+        await settle_decision(
+            s, pending, RequestAnswer.validated, "Merged by the lead, without the boss's answer",
+            wake_proposer=False, merge_sha=head_sha,
+        )  # fmt: skip
+        await s.commit()
+    else:
+        await github.merge_pull_request(repo, pr["number"], f"Release: {title}", method="merge", sha=head_sha)
+    return pr["html_url"], pr["number"]
+
+
+SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# Where the app's version lives in the repository, and how to read it
+VERSION_FILES = {
+    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/src-tauri/tauri.conf.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/src-tauri/Cargo.toml": lambda text: str(tomllib.loads(text).get("package", {}).get("version")),
+}
+
+
+async def publish_version(project: Project, version: str, notes: str) -> str:
+    """Tag the head of production with vX.Y.Z and publish the GitHub Release (the tag starts
+    release.yml). Refused for a malformed version, an existing tag or files at another version."""
+    version = version.strip().removeprefix("v")
+    if not SEMVER_RE.match(version):
+        raise WorkflowError(f"'{version}' is not a version: use X.Y.Z, e.g. 1.4.0")
+    if not notes.strip():
+        raise WorkflowError("A release needs notes")
+    tag = f"v{version}"
+    repo = github.repo_slug(project.repo_url)
+    if await github.tag_exists(repo, tag):
+        raise WorkflowError(f"The tag {tag} already exists")
+    production = await github.resolve_branch(repo, "")
+    sha = await github.branch_head(repo, production)
+    # The tag publishes the images the team pulls: production's head must have passed CI
+    if ci := await github.commit_checks(repo, sha):
+        raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
+    mismatches = []
+    for path, read in VERSION_FILES.items():
+        text = await github.file_content(repo, path, sha)
+        if text is None:
+            continue  # A project without this file has no version to match
+        try:
+            found = read(text)
+        except ValueError:  # includes malformed JSON and TOML
+            found = "unreadable"
+        if found != version:
+            mismatches.append(f"{path} says {found}")
+    if mismatches:
+        raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")
+    release = await github.create_release(repo, tag, sha, notes.strip())
+    return release["html_url"]
+
+
+async def settle_decision(
+    s: AsyncSession,
+    decision: Decision,
+    answer: RequestAnswer,
+    comment: str = "",
+    *,
+    wake_proposer: bool = True,
+    merge_sha: str | None = None,
+) -> None:
+    """Apply the boss's answer to a decision. A release is merged when validated and closed
+    when rejected (GitHub refusing the merge raises and leaves everything as it was). A
+    nuanced answer leaves a decision proposed; a nuanced release is dropped but its PR stays
+    open, so the lead can reshape it and propose it again."""
+    room = await s.get(Room, decision.room_id)
+    is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
+    if is_release and answer != RequestAnswer.nuanced:
+        project = await load_project(s, room.project_id)
+        await settle_release(project, decision, answer == RequestAnswer.validated, merge_sha)
+    if answer == RequestAnswer.nuanced:
+        status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
+    else:
+        status = DecisionStatus(answer.value)
+    now = datetime.now(UTC)
+    if status != DecisionStatus.proposed:
+        decision.status, decision.decided_at = status, now
+    payload = {"decision_id": decision.id, "status": answer.value, "room_id": room.id}
+    services.emit_event(s, room.project_id, "decision_changed", payload)
+    if wake_proposer:
+        proposer = await s.scalar(
+            select(Employee).where(Employee.project_id == room.project_id, Employee.name == decision.proposed_by)
+        )
+        if proposer is not None:
+            services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
+    # The requests asking the boss about this decision are answered
+    await s.execute(
+        update(Message)
+        .where(Message.request_decision_id == decision.id, Message.request_status == "pending")
+        .values(request_status=answer.value, request_comment=comment or None, request_answered_at=now)
+    )
+
+
+async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer, comment: str = "") -> Message:
+    """The boss answers a request of the lead, once. The answer is stored on the message and
+    wakes the lead up with it; a request about a decision or a release settles it too."""
+    message = await s.get(Message, message_id, with_for_update=True)  # two clicks: one answer
+    if message is None or message.request_kind is None:
+        raise WorkflowError(f"Message #{message_id} does not ask anything")
+    if message.request_status != "pending":
+        raise WorkflowError(f"Message #{message_id} was already answered ({message.request_status})")
+    conversation = await s.get(Conversation, message.conversation_id)
+    room = await s.get(Room, conversation.room_id)
+    comment = comment.strip()
+    employees = await s.scalars(select(Employee).where(Employee.project_id == room.project_id))
+    lead = next((e for e in employees if "lead" in e.roles), None)
+    if message.request_decision_id is not None:
+        decision = await s.get(Decision, message.request_decision_id)
+        if decision is not None:
+            # The lead is woken by the answer itself: no second wakeup for their own proposal
+            await settle_decision(s, decision, answer, comment, wake_proposer=lead is None or decision.proposed_by != lead.name)
+    message.request_status = answer.value
+    message.request_comment = comment or None
+    message.request_answered_at = datetime.now(UTC)
+    if lead is not None:
+        payload = {
+            "conversation_id": message.conversation_id, "message_id": message.id,
+            "answer": answer.value, "comment": comment or "(no comment)", "request": message.request_kind,
+            "asked_by": message.author_name,
+        }  # fmt: skip
+        services.emit_event(s, room.project_id, "ceo_answer", payload, employee_id=lead.id)
+    await s.commit()
+    return message
 
 
 async def normalize_repo_urls(s: AsyncSession) -> None:

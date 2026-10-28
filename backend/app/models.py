@@ -42,6 +42,14 @@ class DecisionStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class RequestAnswer(str, enum.Enum):
+    """How the boss answers a request of the lead (Message.request_status)."""
+
+    validated = "validated"
+    rejected = "rejected"
+    nuanced = "nuanced"
+
+
 class TaskKind(str, enum.Enum):
     feature = "feature"
     bug = "bug"
@@ -136,6 +144,9 @@ class Room(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
+    # "direction": only the boss and the lead, the one place the boss may write;
+    # "team": the team's channels, which the boss reads but cannot write in
+    kind: Mapped[str] = mapped_column(String(20), default="team", server_default="team")
     # Shared document: objective and summary (decisions, questions and tasks are rows)
     objective: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -197,6 +208,14 @@ class Message(Base):
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     author_name: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text)
+    # A request to the boss ("decision", "release", "escalation", "question"), answered
+    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then
+    request_kind: Mapped[str | None] = mapped_column(String(20))
+    request_status: Mapped[str | None] = mapped_column(String(20))
+    request_comment: Mapped[str | None] = mapped_column(Text)
+    request_answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The decision (or release) the request is about
+    request_decision_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = created_at_column()
 
 
@@ -338,5 +357,12 @@ class AgentRun(Base):
     claude_session_id: Mapped[str | None] = mapped_column(String(100))
     num_turns: Mapped[int | None]
     cost_usd: Mapped[float | None]
+    # Usage reported by claude's JSON output; None when the run failed before reporting it
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cache_creation_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cache_read_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    # Claude account (from 1) the run was billed on, kept because the assignment can change
+    account: Mapped[int | None]
 
     employee: Mapped[Employee] = relationship()

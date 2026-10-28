@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.config import settings
-from app.github import GitHubError, git
+from app.github import GitHubError, git, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
 
 
@@ -77,17 +77,21 @@ async def _has_ref(repo: Path, ref: str) -> bool:
 
 
 async def _initial_commit(project: Project, repo: Path) -> None:
-    """A brand-new GitHub repository has no commit: tasks need a default branch to start
-    from, so an empty first commit is pushed."""
+    """A brand-new GitHub repository has no commit: tasks need a branch to start from, so
+    an empty first commit is pushed. Production (the repository's default branch) comes
+    first, as the first branch pushed becomes the default; a working branch other than
+    production (`dev`) then starts from the same commit."""
     branch = project.default_branch
-    # Already made by an attempt whose push failed: only the push is left
-    if not await _has_ref(repo, f"refs/heads/{branch}"):
-        await git(repo, "checkout", "--quiet", "--orphan", branch)
+    production = await resolve_branch(repo_slug(project.repo_url), "")
+    # Already made by an attempt whose push failed: only the pushes are left
+    if not await _has_ref(repo, f"refs/heads/{production}"):
+        await git(repo, "checkout", "--quiet", "--orphan", production)
         await git(
             repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
             "commit", "--quiet", "--allow-empty", "-m", "Initial commit",
         )  # fmt: skip
-    await git(repo, "push", "--quiet", "origin", f"refs/heads/{branch}:refs/heads/{branch}", repo_url=project.repo_url)
+    for name in dict.fromkeys([production, branch]):
+        await git(repo, "push", "--quiet", "origin", f"{production}:refs/heads/{name}", repo_url=project.repo_url)
     await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
 
 
@@ -120,7 +124,7 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
         if path.exists():
             await git(repo, "worktree", "remove", "--force", str(path))
         await git(repo, "worktree", "prune")
-        if task.branch:
+        if task.branch and task.branch.startswith("task/"):
             try:
                 await git(repo, "branch", "-D", task.branch)
             except GitHubError:
