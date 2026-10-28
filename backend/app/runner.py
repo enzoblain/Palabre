@@ -89,6 +89,8 @@ async def run_claude(spec: RunSpec) -> RunResult:
         "--output-format", "json",
         "--mcp-config", str(mcp_config),
         "--strict-mcp-config",
+        # Only these built-in tools exist for the agent; the others cannot even be asked for
+        "--tools", ",".join(spec.claude_tools),
         "--allowedTools", ",".join(allowed),
         "--append-system-prompt", spec.system_prompt,
         "--max-turns", str(settings.claude_max_turns),

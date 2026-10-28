@@ -10,7 +10,7 @@ from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_m
 from app.orchestrator.prompts import reason_for
 
 # Events that make the assignee work on the task (task run) rather than talk
-TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested"}
+TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested", "task_retry"}
 BATCH_SIZE = 200
 
 

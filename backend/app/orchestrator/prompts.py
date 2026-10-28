@@ -23,6 +23,8 @@ REASONS: dict[str, str] = {
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",
     "review_rounds_exceeded": "Task #{task_id} went through {rounds} rounds of requested changes without converging. Step in: decide, reassign it, or split it.",
     "conversation_throttled": "The team posted too much in conversation #{conversation_id} within an hour; agents are paused there until you step in.",
+    "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
+    "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, tell them with @boss; otherwise reassign or split the task.",
     "conversation_idle": "The conversation has gone quiet. Update the room document (summary, open questions) with what was said and decided.",
 }
 
@@ -45,6 +47,7 @@ TASK_RULES = """## Your current task
 You are working on task #{task_id} « {title} », in its own git worktree (your current directory), on branch `{branch}`.
 - Start with get_task to read the description and acceptance criteria.
 - Stay within the task. Run the tests before submitting.
+- Your position's tools are allowed in your worktree: if you have Bash, you can run commands (python3, git, tests...) there.
 - The machine has git and Python 3. Other toolchains (Node.js...) are only there if the boss installed them: if one you need is missing, escalate to the boss instead of working around it.
 - Commit your work with clear messages (`git commit`). Never push: submit_for_review pushes and opens the pull request.
 - Post short progress updates with report_progress. If you are blocked, say so, or escalate.

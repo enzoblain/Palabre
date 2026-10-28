@@ -19,6 +19,7 @@ from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Project, Task, TaskStatus, Wakeup
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import OPERATING_RULES, task_rules, wake_prompt
+from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
 from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, run_claude
@@ -28,7 +29,6 @@ log = logging.getLogger(__name__)
 
 # Conversation runs may read the code, never change it: edits only happen in task worktrees
 READ_ONLY_TOOLS = ["Glob", "Grep", "Read"]
-RUNNABLE_TASK_STATUSES = {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}
 REPO_SYNC_INTERVAL_S = 60
 
 
@@ -204,6 +204,8 @@ class Orchestrator:
             run.claude_session_id, run.num_turns, run.cost_usd = result.session_id, result.num_turns, result.cost_usd
         await s.execute(update(Wakeup).where(Wakeup.id.in_(wakeup_ids)).values(finished_at=now))
         await s.commit()
+        if ok is False and run.task_id is not None and run.kind == "task":
+            await on_task_run_failed(s, run.task_id, error)
 
     # --- Preparing a run -----------------------------------------------------------
 

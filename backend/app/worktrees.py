@@ -59,12 +59,14 @@ async def _initial_commit(project: Project, repo: Path) -> None:
     """A brand-new GitHub repository has no commit: tasks need a default branch to start
     from, so an empty first commit is pushed."""
     branch = project.default_branch
-    await git(repo, "checkout", "--quiet", "--orphan", branch)
-    await git(
-        repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
-        "commit", "--quiet", "--allow-empty", "-m", "Initial commit",
-    )  # fmt: skip
-    await git(repo, "push", "--quiet", "origin", f"HEAD:refs/heads/{branch}", repo_url=project.repo_url)
+    # Already made by an attempt whose push failed: only the push is left
+    if not await _has_ref(repo, f"refs/heads/{branch}"):
+        await git(repo, "checkout", "--quiet", "--orphan", branch)
+        await git(
+            repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
+            "commit", "--quiet", "--allow-empty", "-m", "Initial commit",
+        )  # fmt: skip
+    await git(repo, "push", "--quiet", "origin", f"refs/heads/{branch}:refs/heads/{branch}", repo_url=project.repo_url)
     await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
 
 

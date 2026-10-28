@@ -1,4 +1,5 @@
-"""Company rituals: the daily stand-up, and the scribe once a conversation goes quiet."""
+"""Company rituals: the daily stand-up, the scribe once a conversation goes quiet, and
+retries of task runs that failed."""
 
 import asyncio
 import logging
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Conversation, Event, Message, Project, Room
+from app.orchestrator.retries import retry_failed_tasks
 from app.services import emit_event
 
 log = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ async def run_scheduler() -> None:
             async with SessionLocal() as s:
                 await _daily(s)
                 await _idle_conversations(s)
+                await retry_failed_tasks(s)
         except asyncio.CancelledError:
             raise
         except Exception:
