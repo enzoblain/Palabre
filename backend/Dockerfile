@@ -16,7 +16,8 @@ RUN useradd --create-home --uid 1000 palabre \
 
 WORKDIR /srv
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Frozen, hash-checked dependencies (see "Dependencies" in the README)
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 USER palabre
 # Claude sessions (needed for --resume) live in the /data volume
