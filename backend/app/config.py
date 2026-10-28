@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     # Agents (`claude -p`, billed on Claude subscriptions). One token per account,
     # separated by "|": the employees are spread over the accounts.
     claude_code_oauth_tokens: str = ""
-    # Former single-account setting, still accepted
-    claude_code_oauth_token: str = ""
     claude_bin: str = "claude"
     # Turns per run: a conversation turn is short, work on a task can take long
     claude_max_turns: int = 30
@@ -48,8 +46,7 @@ class Settings(BaseSettings):
 
     @property
     def claude_tokens(self) -> list[str]:
-        tokens = [t.strip() for t in self.claude_code_oauth_tokens.split("|") if t.strip()]
-        return tokens or ([self.claude_code_oauth_token.strip()] if self.claude_code_oauth_token.strip() else [])
+        return [t.strip() for t in self.claude_code_oauth_tokens.split("|") if t.strip()]
 
 
 settings = Settings()
