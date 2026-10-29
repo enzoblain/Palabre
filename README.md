@@ -265,7 +265,15 @@ Backend tests (pytest, no database or network needed):
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
-On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rf`). The frontend check has no such annotation.
+On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rfE`). The frontend check has no such annotation.
+
+Compose smoke test (needs docker, takes a few minutes):
+
+```sh
+.github/scripts/compose-smoke.sh
+```
+
+It brings up the real `docker-compose.yml` with throwaway secrets (it writes its own `.env`, removed on exit, and refuses to run over yours or a compose override) and checks that: the API answers 401 without or with a wrong token and 200 with the right one; no secret appears in the backend's `env`, `/proc/1/environ` or `docker inspect`; the `agent` user exists and can read neither `/run/secrets` nor `/run/palabre-secrets`; the version under test starts on a volume used by the last published version (data kept, volume migrated); and the `updater` recreates the backend with the secrets still resolved. Without a published version (or one older than Docker secrets), the upgrade and updater steps are skipped with a notice. In CI this is the `Compose smoke test` job, run on pull requests and on pushes to `dev` and `main`; failures show as `::error` annotations.
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
