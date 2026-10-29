@@ -4,11 +4,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
 from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room
+from app.orchestrator.dispatcher import orchestrator
 from app.orchestrator.research import start_question
 
 router = APIRouter(tags=["conversations"])
@@ -76,6 +78,13 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
                 role="lead",
             )  # fmt: skip
     # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
+    await _clear_throttle(s, conversation_id)
+    await s.commit()
+    return message
+
+
+async def _clear_throttle(s: AsyncSession, conversation_id: int) -> None:
+    """Marks the pending "conversation_throttled" notices of a conversation as handled."""
     await s.execute(
         update(Event)
         .where(
@@ -85,8 +94,16 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
         )
         .values(processed_at=datetime.now(UTC))
     )
+
+
+@router.post("/conversations/{conversation_id}/lift-rate-limit", status_code=status.HTTP_204_NO_CONTENT)
+async def lift_rate_limit(conversation_id: int, s: SessionDep):
+    """Restarts the anti-loop window of a conversation (admin token): agents can be woken in it again."""
+    conversation = await get_or_404(s, Conversation, conversation_id)
+    room = await get_or_404(s, Room, conversation.room_id)
+    await orchestrator.lift_rate_limit(s, room.project_id, conversation_id)
+    await _clear_throttle(s, conversation_id)
     await s.commit()
-    return message
 
 
 @router.post("/messages/{message_id}/answer", response_model=MessageOut)

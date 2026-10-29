@@ -189,6 +189,35 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
   );
 }
 
+/** Restarts the anti-loop window of the conversation, for the CEO who cannot write in a read-only channel. */
+function LiftLimitButton({ conversationId }: { conversationId: number }) {
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function lift() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.liftRateLimit(conversationId);
+      setFeedback({ ok: true, text: "Loop limit lifted: the team can be woken up again here." });
+    } catch (err) {
+      setFeedback({ ok: false, text: err instanceof ApiError ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="lift-limit">
+      <button className="btn" disabled={busy} onClick={lift}
+        title="Agents stop being woken up here after too many runs in an hour. This restarts the count.">
+        Lift loop limit
+      </button>
+      <span className={`lift-note${feedback?.ok === false ? " error" : ""}`} role="status" aria-live="polite">{feedback?.text}</span>
+    </span>
+  );
+}
+
 /** The first conversation of the direction channel, to link to it from read-only channels. */
 function useDirectionLink(direction: Room | undefined): number | null {
   const [id, setId] = useState<number | null>(null);
@@ -297,6 +326,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {readOnly
           ? <span className="live-tag muted">● Live · read-only</span>
           : <span className="conv-members muted">{room.members.length} members</span>}
+        <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
       {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 

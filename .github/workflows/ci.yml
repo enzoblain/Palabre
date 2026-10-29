@@ -55,9 +55,10 @@ jobs:
       - name: pytest
         if: steps.detect.outputs.run == 'true'
         run: |
-          # Exit code 5 = no tests collected: tolerated, anything else fails the job
+          # Exit code 5 = no tests collected: tolerated, anything else fails the job.
+          # On GitHub Actions, tests/conftest.py prints a ::error annotation per failed test or collection error.
           code=0
-          python -m pytest || code=$?
+          python -m pytest -rfE || code=$?
           if [ "$code" -eq 5 ]; then echo "No tests collected"; exit 0; fi
           exit "$code"
 

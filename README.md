@@ -94,6 +94,12 @@ clone. Only branches recorded on tasks are touched, never the default branch, `d
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
+Agents that keep pinging each other in a conversation are throttled: past
+`MAX_RUNS_PER_CONVERSATION_HOUR` executed runs within an hour (skipped wakeups do not count),
+chatter wakeups are skipped and the lead is alerted. The boss posting there lifts the limit, or
+call `POST /api/conversations/{id}/lift-rate-limit` (admin token, `204`): earlier runs stop
+counting. The reset is kept in memory, so a backend restart forgets it.
+
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts
 what waits for you in the direction channel as a request, a message with three answers,
@@ -258,6 +264,8 @@ Backend tests (pytest, no database or network needed):
 ```sh
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
+
+On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rf`). The frontend check has no such annotation.
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
