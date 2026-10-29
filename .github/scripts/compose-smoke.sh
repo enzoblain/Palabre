@@ -26,9 +26,12 @@ SECRETS=("$ADMIN_TOKEN" "$GITHUB_TOKEN" "$CLAUDE_CODE_OAUTH_TOKENS" "$POSTGRES_P
 SECRET_FILES=(admin_token github_token claude_code_oauth_tokens postgres_password)
 PORT=12710
 
-# The last published version, if any: the image tags have no "v"
+# The highest published version, if any: release tags live on main, so describe from dev would
+# find an old one. The image tags have no "v".
 OLD=""
-if tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null); then OLD="${tag#v}"; fi
+git fetch --tags --quiet 2>/dev/null || true
+tag=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1) || true
+if [ -n "$tag" ]; then OLD="${tag#v}"; fi
 NEW="smoke-local"
 
 write_env() {
@@ -84,11 +87,11 @@ check_api() {
   local code
   code=$(http_code "http://127.0.0.1:$PORT/health")
   [ "$code" = 200 ] || fail "$1: /health answered $code"
-  code=$(http_code "http://127.0.0.1:$PORT/api/modes")
+  code=$(http_code "http://127.0.0.1:$PORT/api/catalog/modes")
   [ "$code" = 401 ] || fail "$1: /api without token answered $code (expected 401)"
-  code=$(http_code -H "Authorization: Bearer wrong-$ADMIN_TOKEN" "http://127.0.0.1:$PORT/api/modes")
+  code=$(http_code -H "Authorization: Bearer wrong-$ADMIN_TOKEN" "http://127.0.0.1:$PORT/api/catalog/modes")
   [ "$code" = 401 ] || fail "$1: /api with a wrong token answered $code (expected 401)"
-  code=$(http_code -H "Authorization: Bearer $ADMIN_TOKEN" "http://127.0.0.1:$PORT/api/modes")
+  code=$(http_code -H "Authorization: Bearer $ADMIN_TOKEN" "http://127.0.0.1:$PORT/api/catalog/modes")
   [ "$code" = 200 ] || fail "$1: /api with the right token answered $code (expected 200)"
 }
 
@@ -124,6 +127,9 @@ check_secrets() { # check_secrets <label>
   done
   # The agent user must exist, otherwise the checks below prove nothing
   dc exec -T backend id agent >/dev/null 2>&1 || fail "$1: the user 'agent' does not exist in the image"
+  # The agent user comes through sudo's env_reset: its env must be clean too
+  out=$(dc exec -T -u agent backend env)
+  check_no_secret_in "$1: env of the agent user" "$out"
   for f in "${SECRET_FILES[@]}"; do
     for dir in /run/secrets /run/palabre-secrets; do
       if dc exec -T -u agent backend sh -c "[ -r $dir/$f ] || cat $dir/$f" >/dev/null 2>&1; then
