@@ -111,7 +111,7 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path) -> dict[str, str]
     }
     # The clone belongs to the backend user: trust this run's clone only. git does not glob
     # safe.directory, so the exact path it is (a subdirectory is covered by its work tree)
-    env |= {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(cwd)}
+    env |= {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(cwd.resolve())}
     return env
 
 

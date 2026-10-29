@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import shutil
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 
@@ -175,18 +176,17 @@ async def test_sudo_run_uses_a_per_run_token_in_the_agent_dir_and_revokes_it(as_
 
 
 def test_agent_env_lets_git_work_in_a_foreign_owned_clone(as_agent, tmp_path):
-    import subprocess
-
     clone = tmp_path / "desk"
     clone.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
     env = runner._env("Mehdi", TOKEN, clone)
     # The agent account's HOME is not ours to read here
-    env = {**env, "HOME": str(tmp_path), "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "XDG_CONFIG_HOME": str(tmp_path)}
+    env = {**env, "HOME": str(tmp_path), "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "XDG_CONFIG_HOME": str(tmp_path),
+           "GIT_CONFIG_NOSYSTEM": "1"}  # the runner image trusts every directory system-wide
 
     def status(env):
         return subprocess.run(["git", "status"], cwd=clone, env=env, capture_output=True, text=True)
 
-    refused = status({k: v for k, v in env.items() if not k.startswith("GIT_CONFIG")})
+    refused = status({k: v for k, v in env.items() if not k.startswith(("GIT_CONFIG_COUNT", "GIT_CONFIG_KEY", "GIT_CONFIG_VALUE"))})
     assert refused.returncode != 0 and "dubious ownership" in refused.stderr
     assert status(env).returncode == 0
