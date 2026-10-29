@@ -18,6 +18,7 @@ from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Message, Project, Task, TaskStatus, Wakeup
+from app.orchestrator.context_reset import reset_context_if_due
 from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
@@ -304,6 +305,7 @@ class Orchestrator:
                 oauth_token=oauth_token,
             )
 
+        await reset_context_if_due(s, employee)  # Before the lookup: no session left to resume
         spec.resume_session_id = await s.scalar(
             select(AgentSession.claude_session_id).where(
                 AgentSession.employee_id == employee.id, AgentSession.scope == scope

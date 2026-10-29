@@ -140,6 +140,8 @@ class Employee(Base):
     style: Mapped[dict[str, str]] = mapped_column(JSON)
     # Claude account it runs on (1, 2...), chosen by the boss; None: spread automatically
     account: Mapped[int | None]
+    # Last fresh start of their conversation context (see orchestrator/context_reset.py); None: never
+    context_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # MCP token; the backend needs it in clear text to write each run's --mcp-config.
     mcp_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = created_at_column()
