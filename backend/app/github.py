@@ -15,7 +15,7 @@ API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
 # A branch name we accept: no spaces, "..", leading "-" or trailing "/" or "."
-BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$"
+BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])\Z"
 # A task's own branch: the legacy `task/<id>...` or `<type>/<id>-<slug>`, type as in Conventional Commits
 TASK_BRANCH_RE = re.compile(
     r"(task|feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)/\d+(-[a-z0-9]+)*"
@@ -127,7 +127,7 @@ async def branch_exists(repo: str, branch: str) -> bool:
 
 
 async def create_branch(repo: str, branch: str, from_branch: str) -> None:
-    ref = await _api("GET", f"/repos/{repo}/git/ref/heads/{from_branch}")
+    ref = await _api("GET", f"/repos/{repo}/git/ref/heads/{quote(from_branch, safe='/')}")
     await _api("POST", f"/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": ref["object"]["sha"]})
 
 
