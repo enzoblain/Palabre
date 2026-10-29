@@ -86,7 +86,7 @@ def _agent_account() -> pwd.struct_passwd:
         raise ClaudeRunError(f"AGENT_USER {settings.agent_user!r} does not exist on this machine") from None
 
 
-def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
+def _env(author_name: str, oauth_token: str | None, cwd: Path) -> dict[str, str]:
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     if settings.agent_user:
         account = _agent_account()
@@ -109,6 +109,9 @@ def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
         "GIT_COMMITTER_NAME": author_name,
         "GIT_COMMITTER_EMAIL": email,
     }
+    # The clone belongs to the backend user: trust this run's clone only. git does not glob
+    # safe.directory, so the exact path it is (a subdirectory is covered by its work tree)
+    env |= {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(cwd.resolve())}
     return env
 
 
@@ -209,7 +212,7 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
 
     try:
         try:
-            env = _env(spec.author_name, spec.oauth_token)
+            env = _env(spec.author_name, spec.oauth_token, spec.cwd)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env),
                 cwd=spec.cwd,

@@ -336,13 +336,19 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   the Go cache, and only read the toolchains. The server's `PATH` never includes the
   toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
   Every run is `sudo -n -u agent` with a fixed list of variables (`HOME`, `PATH` with the
-  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity), never inherited from the
+  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity, `safe.directory` set to the run's
+  own clone), never inherited from the
   server. Secrets travel in that environment, not in the command line, so `ps` does not show
   them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
   A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
   that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
   empties a desk or task clone (files the agent made outside the shared group, which the
   server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
+  Clones are made with `--no-hardlinks`, so they share no object with the reference (whose
+  objects stay private). Desks are recloned at every run and fix themselves. A task clone made
+  before this fix still holds hard links: once its work is pushed, delete
+  `/data/projects/<id>/worktrees/task-<n>` (as the server user) and it is recreated on the
+  agent's next start.
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.

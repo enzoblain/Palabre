@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+import os
 import shutil
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 
@@ -37,26 +39,30 @@ def spec(tmp_path):
 
 
 def test_env_is_explicit_and_the_agents(as_agent):
-    env = runner._env("Mehdi", TOKEN)
+    env = runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
     assert env["HOME"] == "/root"  # the agent account's, not the backend's
     assert "/home/palabre" not in env["PATH"]
     assert env["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
     assert set(env) <= set(runner.ENV_ALLOWLIST) | {
         "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
         "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+        "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0",
     }  # fmt: skip
+    # safe.directory is this run's clone only: git does not glob it
+    assert env["GIT_CONFIG_COUNT"] == "1" and env["GIT_CONFIG_KEY_0"] == "safe.directory"
+    assert env["GIT_CONFIG_VALUE_0"] == "/data/projects/1/desks/employee-3"
     assert "ghp_secret" not in "".join(env.values()) and "dbpass" not in "".join(env.values())
 
 
 def test_unknown_agent_user_is_refused(as_agent, monkeypatch):
     monkeypatch.setattr(settings, "agent_user", "no-such-user-xyz")
     with pytest.raises(ClaudeRunError, match="does not exist"):
-        runner._env("Mehdi", TOKEN)
+        runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
 
 
 def test_command_goes_through_sudo_without_secrets_in_argv(as_agent, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda name: f"/home/palabre/.local/bin/{name}")
-    env = runner._env("Mehdi", TOKEN)
+    env = runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
     cmd = runner._command(["claude", "-p", "do it"], env)
     assert cmd[:5] == ["sudo", "-n", "-u", "root", cmd[4]] and cmd[4].startswith("--preserve-env=")
     assert cmd[5:] == ["--", "/home/palabre/.local/bin/claude", "-p", "do it"]
@@ -167,3 +173,20 @@ async def test_sudo_run_uses_a_per_run_token_in_the_agent_dir_and_revokes_it(as_
     assert seen["employee"] == 7 and seen["deleted_on_use"]  # #108
     assert run_tokens.employee_of(seen["token"]) is None  # revoked at the end of the run
     assert not seen["path"].exists()
+
+
+def test_agent_env_lets_git_work_in_a_foreign_owned_clone(as_agent, tmp_path):
+    clone = tmp_path / "desk"
+    clone.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
+    env = runner._env("Mehdi", TOKEN, clone)
+    # The agent account's HOME is not ours to read here
+    env = {**env, "HOME": str(tmp_path), "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "XDG_CONFIG_HOME": str(tmp_path),
+           "GIT_CONFIG_NOSYSTEM": "1"}  # the runner image trusts every directory system-wide
+
+    def status(env):
+        return subprocess.run(["git", "status"], cwd=clone, env=env, capture_output=True, text=True)
+
+    refused = status({k: v for k, v in env.items() if not k.startswith(("GIT_CONFIG_COUNT", "GIT_CONFIG_KEY", "GIT_CONFIG_VALUE"))})
+    assert refused.returncode != 0 and "dubious ownership" in refused.stderr
+    assert status(env).returncode == 0
