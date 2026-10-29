@@ -100,6 +100,19 @@ def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
     assert s.database_url.endswith("@h/d")
 
 
+@pytest.mark.parametrize("value", [None, "", "   ", "\n"])
+def test_blank_or_missing_admin_token_blocks_startup(tmp_path, monkeypatch, value):
+    from pydantic import ValidationError
+
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    if value is not None:
+        monkeypatch.setenv("ADMIN_TOKEN", value)
+    with pytest.raises(ValidationError, match="admin_token"):
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+
+
 def test_sudo_keeps_claude_in_sudos_process_group():
     # With use_pty the group kill of a timed-out run would only reach sudo
     assert "!use_pty" in DOCKERFILE and "!secure_path" in DOCKERFILE
