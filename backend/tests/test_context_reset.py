@@ -1,11 +1,14 @@
 """Context reset every N finished tasks: counter, threshold, off at 0, what is kept."""
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app import workflow
+from app.models import Base, Employee, Project, Review, Task, TaskStatus, Verdict
 from app.orchestrator import context_reset
 
 
@@ -68,37 +71,65 @@ async def test_zero_disables_the_reset(monkeypatch):
 # --- Who counts: reviewers, QA, security and the lead -------------------------------------
 
 
-class QueryDb(FakeDb):
-    """Keeps the compiled counting query to check which tasks it matches."""
-
-    async def scalar(self, query):
-        self.sql = str(query.compile(compile_kwargs={"literal_binds": True}))
-        return 0
-
-
-async def counting_sql():
-    s = QueryDb(0)
-    await context_reset.finished_tasks_since_reset(s, employee())
-    return s.sql
+@pytest.fixture
+async def db():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        yield session
+    await engine.dispose()
 
 
-async def test_reviews_and_closing_count_next_to_the_assignment():
-    sql = await counting_sql()
-    assert "tasks.assignee_id = 1" in sql and "tasks.closed_by_id = 1" in sql
-    # Reviewers, QA and security all review through `reviews`; EXISTS: one count per task
-    assert "EXISTS" in sql and "reviews.reviewer_id = 1" in sql and "reviews.task_id = tasks.id" in sql
-    assert "done" in sql and "cancelled" in sql
+async def seed(s):
+    """A project with one employee plus a colleague, and a helper to add tasks."""
+    s.add(Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1))
+    await s.flush()
+    people = [
+        Employee(project_id=1, name=n, roles=["dev"], title="Dev", model="m", permissions=[], traits={}, quirks=[],
+                 style={}, mcp_token=n)
+        for n in ("Malik", "Nathan")
+    ]  # fmt: skip
+    s.add_all(people)
+    await s.flush()
+    return people
 
 
-async def test_a_task_is_counted_once_per_person():
-    sql = await counting_sql()
-    assert "JOIN" not in sql and "count(*)" in sql.lower()
+def add_task(s, title, **fields):
+    task = Task(project_id=1, room_id=1, conversation_id=1, title=title, **fields)
+    s.add(task)
+    return task
+
+
+async def test_assigned_reviewed_and_merged_tasks_each_count_once(db):
+    malik, nathan = await seed(db)
+    now = datetime.now(UTC)
+    add_task(db, "assigned", status=TaskStatus.done, assignee_id=malik.id, closed_at=now)
+    reviewed = add_task(db, "reviewed", status=TaskStatus.done, assignee_id=nathan.id, closed_at=now)
+    add_task(db, "merged", status=TaskStatus.cancelled, assignee_id=nathan.id, closed_by_id=malik.id, closed_at=now)
+    add_task(db, "open", status=TaskStatus.review, assignee_id=malik.id)
+    add_task(db, "someone else's", status=TaskStatus.done, assignee_id=nathan.id, closed_at=now)
+    await db.flush()
+    for round in (1, 2):
+        db.add(Review(task_id=reviewed.id, reviewer_id=malik.id, verdict=Verdict.approve, round=round, body=""))
+    await db.flush()
+    assert await context_reset.finished_tasks_since_reset(db, malik) == 3
+
+
+async def test_a_late_edit_of_an_old_task_is_not_counted_again(db):
+    malik, _ = await seed(db)
+    malik.context_reset_at = datetime.now(UTC)
+    old = add_task(db, "old", status=TaskStatus.done, assignee_id=malik.id, closed_at=malik.context_reset_at - timedelta(days=1))
+    await db.flush()
+    old.title = "touched later"  # bumps updated_at
+    await db.flush()
+    assert await context_reset.finished_tasks_since_reset(db, malik) == 0
 
 
 def lead_flow(monkeypatch):
     from tests.conftest import make_employee, make_task
 
-    task = make_task(project_id=1, depends_on=[], title="T", conversation_id=1, pr_url=None, pr_title="feat: x", closed_by_id=None)
+    task = make_task(project_id=1, depends_on=[], title="T", conversation_id=1, pr_url=None, pr_title="feat: x", closed_by_id=None, closed_at=None)
     lead = make_employee("Élise", "lead")
 
     async def get_task(*_):
@@ -142,7 +173,7 @@ async def test_the_lead_is_recorded_at_merge(monkeypatch):
 
     monkeypatch.setattr(workflow, "post_message", post_message)
     await workflow.merge_task(WorkflowDb(0), 1, task.id, lead, force=True)
-    assert task.closed_by_id == lead.id
+    assert task.closed_by_id == lead.id and task.closed_at is not None
 
 
 async def test_the_boss_merging_is_recorded_as_nobody(monkeypatch):
@@ -158,4 +189,4 @@ async def test_the_lead_is_recorded_when_cancelling(monkeypatch):
         WorkflowDb(0), 1, task.id, title=None, description=None, acceptance_criteria=None,
         depends_on=None, status="cancelled", author=lead,
     )  # fmt: skip
-    assert task.closed_by_id == lead.id
+    assert task.closed_by_id == lead.id and task.closed_at is not None
