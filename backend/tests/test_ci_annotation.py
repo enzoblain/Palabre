@@ -22,3 +22,12 @@ def test_two_failures_in_one_file_keep_their_own_line():
 
 def test_message_newlines_are_escaped():
     assert "\n" not in annotation(report("tests/t.py::t", 0, "a\nb"))
+
+
+def test_collection_error_points_at_the_module():
+    # A CollectReport carries no location: the nodeid is the module path
+    longrepr = SimpleNamespace(reprcrash=SimpleNamespace(message="ImportError: nope"))
+    collect = SimpleNamespace(nodeid="tests/test_broken.py", longrepr=longrepr)
+    note = annotation(collect)
+    assert note.startswith("::error file=backend/tests/test_broken.py,line=1,")
+    assert "ImportError: nope" in note

@@ -136,3 +136,8 @@ def pytest_runtest_logreport(report):
         from tests.ci_annotation import annotation
 
         print(f"\n{annotation(report)}")
+
+
+def pytest_collectreport(report):
+    """Same annotation for collection errors (e.g. ImportError in a test module)."""
+    pytest_runtest_logreport(report)

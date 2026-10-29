@@ -2,7 +2,8 @@
 
 
 def annotation(report) -> str:
-    path, line, _ = report.location
+    # Collection reports (import errors) have no line: point at the top of the module
+    path, line, _ = getattr(report, "location", None) or (report.nodeid.split("::")[0], 0, "")
     crash = getattr(report.longrepr, "reprcrash", None)
     message = getattr(crash, "message", None) or "failed"
 
