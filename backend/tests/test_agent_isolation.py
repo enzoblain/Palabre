@@ -44,7 +44,13 @@ def test_env_is_explicit_and_the_agents(as_agent):
     assert set(env) <= set(runner.ENV_ALLOWLIST) | {
         "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
         "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+        "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0", "GIT_CONFIG_KEY_1", "GIT_CONFIG_VALUE_1",
     }  # fmt: skip
+    # safe.directory only for desks and task clones, never "*"
+    assert env["GIT_CONFIG_COUNT"] == "2"
+    values = [env["GIT_CONFIG_VALUE_0"], env["GIT_CONFIG_VALUE_1"]]
+    assert all(env[f"GIT_CONFIG_KEY_{i}"] == "safe.directory" for i in range(2))
+    assert values[0].endswith("/*/desks/*") and values[1].endswith("/*/worktrees/*")
     assert "ghp_secret" not in "".join(env.values()) and "dbpass" not in "".join(env.values())
 
 

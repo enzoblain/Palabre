@@ -109,6 +109,13 @@ def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
         "GIT_COMMITTER_NAME": author_name,
         "GIT_COMMITTER_EMAIL": email,
     }
+    # Clones belong to the backend user: trust the desks and task clones only, never "*"
+    projects = settings.projects_dir
+    trusted = [f"{projects}/*/desks/*", f"{projects}/*/worktrees/*"]
+    env["GIT_CONFIG_COUNT"] = str(len(trusted))
+    for i, pattern in enumerate(trusted):
+        env[f"GIT_CONFIG_KEY_{i}"] = "safe.directory"
+        env[f"GIT_CONFIG_VALUE_{i}"] = pattern
     return env
 
 
