@@ -343,24 +343,6 @@ The lead and devops can also install Node.js or Go for the whole team on their o
 - The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a
   private network: Palabre is not meant to be exposed to the internet.
 
-## Develop
-
-```sh
-docker compose up -d --build                     # server and web app, from backend/ and frontend/
-cd frontend && npm install && npm run tauri dev  # desktop app
-```
-
-To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
-`frontend/`. No linter is configured yet.
-
-Roles, company sizes, research angles and personalities are all defined in
-[`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
-
-The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
-GitHub Actions builds the server and web images for amd64 and arm64
-(`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
-every system, attached to the release. A final `notes` job puts the changes back if the builds overwrote the release body, so the notes always read changes, then download text.
-
 ### Checking the isolation
 
 Nobody builds the isolation in CI (it needs a real container), so check an image by hand
@@ -388,3 +370,21 @@ past its timeout leaves no agent process; that `sudo` has `!use_pty`; and, with
 `CHECK_GITHUB_REPO`, the whole task flow (clone, commit by the agent, push from the
 reference, PR, merge). Without `CHECK_GITHUB_REPO` the flow is skipped and the exit code is
 non-zero. Every line is `ok` or `FAIL`.
+
+## Develop
+
+```sh
+docker compose up -d --build                     # server and web app, from backend/ and frontend/
+cd frontend && npm install && npm run tauri dev  # desktop app
+```
+
+To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
+`frontend/`. No linter is configured yet.
+
+Roles, company sizes, research angles and personalities are all defined in
+[`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
+
+The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
+GitHub Actions builds the server and web images for amd64 and arm64
+(`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
+every system, attached to the release. A final `notes` job puts the changes back if the builds overwrote the release body, so the notes always read changes, then download text.
