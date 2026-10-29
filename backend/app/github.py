@@ -403,17 +403,3 @@ async def branch_tip(repo: str, branch: str) -> dict:
     """The tip of a branch: its SHA, the message and the date of its commit."""
     data = (await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}"))["commit"]
     return {"sha": data["sha"], "message": data["commit"]["message"], "date": data["commit"]["committer"]["date"]}
-
-
-async def commit_files(repo: str, branch: str, parent: str, files: dict[str, str], message: str) -> str:
-    """One commit on `branch` changing `files` (path to new text), on top of `parent`, which must still
-    be the branch's tip: the update is refused otherwise (no force). Returns the new SHA."""
-    base = await _api("GET", f"/repos/{repo}/git/commits/{parent}")
-    tree = await _api(
-        "POST",
-        f"/repos/{repo}/git/trees",
-        json={"base_tree": base["tree"]["sha"], "tree": [{"path": p, "mode": "100644", "type": "blob", "content": c} for p, c in files.items()]},
-    )
-    commit = await _api("POST", f"/repos/{repo}/git/commits", json={"message": message, "tree": tree["sha"], "parents": [parent]})
-    await _api("PATCH", f"/repos/{repo}/git/refs/heads/{quote(branch, safe='/')}", json={"sha": commit["sha"], "force": False})
-    return commit["sha"]

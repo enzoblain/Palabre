@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.config import settings
-from app.github import GitHubError, git, repo_slug, resolve_branch
+from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
 
 
@@ -108,6 +108,33 @@ async def _initial_commit(project: Project, repo: Path) -> None:
     for name in dict.fromkeys([production, branch]):
         await git(repo, "push", "--quiet", "origin", f"{production}:refs/heads/{name}", repo_url=project.repo_url)
     await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
+
+
+async def commit_release(project: Project, expected_sha: str, files: dict[str, str], message: str) -> str:
+    """One commit with `files` (path to text) on top of the team's branch, pushed to that branch only
+    (never production, no force): refused if the branch is no longer at `expected_sha`. Returns the new SHA."""
+    branch = project.default_branch
+    if not re.fullmatch(BRANCH_PATTERN, branch) or branch == await resolve_branch(repo_slug(project.repo_url), ""):
+        raise GitHubError(f"Refusing to commit a release on '{branch}'")
+    async with _repo_locks[project.id]:
+        repo = await _sync_repo(project)
+        if (await git(repo, "rev-parse", "HEAD")).strip() != expected_sha:
+            raise GitHubError(f"{branch} moved while the release was prepared")
+        for path, text in files.items():
+            target = (repo / path).resolve()
+            if not target.is_relative_to(repo.resolve()):
+                raise GitHubError(f"Refusing to write outside the repository: {path}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text)
+        await git(repo, "add", "--", *files)
+        await git(
+            repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
+            "commit", "--quiet", "-m", message,
+        )  # fmt: skip
+        sha = (await git(repo, "rev-parse", "HEAD")).strip()
+        # A plain push of this commit to the team's branch: GitHub refuses it if the branch moved
+        await git(repo, "push", "--quiet", "origin", f"{sha}:refs/heads/{branch}", repo_url=project.repo_url)
+        return sha
 
 
 def desk_dir(project: Project, employee: Employee) -> Path:

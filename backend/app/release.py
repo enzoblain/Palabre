@@ -8,8 +8,6 @@ SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 # Keep a Changelog sections, by Conventional Commits type; other types (chore, docs, test...) are not listed
 CHANGELOG_SECTIONS = {"feat": "Added", "fix": "Fixed", "perf": "Changed", "refactor": "Changed"}
 SECTION_ORDER = ["Added", "Changed", "Fixed"]
-# Files holding the version, besides the ones publish_version reads
-LOCK_FILES = ("frontend/package-lock.json", "frontend/src-tauri/Cargo.lock")
 
 
 def is_release_commit(message: str) -> bool:

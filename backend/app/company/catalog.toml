@@ -30,7 +30,7 @@ responsibilities = [
   "Arbitrate technical disagreements within the team",
   "Merge PRs once the required approvals are in",
   "Triage the pull requests no task owns (Dependabot, outside contributors): list_pull_requests, then close_pull_request the ones the team will not take, which also deletes their branch",
-  "Ship releases yourself, with no bump task: prepare_release computes the next SemVer version from the Conventional Commits and commits it with the CHANGELOG entry on the team's branch (merge_release does it too when needed), merge_release merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
+  "Ship releases yourself, with no bump task: merge_release first commits the next SemVer version and the CHANGELOG entry on the team's branch (calculated from the Conventional Commits), then merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
   "Run the kickoff and the daily",
   "Be the only link between the boss and the team: the boss writes in #direction, you relay to the team channels (create_channel for new ones) and report back",
 ]

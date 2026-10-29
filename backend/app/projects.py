@@ -23,6 +23,7 @@ from app.models import (
 )  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
+from app import worktrees
 from app.worktrees import sync_repo
 
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
@@ -381,9 +382,9 @@ async def release_plan(project: Project) -> dict | None:
 
 
 async def prepare_release(project: Project) -> dict:
-    """Commit the version bump and the CHANGELOG entry on the team's branch (one commit,
-    `chore(release): X.Y.Z`, made by the backend), computed from the commits since the last tag.
-    Nothing is committed when the branch already holds that version."""
+    """Commit the version bump and the CHANGELOG entry on the team's branch only (one commit,
+    `chore(release): X.Y.Z`, made and pushed by the backend from its clone), computed from the
+    commits since the last tag. Nothing is committed when the branch already holds that version."""
     plan = await release_plan(project)
     if plan is None:
         raise WorkflowError(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
@@ -391,12 +392,10 @@ async def prepare_release(project: Project) -> dict:
     repo = github.repo_slug(project.repo_url)
     changes = release.changelog_entry(version, datetime.now(UTC).date().isoformat(), plan["commits"])
     result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": changes}
-    texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, *release.LOCK_FILES, "CHANGELOG.md"]}
-    if all(texts[path] is None or VERSION_FILES[path](texts[path]) == version for path in VERSION_FILES):
+    texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
+    package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
+    if all(texts[path] is None or VERSION_FILES[path](texts[path], package) == version for path in VERSION_FILES):
         return result  # Already bumped
-    package = ""
-    if texts["frontend/src-tauri/Cargo.toml"]:
-        package = tomllib.loads(texts["frontend/src-tauri/Cargo.toml"]).get("package", {}).get("name", "")
     files = {}
     for path, text in texts.items():
         if text is None or path == "CHANGELOG.md":
@@ -411,10 +410,10 @@ async def prepare_release(project: Project) -> dict:
     if not files:
         raise WorkflowError("No version file found to bump")
     for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
-        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path])) != version:
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) != version:
             raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
     try:
-        result["sha"] = await github.commit_files(repo, project.default_branch, tip["sha"], files, f"chore(release): {version}")
+        result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
     except github.GitHubError as exc:
         raise WorkflowError(f"The version bump could not be pushed to {project.default_branch}: {exc}") from exc
     result["committed"] = True
@@ -477,12 +476,26 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
 
 
 SEMVER_RE = release.SEMVER_RE
+def _lock_version(lock: dict) -> str:
+    """The version of a package-lock.json: its two mentions must agree."""
+    top, inner = lock.get("version"), lock.get("packages", {}).get("", {}).get("version", lock.get("version"))
+    return str(top) if top == inner else f"{top} and {inner}"
+
+
+def _package_name(cargo_toml: str | None) -> str:
+    return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
+
+
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
-    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
-    "frontend/src-tauri/tauri.conf.json": lambda text: str(json.loads(text).get("version")),
-    "frontend/src-tauri/Cargo.toml": lambda text: str(tomllib.loads(text).get("package", {}).get("version")),
-}
+    "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
+    "frontend/package-lock.json": lambda text, _package: _lock_version(json.loads(text)),
+    "frontend/src-tauri/tauri.conf.json": lambda text, _package: str(json.loads(text).get("version")),
+    "frontend/src-tauri/Cargo.toml": lambda text, _package: str(tomllib.loads(text).get("package", {}).get("version")),
+    "frontend/src-tauri/Cargo.lock": lambda text, package: str(
+        next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
+    ),
+}  # fmt: skip
 
 
 async def publish_version(project: Project, version: str) -> str:
@@ -501,12 +514,15 @@ async def publish_version(project: Project, version: str) -> str:
     if ci := await github.commit_checks(repo, sha):
         raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
     mismatches = []
+    package = ""
     for path, read in VERSION_FILES.items():
         text = await github.file_content(repo, path, sha)
         if text is None:
             continue  # A project without this file has no version to match
+        if path.endswith("Cargo.toml"):
+            package = _package_name(text)  # Before Cargo.lock, which needs it
         try:
-            found = read(text)
+            found = read(text, package)
         except ValueError:  # includes malformed JSON and TOML
             found = "unreadable"
         if found != version:

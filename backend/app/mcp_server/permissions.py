@@ -28,7 +28,6 @@ MCP_TOOLS: dict[str, set[str]] = {
     "propose_release": {"merge"},
     "list_pull_requests": {"merge"},
     "close_pull_request": {"merge"},  # outside PRs (Dependabot, humans) and their branch
-    "prepare_release": {"ship_release"},  # commits the version bump itself, no task for it
     "merge_release": {"ship_release"},  # the lead alone delivers without waiting for the boss
     "publish_version": {"ship_release"},
     "fix_release": {"ship_release"},

@@ -245,7 +245,7 @@ async def _published_version(repo: str, sha: str) -> str | None:
     """The version the files of `sha` carry, the one to tag; None if it cannot be read."""
     try:
         text = await github.file_content(repo, "frontend/package.json", sha)
-        return projects.VERSION_FILES["frontend/package.json"](text) if text else None
+        return projects.VERSION_FILES["frontend/package.json"](text, "") if text else None
     except (github.GitHubError, ValueError):
         return None
 
@@ -276,7 +276,7 @@ async def watch_pending_release(s: AsyncSession) -> None:
 async def _watch_pending(s: AsyncSession, project: Project) -> None:
     repo = github.repo_slug(project.repo_url)
     tip = await github.branch_tip(repo, project.default_branch)
-    if tip["sha"] == project.release_wait_sha or tip["message"].startswith("chore(release)"):
+    if tip["sha"] == project.release_reminded_sha or tip["message"].startswith("chore(release)"):
         return  # Told already, or the bump is there and its CI will wake the lead
     committed = datetime.fromisoformat(tip["date"].replace("Z", "+00:00"))
     if committed > datetime.now(UTC) - timedelta(minutes=settings.release_wait_minutes):
@@ -286,7 +286,7 @@ async def _watch_pending(s: AsyncSession, project: Project) -> None:
         return
     changes = release.changelog_body(plan["commits"])
     payload = {"sha": tip["sha"], "version": plan["version"], "count": plan["ahead"], "changes": changes}
-    project.release_wait_sha = tip["sha"]
+    project.release_reminded_sha = tip["sha"]
     await _announce_ci(
         s, project, "release_pending", payload,
         f"{plan['ahead']} commits of {project.default_branch} wait for a release: v{plan['version']}",

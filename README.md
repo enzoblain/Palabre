@@ -62,7 +62,7 @@ The same goes for releases: when the CI of the open release PR (team's branch to
 and, after `merge_release`, when the CI of production's head ends, the lead is woken up once per
 head SHA with the result (green, or the failing checks) and a "Palabre" line is posted in the
 team's first channel. Green means `merge_release`, then `publish_version`: once production's CI is green, the wakeup says which version to publish ("publish vX.Y.Z").
-No release depends on the lead remembering it: when the team's branch holds commits production lacks, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default), the lead is woken (`release_pending`, once per head SHA) with the pending changes and the computed version.
+No release depends on the lead remembering it: when the team's branch holds commits production lacks, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default), the lead is woken (`release_pending`, once per head SHA, stored in `Project.release_reminded_sha`) with the pending changes and the computed version.
 
 A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
 branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
@@ -120,8 +120,8 @@ workflow), which starts that workflow; `fix_release` regenerates the name and no
 Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` the minor,
 a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
 wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
-already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
-`Cargo.toml` (`prepare_release` does it). Releases need no bump task: `prepare_release` (also run by `merge_release` when needed) computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch, in one commit: `frontend/package.json` and its lock, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, and the Keep a Changelog entry under `[Unreleased]` (`feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It does nothing if the branch already holds the version, and refuses a version file whose format it does not know. When it commits, the release PR's CI restarts and the lead is woken once it ends, then calls `merge_release` again. These tools are the lead's only (`ship_release` permission in
+already exists, or a version that differs from `frontend/package.json`, its lock, `tauri.conf.json`, `Cargo.lock` or
+`Cargo.toml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` (edited directly, no npm or cargo on the server), and the Keep a Changelog entry under `[Unreleased]` (`feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It does nothing if the branch already holds the version, and refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`

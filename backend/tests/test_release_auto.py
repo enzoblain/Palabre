@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import github, projects, release
+from app import github, projects, release, worktrees
 from app.orchestrator import merge_watch
 from app.services import WorkflowError
 
@@ -74,6 +74,13 @@ def indented(version):
     return files
 
 
+def bumped(version):
+    return indented(version) | {
+        "frontend/package-lock.json": LOCK.replace("0.6.1", version),
+        "frontend/src-tauri/Cargo.lock": CARGO_LOCK.replace("0.6.1", version),
+    }
+
+
 PROJECT = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
 
 
@@ -100,8 +107,8 @@ def gh(monkeypatch):
     async def file_content(repo, path, ref):
         return state.files.get(path)
 
-    async def commit_files(repo, branch, parent, files, message):
-        state.pushed = (branch, parent, files, message)
+    async def commit_release(project, parent, files, message):
+        state.pushed = (project.default_branch, parent, files, message)
         return "new1"
 
     async def find_pull_request(repo, head, base):
@@ -115,8 +122,9 @@ def gh(monkeypatch):
     async def commit_checks(repo, sha):
         return state.ci
 
-    for fn in (resolve_branch, latest_version_tag, compare_commits, branch_tip, file_content, commit_files, find_pull_request, open_pull_request, commit_checks):
+    for fn in (resolve_branch, latest_version_tag, compare_commits, branch_tip, file_content, find_pull_request, open_pull_request, commit_checks):
         monkeypatch.setattr(github, fn.__name__, fn)
+    monkeypatch.setattr(worktrees, "commit_release", commit_release)
     return state
 
 
@@ -134,7 +142,7 @@ async def test_prepare_release_commits_files_and_changelog_in_one_commit(gh):
 
 
 async def test_prepare_release_does_nothing_when_already_bumped(gh):
-    gh.files |= indented("0.7.0")
+    gh.files |= bumped("0.7.0")
     result = await projects.prepare_release(PROJECT)
     assert gh.pushed is None and not result["committed"] and result["version"] == "0.7.0"
 
@@ -152,7 +160,7 @@ async def test_merge_release_commits_the_bump_then_waits_for_the_new_ci(gh):
 
 
 async def test_merge_release_goes_on_once_the_bump_is_there(gh, monkeypatch):
-    gh.files |= indented("0.7.0")
+    gh.files |= bumped("0.7.0")
     gh.pr, gh.ci = {"number": 7, "html_url": "u", "head": {"sha": "new1"}}, None
     merged = []
 
@@ -172,7 +180,7 @@ def pending(gh, monkeypatch):
     monkeypatch.setattr(merge_watch, "_last_pending_check", {})
     monkeypatch.setattr(merge_watch, "team_conversation_id", lambda _s, _pid: _async(3))
     project = make_project()
-    project.kind, project.default_branch, project.release_wait_sha = "company", "dev", None
+    project.kind, project.default_branch, project.release_reminded_sha = "company", "dev", None
     return project
 
 
@@ -188,7 +196,7 @@ async def test_pending_release_wakes_the_lead_once_per_sha(pending, gh):
     [event] = events_of(s, "release_pending")
     assert event.target_role == "lead" and event.payload["version"] == "0.7.0" and event.payload["count"] == 2
     assert "Features" not in event.payload["changes"] and "### Added" in event.payload["changes"]
-    assert pending.release_wait_sha == "tip1"
+    assert pending.release_reminded_sha == "tip1"
 
 
 async def test_pending_release_waits_for_calm_and_for_no_open_task(pending, gh):
@@ -223,7 +231,7 @@ def test_main_ci_wakeup_text_says_which_version_to_publish():
 async def test_main_ci_green_announces_the_version_to_publish(pending, gh, monkeypatch):
     pending.release_ci_sha = pending.main_ci_sha = None
     pending.main_ci_watch = True
-    gh.files |= indented("0.7.0")
+    gh.files |= bumped("0.7.0")
     gh.ci = None
 
     async def branch_head(_repo, _branch):
@@ -243,3 +251,61 @@ async def test_prepare_release_refuses_a_version_file_it_cannot_bump(gh):
     with pytest.raises(WorkflowError, match="could not be bumped"):
         await projects.prepare_release(PROJECT)
     assert gh.pushed is None
+
+
+async def test_publish_version_checks_the_lock_files_too(gh, monkeypatch):
+    async def head(_repo, _branch):
+        return "mainsha"
+
+    async def no_tag(_repo, _tag):
+        return False
+
+    monkeypatch.setattr(github, "branch_head", head)
+    monkeypatch.setattr(github, "tag_exists", no_tag)
+    gh.ci = None
+    gh.files |= bumped("0.7.0")
+    gh.files["frontend/package-lock.json"] = LOCK  # Forgotten at 0.6.1
+    gh.files["frontend/src-tauri/Cargo.lock"] = CARGO_LOCK
+    with pytest.raises(WorkflowError, match="package-lock.json says 0.6.1.*Cargo.lock says 0.6.1"):
+        await projects.publish_version(PROJECT, "0.7.0")
+
+
+async def test_commit_release_pushes_one_commit_to_the_team_branch_only(tmp_path, monkeypatch):
+    calls, head = [], {"sha": "tip1"}
+
+    async def git(_cwd, *args, **_kwargs):
+        calls.append(args)
+        return "new1\n" if args[-2:] == ("rev-parse", "HEAD") and head["sha"] == "new1" else head["sha"] + "\n"
+
+    async def sync(_project):
+        (tmp_path / ".git").mkdir(exist_ok=True)
+        return tmp_path
+
+    async def resolve(_repo, _branch):
+        return "main"
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "_sync_repo", sync)
+    monkeypatch.setattr(worktrees, "resolve_branch", resolve)
+    monkeypatch.setattr(worktrees, "repo_slug", lambda _url: "acme/app")
+    project = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
+    head["sha"] = "tip1"  # rev-parse answers the new SHA once the commit is made
+
+    async def git_commit_moves_head(cwd, *args, **kwargs):
+        if "commit" in args:
+            head["sha"] = "new1"
+        return await git(cwd, *args, **kwargs)
+
+    monkeypatch.setattr(worktrees, "git", git_commit_moves_head)
+    assert await worktrees.commit_release(project, "tip1", {"v.txt": "2", "sub/w.txt": "x"}, "chore(release): 0.7.0") == "new1"
+    assert (tmp_path / "v.txt").read_text() == "2"
+    push = [c for c in calls if "push" in c]
+    assert push == [("push", "--quiet", "origin", "new1:refs/heads/dev")]  # Never force, never main
+    head["sha"] = "other"
+    with pytest.raises(github.GitHubError, match="moved"):
+        await worktrees.commit_release(project, "tip1", {"v.txt": "3"}, "x")
+    with pytest.raises(github.GitHubError, match="Refusing"):
+        await worktrees.commit_release(SimpleNamespace(**{**project.__dict__, "default_branch": "main"}), "tip1", {"v.txt": "3"}, "x")
+    with pytest.raises(github.GitHubError, match="outside"):
+        head["sha"] = "tip1"
+        await worktrees.commit_release(project, "tip1", {"../evil": "3"}, "x")
