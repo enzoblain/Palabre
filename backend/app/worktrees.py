@@ -178,17 +178,17 @@ async def push_task_branch(project: Project, task: Task) -> None:
 
 async def prepare_desk(project: Project, employee: Employee) -> Path:
     """The employee's own scratch clone, where they work during conversations (read,
-    run commands, test a task's branch). It is reset to the default branch at every run
-    and never pushed: real changes go through tasks. Expects the repository synced."""
+    run commands, test a task's branch). It is cloned afresh at every run and never pushed:
+    real changes go through tasks. Expects the repository synced.
+
+    Never reset an existing desk in place: checkout and clean run the clone's filters
+    (`filter.x.smudge` in its agent-written config plus `.gitattributes`), i.e. agent code."""
     ref = f"refs/remotes/origin/{project.default_branch}"
     path = desk_dir(project, employee)
     async with _repo_locks[project.id]:
-        if not (path / ".git").exists():
-            await _clone_from_reference(project, path)
-        else:
-            await _pull_from_reference(project, path)
-        await git(path, "checkout", "--quiet", "--force", "--detach", ref)
-        await git(path, "clean", "--quiet", "-fdx")
+        await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
+        await _clone_from_reference(project, path)  # Config written by the backend alone
+        await git(path, "checkout", "--quiet", "--detach", ref)
     return path
 
 
@@ -241,6 +241,7 @@ async def prepare_worktree(project: Project, task: Task) -> tuple[str, Path]:
         await _sync_repo(project)
         await _clone_from_reference(project, path)
         try:
+            # Fresh clone only: a checkout in an existing agent clone would run its filters
             if await _has_ref(path, f"refs/remotes/origin/{branch}"):
                 await git(path, "checkout", "--quiet", "-B", branch, "--track", f"origin/{branch}")
             else:

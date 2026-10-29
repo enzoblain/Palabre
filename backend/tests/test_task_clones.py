@@ -106,6 +106,24 @@ def test_desk_is_reset_at_each_run(setup):
     assert (path / ".git").is_dir()
 
 
+def test_desk_filters_never_run(setup):
+    project, reference, _ = setup
+    (reference / ".gitattributes").write_text("* filter=x\n")
+    (reference / "f.txt").write_text("x")
+    _run("add", ".gitattributes", "f.txt", cwd=reference)
+    _run("commit", "-q", "-m", "attrs", cwd=reference)
+    _run("update-ref", "refs/remotes/origin/main", "HEAD", cwd=reference)
+    employee = SimpleNamespace(id=3)
+    path = asyncio.run(worktrees.prepare_desk(project, employee))
+    marker = path.parent / "pwned"
+    # The agent defines the filter the repository's .gitattributes names, and dirties the file
+    _run("config", "filter.x.smudge", f"touch {marker}; cat", cwd=path)
+    (path / "f.txt").write_text("changed")
+    asyncio.run(worktrees.prepare_desk(project, employee))
+    assert not marker.exists()
+    assert (path / "f.txt").read_text() == "x"
+
+
 def test_failed_clone_leaves_nothing(setup, monkeypatch):
     project, reference, _ = setup
     project_path = Path(worktrees.project_dir(project)) / "worktrees" / "task-9"
