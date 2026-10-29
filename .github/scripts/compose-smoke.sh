@@ -109,7 +109,8 @@ check_secrets() { # check_secrets <label>
   # As root, the strongest reader: the secrets must not be in the environment at all
   out=$(dc exec -T backend env)
   check_no_secret_in "$1: env of the backend" "$out"
-  out=$(dc exec -T backend sh -c 'tr "\0" "\n" < /proc/1/environ')
+  # Unreadable (non-dumpable process after the privilege drop) is no leak: the shell error ends up in $out
+  out=$(dc exec -T backend sh -c 'tr "\0" "\n" < /proc/1/environ' 2>&1 || true)
   check_no_secret_in "$1: /proc/1/environ" "$out"
   out=$(docker inspect "$id")
   check_no_secret_in "$1: docker inspect backend" "$out"
