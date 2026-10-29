@@ -1,5 +1,7 @@
 """Builds the GitHub ::error annotation of a failed test report (file, line, test name)."""
 
+import re
+
 
 def annotation(report) -> str:
     # A collection error has no test line: nodeid is the file, reported at line 1
@@ -8,7 +10,9 @@ def annotation(report) -> str:
     message = getattr(crash, "message", None)
     if not message and report.longrepr is not None:
         # collection errors have no reprcrash: the last line of the text is the exception
-        message = str(report.longrepr).strip().splitlines()[-1] if str(report.longrepr).strip() else None
+        text = str(report.longrepr).strip()
+        # pytest prefixes the source-excerpt lines of the exception with "E   "
+        message = re.sub(r"^E {3}", "", text.splitlines()[-1]).strip() if text else None
     message = message or "failed"
 
     def esc(text: str, prop: bool = False) -> str:
