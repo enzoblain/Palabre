@@ -94,6 +94,12 @@ clone. Only branches recorded on tasks are touched, never the default branch, `d
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
+Agents that keep pinging each other in a conversation are throttled: past
+`MAX_RUNS_PER_CONVERSATION_HOUR` executed runs within an hour (skipped wakeups do not count),
+chatter wakeups are skipped and the lead is alerted. The boss posting there lifts the limit, or
+call `POST /api/conversations/{id}/lift-rate-limit` (admin token, `204`): earlier runs stop
+counting. The reset is kept in memory, so a backend restart forgets it.
+
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts
 what waits for you in the direction channel as a request, a message with three answers,
