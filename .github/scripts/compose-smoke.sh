@@ -30,7 +30,7 @@ PORT=12710
 # find an old one. The image tags have no "v".
 OLD=""
 git fetch --tags --quiet 2>/dev/null || true
-tag=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1) || true
+tag=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | sed -n 1p) || true
 if [ -n "$tag" ]; then OLD="${tag#v}"; fi
 NEW="smoke-local"
 
@@ -151,9 +151,9 @@ check_secrets() { # check_secrets <label>
 if [ -n "$OLD" ]; then
   step "Start the published $OLD"
   write_env "$OLD"
-  # web is not started here: the updater pulls it, so it has to exist at this tag too
-  dc pull db backend web || fail "could not pull the published $OLD (is the ghcr package public, was the release image pushed?)"
+  out=$(dc pull db backend 2>&1) || fail "could not pull $OLD: $(printf '%s' "$out" | tail -n 3)"
   if ! docker run --rm --entrypoint grep "ghcr.io/enzoblain/palabre:$OLD" -q palabre-secrets /usr/local/bin/docker-entrypoint.sh; then
+    [ -z "${GITHUB_ACTIONS:-}" ] || fail "$OLD predates Docker secrets: the upgrade and updater steps would be skipped"
     note "$OLD predates Docker secrets: the upgrade and updater steps are skipped"
     OLD=""
   fi
@@ -191,6 +191,7 @@ if [ -n "$OLD" ]; then
   # fine because the entrypoint migration is idempotent
   dc --profile autoupdate down -v --remove-orphans
 else
+  [ -z "${GITHUB_ACTIONS:-}" ] || fail "No published version to upgrade from: the upgrade and updater steps would be skipped"
   note "No published version to upgrade from: upgrade and updater steps skipped"
 fi
 

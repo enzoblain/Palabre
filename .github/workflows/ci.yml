@@ -119,11 +119,20 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The tags give the last published version to upgrade from
           fetch-depth: 0
+      # The published images are pulled for the upgrade step (no fork PRs, so the token has package access)
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - run: .github/scripts/compose-smoke.sh
 
   # Known vulnerabilities in the pinned backend dependencies. pip-audit lives only in this job:

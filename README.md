@@ -265,7 +265,7 @@ Backend tests (pytest, no database or network needed):
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
-On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rf`). The frontend check has no such annotation.
+On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rfE`). The frontend check has no such annotation.
 
 Compose smoke test (needs docker, takes a few minutes):
 
