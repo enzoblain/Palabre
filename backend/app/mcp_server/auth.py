@@ -65,6 +65,7 @@ class AgentAuthMiddleware:
         else:
             allowed = claimed = run_tokens.claim_initialize(token)
         if not allowed:
+            run_tokens.revoke(token)  # fail closed: both sessions die, later attempts get a 401 without alert
             await alert_lead(caller)
             await JSONResponse({"error": "token bound to another session"}, status_code=403)(scope, receive, send)
             return
