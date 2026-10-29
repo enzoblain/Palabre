@@ -5,7 +5,7 @@ from typing import Literal
 from pathlib import Path
 from urllib.parse import quote
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets"))
@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     lead_debounce_seconds: int = 30
     # Minutes after a submission without any CI check before the PR goes back to its dev
     ci_missing_minutes: int = 10
+
+    @field_validator("admin_token")
+    @classmethod
+    def _admin_token_not_blank(cls, v: str) -> str:
+        # Never echo the value: only say what is wrong
+        if not v.strip():
+            raise ValueError("ADMIN_TOKEN is blank: set it in .env (e.g. openssl rand -hex 32)")
+        return v
 
     @model_validator(mode="after")
     def _database_url_from_password(self):
