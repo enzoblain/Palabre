@@ -1,4 +1,4 @@
-"""Local clone of each project's repository, and one git worktree per task."""
+"""Local clone of each project's repository (the reference), and one clone per task and per desk."""
 
 import asyncio
 import os
@@ -8,11 +8,11 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.config import settings
-from app.github import GitHubError, git, is_task_branch_name, repo_slug, resolve_branch
+from app.github import GitHubError, git, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
 
 
-# One git operation at a time on a project's main clone (clone, fetch, worktree add)
+# One git operation at a time on a project's main clone (clone, fetch, and every clone made from it)
 _repo_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
@@ -30,7 +30,7 @@ def _claude_session_dirs(project_id: int) -> list[Path]:
 
 
 async def remove_project_files(project_id: int) -> None:
-    """Everything a project left on disk: clone, task worktrees, desks, and the agents'
+    """Everything a project left on disk: clone, task clones, desks, and the agents'
     Claude sessions. The GitHub repository itself is not touched."""
     targets = [settings.projects_dir / f"project-{project_id}", *_claude_session_dirs(project_id)]
     async with _repo_locks[project_id]:
@@ -114,36 +114,50 @@ def desk_dir(project: Project, employee: Employee) -> Path:
     return project_dir(project) / "desks" / f"employee-{employee.id}"
 
 
+async def _clone_from_reference(project: Project, path: Path) -> None:
+    """An independent clone of the project: objects borrowed from the reference then copied
+    (--dissociate), so the agent never writes to the reference. The clone reads the local path
+    (the only call allowed the file transport), then points at GitHub and fetches its branches.
+    Expects the repo lock held."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    reference = repo_dir(project)
+    try:
+        await git(
+            path.parent, "clone", "--quiet", "--reference", str(reference), "--dissociate", str(reference), str(path),
+            allow_file=True,
+        )  # fmt: skip
+        await git(path, "remote", "set-url", "origin", project.repo_url)
+        await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
+    except GitHubError:
+        await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)  # Never leave a half clone
+        raise
+
+
 async def prepare_desk(project: Project, employee: Employee) -> Path:
-    """The employee's own scratch checkout, where they work during conversations (read,
+    """The employee's own scratch clone, where they work during conversations (read,
     run commands, test a task's branch). It is reset to the default branch at every run
     and never pushed: real changes go through tasks. Expects the repository synced."""
     ref = f"refs/remotes/origin/{project.default_branch}"
     path = desk_dir(project, employee)
     async with _repo_locks[project.id]:
         if not (path / ".git").exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            await git(repo_dir(project), "worktree", "prune")
-            await git(repo_dir(project), "worktree", "add", "--quiet", "--detach", str(path), ref)
+            await _clone_from_reference(project, path)
         else:
-            await git(path, "checkout", "--quiet", "--force", "--detach", ref)
-            await git(path, "clean", "--quiet", "-fdx")
+            try:
+                await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
+            except GitHubError:
+                pass  # Reset to the last fetched state
+        await git(path, "checkout", "--quiet", "--force", "--detach", ref)
+        await git(path, "clean", "--quiet", "-fdx")
     return path
 
 
 async def remove_task_worktree(project: Project, task: Task) -> None:
-    """A merged task's worktree and local branch are of no use any more."""
+    """A merged task's clone is of no use any more, and its branch went with it."""
     path = project_dir(project) / "worktrees" / f"task-{task.id}"
     async with _repo_locks[project.id]:
-        repo = repo_dir(project)
-        if path.exists():
-            await git(repo, "worktree", "remove", "--force", str(path))
-        await git(repo, "worktree", "prune")
-        if is_task_branch_name(task.branch):
-            try:
-                await git(repo, "branch", "-D", task.branch)
-            except GitHubError:
-                pass  # Never created locally, or already deleted
+        await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
+        await git(repo_dir(project), "worktree", "prune")  # Tasks started before clones were linked worktrees
 
 
 def branch_name(task: Task) -> str:
@@ -162,8 +176,8 @@ def final_branch_name(pr_title: str, task_id: int) -> str:
 
 
 async def rename_branch(task: Task, new: str) -> None:
-    """Rename the task's local branch (checked out in its worktree) before its first push.
-    Idempotent: the source is the worktree's actual branch, so a rename whose transaction was
+    """Rename the task's branch (checked out in its clone) before its first push.
+    Idempotent: the source is the clone's actual branch, so a rename whose transaction was
     rolled back (the push failed afterwards) is not attempted twice."""
     current = (await git(task.worktree_path, "rev-parse", "--abbrev-ref", "HEAD")).strip()
     if current != new:
@@ -172,21 +186,28 @@ async def rename_branch(task: Task, new: str) -> None:
 
 
 async def prepare_worktree(project: Project, task: Task) -> tuple[str, Path]:
-    """The task's branch and worktree, created from the default branch on first use.
-    An existing worktree is kept as is: it holds the assignee's work in progress."""
+    """The task's branch and clone, created from the default branch on first use (or from the
+    branch if it is already on GitHub). An existing clone is kept as is: it holds the
+    assignee's work in progress."""
     branch = task.branch or branch_name(task)
     path = project_dir(project) / "worktrees" / f"task-{task.id}"
     if path.exists():
+        # Agents have no credentials: the backend keeps origin/* current for their rebases
+        try:
+            await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
+        except GitHubError:
+            pass  # Work from the last fetched state
         return branch, path
 
     async with _repo_locks[project.id]:
-        repo = await _sync_repo(project)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        await _sync_repo(project)
+        await _clone_from_reference(project, path)
         try:
-            await git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
-            await git(repo, "worktree", "add", "--quiet", str(path), branch)
+            if await _has_ref(path, f"refs/remotes/origin/{branch}"):
+                await git(path, "checkout", "--quiet", "-B", branch, "--track", f"origin/{branch}")
+            else:
+                await git(path, "checkout", "--quiet", "-b", branch, f"origin/{project.default_branch}")
         except GitHubError:
-            await git(
-                repo, "worktree", "add", "--quiet", "-b", branch, str(path), f"origin/{project.default_branch}"
-            )
+            await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
+            raise
     return branch, path

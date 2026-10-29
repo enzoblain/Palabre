@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -398,19 +398,28 @@ async def submit_for_review(
     return task
 
 
+def _task_checkout(project: Project, task: Task) -> tuple[Path, str]:
+    """Where to read the task's branch: its own clone, or, once that is gone (merged or
+    cancelled), the pushed branch in the project's clone."""
+    if task.worktree_path and Path(task.worktree_path).exists():
+        return Path(task.worktree_path), task.branch
+    return repo_dir(project), f"origin/{task.branch}"
+
+
 async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if not task.branch:
         raise WorkflowError(f"Task #{task.id} has no branch yet")
-    repo = repo_dir(project)
+    repo, head = _task_checkout(project, task)
     try:
         await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
     except github.GitHubError:
         pass  # Diff against the last fetched state
-    base = f"origin/{project.default_branch}...{task.branch}"
-    stat = await github.git(repo, "diff", "--stat", base)
-    diff = await github.git(repo, "diff", base)
+    base = f"origin/{project.default_branch}...{head}"
+    # No external diff or textconv driver: the clone's config is written by the agent
+    stat = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--stat", base)
+    diff = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", base)
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n\n[diff truncated: read the files directly for the rest]"
     return f"{stat}\n{diff}"
@@ -498,8 +507,9 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number):
             blockers.append(ci)
     if process["docs_required"]:
+        repo, head = _task_checkout(project, task)
         files = (
-            await github.git(repo_dir(project), "diff", "--name-only", f"origin/{project.default_branch}...{task.branch}")
+            await github.git(repo, "diff", "--no-ext-diff", "--name-only", f"origin/{project.default_branch}...{head}")
         ).split()
         if not any(PurePosixPath(f).name.upper().startswith("CHANGELOG") for f in files):
             blockers.append("the changelog was not updated")

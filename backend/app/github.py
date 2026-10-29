@@ -61,7 +61,7 @@ ENV_ALLOWLIST = (
 NETWORK_COMMANDS = {"clone", "fetch", "push", "pull", "ls-remote"}
 
 
-def _git_env(repo_url: str | None) -> dict[str, str]:
+def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
     # No system config: only the repo's own config remains, neutralised by SAFE_GIT_CONFIG
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     # GIT_ALLOW_PROTOCOL beats every `protocol.<name>.allow` of the repo config (ext::, file...)
@@ -69,7 +69,7 @@ def _git_env(repo_url: str | None) -> dict[str, str]:
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_ALLOW_PROTOCOL": "https",
+        "GIT_ALLOW_PROTOCOL": "https:file" if allow_file else "https",
     }
     if repo_url and repo_url.startswith("https://") and settings.github_token:
         # Passed through the environment so the token never shows up in the process list
@@ -82,14 +82,18 @@ def _git_env(repo_url: str | None) -> dict[str, str]:
     return env
 
 
-async def git(cwd: str | Path, *args: str, repo_url: str | None = None) -> str:
+async def git(cwd: str | Path, *args: str, repo_url: str | None = None, allow_file: bool = False) -> str:
+    """allow_file: let this one call use the local `file` transport (a `clone --reference` from
+    the project's own clone); every other call stays https only."""
     # The token only goes to network commands
     network = bool(args) and args[0] in NETWORK_COMMANDS
+    # Agent clones belong to another user: the backend still reads and updates them
+    config = ("-c", f"safe.directory={cwd}", *(("-c", "protocol.file.allow=always") if allow_file else ()))
     proc = await asyncio.create_subprocess_exec(
-        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *args,
+        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *config, *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=_git_env(repo_url if network else None),
+        env=_git_env(repo_url if network else None, allow_file),
     )  # fmt: skip
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
