@@ -20,7 +20,8 @@ REASONS: dict[str, str] = {
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
     "release_ci": "The CI of the release PR #{pr_number} finished: {result}. If it is green, ship it with merge_release; otherwise get the failing checks fixed.",
-    "main_ci": "The CI of {branch} finished after the release merge: {result}. If it is green, tag it with publish_version; otherwise get it fixed.",
+    "release_pending": "The team's branch has changes nobody has published, and no task is open ({count} commits not in production). They would make version {version}:\n{changes}\nShip them with merge_release (it commits the bump itself), or tell the team why not.",
+    "main_ci": "The CI of {branch} finished after the release merge: {result}. {next_step}",
     "pr_merged": "Task #{task_id} was merged ({pr_url}). Do what your position requires after a merge, if anything.",
     "bug_reported": "A {severity} bug was reported as task #{task_id}. Triage it: assign it with assign_task, or cancel it with update_task.",
     "escalation": "{from} escalated something to you (message #{message_id}). Read it and decide.",
@@ -31,6 +32,7 @@ REASONS: dict[str, str] = {
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",
     "review_rounds_exceeded": "Task #{task_id} went through {rounds} rounds of requested changes without converging. Step in: decide, reassign it, or split it.",
     "conversation_throttled": "The team talked too much in conversation #{conversation_id} within an hour: their chatter is paused there for the rest of the hour (work on tasks and reviews goes on). Step in if they are stuck.",
+    "credits_back": "Claude credits ran out (since {since}) and are back: the team was paused and is resuming, the queued wakeups are replayed. Tasks in progress: {tasks}. Queued wakeups: {pending}. Check what stalled, nudge or reassign where needed, and tell the boss in direction where things stand.",
     "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, ask them with ask_ceo (or tell the lead); otherwise reassign or split the task.",
@@ -57,7 +59,7 @@ OPERATING_RULES = """## How Palabre works
 - A missing toolchain (Node.js, Go) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
 - Your task's code only changes in a task run, in the task's worktree. When you are woken up in a conversation and it is time to work on your task (you were unblocked, someone asks you to start or to fix something), call start_task and stop: you are woken up in the worktree right after. Never cd into a task worktree from your desk, and never push: you have no credentials, submit_for_review does it.
 - Channels: the boss only talks to the lead, in the "direction" channel (they read every other channel but never write in them). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction", or ask_ceo when you need their Validate / Reject / Nuance answer), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
-- Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git worktree, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
+- Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git clone, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
 RESEARCH_RULES = """## How Palabre works
 - You only communicate through the "palabre" MCP tools. Anything you write outside send_message is seen by nobody.
@@ -116,7 +118,7 @@ def language_rule(language: str) -> str:
 
 
 TASK_RULES = """## Your current task
-You are working on task #{task_id} « {title} », in its own git worktree (your current directory), on branch `{branch}`.
+You are working on task #{task_id} « {title} », in its own git clone (your current directory), on branch `{branch}`.
 - Start with get_task to read the description and acceptance criteria.
 - Stay within the task. Run the tests before submitting.
 - Your position's tools are allowed in your worktree: if you have Bash, you can run commands (python3, git, tests...) there.

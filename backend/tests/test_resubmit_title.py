@@ -49,6 +49,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     monkeypatch.setattr(workflow, "emit_event", lambda *_, **__: None)
     monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": False})
     monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", noop)
     monkeypatch.setattr(github, "set_pull_request_title", set_title)
     monkeypatch.setattr(github, "comment_pull_request", comment)
 
@@ -95,8 +96,12 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     monkeypatch.setattr(workflow, "post_message", noop)
     monkeypatch.setattr(workflow, "emit_event", lambda *_, **__: None)
     monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": False})
+    async def push(project, task):
+        gits.append(("push", task.branch))
+
     monkeypatch.setattr(github, "git", git)
     monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", push)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
     monkeypatch.setattr(github, "set_pull_request_title", set_title)
 
@@ -105,7 +110,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     )
     assert task.branch == "fix/7-handle-x"
     assert ("/tmp/w", "branch", "-m", "task/7", "fix/7-handle-x") in gits
-    assert gits[-1][-1] == "fix/7-handle-x"
+    assert gits[-1] == ("push", "fix/7-handle-x")
     assert opened["head"] == "fix/7-handle-x"
     assert opened["title"] == "fix(api): handle x"
     assert task.pr_title == "fix(api): handle x (#3)"
@@ -137,11 +142,12 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
         if args[0] == "branch":
             assert args[2] == head["branch"], "renaming a branch that no longer exists"
             head["branch"] = args[3]
-        if args[0] == "push" or "--set-upstream" in args:
-            if fail["push"]:
-                fail["push"] = False
-                raise github.GitHubError("network")
         return ""
+
+    async def push(project, task):
+        if fail["push"]:
+            fail["push"] = False
+            raise github.GitHubError("network")
 
     async def open_pr(repo, **kw):
         return {"number": 3, "html_url": "u"}
@@ -154,6 +160,7 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": False})
     monkeypatch.setattr(github, "git", git)
     monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", push)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
     monkeypatch.setattr(github, "set_pull_request_title", noop)
 

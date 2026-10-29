@@ -1,5 +1,6 @@
 """FastAPI app: startup, API routers, MCP server and scheduler."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
@@ -14,21 +15,34 @@ from app.api.deps import require_admin
 from app.config import settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
+from app.hardening import make_non_dumpable
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
 from app.mcp_server.server import mcp
 from app.orchestrator.dispatcher import orchestrator
 from app.services import WorkflowError
 
+log = logging.getLogger(__name__)
+
+# Before any agent runs: they share the backend's uid and could read its environ
+make_non_dumpable()
+
 # Mounted under /mcp, so the endpoint path inside the sub-app is "/".
 # host=127.0.0.1 keeps DNS rebinding protection: agents run in the backend container.
 mcp_app = mcp.streamable_http_app(
-    streamable_http_path="/", json_response=True, stateless_http=True, host="127.0.0.1"
+    streamable_http_path="/", json_response=True, host="127.0.0.1",
+    # A session must outlive its run: an expired one would force a re-initialize, now refused
+    session_idle_timeout=settings.agent_timeout_s + 300,
 )
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if not settings.agent_user:
+        log.warning(
+            "AGENT_USER is empty: agents run as the backend's own user and can read its "
+            "environment and files. Fine for the desktop app or local development, not for a server."
+        )
     # TODO: Alembic migrations
     async with engine.begin() as conn:
         await conn.run_sync(upgrade_schema)

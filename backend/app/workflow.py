@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,14 @@ from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.services import WorkflowError, emit_event, post_message, post_system_message
-from app.worktrees import final_branch_name, remove_task_worktree, rename_branch, repo_dir
+from app.worktrees import (
+    final_branch_name,
+    push_task_branch,
+    refresh_clone,
+    remove_task_worktree,
+    rename_branch,
+    repo_dir,
+)
 
 MAX_DIFF_CHARS = 100_000
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
@@ -221,7 +228,9 @@ async def update_task(
     acceptance_criteria: list[str] | None,
     depends_on: list[int] | None,
     status: str | None,
+    author: Employee | None = None,
 ) -> Task:
+    """author: who edits (None = the boss); recorded when they cancel the task."""
     task = await get_task(s, project_id, task_id)
     if title is not None:
         task.title = title
@@ -239,6 +248,8 @@ async def update_task(
         was_cancelled = task.status == TaskStatus.cancelled
         task.status = new_status
         if new_status == TaskStatus.cancelled and not was_cancelled:
+            task.closed_by_id = author.id if author else None
+            task.closed_at = datetime.now(UTC)
             await clean_up_task(await s.get(Project, project_id), task)
         elif new_status == TaskStatus.todo and await dependencies_done(s, task):
             why = "rebase and submit again" if task.pr_number is not None else "back in todo"
@@ -354,10 +365,7 @@ async def submit_for_review(
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
-    await github.git(
-        task.worktree_path, "push", "--force-with-lease", "--set-upstream", "origin", task.branch,
-        repo_url=project.repo_url,
-    )  # fmt: skip
+    await push_task_branch(project, task)
     if task.pr_number is None:
         criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(
@@ -398,19 +406,31 @@ async def submit_for_review(
     return task
 
 
+def _task_checkout(project: Project, task: Task) -> tuple[Path, str]:
+    """Where to read the task's branch: its own clone, or, once that is gone (merged or
+    cancelled), the pushed branch in the project's clone."""
+    if task.worktree_path and Path(task.worktree_path).exists():
+        return Path(task.worktree_path), task.branch
+    return repo_dir(project), f"origin/{task.branch}"
+
+
 async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if not task.branch:
         raise WorkflowError(f"Task #{task.id} has no branch yet")
-    repo = repo_dir(project)
-    try:
-        await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
-    except github.GitHubError:
-        pass  # Diff against the last fetched state
-    base = f"origin/{project.default_branch}...{task.branch}"
-    stat = await github.git(repo, "diff", "--stat", base)
-    diff = await github.git(repo, "diff", base)
+    repo, head = _task_checkout(project, task)
+    if repo != repo_dir(project):
+        await refresh_clone(project, repo)  # Diff against the last fetched state if GitHub fails
+    else:
+        try:
+            await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
+        except github.GitHubError:
+            pass
+    base = f"origin/{project.default_branch}...{head}"
+    # No external diff or textconv driver: the clone's config is written by the agent
+    stat = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--stat", base)
+    diff = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", base)
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n\n[diff truncated: read the files directly for the rest]"
     return f"{stat}\n{diff}"
@@ -498,11 +518,13 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number):
             blockers.append(ci)
     if process["docs_required"]:
+        repo, head = _task_checkout(project, task)
         files = (
-            await github.git(repo_dir(project), "diff", "--name-only", f"origin/{project.default_branch}...{task.branch}")
+            await github.git(repo, "diff", "--no-ext-diff", "--name-only", f"origin/{project.default_branch}...{head}")
         ).split()
-        if not any(PurePosixPath(f).name.upper().startswith("CHANGELOG") for f in files):
-            blockers.append("the changelog was not updated")
+        # The CHANGELOG is generated at release: the docs to update are the README or the docs/ folder
+        if not any(PurePosixPath(f).name.upper().startswith("README") or "docs" in PurePosixPath(f).parts[:-1] for f in files):
+            blockers.append("the README or docs/ were not updated")
     return blockers
 
 
@@ -562,6 +584,8 @@ async def merge_task(
     repo = github.repo_slug(project.repo_url)
     await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
+    task.closed_by_id = author.id if author else None
+    task.closed_at = datetime.now(UTC)
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
     await announce(s, task, "Merged" + (f" by {author.name}" if author else ""))

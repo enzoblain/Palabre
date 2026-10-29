@@ -110,6 +110,8 @@ class Project(Base):
     release_ci_sha: Mapped[str | None] = mapped_column(String(64))
     main_ci_sha: Mapped[str | None] = mapped_column(String(64))
     main_ci_watch: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Head SHA of the team's branch the lead was already told has unpublished changes
+    release_reminded_sha: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = created_at_column()
 
     employees: Mapped[list[Employee]] = relationship(
@@ -138,6 +140,8 @@ class Employee(Base):
     style: Mapped[dict[str, str]] = mapped_column(JSON)
     # Claude account it runs on (1, 2...), chosen by the boss; None: spread automatically
     account: Mapped[int | None]
+    # Last fresh start of their conversation context (see orchestrator/context_reset.py); None: never
+    context_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # MCP token; the backend needs it in clear text to write each run's --mcp-config.
     mcp_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = created_at_column()
@@ -248,6 +252,10 @@ class Task(Base):
     # NULL = created by the boss
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     depends_on: Mapped[list[int]] = mapped_column(JSON, default=list)
+    # Who merged or cancelled it (NULL = the boss, or still open); counted for the context reset
+    closed_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    # When it was merged or cancelled; the context reset counts on it, not on updated_at
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Set by the orchestrator when the task run starts
     branch: Mapped[str | None] = mapped_column(String(300))
     worktree_path: Mapped[str | None] = mapped_column(String(500))

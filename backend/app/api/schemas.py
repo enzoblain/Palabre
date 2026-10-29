@@ -379,10 +379,18 @@ class EmployeeStatus(BaseModel):
     since: datetime | None = None
 
 
+class ExhaustedAccountOut(BaseModel):
+    account: int
+    resets_at: datetime
+    estimated: bool
+
+
 class OrchestratorStatus(BaseModel):
     enabled: bool
     running_employee_ids: list[int]
     pending_wakeups: int
+    # Accounts out of Claude credits (the app shows a banner), with the expected return
+    exhausted_accounts: list[ExhaustedAccountOut] = []
 
 
 class UsageWindowOut(BaseModel):

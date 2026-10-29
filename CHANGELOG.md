@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The multinational mode's docs gate now asks for a README or `docs/` change instead of a CHANGELOG one, since the CHANGELOG is generated at release.
+
+### Added
+
+- `merge_release` computes the next SemVer version from the Conventional Commits since the last tag and commits the version files (lock files included) and the generated CHANGELOG entry (it replaces `[Unreleased]`: developers no longer edit the CHANGELOG by hand) as `chore(release): X.Y.Z` on the team's branch only, so no bump task is needed. `publish_version` also checks the lock files.
+- The lead is woken once per head SHA when the team's branch holds unpublished changes, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default).
+- The wakeup after the CI of production says which version to publish.
+- The `release_reminded_sha` project column, added automatically at startup.
+
 ## [0.6.2] - 2026-10-29
 
 ### Fixed

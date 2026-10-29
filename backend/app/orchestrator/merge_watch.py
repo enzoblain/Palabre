@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import github, workflow
+from app import github, projects, release, workflow
 from app.config import settings
 from app.models import AgentRun, Project, Task, TaskStatus, Wakeup
 from app.services import emit_event, post_system_message, team_conversation_id
@@ -20,6 +20,7 @@ _last_check: dict[int, float] = {}
 _last_release_check: dict[int, float] = {}
 _last_idle_check: dict[int, float] = {}
 _last_unstarted_check: dict[int, float] = {}
+_last_pending_check: dict[int, float] = {}
 # Last final CI result announced to the lead, per task; in memory, so a restart may repeat one
 _ci_seen: dict[int, str] = {}
 
@@ -114,9 +115,11 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
     """Give the task back to its dev with the problem, and tell the team."""
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
     await workflow.wake_dev(s, task, "pr_blocked", {"problem": problem})
-    workflow.wake_lead(task, f"sent back to its dev: {problem}")
+    # The CI output only goes to the dev: the lead and the team channel get the headline
+    headline = problem.split("\n", 1)[0]
+    workflow.wake_lead(task, f"sent back to its dev: {headline}")
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
-        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
+        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {headline} · {task.pr_url or ''}".strip())
 
 
 async def watch_idle_tasks(s: AsyncSession) -> None:
@@ -215,9 +218,16 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
             project.main_ci_watch = False
         elif _ci_over(reason):
             result = "green" if reason is None else f"red ({reason})"
+            version = await _published_version(repo, sha) if reason is None else None
+            if reason is not None:
+                next_step = "Get it fixed."
+            elif version:
+                next_step = f"Publish v{version} now with publish_version."
+            else:
+                next_step = "Tag it with publish_version."
+            line = f"CI of {production} after the release: {result.split(chr(10), 1)[0]}" + (f" · publish v{version}" if version else "")
             await _announce_ci(
-                s, project, "main_ci", {"branch": production, "sha": sha, "result": result},
-                f"CI of {production} after the release: {result}",
+                s, project, "main_ci", {"branch": production, "sha": sha, "result": result, "next_step": next_step}, line,
             )  # fmt: skip
             project.main_ci_sha, project.main_ci_watch = sha, False
     pr = await github.find_pull_request(repo, project.default_branch, production)
@@ -228,9 +238,61 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
         result = "green" if reason is None else f"red ({reason})"
         await _announce_ci(
             s, project, "release_ci", {"pr_number": pr["number"], "sha": pr["head"]["sha"], "result": result},
-            f"CI of the release PR #{pr['number']}: {result} · {pr['html_url']}",
+            f"CI of the release PR #{pr['number']}: {result.split(chr(10), 1)[0]} · {pr['html_url']}",
         )  # fmt: skip
         project.release_ci_sha = pr["head"]["sha"]
+
+
+async def _published_version(repo: str, sha: str) -> str | None:
+    """The version the files of `sha` carry, the one to tag; None if it cannot be read."""
+    try:
+        text = await github.file_content(repo, "frontend/package.json", sha)
+        return projects.VERSION_FILES["frontend/package.json"](text, "") if text else None
+    except (github.GitHubError, ValueError):
+        return None
+
+
+async def watch_pending_release(s: AsyncSession) -> None:
+    """Wake the lead, once per head SHA of the team's branch, when it holds commits production lacks,
+    no task is open and nothing moved for release_wait_minutes: the release must not depend on a memory."""
+    now = time.monotonic()
+    found = list(await s.scalars(select(Project).where(Project.kind == "company")))
+    for gone in _last_pending_check.keys() - {p.id for p in found}:
+        del _last_pending_check[gone]
+    for project in found:
+        if not project.repo_url or now - _last_pending_check.get(project.id, -CHECK_EVERY_S) < CHECK_EVERY_S:
+            continue
+        _last_pending_check[project.id] = now
+        open_task = await s.scalar(
+            select(Task.id).where(Task.project_id == project.id, Task.status.not_in([TaskStatus.done, TaskStatus.cancelled])).limit(1)
+        )
+        if open_task is not None:
+            continue
+        try:
+            await _watch_pending(s, project)
+        except (github.GitHubError, projects.WorkflowError) as exc:
+            log.warning("Project #%s: pending release could not be checked: %s", project.id, exc)
+    await s.commit()
+
+
+async def _watch_pending(s: AsyncSession, project: Project) -> None:
+    repo = github.repo_slug(project.repo_url)
+    tip = await github.branch_tip(repo, project.default_branch)
+    if tip["sha"] == project.release_reminded_sha or tip["message"].startswith("chore(release)"):
+        return  # Told already, or the bump is there and its CI will wake the lead
+    committed = datetime.fromisoformat(tip["date"].replace("Z", "+00:00"))
+    if committed > datetime.now(UTC) - timedelta(minutes=settings.release_wait_minutes):
+        return
+    plan = await projects.release_plan(project)
+    if plan is None or plan["ahead"] == 0:
+        return
+    changes = release.changelog_body(plan["commits"])
+    payload = {"sha": tip["sha"], "version": plan["version"], "count": plan["ahead"], "changes": changes}
+    project.release_reminded_sha = tip["sha"]
+    await _announce_ci(
+        s, project, "release_pending", payload,
+        f"{plan['ahead']} commits of {project.default_branch} wait for a release: v{plan['version']}",
+    )  # fmt: skip
 
 
 async def watch_unstarted_tasks(s: AsyncSession) -> None:

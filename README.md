@@ -29,7 +29,7 @@ speed vs quality...), or you build the team yourself.
 | Startup | 4 | One review approval |
 | Scale-up | 8 | One review approval and a QA pass |
 | Enterprise | 12 | Plus security on sensitive PRs, and a green CI |
-| Multinational | 16 | Two approvals, QA, security, CI, a changelog, and your validation of every decision |
+| Multinational | 16 | Two approvals, QA, security, CI, updated docs (README or `docs/`), and your validation of every decision |
 
 You only talk to the lead, in `#direction`: it is the one channel you can write in, and
 it holds only you and the lead. The team works in its own channels (`#general`,
@@ -42,7 +42,7 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git worktree, then opens a pull request. The branch starts as `task/<id>` and, at the first
+2. **A developer** works on the task in its own git clone (made from the project's clone with `--reference --dissociate`, so it never writes to it; the token never reaches a clone: GitHub is fetched and pushed from the project's clone, and agent clones only talk to it locally), then opens a pull request. The branch starts as `task/<id>` and, at the first
    `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
@@ -61,7 +61,8 @@ and reminded once if it is still not merged after `MERGE_REMINDER_MINUTES` (10 b
 The same goes for releases: when the CI of the open release PR (team's branch to production) ends,
 and, after `merge_release`, when the CI of production's head ends, the lead is woken up once per
 head SHA with the result (green, or the failing checks) and a "Palabre" line is posted in the
-team's first channel. Green means `merge_release`, then `publish_version`.
+team's first channel. Green means `merge_release`, then `publish_version`: once production's CI is green, the wakeup says which version to publish ("publish vX.Y.Z").
+No release depends on the lead remembering it: when the team's branch holds commits production lacks, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default), the lead is woken (`release_pending`, once per head SHA, stored in `Project.release_reminded_sha`) with the pending changes and the computed version.
 
 A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
 branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
@@ -69,6 +70,7 @@ the CI is red on an otherwise approved task, the task goes back to its dev (`cha
 with the problem (rebase, missing CI, failing checks) and a "Palabre" line is posted in the team's
 first channel. The dev is woken up once per head SHA. A red CI only sends the task back once it is
 otherwise approved (no other merge rule is missing); before that, reviewers go first.
+A red check comes with its annotations and summary, framed as untrusted CI output (at most 20 annotations and 4,000 characters, plain text, fetched by the backend; agents never see the token), in `merge_blockers`, the dev's wakeup and the lead's wakeups; the team channel only gets the first line.
 
 The lead is also woken up (`task_update`) whenever a task moves: PR submitted or resubmitted, each
 review verdict, CI finished, task sent back. Changes of the same task within
@@ -87,8 +89,8 @@ because the CI is still running, the lead is woken (`merge_retry`) as soon as th
 or as a mergeable task if every rule is then met.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
-closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
-worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
+closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its
+clone. Only branches recorded on tasks are touched, never the default branch, `dev` or a
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
@@ -119,8 +121,8 @@ workflow), which starts that workflow; `fix_release` regenerates the name and no
 Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` the minor,
 a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
 wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
-already exists, or a version that differs from `frontend/package.json`, `tauri.conf.json` or
-`Cargo.toml` (bump them first). Both tools are the lead's only (`ship_release` permission in
+already exists, or a version that differs from `frontend/package.json`, its lock, `tauri.conf.json`, `Cargo.lock` or
+`Cargo.toml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` (edited directly, no npm or cargo on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It does nothing if the branch already holds the version, and refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
@@ -191,6 +193,20 @@ The server listens on port `2710` and the web app on port `2810`.
 
 ### Updates
 
+Upgrading from a version before secret files: keep your `.env` as it is, the four secrets are
+still read from it. Compose now mounts them as files (`/run/secrets`) instead of environment
+variables, so you need Compose 2.30 or later, and any other variable you set must be one of
+those listed in [Configuration](#configuration): the container no longer gets the whole
+`.env`, so settings like `CORS_ORIGINS`, `CLAUDE_MAX_TURNS`, `AGENT_TIMEOUT_S`,
+`IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
+`environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
+else changes; Postgres keeps its current password.
+
+Upgrading from a version before the agent user: nothing to do. The container starts as
+root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
+makes each project's reference clone private to the server, then drops to `palabre`. If
+you run the image without Docker's entrypoint, do that `chown`/`chmod` yourself.
+
 ```sh
 docker compose pull && docker compose up -d
 ```
@@ -224,6 +240,17 @@ endpoint with the account's token, which never leaves the backend, and cached fo
 minute. An account that fails returns an `error` without affecting the others.
 `GET /settings/usage` is different: it only sums tokens and cost of the runs Palabre made.
 
+**Credits exhausted**: when a run fails because the account hit its usage limit or has no
+credit left (recognised in the output of `claude -p`, with its reset time when it gives
+one, otherwise a 30-minute estimate), the account is paused until then: no new run starts
+on it, automatic employees are spread over the other accounts, and the wakeups stay queued
+instead of failing (the run does not count as a task failure). The boss gets one line in
+#direction per episode ("Claude credits exhausted on account X, work resumes at HH:MM"),
+and `GET /orchestrator` lists `exhausted_accounts` for the app. Once the reset has passed
+and a run succeeds, the lead is woken with a `credits_back` event (tasks in progress,
+queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
+restart, the first run that hits the limit rebuilds it.
+
 ## Tests
 
 Backend tests (pytest, no database or network needed):
@@ -234,7 +261,7 @@ cd backend && pip install --require-hashes -r requirements-dev.txt && python -m 
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
-merge gates) and `fake_github` (replaces the GitHub and git calls).
+merge gates) and `fake_github` (replaces the GitHub and git calls). Counting queries can run against an in-memory SQLite session (`aiosqlite`, dev only), see `tests/test_context_reset.py`.
 
 ## Dependencies
 
@@ -281,7 +308,11 @@ All optional, in `.env`:
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
+| `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
+| `MCP_SESSION_BINDING` | `warn` | `warn`: a second MCP session on a run's token is logged and the lead told once, nothing is refused. `enforce`: the token is revoked at the second session. Switch to `enforce` once the backend logs (`MCP initialize: session #n ...`) of a real instance show a single initialize per run |
+| `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own.
@@ -291,10 +322,68 @@ The lead and devops can also install Node.js or Go for the whole team on their o
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.
+- Secrets (`ADMIN_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKENS`, the database password)
+  are Docker secrets, files and not environment variables: the container's environment holds
+  none, so the healthcheck and every child process (git, `claude`) start without them. The
+  entrypoint closes `/run/secrets` and gives the server a private copy in
+  `/run/palabre-secrets` (read by `pydantic-settings`' `secrets_dir`).
+- Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
+  process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
+  `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
+  database URL or tokens. In `/data`, only the server can read the project's reference
+  clone and `runtime/`; agents write in their task and desk clones, Claude's sessions and
+  the Go cache, and only read the toolchains. The server's `PATH` never includes the
+  toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
+  Every run is `sudo -n -u agent` with a fixed list of variables (`HOME`, `PATH` with the
+  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity), never inherited from the
+  server. Secrets travel in that environment, not in the command line, so `ps` does not show
+  them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
+  A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
+  that timed out. With `AGENT_USER` empty, none of this applies.
+  Known limit: all agents share the one `agent` user, so a run can still read another run's
+  process (its token, its MCP config path). The isolation is between agents and the server,
+  not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
+  To check an image, see [Checking the isolation](#checking-the-isolation).
+  Agents still share the container's network, so keep Postgres' password strong.
+- Each run gets its own random MCP token, held in server memory: it is revoked when the
+  run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
+  A token stolen from another run (`ps`, the config file) stops working once that run is
+  over. Residual risk: all runs share the `agent` uid, so while a run is live another run
+  can still read its `/proc/<pid>/environ` or the config file in that short window. The
+  real fix is one uid per run (or per sensitive role, the lead) or a sandbox per run
+  (bubblewrap, user namespace).
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
 - The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a
   private network: Palabre is not meant to be exposed to the internet.
+
+### Checking the isolation
+
+Nobody builds the isolation in CI (it needs a real container), so check an image by hand
+after changing the Dockerfile, the entrypoint or the runner. Two scripts in
+`backend/scripts/`:
+
+```sh
+# 1. Migration of a volume made before the agent user (needs Docker on the host only)
+backend/scripts/check-migration.sh <image>
+
+# 2. Agent runs and task flow, in a throwaway container with a scratch GitHub repository
+#    (the token only needs to push to it: the check opens a PR there and merges it)
+printf %s "$GITHUB_TOKEN" > /tmp/github_token
+docker run -d --name palabre-check -v palabre-check-data:/data \
+  -v /tmp/github_token:/run/secrets/github_token:ro <image> sleep infinity
+docker exec -u root -e CHECK_GITHUB_REPO=owner/scratch-repo palabre-check /srv/scripts/check-isolation.sh
+docker rm -f palabre-check && docker volume rm palabre-check-data
+```
+
+The second script swaps `claude` for a stub while it runs (use a throwaway container, never
+one whose orchestrator is running agents), so no Claude account is needed. It checks that a
+run is `uid agent` through `sudo -u` with the right `PATH`; that the agent cannot read the
+backend's `environ`, the project reference, `/data/runtime` or the secret files; that a run
+past its timeout leaves no agent process; that `sudo` has `!use_pty`; and, with
+`CHECK_GITHUB_REPO`, the whole task flow (clone, commit by the agent, push from the
+reference, PR, merge). Without `CHECK_GITHUB_REPO` the flow is skipped and the exit code is
+non-zero. Every line is `ok` or `FAIL`.
 
 ## Develop
 

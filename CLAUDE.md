@@ -18,7 +18,8 @@ Backend, in `backend/app/`:
 - `services.py`: conversations, room document, notes and events, shared by the API and the MCP server.
 - `workflow.py`: task lifecycle (creation, assignment, review, merge) and the merge gates of each company size.
 - `github.py`: git and GitHub operations. Only the backend runs them; agents never get the token.
-- `worktrees.py`: local clone of each project and one git worktree per task.
+- `release.py`: SemVer next version, version files and CHANGELOG entry (pure functions); `projects.prepare_release` (run by `merge_release`) commits them on the team's branch through `worktrees.commit_release`.
+- `worktrees.py`: local clone of each project and one clone per task and per desk.
 - `projects.py`, `company/team.py`: project creation and random team generation from the catalog.
 - `company/catalog.toml`: roles, company sizes, research angles, personalities and role permissions.
 - `runner.py`: launches one agent run (`claude -p`) on the employee's Claude account; `accounts.py` picks the account.

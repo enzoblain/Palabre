@@ -30,7 +30,7 @@ responsibilities = [
   "Arbitrate technical disagreements within the team",
   "Merge PRs once the required approvals are in",
   "Triage the pull requests no task owns (Dependabot, outside contributors): list_pull_requests, then close_pull_request the ones the team will not take, which also deletes their branch",
-  "Ship releases yourself: merge_release merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
+  "Ship releases yourself, with no bump task: merge_release first commits the next SemVer version and the CHANGELOG entry on the team's branch (calculated from the Conventional Commits), then merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
   "Run the kickoff and the daily",
   "Be the only link between the boss and the team: the boss writes in #direction, you relay to the team channels (create_channel for new ones) and report back",
 ]
@@ -83,7 +83,7 @@ responsibilities = [
   "Post your progress in the conversation",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Touching someone else's branch"]
+forbidden = ["Merging", "Creating or assigning tasks", "Touching someone else's branch", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Your PRs pass review and do what the task asks."
@@ -100,7 +100,7 @@ responsibilities = [
   "Write or update the tests",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A reliable, tested API."
@@ -117,7 +117,7 @@ responsibilities = [
   "Write or update the tests",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A faithful, accessible UI with no regressions."
@@ -228,7 +228,7 @@ model = "haiku"
 mission = "Make the project understandable to someone discovering it."
 responsibilities = [
   "Maintain the README and user documentation",
-  "Write the changelog on every merge",
+  "Keep the docs up to date on every merge (the changelog itself is generated at release)",
 ]
 forbidden = ["Changing application code", "Merging"]
 deliverables = ["README", "Docs", "Changelog"]
@@ -351,7 +351,7 @@ rules = [
   "QA and security are blocking.",
   "CI must be green to merge.",
   "Every decision must be validated by the boss before it is applied.",
-  "Documentation and changelog are mandatory on every merge.",
+  "Documentation is mandatory on every merge; the changelog is generated at release.",
 ]
 [modes.multinational.process]
 required_approvals = 2

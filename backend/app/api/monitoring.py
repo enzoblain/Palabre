@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.accounts import assign_accounts
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import EmployeeStatus, OrchestratorStatus, RunOut
+from app import credits
 from app.config import settings
 from app.models import AgentRun, Employee, Project, Wakeup
 from app.orchestrator.dispatcher import orchestrator
@@ -78,4 +79,8 @@ async def orchestrator_status(s: SessionDep):
         enabled=settings.orchestrator_enabled,
         running_employee_ids=orchestrator.running_employee_ids,
         pending_wakeups=pending,
+        exhausted_accounts=[
+            {"account": a, "resets_at": credits.state.exhausted[a].reset_at, "estimated": credits.state.exhausted[a].estimated}
+            for a in credits.exhausted_accounts()
+        ],
     )

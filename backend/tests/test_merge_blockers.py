@@ -134,29 +134,35 @@ async def test_ci_skipped_without_pull_request(project, task, reviewer, process,
     assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
 
 
-# --- Changelog ---------------------------------------------------------------------
+# --- Docs --------------------------------------------------------------------------
 
 
-async def test_changelog_updated_passes(project, task, reviewer, process, fake_github):
+async def test_readme_updated_passes(project, task, reviewer, process, fake_github):
     process(docs_required=True)
-    fake_github.changed_files = ["app/x.py", "docs/CHANGELOG.md"]
+    fake_github.changed_files = ["app/x.py", "frontend/README.md"]
     assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
 
 
-async def test_changelog_match_is_case_insensitive(project, task, reviewer, process, fake_github):
+async def test_docs_folder_passes(project, task, reviewer, process, fake_github):
     process(docs_required=True)
-    fake_github.changed_files = ["changelog.md"]
+    fake_github.changed_files = ["app/x.py", "docs/usage.md"]
     assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
 
 
-async def test_missing_changelog_blocks(project, task, reviewer, process, fake_github):
+async def test_readme_match_is_case_insensitive(project, task, reviewer, process, fake_github):
     process(docs_required=True)
-    fake_github.changed_files = ["app/x.py", "README.md"]
+    fake_github.changed_files = ["readme.md"]
+    assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
+
+
+async def test_missing_docs_blocks_and_the_changelog_does_not_count(project, task, reviewer, process, fake_github):
+    process(docs_required=True)
+    fake_github.changed_files = ["app/x.py", "CHANGELOG.md"]
     result = await blockers(project, task, make_review(reviewer, Verdict.approve))
-    assert result == ["the changelog was not updated"]
+    assert result == ["the README or docs/ were not updated"]
 
 
-async def test_changelog_ignored_when_not_required(project, task, reviewer, process, fake_github):
+async def test_docs_ignored_when_not_required(project, task, reviewer, process, fake_github):
     process(docs_required=False)
     fake_github.changed_files = ["app/x.py"]
     assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
@@ -171,6 +177,12 @@ async def test_startup_mode_only_needs_one_approval(project, task, reviewer, fak
     assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == []
 
 
+async def test_multinational_task_touching_the_readme_is_not_blocked_on_docs(project, task, fake_github):
+    project.mode = "multinational"
+    fake_github.changed_files = ["app/x.py", "README.md"]
+    assert "the README or docs/ were not updated" not in await blockers(project, task)
+
+
 async def test_multinational_mode_stacks_every_gate(project, task, fake_github):
     project.mode = "multinational"
     task.sensitive = True
@@ -181,5 +193,5 @@ async def test_multinational_mode_stacks_every_gate(project, task, fake_github):
         "QA has not approved",
         "security has not approved this sensitive PR",
         "CI failed",
-        "the changelog was not updated",
+        "the README or docs/ were not updated",
     ]

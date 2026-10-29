@@ -9,24 +9,20 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
-// Mobile browsers can leave the page scrolled up after the virtual keyboard closes
-// or the app returns from the background; put the document back at the origin.
-function resetScroll() {
+// The root is fixed and sized to the visible viewport, so the virtual keyboard only
+// shrinks the app instead of scrolling the page. iOS may still scroll the document
+// to reveal a focused field: undo it and follow visualViewport.height.
+function syncViewport() {
+  const vv = window.visualViewport;
+  if (vv) document.documentElement.style.setProperty("--app-height", `${vv.height}px`);
   if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
 }
 
-// Only reset once no field is focused: when focus moves to another field the
-// keyboard stays open and the browser has just scrolled that field into view.
-document.addEventListener("focusout", () =>
-  setTimeout(() => {
-    const el = document.activeElement;
-    if (!(el instanceof HTMLElement) || !el.matches("input, textarea, select, [contenteditable='true']")) resetScroll();
-  }, 100),
-);
+syncViewport();
+window.visualViewport?.addEventListener("resize", syncViewport);
+window.visualViewport?.addEventListener("scroll", syncViewport);
+window.addEventListener("scroll", syncViewport);
+window.addEventListener("pageshow", syncViewport);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") resetScroll();
-});
-window.addEventListener("pageshow", resetScroll);
-window.visualViewport?.addEventListener("resize", () => {
-  if (window.visualViewport && window.visualViewport.height >= window.innerHeight - 1) resetScroll();
+  if (document.visibilityState === "visible") syncViewport();
 });
