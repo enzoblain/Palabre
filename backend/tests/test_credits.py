@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import accounts, credits
-from app.credits import FALLBACK_WAIT, UsageLimit, parse_usage_limit
+from app.credits import FALLBACK_WAIT, MAX_WAIT, UsageLimit, parse_usage_limit
 from app.orchestrator import credit_watch
 
 NOW = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
@@ -42,6 +42,14 @@ def test_other_errors_are_not_limits(text):
 def test_reset_from_epoch():
     limit = parse_usage_limit("Claude AI usage limit reached|1793275200", NOW)
     assert limit.reset_at == datetime.fromtimestamp(1793275200, UTC) and not limit.estimated
+
+
+@pytest.mark.parametrize(
+    "text", ["Claude AI usage limit reached|99999999999", "usage limit reached, resets Nov 20, 8am (UTC)"]
+)
+def test_reset_is_capped(text):
+    limit = parse_usage_limit(text, NOW)
+    assert limit.reset_at == NOW + MAX_WAIT and not limit.estimated
 
 
 def test_reset_from_clock_with_zone():
