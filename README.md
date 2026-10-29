@@ -265,6 +265,8 @@ Backend tests (pytest, no database or network needed):
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
+On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rf`). The frontend check has no such annotation.
+
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
 merge gates) and `fake_github` (replaces the GitHub and git calls). Counting queries can run against an in-memory SQLite session (`aiosqlite`, dev only), see `tests/test_context_reset.py`.
