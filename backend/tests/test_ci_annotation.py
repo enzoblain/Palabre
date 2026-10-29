@@ -22,3 +22,18 @@ def test_two_failures_in_one_file_keep_their_own_line():
 
 def test_message_newlines_are_escaped():
     assert "\n" not in annotation(report("tests/t.py::t", 0, "a\nb"))
+
+
+def test_collection_error_points_at_the_file_line_1(monkeypatch, capsys):
+    from tests import conftest
+
+    longrepr = SimpleNamespace(reprcrash=SimpleNamespace(message="ImportError: nope"))
+    collected = SimpleNamespace(nodeid="tests/test_x.py", failed=True, longrepr=longrepr)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    conftest.pytest_collectreport(collected)
+    out = capsys.readouterr().out
+    assert "::error file=backend/tests/test_x.py,line=1," in out
+    assert "ImportError: nope" in out
+    monkeypatch.delenv("GITHUB_ACTIONS")
+    conftest.pytest_collectreport(collected)
+    assert capsys.readouterr().out == ""

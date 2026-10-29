@@ -2,7 +2,8 @@
 
 
 def annotation(report) -> str:
-    path, line, _ = report.location
+    # A collection error has no test line: nodeid is the file, reported at line 1
+    path, line, _ = getattr(report, "location", None) or (report.nodeid.split("::")[0], None, "")
     crash = getattr(report.longrepr, "reprcrash", None)
     message = getattr(crash, "message", None) or "failed"
 
