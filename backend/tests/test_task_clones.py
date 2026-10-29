@@ -240,7 +240,8 @@ def test_desk_with_foreign_directory_is_recloned_through_the_agent(setup, monkey
             return await real_exec(*argv, **kw)
         calls.append(argv)
         restore_perms[0].chmod(0o755)  # What the agent, owner of the directory, can do
-        shutil.rmtree(argv[-1])
+        for child in Path(argv[-1]).iterdir():  # Contents only: the clone's parent is not the agent's
+            shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
         return SimpleNamespace(returncode=0, communicate=lambda: asyncio.sleep(0, (b"", b"")))
 
     monkeypatch.setattr(worktrees.settings, "agent_user", "agent")

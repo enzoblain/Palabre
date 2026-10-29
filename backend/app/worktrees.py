@@ -149,15 +149,16 @@ class CloneRemovalError(GitHubError):
 async def _remove_clone(path: Path) -> None:
     """Delete a desk or task clone and check it is gone. The agent runs as another user: what
     it created outside the shared group (a renamed cache directory...) the backend cannot
-    delete, so the leftovers go through the narrow `palabre-rm-clone` sudo rule. Without that
-    the clone would fail later on a non-empty destination, hiding the real cause."""
-    error: str | None = None
-    try:
-        await asyncio.to_thread(shutil.rmtree, path)
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        error = str(exc)
+    delete, so the leftovers are emptied by the narrow `palabre-rm-clone` sudo rule (the
+    agent cannot unlink the clone itself: its parent is the backend's). Without that the
+    clone would fail later on a non-empty destination, hiding the real cause."""
+    errors: list[str] = []
+
+    def remove() -> None:
+        # Keep going past the first denied entry, so the agent pass has less to do
+        shutil.rmtree(path, onexc=lambda _f, _p, exc: errors.append(str(exc)))
+
+    await asyncio.to_thread(remove)
     if path.exists() and settings.agent_user:
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(path),
@@ -167,9 +168,12 @@ async def _remove_clone(path: Path) -> None:
         )  # fmt: skip
         _, stderr = await proc.communicate()
         if proc.returncode:
-            error = f"{error}; as {settings.agent_user}: {stderr.decode(errors='replace').strip()}"
+            errors.append(f"as {settings.agent_user}: {stderr.decode(errors='replace').strip()}")
+        else:
+            errors.clear()
+            await asyncio.to_thread(remove)
     if path.exists():
-        raise CloneRemovalError(f"cannot delete {path}: {error or 'still present'}")
+        raise CloneRemovalError(f"cannot delete {path}: {'; '.join(errors[:3]) or 'still present'}")
 
 
 def desk_dir(project: Project, employee: Employee) -> Path:
