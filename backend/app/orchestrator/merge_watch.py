@@ -116,8 +116,10 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
     await workflow.wake_dev(s, task, "pr_blocked", {"problem": problem})
     workflow.wake_lead(task, f"sent back to its dev: {problem}")
+    # The CI output stays in the wakeups: the team channel only gets the headline
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
-        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {problem} · {task.pr_url or ''}".strip())
+        headline = problem.split("\n", 1)[0]
+        await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {headline} · {task.pr_url or ''}".strip())
 
 
 async def watch_idle_tasks(s: AsyncSession) -> None:
@@ -223,7 +225,7 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
                 next_step = f"Publish v{version} now with publish_version."
             else:
                 next_step = "Tag it with publish_version."
-            line = f"CI of {production} after the release: {result}" + (f" · publish v{version}" if version else "")
+            line = f"CI of {production} after the release: {result.split(chr(10), 1)[0]}" + (f" · publish v{version}" if version else "")
             await _announce_ci(
                 s, project, "main_ci", {"branch": production, "sha": sha, "result": result, "next_step": next_step}, line,
             )  # fmt: skip
@@ -236,7 +238,7 @@ async def _watch_project_ci(s: AsyncSession, project: Project) -> None:
         result = "green" if reason is None else f"red ({reason})"
         await _announce_ci(
             s, project, "release_ci", {"pr_number": pr["number"], "sha": pr["head"]["sha"], "result": result},
-            f"CI of the release PR #{pr['number']}: {result} · {pr['html_url']}",
+            f"CI of the release PR #{pr['number']}: {result.split(chr(10), 1)[0]} · {pr['html_url']}",
         )  # fmt: skip
         project.release_ci_sha = pr["head"]["sha"]
 
