@@ -252,6 +252,8 @@ class Task(Base):
     # NULL = created by the boss
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     depends_on: Mapped[list[int]] = mapped_column(JSON, default=list)
+    # Who merged or cancelled it (NULL = the boss, or still open); counted for the context reset
+    closed_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     # Set by the orchestrator when the task run starts
     branch: Mapped[str | None] = mapped_column(String(300))
     worktree_path: Mapped[str | None] = mapped_column(String(500))

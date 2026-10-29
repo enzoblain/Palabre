@@ -312,7 +312,7 @@ All optional, in `.env`:
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `MCP_SESSION_BINDING` | `warn` | `warn`: a second MCP session on a run's token is logged and the lead told once, nothing is refused. `enforce`: the token is revoked at the second session. Switch to `enforce` once the backend logs (`MCP initialize: session #n ...`) of a real instance show a single initialize per run |
-| `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee finishes (merged or cancelled) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
+| `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own.

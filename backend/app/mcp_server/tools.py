@@ -225,6 +225,7 @@ async def update_task(
             s,
             c.project_id,
             task_id,
+            author=await s.get(Employee, c.employee_id),
             title=title,
             description=description,
             acceptance_criteria=acceptance_criteria,

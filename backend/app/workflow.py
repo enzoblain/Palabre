@@ -228,7 +228,9 @@ async def update_task(
     acceptance_criteria: list[str] | None,
     depends_on: list[int] | None,
     status: str | None,
+    author: Employee | None = None,
 ) -> Task:
+    """author: who edits (None = the boss); recorded when they cancel the task."""
     task = await get_task(s, project_id, task_id)
     if title is not None:
         task.title = title
@@ -246,6 +248,7 @@ async def update_task(
         was_cancelled = task.status == TaskStatus.cancelled
         task.status = new_status
         if new_status == TaskStatus.cancelled and not was_cancelled:
+            task.closed_by_id = author.id if author else None
             await clean_up_task(await s.get(Project, project_id), task)
         elif new_status == TaskStatus.todo and await dependencies_done(s, task):
             why = "rebase and submit again" if task.pr_number is not None else "back in todo"
@@ -580,6 +583,7 @@ async def merge_task(
     repo = github.repo_slug(project.repo_url)
     await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
+    task.closed_by_id = author.id if author else None
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
     await announce(s, task, "Merged" + (f" by {author.name}" if author else ""))
