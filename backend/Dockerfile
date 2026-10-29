@@ -15,7 +15,7 @@ RUN apt-get update \
 RUN groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
     && useradd --create-home --uid 1001 --groups work agent \
-    && chmod 755 /home/palabre \
+    && chmod 711 /home/palabre \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv
 

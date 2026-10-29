@@ -45,3 +45,15 @@ def test_entrypoint_drops_root_and_keeps_secrets_private():
 @pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_entrypoint_syntax():
     assert subprocess.run(["sh", "-n", str(ENTRYPOINT)], capture_output=True).returncode == 0
+
+
+def test_entrypoint_does_not_follow_symlinks_as_root():
+    script = ENTRYPOINT.read_text()
+    assert "real_dir()" in script
+    assert '[ ! -L "$1" ]' in script
+    # No root chmod/chown -R on a bare glob result: every one is behind real_dir
+    assert 'for repo in "$DATA"/projects/project-*/repo' not in script
+
+
+def test_backend_home_is_traversable_only():
+    assert "chmod 711 /home/palabre" in DOCKERFILE

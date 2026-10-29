@@ -123,7 +123,9 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
     (--dissociate), so the agent never writes to the reference. The clone reads the local path
     (the only call allowed the file transport), then points at GitHub and fetches its branches.
     Expects the repo lock held."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # The directory holding the clones is closed to agents: they write inside their clone only
+    path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    path.parent.chmod(0o2755)
     reference = repo_dir(project)
     try:
         await git(
