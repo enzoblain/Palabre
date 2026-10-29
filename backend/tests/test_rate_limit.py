@@ -75,8 +75,8 @@ async def test_lifting_the_limit_survives_a_restart(db):
     event = await db.scalar(select(Event).where(Event.type == "rate_limit_lifted"))
     assert event.processed_at is not None  # Nobody gets woken for it
     await check(db, Orchestrator())  # A fresh orchestrator, as after a restart
-    add_run(db)
-    add_run(db)
+    add_run(db, ago=timedelta(0))
+    add_run(db, ago=timedelta(0))
     await db.flush()
     with pytest.raises(SkipRun):
         await check(db)
