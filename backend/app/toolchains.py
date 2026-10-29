@@ -158,6 +158,8 @@ async def _install_python(packages: list[str]) -> str:
     if not (venv / "bin" / "python").exists():
         # The image's packages (the backend's) stay visible: pytest of the backend needs them
         await _run([sys.executable, "-m", "venv", "--system-site-packages", str(venv)])
+        # Files copied with their source's mode (e.g. from a shared tool cache) may be group-writable
+        await asyncio.to_thread(_make_private, venv)
     if packages:
         await _run([str(venv / "bin" / "python"), "-I", "-m", "pip", "install", "--no-input", "--only-binary=:all:", *packages])
     # A symlink to the venv's python would lose the venv: wrappers keep it
@@ -182,6 +184,12 @@ def _venv_matches_python(venv: Path) -> bool:
         return False
     line = next((x for x in cfg.read_text().splitlines() if x.startswith("version")), "")
     return line.split("=")[-1].strip().startswith(f"{sys.version_info.major}.{sys.version_info.minor}.")
+
+
+def _make_private(venv: Path) -> None:
+    for path in [venv, *venv.rglob("*")]:
+        if not path.is_symlink() and path.lstat().st_mode & 0o022:
+            path.chmod(path.lstat().st_mode & ~0o022)
 
 
 def _venv_is_private(venv: Path) -> bool:

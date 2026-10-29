@@ -67,6 +67,7 @@ async def test_run_uses_private_umask_and_no_cache(monkeypatch):
     assert seen["env"]["PIP_NO_CACHE_DIR"] == "1"
 
 
+@pytest.mark.skipif(sys.prefix != sys.base_prefix, reason="tests already run inside a venv")
 async def test_python_wrapper_keeps_venv_and_system_packages(tmp_path, monkeypatch):
     monkeypatch.setattr(toolchains.settings, "toolchains_dir", tmp_path)
     old = os.umask(0o022)
@@ -81,6 +82,9 @@ async def test_python_wrapper_keeps_venv_and_system_packages(tmp_path, monkeypat
     finally:
         os.umask(old)
     venv = tmp_path / "python-venv"
+    bad = [(str(p), p.lstat().st_uid, oct(p.lstat().st_mode)) for p in [venv, *venv.rglob("*")]
+           if not p.is_symlink() and p.lstat().st_mode & 0o022]
+    assert not bad, f"uid={os.getuid()} {bad[:5]}"
     assert toolchains._venv_is_private(venv)
     out = subprocess.run(
         [str(tmp_path / "bin" / "python"), "-c", "import sys, fastapi; print(sys.prefix)"],
