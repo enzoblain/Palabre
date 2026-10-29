@@ -8,6 +8,12 @@
 set -euo pipefail
 
 ROOT=$(pwd)
+# The stack reads .env from the project directory (the updater mounts it): never overwrite a real one
+if [ -e .env ] || [ -e docker-compose.override.yml ]; then
+  echo "Refusing to run: .env or docker-compose.override.yml exists here and would be overwritten and deleted." >&2
+  echo "Run it from a clean clone." >&2
+  exit 1
+fi
 IMAGE=ghcr.io/enzoblain/palabre
 export PALABRE_VERSION=ci
 export PALABRE_PORT=${PALABRE_PORT:-12710}
@@ -55,9 +61,10 @@ dump_logs() {
 }
 
 wait_health() { # wait_health <seconds>
-  local i
+  local i out
   for ((i = 0; i < $1; i++)); do
-    curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" 2>/dev/null | grep -q '"ok"' && return 0
+    out=$(curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" 2>/dev/null || true)
+    case $out in *'"ok"'*) return 0;; esac
     sleep 1
   done
   return 1
@@ -89,7 +96,12 @@ assert_secrets_resolved() { # assert_secrets_resolved <project>
   # /run/secrets is closed to anything but root
   [ "$(docker compose -p "$p" exec -T backend stat -c %a /run/secrets)" = 700 ] \
     || fail "/run/secrets is not mode 700"
-  echo "ok: secrets resolved as files"
+  # The agents' uid must reach neither /run/secrets nor the backend's private copy
+  ! docker compose -p "$p" exec -T -u agent backend cat /run/secrets/github_token >/dev/null 2>&1 \
+    || fail "agent can read /run/secrets/github_token"
+  ! docker compose -p "$p" exec -T -u agent backend ls /run/palabre-secrets >/dev/null 2>&1 \
+    || fail "agent can list /run/palabre-secrets"
+  echo "ok: secrets resolved as files, closed to the agent user"
 }
 
 # --- 1. Secrets as files, then 3. updater --------------------------------------------
@@ -127,8 +139,9 @@ for ((i = 0; i < 120; i++)); do
   sleep 2
 done
 [ -n "$after" ] && [ "$after" != "$before" ] || fail "updater did not recreate the backend"
-docker compose logs updater | grep -q "Updated" || fail "updater did not report the update"
-docker compose logs updater | grep -q "Update failed" && fail "updater reported a failure"
+logs=$(docker compose logs updater 2>&1)
+case $logs in *Updated*) ;; *) fail "updater did not report the update";; esac
+case $logs in *"Update failed"*) fail "updater reported a failure";; esac
 wait_health 90 || fail "backend unhealthy after the updater recreated it"
 assert_secrets_resolved smoke-main
 assert_no_secret_in_env smoke-main
@@ -138,12 +151,19 @@ unset COMPOSE_PROJECT_NAME
 
 # --- 2. Fail-fast ---------------------------------------------------------------------
 for var in ADMIN_TOKEN POSTGRES_PASSWORD; do
+  case $var in
+    ADMIN_TOKEN) reason='admin_token' ;;
+    POSTGRES_PASSWORD) reason='POSTGRES_PASSWORD is empty or missing|Database is uninitialized and superuser password is not specified' ;;
+  esac
   step "Empty $var stops the startup"
   write_env .env "$var="
   if docker compose -p smoke-empty up -d --wait --wait-timeout 60 db backend; then
     fail "the stack started with an empty $var"
   fi
   curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" >/dev/null 2>&1 && fail "backend answers with an empty $var"
+  # It must be the refusal of this secret, not an unrelated failure
+  docker compose -p smoke-empty logs --no-color 2>&1 | grep -qiE "$reason" \
+    || fail "no startup error about $var in the logs"
   echo "ok: empty $var blocks the startup"
   docker compose -p smoke-empty down -v --remove-orphans
 done

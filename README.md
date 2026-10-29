@@ -258,7 +258,7 @@ environment, that an empty `ADMIN_TOKEN` or `POSTGRES_PASSWORD` stops the startu
 `updater` recreates the backend with the secrets still resolved, and that the current code takes
 over a volume created by the last published release (latest `vX.Y.Z` tag). To run it locally you
 need Docker with Compose 2.30+ and the release tags: `.github/scripts/compose-smoke.sh` from the
-repository root (it builds the images and removes its own containers and volumes).
+repository root of a clean clone (it refuses to run if a `.env` is there, since it writes its own; it builds the images and removes its own containers and volumes).
 
 ## Dependencies
 
