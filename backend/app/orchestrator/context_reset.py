@@ -8,20 +8,24 @@ live in their own tables, so none of that is touched.
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import AgentSession, Employee, Task, TaskStatus
+from app.models import AgentSession, Employee, Review, Task, TaskStatus
 
 log = logging.getLogger(__name__)
 
 
 async def finished_tasks_since_reset(s: AsyncSession, employee: Employee) -> int:
-    """Tasks of the employee merged or cancelled since their last reset (or their arrival)."""
+    """Merged or cancelled tasks the employee took part in (assignee, reviewer of any kind, or the
+    one who merged or cancelled it) since their last reset or arrival. One per task, however
+    many ways they took part."""
     since = employee.context_reset_at or employee.created_at
+    reviewed = select(Review.id).where(Review.task_id == Task.id, Review.reviewer_id == employee.id).exists()
     query = select(func.count()).select_from(Task).where(
-        Task.assignee_id == employee.id, Task.status.in_([TaskStatus.done, TaskStatus.cancelled])
+        Task.status.in_([TaskStatus.done, TaskStatus.cancelled]),
+        or_(Task.assignee_id == employee.id, Task.closed_by_id == employee.id, reviewed),
     )
     if since is not None:
         query = query.where(Task.updated_at >= since)
