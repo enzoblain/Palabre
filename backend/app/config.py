@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     # Tasks finished (merged or cancelled) by an employee before their next run starts on a blank
     # context, without resuming their Claude sessions; 0 = never
     context_reset_every_tasks: int = 5
+    # Runs one Claude session (conversation or task) serves before the next one starts on a new session,
+    # as a resumed session gets costlier at each run; 0 = never. The employee's other sessions are kept
     context_reset_every_runs: int = 5
     # Agent runs per conversation per hour before the boss is asked to step in
     max_runs_per_conversation_hour: int = 40

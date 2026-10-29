@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.config import settings
 from app import workflow
 from app.models import AgentSession, Base, Employee, Project, Review, Task, TaskStatus, Verdict
+from app.db import upgrade_schema
 from app.orchestrator import context_reset
+from app.orchestrator.dispatcher import Orchestrator
 
 
 class FakeDb:
@@ -222,3 +224,36 @@ async def test_no_session_or_zero_means_nothing_to_reset(db, monkeypatch):
 
 async def test_default_is_five():
     assert type(settings).model_fields["context_reset_every_runs"].default == 5
+
+
+# --- Run counter and one-time purge -------------------------------------------------------
+
+
+async def test_save_session_counts_runs(db):
+    malik, _ = await seed(db)
+    orch = Orchestrator()
+    await orch._save_session(db, malik.id, "task:1", "a", resumed=False)
+    assert (await db.get(AgentSession, (malik.id, "task:1"))).runs == 1
+    await orch._save_session(db, malik.id, "task:1", "a", resumed=True)
+    assert (await db.get(AgentSession, (malik.id, "task:1"))).runs == 2
+    await orch._save_session(db, malik.id, "task:1", "b", resumed=False)
+    session = await db.get(AgentSession, (malik.id, "task:1"))
+    assert (session.runs, session.claude_session_id) == (1, "b")
+
+
+async def test_upgrade_drops_sessions_once_when_runs_column_is_added():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.exec_driver_sql("DROP TABLE agent_sessions")
+        await conn.exec_driver_sql(
+            "CREATE TABLE agent_sessions (employee_id INTEGER, scope VARCHAR, claude_session_id VARCHAR,"
+            " PRIMARY KEY (employee_id, scope))"
+        )
+        await conn.exec_driver_sql("INSERT INTO agent_sessions VALUES (1, 'task:1', 'old')")
+        await conn.run_sync(upgrade_schema)
+        assert (await conn.exec_driver_sql("SELECT count(*) FROM agent_sessions")).scalar() == 0
+        await conn.exec_driver_sql("INSERT INTO agent_sessions (employee_id, scope, claude_session_id) VALUES (1, 'task:1', 'new')")
+        await conn.run_sync(upgrade_schema)  # a restart
+        assert (await conn.exec_driver_sql("SELECT count(*) FROM agent_sessions")).scalar() == 1
+    await engine.dispose()
