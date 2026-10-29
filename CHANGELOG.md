@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - frontend: keep the page still when the mobile keyboard opens (#73)
 - github: stop agent-controlled hooks and fsmonitor from running with the token (#70)
 
+### Upgrading from 0.6.2
+
+- Secrets (`ADMIN_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKENS`, the database password) are now Docker secrets, mounted as files in `/run/secrets`. Keep your `.env` as it is: they are still read from it. Compose 2.30 or later is required.
+- The container no longer gets the whole `.env`: any other setting must be listed in [Configuration](README.md#configuration) and added to the `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers with `docker compose pull && docker compose up -d`.
+- The container starts as root, re-owns the existing `/data` volume once (marker `/data/.isolation-v1`), then drops to `palabre`. Do not add `no-new-privileges` to the compose file: `sudo` needs it off. Without Docker's entrypoint, do the `chown`/`chmod` yourself.
+- Task and desk worktrees are now independent clones instead of linked worktrees: tasks already in progress must be re-cloned or restarted.
+- New settings, all optional: `AGENT_USER`, `MCP_SESSION_BINDING` (`warn` by default) and `CONTEXT_RESET_EVERY_TASKS` (`5` by default).
+- New database columns (`closed_by_id`, `closed_at`, `context_reset_at`, `release_reminded_sha` and the MCP token and session ones) are added automatically at startup. Nothing to do.
+
 ## [0.6.2] - 2026-10-29
 
 ### Fixed
