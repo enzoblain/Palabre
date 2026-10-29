@@ -8,7 +8,9 @@ the official download sites only, and are checked against their published SHA-25
 import asyncio
 import hashlib
 import platform
+import os
 import re
+import sys
 import tarfile
 import tempfile
 from collections import defaultdict
@@ -22,8 +24,11 @@ from app.services import WorkflowError
 TOOLCHAINS = {
     "node": 'Node.js with npm and npx. Version: "lts" (default), "latest", a major ("20") or exact ("20.11.1")',
     "go": 'Go. Version: "stable" (default), a minor ("1.22") or exact ("1.22.3")',
+    "python": "A shared Python venv (python, pip, installed commands such as pytest). Packages: names with optional pins",
 }
 VERSION_RE = re.compile(r"^[A-Za-z0-9._-]{1,30}$")
+# "name", "name[extra]", "name==1.2": no option, URL or path, so pip only reads PyPI names
+PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}(\[[A-Za-z0-9,._-]{1,60}\])?((==|>=|<=|~=|!=|<|>)[A-Za-z0-9.*+!_-]{1,30})?$")
 _locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
@@ -46,16 +51,18 @@ def installed() -> dict[str, str]:
     """Command → the file it runs, for what is currently linked."""
     if not bin_dir().is_dir():
         return {}
-    return {p.name: str(p.resolve()) for p in sorted(bin_dir().iterdir()) if p.is_symlink()}
+    return {p.name: str(p.resolve()) for p in sorted(bin_dir().iterdir()) if p.is_symlink() or p.is_file()}
 
 
-async def install(name: str, version: str = "") -> str:
+async def install(name: str, version: str = "", packages: str = "") -> str:
     if name not in TOOLCHAINS:
         raise WorkflowError(f"Unknown toolchain {name!r}: {', '.join(TOOLCHAINS)}")
     if version and not VERSION_RE.match(version):
         raise WorkflowError(f"Invalid version: {version!r}")
     async with _locks[name]:
         try:
+            if name == "python":
+                return await _install_python(packages.replace(",", " ").split())
             if name == "node":
                 return await _install_node(version or "lts")
             return await _install_go(version or "stable")
@@ -124,6 +131,53 @@ def _go_matches(release: dict, selector: str) -> bool:
     if selector == "stable":
         return release.get("stable", False)
     return release.get("stable", False) and (version == selector or version.startswith(selector + "."))
+
+
+# --- Python --------------------------------------------------------------------------
+
+
+def venv_dir() -> Path:
+    return settings.toolchains_dir / "python-venv"
+
+
+async def _install_python(packages: list[str]) -> str:
+    bad = next((p for p in packages if not PACKAGE_RE.match(p)), None)
+    if bad is not None:
+        raise WorkflowError(f"Invalid package: {bad!r} (a PyPI name with an optional version, e.g. pytest==8.2.0)")
+    venv = venv_dir()
+    if not (venv / "bin" / "python").exists():
+        # The image's packages (the backend's) stay visible: pytest of the backend needs them
+        await _run([sys.executable, "-m", "venv", "--system-site-packages", str(venv)])
+    if packages:
+        await _run([str(venv / "bin" / "python"), "-m", "pip", "install", "--no-input", *packages])
+    # A symlink to the venv's python would lose the venv: wrappers keep it
+    bin_dir().mkdir(parents=True, exist_ok=True)
+    for command in ("python", "python3", "pip"):
+        wrapper = bin_dir() / command
+        wrapper.unlink(missing_ok=True)
+        target = venv / "bin" / ("python" if command != "pip" else "pip")
+        wrapper.write_text(f'#!/bin/sh\nexec "{target}" "$@"\n')
+        wrapper.chmod(0o755)
+    # Commands of the installed packages (pytest...) have the venv's python in their shebang
+    skip = {"python", "python3", "pip", "pip3"}
+    _link(venv / "bin", [p.name for p in sorted((venv / "bin").iterdir()) if p.name not in skip
+                         and not p.name.startswith(("python", "activate", "Activate"))])
+    done = ", ".join(packages) or "no extra package"
+    return f"Python venv ready for the whole team (python, pip; installed: {done})."
+
+
+async def _run(cmd: list[str]) -> None:
+    env = {"PATH": os.defpath, "PIP_DISABLE_PIP_VERSION_CHECK": "1", "HOME": str(settings.toolchains_dir)}
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+    )
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=600)
+    except asyncio.TimeoutError:
+        proc.kill()
+        raise WorkflowError("Python install timed out") from None
+    if proc.returncode:
+        raise WorkflowError(f"Python install failed: {out.decode(errors='replace')[-1500:]}")
 
 
 # --- Helpers -------------------------------------------------------------------------
