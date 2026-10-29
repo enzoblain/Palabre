@@ -518,8 +518,9 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
         files = (
             await github.git(repo, "diff", "--no-ext-diff", "--name-only", f"origin/{project.default_branch}...{head}")
         ).split()
-        if not any(PurePosixPath(f).name.upper().startswith("CHANGELOG") for f in files):
-            blockers.append("the changelog was not updated")
+        # The CHANGELOG is generated at release: the docs to update are the README or the docs/ folder
+        if not any(PurePosixPath(f).name.upper().startswith("README") or "docs" in PurePosixPath(f).parts[:-1] for f in files):
+            blockers.append("the README or docs/ were not updated")
     return blockers
 
 

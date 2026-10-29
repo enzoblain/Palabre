@@ -326,3 +326,35 @@ async def test_prepare_release_refuses_a_repository_without_version_files(gh):
     with pytest.raises(WorkflowError, match="No version file"):
         await projects.prepare_release(PROJECT)
     assert gh.pushed is None
+
+
+async def test_commit_release_refuses_a_symlinked_target(tmp_path, monkeypatch):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    repo = tmp_path / "repo"
+    (repo / "sub").mkdir(parents=True)
+    (repo / "link.txt").symlink_to(outside / "f.txt")
+    (repo / "dirlink").symlink_to(outside)
+
+    async def git(_cwd, *_args, **_kwargs):
+        return "tip1\n"
+
+    async def sync(_project):
+        return repo
+
+    async def resolve(_repo, _branch):
+        return "main"
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "_sync_repo", sync)
+    monkeypatch.setattr(worktrees, "resolve_branch", resolve)
+    project = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
+    for path in ("link.txt", "dirlink/f.txt"):
+        with pytest.raises(github.GitHubError, match="Refusing"):
+            await worktrees.commit_release(project, "tip1", {path: "x"}, "x")
+    assert not (outside / "f.txt").exists()
+
+
+def test_update_changelog_keeps_every_section_without_a_tag():
+    out = release.update_changelog(CHANGELOG, "0.1.0", None, release.changelog_entry("0.1.0", "2026-11-01", ["feat: a"]))
+    assert "## [0.6.1]" in out

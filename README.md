@@ -29,7 +29,7 @@ speed vs quality...), or you build the team yourself.
 | Startup | 4 | One review approval |
 | Scale-up | 8 | One review approval and a QA pass |
 | Enterprise | 12 | Plus security on sensitive PRs, and a green CI |
-| Multinational | 16 | Two approvals, QA, security, CI, a changelog, and your validation of every decision |
+| Multinational | 16 | Two approvals, QA, security, CI, updated docs (README or `docs/`), and your validation of every decision |
 
 You only talk to the lead, in `#direction`: it is the one channel you can write in, and
 it holds only you and the lead. The team works in its own channels (`#general`,

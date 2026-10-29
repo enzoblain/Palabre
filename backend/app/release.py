@@ -102,9 +102,9 @@ def update_changelog(text: str, version: str, previous: str | None, entry: str) 
 def _newer(section: str, previous: str | None) -> bool:
     """Whether a `## [X.Y.Z]` section is a version after `previous` (so not released)."""
     match = re.match(r"## \[(\d+)\.(\d+)\.(\d+)\]", section)
-    if not match:
-        return False
-    return previous is None or tuple(int(n) for n in match.groups()) > tuple(int(n) for n in previous.split("."))
+    if not match or previous is None:
+        return False  # Without a tag, nothing proves a section was never released: keep it
+    return tuple(int(n) for n in match.groups()) > tuple(int(n) for n in previous.split("."))
 
 
 def set_version(path: str, text: str, version: str, package: str = "") -> str:

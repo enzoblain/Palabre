@@ -121,8 +121,9 @@ async def commit_release(project: Project, expected_sha: str, files: dict[str, s
         if (await git(repo, "rev-parse", "HEAD")).strip() != expected_sha:
             raise GitHubError(f"{branch} moved while the release was prepared")
         for path, text in files.items():
-            target = (repo / path).resolve()
-            if not target.is_relative_to(repo.resolve()):
+            target = repo / path
+            # A symlink (the file or a folder above it) could send the write elsewhere
+            if not target.resolve().is_relative_to(repo.resolve()) or any(p.is_symlink() for p in (target, *target.parents) if p != repo and repo in p.parents):
                 raise GitHubError(f"Refusing to write outside the repository: {path}")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)
