@@ -130,10 +130,8 @@ async def resolve_caller(token: str, conversation_raw: str, task_raw: str) -> Ca
     employee_id = run_tokens.employee_of(token) if token else None
     if employee_id is None:
         return None
-    scope_task, scope_conversation = run_tokens.scope_of(token)
-    if (task_raw or None) != (str(scope_task) if scope_task is not None else None) or (conversation_raw or None) != (
-        str(scope_conversation) if scope_conversation is not None else None
-    ):
+    if not run_tokens.scope_matches(token, conversation_raw, task_raw):
+        scope_task, scope_conversation = run_tokens.scope_of(token)
         log.warning(
             "MCP request refused: headers (task %r, conversation %r) do not match the scope of the token of employee %s "
             "(task %s, conversation %s)",

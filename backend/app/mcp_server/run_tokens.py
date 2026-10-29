@@ -30,6 +30,14 @@ def attach_config(token: str, path: Path) -> None:
         _active[token] = (_active[token][0], path)
 
 
+def scope_matches(token: str, conversation_raw: str, task_raw: str) -> bool:
+    """The request headers name exactly the task or conversation recorded for the token, and nothing else."""
+    task_id, conversation_id = scope_of(token)
+    return task_raw == ("" if task_id is None else str(task_id)) and conversation_raw == (
+        "" if conversation_id is None else str(conversation_id)
+    )
+
+
 def employee_of(token: str) -> int | None:
     """Employee behind a live token. The first use proves claude has read its config: delete it."""
     entry = _active.get(token)
