@@ -148,16 +148,20 @@ async def _install_python(packages: list[str]) -> str:
     if bad is not None:
         raise WorkflowError(f"Invalid package: {bad!r} (a PyPI name with an optional version, e.g. pytest==8.2.0)")
     venv = venv_dir()
-    if (venv / "bin" / "python").exists() and not _venv_matches_python(venv):
-        # Base image upgrade: the venv's python link is dead or of another minor
-        await asyncio.to_thread(shutil.rmtree, venv)
+    if venv.exists() and not (_venv_matches_python(venv) and await asyncio.to_thread(_venv_is_private, venv)):
+        # Base image upgrade (dead or other-minor python), or a venv agents could write in:
+        # the server runs its python on every install, so only the server may own it
+        try:
+            await asyncio.to_thread(shutil.rmtree, venv)
+        except OSError as exc:
+            raise WorkflowError(f"Cannot reset the Python venv ({exc}): ask the boss to delete {venv}") from exc
     if not (venv / "bin" / "python").exists():
         # The image's packages (the backend's) stay visible: pytest of the backend needs them
         await _run([sys.executable, "-m", "venv", "--system-site-packages", str(venv)])
     if packages:
-        await _run([str(venv / "bin" / "python"), "-m", "pip", "install", "--no-input", "--only-binary=:all:", *packages])
+        await _run([str(venv / "bin" / "python"), "-I", "-m", "pip", "install", "--no-input", "--only-binary=:all:", *packages])
     # A symlink to the venv's python would lose the venv: wrappers keep it
-    bin_dir().mkdir(parents=True, exist_ok=True)
+    bin_dir().mkdir(parents=True, exist_ok=True, mode=0o755)
     for command in ("python", "python3", "pip"):
         wrapper = bin_dir() / command
         wrapper.unlink(missing_ok=True)
@@ -180,8 +184,17 @@ def _venv_matches_python(venv: Path) -> bool:
     return line.split("=")[-1].strip().startswith(f"{sys.version_info.major}.{sys.version_info.minor}.")
 
 
+def _venv_is_private(venv: Path) -> bool:
+    """Nothing in the venv is writable by the group or others, or owned by someone else."""
+    for path in [venv, *venv.rglob("*")]:
+        info = path.lstat()
+        if info.st_uid != os.getuid() or (not path.is_symlink() and info.st_mode & 0o022):
+            return False
+    return True
+
+
 def _venv_packages(venv: Path) -> list[str]:
-    """name==version read from the metadata only: the server never runs the venv's python."""
+    """name==version read from the metadata only."""
     from importlib.metadata import distributions
 
     site = [str(p) for p in venv.glob("lib/python*/site-packages")]
@@ -189,9 +202,11 @@ def _venv_packages(venv: Path) -> list[str]:
 
 
 async def _run(cmd: list[str]) -> None:
-    env = {"PATH": os.defpath, "PIP_DISABLE_PIP_VERSION_CHECK": "1", "HOME": str(settings.toolchains_dir)}
+    # No pip cache (agents could plant a wheel in it) and a umask that keeps the venv
+    # server-only: the server runs the venv's python here, agents must not be able to alter it
+    env = {"PATH": os.defpath, "PIP_DISABLE_PIP_VERSION_CHECK": "1", "PIP_NO_CACHE_DIR": "1", "HOME": "/nonexistent"}
     proc = await asyncio.create_subprocess_exec(
-        *cmd, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+        *cmd, env=env, umask=0o022, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
     )
     try:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=600)

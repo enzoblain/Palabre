@@ -322,7 +322,7 @@ The venv lives in `/data/toolchains/python-venv`, sees the image's packages, and
 `pip` and commands (`pytest`...) come first in the agents' `PATH`, so `python -m pytest` still works
 after a redeployment. Agents only read the toolchains: packages are installed by the server, from
 PyPI, and the tool takes plain names with an optional version (no option, URL or path). Call it
-again to add packages. Only wheels are installed (no build step runs as the server). After a base
+again to add packages. Only wheels are installed (no build step runs as the server), the venv is only writable by the server (a venv agents could write in is recreated), and no pip cache is kept. After a base
 image upgrade to another Python minor, the venv is recreated by the next `install_toolchain python`.
 
 ## Security
