@@ -51,7 +51,8 @@ denied "no agent process is left after the group kill" pgrep -u agent -x sleep
 # agent can see and do from inside the run (stdout is claude's JSON result)
 CLAUDE=/home/palabre/.local/bin/claude
 mv "$CLAUDE" "$CLAUDE.real"
-trap 'mv -f "$CLAUDE.real" "$CLAUDE"' EXIT INT TERM
+trap 'mv -f "$CLAUDE.real" "$CLAUDE"' EXIT
+trap 'exit 130' INT TERM
 cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
 # $2 is the prompt: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
