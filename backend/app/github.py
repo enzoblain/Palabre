@@ -64,7 +64,13 @@ NETWORK_COMMANDS = {"clone", "fetch", "push", "pull", "ls-remote"}
 def _git_env(repo_url: str | None) -> dict[str, str]:
     # No system config: only the repo's own config remains, neutralised by SAFE_GIT_CONFIG
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
-    env |= {"GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+    # GIT_ALLOW_PROTOCOL beats every `protocol.<name>.allow` of the repo config (ext::, file...)
+    env |= {
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_ALLOW_PROTOCOL": "https",
+    }
     if repo_url and repo_url.startswith("https://") and settings.github_token:
         # Passed through the environment so the token never shows up in the process list
         basic = base64.b64encode(f"x-access-token:{settings.github_token}".encode()).decode()
