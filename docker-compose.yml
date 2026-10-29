@@ -4,8 +4,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-palabre}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: ${POSTGRES_DB:-palabre}
+    secrets: [postgres_password]
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,9 +23,19 @@ services:
         EXTRA_APT_PACKAGES: ${EXTRA_APT_PACKAGES:-}
         CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
     restart: unless-stopped
-    env_file: .env
+    # No env_file: the secrets are files (see `secrets` below), never in the environment
+    secrets: [admin_token, github_token, claude_code_oauth_tokens, postgres_password]
+    # The server's private copy of the secrets stays in memory
+    tmpfs:
+      - /run/palabre-secrets
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-palabre}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-palabre}
+      POSTGRES_USER: ${POSTGRES_USER:-palabre}
+      POSTGRES_DB: ${POSTGRES_DB:-palabre}
+      TZ: ${TZ:-UTC}
+      DAILY_TIME: ${DAILY_TIME-09:30}
+      MERGE_REMINDER_MINUTES: ${MERGE_REMINDER_MINUTES:-10}
+      RELEASE_WAIT_MINUTES: ${RELEASE_WAIT_MINUTES:-5}
+      MAX_CONCURRENT_AGENTS: ${MAX_CONCURRENT_AGENTS:-3}
     depends_on:
       db:
         condition: service_healthy
@@ -78,6 +89,17 @@ services:
           fi
           sleep "$$INTERVAL"
         done
+
+secrets:
+  # Read from .env (or the shell) and mounted as files in the containers
+  admin_token:
+    environment: ADMIN_TOKEN
+  github_token:
+    environment: GITHUB_TOKEN
+  claude_code_oauth_tokens:
+    environment: CLAUDE_CODE_OAUTH_TOKENS
+  postgres_password:
+    environment: POSTGRES_PASSWORD
 
 volumes:
   pgdata:

@@ -192,6 +192,15 @@ The server listens on port `2710` and the web app on port `2810`.
 
 ### Updates
 
+Upgrading from a version before secret files: keep your `.env` as it is, the four secrets are
+still read from it. Compose now mounts them as files (`/run/secrets`) instead of environment
+variables, so you need Compose 2.30 or later, and any other variable you set must be one of
+those listed in [Configuration](#configuration): the container no longer gets the whole
+`.env`, so settings like `CORS_ORIGINS`, `CLAUDE_MAX_TURNS`, `AGENT_TIMEOUT_S`,
+`IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
+`environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
+else changes; Postgres keeps its current password.
+
 Upgrading from a version before the agent user: nothing to do. The container starts as
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
 makes each project's reference clone private to the server, then drops to `palabre`. If
@@ -298,6 +307,11 @@ The lead and devops can also install Node.js or Go for the whole team on their o
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.
+- Secrets (`ADMIN_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKENS`, the database password)
+  are Docker secrets, files and not environment variables: the container's environment holds
+  none, so the healthcheck and every child process (git, `claude`) start without them. The
+  entrypoint closes `/run/secrets` and gives the server a private copy in
+  `/run/palabre-secrets` (read by `pydantic-settings`' `secrets_dir`).
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
