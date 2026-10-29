@@ -96,9 +96,6 @@ def posted(monkeypatch):
         lines.append(text)
         return [(1, 10)]
 
-    async def resume_data(*a):  # the DB queries of the resume
-        raise AssertionError
-
     monkeypatch.setattr(credit_watch, "_announce", announce)
     return lines, events
 
@@ -133,9 +130,8 @@ async def test_resume_after_first_success(posted, monkeypatch):
     assert not resumed  # still exhausted: a success elsewhere changes nothing
     credits.state.exhausted[1] = UsageLimit(datetime.now(UTC) - timedelta(seconds=1), False)
     await credit_watch.on_run_succeeded(s, 2)
-    assert not resumed  # account 1 is released but has not run yet
-    await credit_watch.on_run_succeeded(s, 1)
-    assert len(resumed) == 1 and not credits.state.episode
+    assert len(resumed) == 1  # account 1 is released: any success ends the episode
+    assert not credits.state.episode
     await credit_watch.on_run_succeeded(s, 1)
     assert len(resumed) == 1  # announced once
 
@@ -152,3 +148,32 @@ async def test_new_episode_announces_again(posted, monkeypatch):
         await credit_watch.on_limit_reached(s, 1, UsageLimit(datetime.now(UTC) - timedelta(seconds=1), False))
         await credit_watch.on_run_succeeded(s, 1)
     assert len(lines) == 2
+
+
+class ResumeSession(AnnounceSession):
+    """Serves the queries of `_resume`: open tasks, then the number of queued wakeups."""
+
+    def __init__(self):
+        super().__init__()
+        self.events = []
+
+    async def execute(self, _query):
+        return [(7, "Pause exhausted accounts", SimpleNamespace(value="in_progress"))]
+
+    async def scalar(self, _query):
+        return 3
+
+    def add(self, event):
+        self.events.append(event)
+
+
+async def test_resume_wakes_the_lead_with_the_state(posted):
+    s = ResumeSession()
+    await credit_watch._resume(s, datetime.now(UTC))
+    (event,) = s.events
+    assert event.type == "credits_back" and event.target_role == "lead"
+    assert event.payload["pending"] == 3 and "#7 Pause exhausted accounts (in_progress)" in event.payload["tasks"]
+    from app.orchestrator.prompts import reason_for
+
+    reason = reason_for("credits_back", event.payload)
+    assert "Queued wakeups: 3" in reason and "?" not in reason.split("Tasks in progress")[0]

@@ -45,14 +45,15 @@ async def on_limit_reached(s: AsyncSession, account: int, limit: UsageLimit) -> 
 
 
 async def on_run_succeeded(s: AsyncSession, account: int) -> None:
-    """A run went through: if every account that rested has worked again, the episode is over."""
+    """A run went through: once no account is resting, the episode is over. Any success counts,
+    so an account nobody runs on after its reset cannot keep the episode open forever."""
     state = credits.state
     if not state.episode:
         return
     credits.exhausted_accounts()  # releases the accounts whose reset has passed
-    state.probing.discard(account)
-    if state.exhausted or state.probing:
+    if state.exhausted:
         return
+    state.probing.clear()
     since, state.episode, state.since = state.since, False, None
     await _resume(s, since)
 

@@ -82,7 +82,8 @@ state = CreditState()
 
 def is_exhausted(account: int, now: datetime | None = None) -> bool:
     """Whether the account must not run. Once its reset time has passed it is released
-    (and probed: the next run that succeeds ends the episode)."""
+    (and probed: the next run that succeeds ends the episode). The release lives in this check
+    so that the dispatcher, the account spreading and the status API all see the same state."""
     limit = state.exhausted.get(account)
     if limit is None:
         return False
