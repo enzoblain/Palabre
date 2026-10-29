@@ -69,7 +69,7 @@ def gh(monkeypatch):
     state.files = versioned("1.2.0")
 
     async def nothing_to_bump(_project):
-        raise WorkflowError("Nothing worth a release on dev: only chores")
+        raise projects.NothingToRelease("Nothing worth a release on dev: only chores")
 
     monkeypatch.setattr(projects, "prepare_release", nothing_to_bump)  # Covered by test_release_auto.py
     return state

@@ -83,7 +83,7 @@ responsibilities = [
   "Post your progress in the conversation",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Touching someone else's branch"]
+forbidden = ["Merging", "Creating or assigning tasks", "Touching someone else's branch", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Your PRs pass review and do what the task asks."
@@ -100,7 +100,7 @@ responsibilities = [
   "Write or update the tests",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A reliable, tested API."
@@ -117,7 +117,7 @@ responsibilities = [
   "Write or update the tests",
   "Request a review when ready, and address the feedback",
 ]
-forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Commits", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A faithful, accessible UI with no regressions."
@@ -228,7 +228,7 @@ model = "haiku"
 mission = "Make the project understandable to someone discovering it."
 responsibilities = [
   "Maintain the README and user documentation",
-  "Write the changelog on every merge",
+  "Keep the docs up to date on every merge (the changelog itself is generated at release)",
 ]
 forbidden = ["Changing application code", "Merging"]
 deliverables = ["README", "Docs", "Changelog"]
@@ -351,7 +351,7 @@ rules = [
   "QA and security are blocking.",
   "CI must be green to merge.",
   "Every decision must be validated by the boss before it is applied.",
-  "Documentation and changelog are mandatory on every merge.",
+  "Documentation is mandatory on every merge; the changelog is generated at release.",
 ]
 [modes.multinational.process]
 required_approvals = 2

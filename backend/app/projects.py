@@ -360,6 +360,10 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
             pass  # Already closed or merged on GitHub
 
 
+class NothingToRelease(WorkflowError):
+    """No commit since the last tag deserves a version."""
+
+
 async def release_plan(project: Project) -> dict | None:
     """What the team's branch would publish: the next version (SemVer, from the Conventional Commits since
     the last vX.Y.Z tag), the previous one, the commits, the branch's tip and the number of commits
@@ -387,12 +391,14 @@ async def prepare_release(project: Project) -> dict:
     commits since the last tag. Nothing is committed when the branch already holds that version."""
     plan = await release_plan(project)
     if plan is None:
-        raise WorkflowError(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
+        raise NothingToRelease(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
     version, tip = plan["version"], plan["tip"]
     repo = github.repo_slug(project.repo_url)
     changes = release.changelog_entry(version, datetime.now(UTC).date().isoformat(), plan["commits"])
     result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": changes}
     texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
+    if all(texts[path] is None for path in VERSION_FILES):
+        raise WorkflowError("No version file found in the repository: nothing to bump")
     package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
     if all(texts[path] is None or VERSION_FILES[path](texts[path], package) == version for path in VERSION_FILES):
         return result  # Already bumped
@@ -430,9 +436,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
         raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
     try:
         prepared = await prepare_release(project)  # No bump task: the version is computed here
-    except WorkflowError as exc:
-        if not str(exc).startswith("Nothing worth a release"):
-            raise
+    except NothingToRelease:
         prepared = None  # Only chores since the last tag: the lead merges as before
     title = title or (prepared["version"] if prepared else "")
     if not title:

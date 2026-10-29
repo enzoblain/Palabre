@@ -68,7 +68,7 @@ def changelog_body(commits: list[str]) -> str:
         name = CHANGELOG_SECTIONS.get(kind)
         if name is None and not breaking:
             continue
-        line = desc[:1].upper() + desc[1:]
+        line = desc
         sections.setdefault(name or "Changed", []).append(f"**Breaking:** {line}" if breaking else line)
     return "\n\n".join(f"### {name}\n\n" + "\n".join(f"- {line}" for line in sections[name]) for name in SECTION_ORDER if name in sections)
 
@@ -78,10 +78,17 @@ def changelog_entry(version: str, date: str, commits: list[str]) -> str:
 
 
 def update_changelog(text: str, version: str, previous: str | None, entry: str) -> str:
-    """Put `entry` under [Unreleased] and move the compare links on to `version`."""
+    """Replace the content of [Unreleased] by `entry` (the changelog is generated, nobody edits it by hand),
+    drop the entries of versions never released (newer than `previous`: a stale bump) and move the links on."""
     if "## [Unreleased]" not in text:
         raise ValueError("CHANGELOG.md has no [Unreleased] section")
-    text = text.replace("## [Unreleased]\n", f"## [Unreleased]\n\n{entry}", 1)
+    head, _, rest = text.partition("## [Unreleased]\n")
+    sections = re.split(r"(?m)^(?=## \[)", rest)
+    kept = [sec for sec in sections[1:] if not _newer(sec, previous)]
+    tail = "".join(kept)
+    text = f"{head}## [Unreleased]\n\n{entry}\n{tail}"
+    stale = {m[1] for sec in sections[1:] if _newer(sec, previous) for m in [re.match(r"## \[([^\]]+)\]", sec)]}
+    text = "".join(line for line in text.splitlines(keepends=True) if not any(line.startswith(f"[{v}]:") for v in stale))
     link = re.search(r"^\[Unreleased\]: (?P<base>\S+?)/compare/\S+$", text, re.M)
     if link:
         base = link["base"]
@@ -90,6 +97,14 @@ def update_changelog(text: str, version: str, previous: str | None, entry: str) 
             new += f"\n[{version}]: {base}/compare/v{previous}...v{version}"
         text = text[: link.start()] + new + text[link.end():]
     return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def _newer(section: str, previous: str | None) -> bool:
+    """Whether a `## [X.Y.Z]` section is a version after `previous` (so not released)."""
+    match = re.match(r"## \[(\d+)\.(\d+)\.(\d+)\]", section)
+    if not match:
+        return False
+    return previous is None or tuple(int(n) for n in match.groups()) > tuple(int(n) for n in previous.split("."))
 
 
 def set_version(path: str, text: str, version: str, package: str = "") -> str:

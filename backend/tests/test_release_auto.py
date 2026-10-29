@@ -50,11 +50,21 @@ def test_next_version(current, commits, expected):
 
 def test_changelog_entry_and_links():
     entry = release.changelog_entry("0.7.0", "2026-11-01", ["feat(api): add x", "fix: y", "chore: z", "refactor!: w"])
-    assert entry.startswith("## [0.7.0] - 2026-11-01\n\n### Added\n\n- Api: add x")
-    assert "### Fixed\n\n- Y" in entry and "**Breaking:** W" in entry and "chore" not in entry
+    assert entry.startswith("## [0.7.0] - 2026-11-01\n\n### Added\n\n- api: add x")
+    assert "### Fixed\n\n- y" in entry and "**Breaking:** w" in entry and "chore" not in entry
     text = release.update_changelog(CHANGELOG, "0.7.0", "0.6.1", entry)
     assert text.index("## [0.7.0]") < text.index("## [0.6.1]")
     assert "[Unreleased]: https://github.com/acme/app/compare/v0.7.0...HEAD\n[0.7.0]: https://github.com/acme/app/compare/v0.6.1...v0.7.0\n[0.6.1]" in text
+
+
+def test_update_changelog_replaces_a_hand_written_unreleased_and_a_stale_entry():
+    text = CHANGELOG.replace(
+        "## [Unreleased]\n", "## [Unreleased]\n\n### Added\n\n- Written by hand.\n\n## [0.6.5] - 2026-10-30\n\n### Fixed\n\n- Never released.\n"
+    ) + "[0.6.5]: https://github.com/acme/app/compare/v0.6.1...v0.6.5\n"
+    entry = release.changelog_entry("0.7.0", "2026-11-01", ["feat: add x", "feat: add z"])
+    out = release.update_changelog(text, "0.7.0", "0.6.1", entry)
+    assert out.count("### Added") == 1 and "by hand" not in out and "0.6.5" not in out
+    assert "- add x\n- add z" in out and "## [0.6.1]" in out and "[0.7.0]: " in out
 
 
 def test_set_version_touches_only_the_package_version():
@@ -137,7 +147,7 @@ async def test_prepare_release_commits_files_and_changelog_in_one_commit(gh):
         "frontend/package-lock.json", "frontend/src-tauri/Cargo.lock", "CHANGELOG.md",
     }
     assert json.loads(files["frontend/package.json"])["version"] == "0.7.0"
-    assert "## [0.7.0]" in files["CHANGELOG.md"] and "- B: c" in files["CHANGELOG.md"]
+    assert "## [0.7.0]" in files["CHANGELOG.md"] and "- b: c" in files["CHANGELOG.md"]
     assert result["committed"] and result["version"] == "0.7.0" and result["sha"] == "new1"
 
 
@@ -309,3 +319,10 @@ async def test_commit_release_pushes_one_commit_to_the_team_branch_only(tmp_path
     with pytest.raises(github.GitHubError, match="outside"):
         head["sha"] = "tip1"
         await worktrees.commit_release(project, "tip1", {"../evil": "3"}, "x")
+
+
+async def test_prepare_release_refuses_a_repository_without_version_files(gh):
+    gh.files = {"CHANGELOG.md": CHANGELOG}
+    with pytest.raises(WorkflowError, match="No version file"):
+        await projects.prepare_release(PROJECT)
+    assert gh.pushed is None
