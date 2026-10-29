@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
@@ -77,6 +78,13 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
                 role="lead",
             )  # fmt: skip
     # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
+    await _clear_throttle(s, conversation_id)
+    await s.commit()
+    return message
+
+
+async def _clear_throttle(s: AsyncSession, conversation_id: int) -> None:
+    """Marks the pending "conversation_throttled" notices of a conversation as handled."""
     await s.execute(
         update(Event)
         .where(
@@ -86,24 +94,15 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
         )
         .values(processed_at=datetime.now(UTC))
     )
-    await s.commit()
-    return message
 
 
 @router.post("/conversations/{conversation_id}/lift-rate-limit", status_code=status.HTTP_204_NO_CONTENT)
 async def lift_rate_limit(conversation_id: int, s: SessionDep):
     """Restarts the anti-loop window of a conversation (admin token): agents can be woken in it again."""
-    await get_or_404(s, Conversation, conversation_id)
-    orchestrator.lift_rate_limit(conversation_id)
-    await s.execute(
-        update(Event)
-        .where(
-            Event.type == "conversation_throttled",
-            Event.processed_at.is_(None),
-            Event.payload["conversation_id"].as_integer() == conversation_id,
-        )
-        .values(processed_at=datetime.now(UTC))
-    )
+    conversation = await get_or_404(s, Conversation, conversation_id)
+    room = await get_or_404(s, Room, conversation.room_id)
+    await orchestrator.lift_rate_limit(s, room.project_id, conversation_id)
+    await _clear_throttle(s, conversation_id)
     await s.commit()
 
 
