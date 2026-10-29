@@ -35,5 +35,8 @@ def upgrade_schema(conn: Connection) -> None:
             default = column.server_default.arg if column.server_default is not None else None
             if isinstance(default, str):
                 conn.exec_driver_sql(ddl + " NOT NULL DEFAULT '" + default.replace("'", "''") + "'")
+                if (table.name, column.name) == ("agent_sessions", "runs"):
+                    # Existing sessions have an unknown size: forget them once, so none is resumed
+                    conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
