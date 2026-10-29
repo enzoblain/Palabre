@@ -327,7 +327,6 @@ All optional, in `.env`:
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
-| `MCP_SESSION_BINDING` | `warn` | `warn`: a second MCP session on a run's token is logged and the lead told once, nothing is refused. `enforce`: the token is revoked at the second session. Switch to `enforce` once the backend logs (`MCP initialize: session #n ...`) of a real instance show a single initialize per run |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
@@ -380,7 +379,9 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 - Each run gets its own random MCP token, held in server memory: it is revoked when the
   run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
   A token stolen from another run (`ps`, the config file) stops working once that run is
-  over. Residual risk: all runs share the `agent` uid, so while a run is live another run
+  over. The token is tied to the run and to its task or conversation (the headers must match
+  the scope recorded at start), not to one MCP session: `claude` reopens sessions during a
+  run, so each `MCP initialize` is only logged by the backend. Residual risk: all runs share the `agent` uid, so while a run is live another run
   can still read its `/proc/<pid>/environ` or the config file in that short window. The
   real fix is one uid per run (or per sensitive role, the lead) or a sandbox per run
   (bubblewrap, user namespace).

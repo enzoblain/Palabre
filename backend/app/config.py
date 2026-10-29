@@ -1,7 +1,6 @@
 """Settings read from environment variables and, for secrets, from files (Docker secrets)."""
 
 import os
-from typing import Literal
 from pathlib import Path
 from urllib.parse import quote
 
@@ -57,9 +56,6 @@ class Settings(BaseSettings):
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
     mcp_url: str = "http://127.0.0.1:8000/mcp/"
-    # "warn": a second MCP session on a run's token is logged and the lead alerted once, nothing is revoked.
-    # "enforce": the token is revoked (fail closed). Not checked yet on a real `claude -p` run.
-    mcp_session_binding: Literal["warn", "enforce"] = "warn"
 
     # Orchestrator
     orchestrator_enabled: bool = True
@@ -117,3 +113,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def removed_settings_present(env_file: Path = Path(".env")) -> list[str]:
+    """Settings that no longer exist but are still set (environment or .env): they are ignored."""
+    removed = ["MCP_SESSION_BINDING"]
+    text = env_file.read_text(errors="ignore") if env_file.is_file() else ""
+    in_file = {l.split("=", 1)[0].strip().removeprefix("export ").strip().upper() for l in text.splitlines() if "=" in l}
+    return [name for name in removed if name in os.environ or name in in_file]

@@ -12,7 +12,7 @@ from app import services
 from app.projects import ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
-from app.config import settings
+from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
 from app.hardening import make_non_dumpable
@@ -31,13 +31,15 @@ make_non_dumpable()
 # host=127.0.0.1 keeps DNS rebinding protection: agents run in the backend container.
 mcp_app = mcp.streamable_http_app(
     streamable_http_path="/", json_response=True, host="127.0.0.1",
-    # A session must outlive its run: an expired one would force a re-initialize, now refused
+    # A session must outlive its run: an expired one would force a re-initialize
     session_idle_timeout=settings.agent_timeout_s + 300,
 )
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    for name in removed_settings_present():
+        log.warning("%s is set but no longer exists: it is ignored, you can remove it", name)
     if not settings.agent_user:
         log.warning(
             "AGENT_USER is empty: agents run as the backend's own user and can read its "
