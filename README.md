@@ -298,6 +298,7 @@ All optional, in `.env`:
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own.
@@ -319,6 +320,12 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   clone and `runtime/`; agents write in their task and desk clones, Claude's sessions and
   the Go cache, and only read the toolchains. The server's `PATH` never includes the
   toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
+  Every run is `sudo -n -u agent` with a fixed list of variables (`HOME`, `PATH` with the
+  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity), never inherited from the
+  server. Secrets travel in that environment, not in the command line, so `ps` does not show
+  them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
+  A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
+  that timed out. With `AGENT_USER` empty, none of this applies.
   Agents still share the container's network, so keep Postgres' password strong.
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.

@@ -7,7 +7,7 @@ ARG EXTRA_APT_PACKAGES=""
 ARG CLAUDE_CODE_VERSION=stable
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git sudo tzdata ${EXTRA_APT_PACKAGES} \
+    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tzdata ${EXTRA_APT_PACKAGES} \
     && rm -rf /var/lib/apt/lists/*
 
 # Two users: palabre runs the backend (database, GitHub token, Claude tokens), agent runs the
@@ -19,11 +19,14 @@ RUN groupadd --gid 1002 work \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv
 
-# The only thing palabre may do as agent: run the claude binary, nothing else.
+# The only things palabre may do as agent: run the claude binary, and kill a process group
+# of the agent's own (a root-owned sudo cannot be signalled by palabre). Nothing else.
+# !secure_path: the agent's PATH (with the toolchains) is set by the backend.
 # The umask makes the agents' files writable by the backend.
 RUN printf '%s\n' \
-      'Defaults:palabre !requiretty, umask=0002, umask_override' \
+      'Defaults:palabre !requiretty, !secure_path, umask=0002, umask_override' \
       'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
+      'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent
@@ -39,6 +42,7 @@ ENV HOME=/home/palabre \
     PATH=/home/palabre/.local/bin:$PATH \
     CLAUDE_CONFIG_DIR=/data/claude \
     DISABLE_AUTOUPDATER=1 \
+    AGENT_USER=agent \
     PYTHONUNBUFFERED=1
 
 # Native installer: no Node.js needed

@@ -19,8 +19,12 @@ def test_agent_user_and_shared_group():
 
 def test_single_narrow_sudo_rule():
     rules = re.findall(r"'(palabre ALL=[^']*)'", DOCKERFILE)
-    # Only the claude binary, only as agent, never as root
-    assert rules == ["palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude"]
+    # Only the claude binary and a process-group kill, only as agent, never as root
+    assert rules == [
+        "palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
+        "palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
+    ]
+    assert "AGENT_USER=agent" in DOCKERFILE
 
 
 def test_toolchains_not_in_backend_path():
