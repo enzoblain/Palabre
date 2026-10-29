@@ -251,6 +251,15 @@ cd backend && pip install --require-hashes -r requirements-dev.txt && python -m 
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
 merge gates) and `fake_github` (replaces the GitHub and git calls).
 
+The Compose stack is tested in CI (job "Compose smoke test", on pull requests to `dev` and `main`),
+because the runners have Docker. `.github/scripts/compose-smoke.sh` starts the stack with test
+secrets and checks that the backend is healthy, that no secret shows in the container's
+environment, that an empty `ADMIN_TOKEN` or `POSTGRES_PASSWORD` stops the startup, that the
+`updater` recreates the backend with the secrets still resolved, and that the current code takes
+over a volume created by the last published release (latest `vX.Y.Z` tag). To run it locally you
+need Docker with Compose 2.30+ and the release tags: `.github/scripts/compose-smoke.sh` from the
+repository root (it builds the images and removes its own containers and volumes).
+
 ## Dependencies
 
 Backend dependencies are frozen with [pip-tools](https://pip-tools.readthedocs.io) (versions and

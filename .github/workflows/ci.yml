@@ -110,6 +110,20 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
+  # The real stack: secret files, fail-fast, updater, upgrade of the last release's volume
+  # (nobody has docker locally). Test values only, no repository secrets.
+  compose:
+    name: Compose smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0 # the release tags, for the upgrade test
+      - name: Compose version
+        run: docker compose version
+      - run: .github/scripts/compose-smoke.sh
+
   # Known vulnerabilities in the pinned backend dependencies. pip-audit lives only in this job:
   # it is in neither the image nor the requirements files.
   pip-audit:
