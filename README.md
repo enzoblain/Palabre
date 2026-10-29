@@ -259,7 +259,7 @@ Backend tests (pytest, no database or network needed):
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
-In CI, pytest runs with `-rfE --tb=line` and `backend/scripts/pytest_annotations.py` turns each failed test into an `::error` annotation (file, line, test name), so the names show on the PR.
+On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation (file, line, test name) for each failed test, so the names show on the PR. GitHub keeps only 10 error annotations per step; the full list is in the log (`-rf`). The frontend check has no such annotation.
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
