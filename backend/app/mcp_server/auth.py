@@ -9,6 +9,8 @@ The agent therefore chooses neither who it is nor where it acts.
 A token is also bound to the first MCP session that uses it (the Mcp-Session-Id of its initialize):
 a run that stole another run's token from the process list cannot open a second session with it.
 The legitimate run then fails visibly and the lead is told.
+With MCP_SESSION_BINDING=warn (default) a second session is only logged and reported once, never refused:
+this is not checked yet on a real `claude -p` run. Every initialize is logged, without the token.
 """
 
 import logging
@@ -20,6 +22,7 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.config import settings
 from app.db import SessionLocal
 from app.mcp_server import run_tokens
 from app.mcp_server.permissions import mcp_tools_for
@@ -59,6 +62,19 @@ class AgentAuthMiddleware:
             return
 
         session_id = headers.get("mcp-session-id", "")
+        if not session_id:
+            n = run_tokens.count_initialize(token)
+            log.info(
+                "MCP initialize: session #%d of the run of employee %s (conversation %s, task %s)",
+                n, caller.employee_id, caller.conversation_id, caller.task_id,
+            )  # fmt: skip
+            if n == 2 and settings.mcp_session_binding == "warn":
+                log.warning("MCP token of employee %s used on a second session: allowed (warn mode)", caller.employee_id)
+                await alert_lead(caller, refused=False)
+        if settings.mcp_session_binding != "enforce":
+            await self._forward(scope, receive, send, caller, token, claimed=False)
+            return
+
         claimed = False
         if session_id:
             allowed = run_tokens.session_allowed(token, session_id)
@@ -69,7 +85,11 @@ class AgentAuthMiddleware:
             await alert_lead(caller)
             await JSONResponse({"error": "token bound to another session"}, status_code=403)(scope, receive, send)
             return
+        await self._forward(scope, receive, send, caller, token, claimed)
 
+    async def _forward(
+        self, scope: Scope, receive: Receive, send: Send, caller: Caller, token: str, claimed: bool
+    ) -> None:
         async def send_bound(message: Message) -> None:
             if claimed and message["type"] == "http.response.start":
                 sid = Headers(raw=message["headers"]).get("mcp-session-id")
@@ -88,16 +108,18 @@ class AgentAuthMiddleware:
             raise
 
 
-async def alert_lead(caller: Caller) -> None:
-    """Log the refused session and leave a system line in the direction channel."""
-    log.warning("MCP token of employee %s used on a second session: refused", caller.employee_id)
+async def alert_lead(caller: Caller, refused: bool = True) -> None:
+    """Leave a system line in the direction channel (the refusal itself is logged by the caller in warn mode)."""
+    if refused:
+        log.warning("MCP token of employee %s used on a second session: refused", caller.employee_id)
+    outcome = "refused" if refused else "allowed (MCP_SESSION_BINDING=warn)"
     async with SessionLocal() as s:
         conversation_id = await direction_conversation_id(s, caller.project_id)
         if conversation_id is not None:
             await post_system_message(
                 s, conversation_id,
                 f"Security: the MCP token of employee #{caller.employee_id} was used on a second "
-                "session and refused. Another process may have read it.",
+                f"session: {outcome}. Another process may have read it, or claude reopened a session.",
             )  # fmt: skip
             await s.commit()
 

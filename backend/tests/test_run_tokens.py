@@ -48,6 +48,7 @@ async def _call(app, token, session_id=None):
 
 
 async def test_token_is_bound_to_its_first_session(monkeypatch):
+    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
     caller = auth.Caller(1, 1, 1, 1, None, frozenset())
     alerts = []
 
@@ -75,6 +76,7 @@ async def test_token_is_bound_to_its_first_session(monkeypatch):
 
 
 async def test_foreign_session_id_revokes_the_token(monkeypatch):
+    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
     async def fake_resolve(token, conversation, task):
         return auth.Caller(1, 1, 1, 1, None, frozenset()) if run_tokens.employee_of(token) else None
 
@@ -94,6 +96,7 @@ async def test_foreign_session_id_revokes_the_token(monkeypatch):
 
 
 async def test_failed_initialize_does_not_burn_the_token(monkeypatch):
+    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
     async def fake_resolve(token, conversation, task):
         return auth.Caller(1, 1, 1, 1, None, frozenset())
 
@@ -105,3 +108,34 @@ async def test_failed_initialize_does_not_burn_the_token(monkeypatch):
     assert await _call(auth.AgentAuthMiddleware(inner), token) == 500
     assert run_tokens.claim_initialize(token)
     run_tokens.revoke(token)
+
+
+async def test_warn_mode_logs_and_alerts_once_without_revoking(monkeypatch, caplog):
+    monkeypatch.setattr(auth.settings, "mcp_session_binding", "warn")
+    alerts = []
+
+    async def fake_resolve(token, conversation, task):
+        return auth.Caller(1, 1, 1, 1, None, frozenset()) if run_tokens.employee_of(token) else None
+
+    async def fake_alert(c, refused=True):
+        alerts.append(refused)
+
+    async def inner(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"mcp-session-id", b"s1")]})
+
+    monkeypatch.setattr(auth, "resolve_caller", fake_resolve)
+    monkeypatch.setattr(auth, "alert_lead", fake_alert)
+    app = auth.AgentAuthMiddleware(inner)
+    token = run_tokens.issue(1)
+
+    with caplog.at_level("INFO", logger=auth.log.name):
+        assert await _call(app, token) == 200
+        assert await _call(app, token) == 200  # second initialize: allowed
+        assert await _call(app, token) == 200  # third: no new alert
+        assert await _call(app, token, "s1") == 200
+        assert await _call(app, token, "other") == 200
+    assert alerts == [False]
+    initializes = [r.getMessage() for r in caplog.records if "MCP initialize" in r.getMessage()]
+    assert [m.split(":")[1].split(" of")[0].strip() for m in initializes] == ["session #1", "session #2", "session #3"]
+    assert token not in caplog.text
+    assert run_tokens.employee_of(token) == 1  # not revoked
