@@ -216,3 +216,14 @@ async def test_create_branch_encodes_the_source_branch(monkeypatch):
     monkeypatch.setattr(github, "_api", api)
     await github.create_branch("acme/app", "dev", "a?b#c")
     assert calls[0] == ("GET", "/repos/acme/app/git/ref/heads/a%3Fb%23c")
+
+
+def test_branch_change_rejects_trailing_newline():
+    import pytest
+    from pydantic import ValidationError
+
+    from app.api.schemas import BranchChange
+
+    assert BranchChange(branch="main").branch == "main"
+    with pytest.raises(ValidationError):
+        BranchChange(branch="main\n")
