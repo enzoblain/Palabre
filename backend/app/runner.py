@@ -174,7 +174,12 @@ def _usage(usage: object) -> dict[str, int | None]:
 
 
 async def run_claude(spec: RunSpec) -> RunResult:
-    token = run_tokens.issue(spec.employee_id)
+    task_id, conversation_id = spec.mcp_headers.get("X-Palabre-Task"), spec.mcp_headers.get("X-Palabre-Conversation")
+    token = run_tokens.issue(
+        spec.employee_id,
+        int(task_id) if task_id and task_id.isdigit() else None,
+        int(conversation_id) if conversation_id and conversation_id.isdigit() else None,
+    )  # fmt: skip
     try:
         return await _run_claude(spec, token)
     finally:

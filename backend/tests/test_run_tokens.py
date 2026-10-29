@@ -139,3 +139,24 @@ async def test_warn_mode_logs_and_alerts_once_without_revoking(monkeypatch, capl
     assert [m.split(":")[1].split(" of")[0].strip() for m in initializes] == ["session #1", "session #2", "session #3"]
     assert token not in caplog.text
     assert run_tokens.employee_of(token) == 1  # not revoked
+
+
+async def test_headers_must_match_the_scope_recorded_with_the_token(caplog):
+    token = run_tokens.issue(1, task_id=5)
+    assert run_tokens.scope_of(token) == (5, None)
+    with caplog.at_level("WARNING", logger=auth.log.name):
+        assert await auth.resolve_caller(token, "", "6") is None  # other task
+        assert await auth.resolve_caller(token, "3", "") is None  # conversation headers on a task token
+        assert await auth.resolve_caller(token, "3", "5") is None  # extra header
+        assert await auth.resolve_caller(token, "", "") is None  # no header
+    assert caplog.text.count("do not match the scope") == 4
+    assert token not in caplog.text
+    run_tokens.revoke(token)
+    assert run_tokens.scope_of(token) == (None, None)
+
+
+async def test_unscoped_token_refuses_any_scope_header():
+    token = run_tokens.issue(1)
+    assert await auth.resolve_caller(token, "1", "") is None
+    assert await auth.resolve_caller(token, "", "1") is None
+    run_tokens.revoke(token)
