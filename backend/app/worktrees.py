@@ -127,10 +127,53 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
             allow_file=True,
         )  # fmt: skip
         await git(path, "remote", "set-url", "origin", project.repo_url)
-        await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
+        await _pull_from_reference(project, path)
     except GitHubError:
         await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)  # Never leave a half clone
         raise
+
+
+async def _pull_from_reference(project: Project, path: Path) -> None:
+    """Bring the clone's origin/* up to date from the reference over the local transport. The
+    clone's config is written by the agent (remote URL, insteadOf...): no command carrying the
+    token ever runs there. Expects the repo lock held and the reference synced."""
+    await git(
+        path, "fetch", "--quiet", "--prune", str(repo_dir(project)), "+refs/remotes/origin/*:refs/remotes/origin/*",
+        allow_file=True,
+    )  # fmt: skip
+
+
+async def refresh_clone(project: Project, path: Path) -> None:
+    """Fetch GitHub into the reference, then the reference into the clone. Best effort: on a
+    GitHub error the clone keeps the last fetched state."""
+    async with _repo_locks[project.id]:
+        try:
+            await _sync_repo(project)
+        except GitHubError:
+            pass
+        await _pull_from_reference(project, path)
+
+
+async def push_task_branch(project: Project, task: Task) -> None:
+    """Publish the task's branch. The agent clone is only read, over the local transport; the
+    push itself runs from the reference, whose config the backend owns, so the token never
+    meets agent-written config. The lease is checked against the reference's origin/<branch>."""
+    ref = f"refs/heads/{task.branch}"
+    async with _repo_locks[project.id]:
+        reference = repo_dir(project)
+        await git(
+            reference, "fetch", "--quiet", "--no-tags", task.worktree_path, f"+{ref}:{ref}",
+            allow_file=True, trust=task.worktree_path,
+        )  # fmt: skip
+        try:
+            await git(
+                reference, "push", "--quiet", "--force-with-lease", "origin", f"{ref}:{ref}",
+                repo_url=project.repo_url,
+            )  # fmt: skip
+            await git(reference, "fetch", "--quiet", "origin", repo_url=project.repo_url)
+        finally:
+            await git(reference, "update-ref", "-d", ref)
+        await _pull_from_reference(project, Path(task.worktree_path))
 
 
 async def prepare_desk(project: Project, employee: Employee) -> Path:
@@ -143,10 +186,7 @@ async def prepare_desk(project: Project, employee: Employee) -> Path:
         if not (path / ".git").exists():
             await _clone_from_reference(project, path)
         else:
-            try:
-                await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
-            except GitHubError:
-                pass  # Reset to the last fetched state
+            await _pull_from_reference(project, path)
         await git(path, "checkout", "--quiet", "--force", "--detach", ref)
         await git(path, "clean", "--quiet", "-fdx")
     return path
@@ -157,7 +197,8 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
     path = project_dir(project) / "worktrees" / f"task-{task.id}"
     async with _repo_locks[project.id]:
         await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
-        await git(repo_dir(project), "worktree", "prune")  # Tasks started before clones were linked worktrees
+        # Tasks started before clones were linked worktrees; dead code once none is left
+        await git(repo_dir(project), "worktree", "prune")
 
 
 def branch_name(task: Task) -> str:
@@ -193,10 +234,7 @@ async def prepare_worktree(project: Project, task: Task) -> tuple[str, Path]:
     path = project_dir(project) / "worktrees" / f"task-{task.id}"
     if path.exists():
         # Agents have no credentials: the backend keeps origin/* current for their rebases
-        try:
-            await git(path, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
-        except GitHubError:
-            pass  # Work from the last fetched state
+        await refresh_clone(project, path)
         return branch, path
 
     async with _repo_locks[project.id]:

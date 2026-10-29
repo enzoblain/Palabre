@@ -15,7 +15,14 @@ from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.services import WorkflowError, emit_event, post_message, post_system_message
-from app.worktrees import final_branch_name, remove_task_worktree, rename_branch, repo_dir
+from app.worktrees import (
+    final_branch_name,
+    push_task_branch,
+    refresh_clone,
+    remove_task_worktree,
+    rename_branch,
+    repo_dir,
+)
 
 MAX_DIFF_CHARS = 100_000
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
@@ -354,10 +361,7 @@ async def submit_for_review(
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
-    await github.git(
-        task.worktree_path, "push", "--force-with-lease", "--set-upstream", "origin", task.branch,
-        repo_url=project.repo_url,
-    )  # fmt: skip
+    await push_task_branch(project, task)
     if task.pr_number is None:
         criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(
@@ -412,10 +416,13 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     if not task.branch:
         raise WorkflowError(f"Task #{task.id} has no branch yet")
     repo, head = _task_checkout(project, task)
-    try:
-        await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
-    except github.GitHubError:
-        pass  # Diff against the last fetched state
+    if repo != repo_dir(project):
+        await refresh_clone(project, repo)  # Diff against the last fetched state if GitHub fails
+    else:
+        try:
+            await github.git(repo, "fetch", "--quiet", "origin", project.default_branch, repo_url=project.repo_url)
+        except github.GitHubError:
+            pass
     base = f"origin/{project.default_branch}...{head}"
     # No external diff or textconv driver: the clone's config is written by the agent
     stat = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--stat", base)

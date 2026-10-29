@@ -32,7 +32,9 @@ def setup(tmp_path, monkeypatch):
 
     async def git(cwd, *args, **kwargs):
         calls.append((args, kwargs))
-        if args[0] == "fetch":  # No network in tests
+        kwargs.pop("cwd", None)
+        if kwargs.get("repo_url"):  # No network in tests
+            calls.append(("token-in", str(cwd)))
             return ""
         if args[:3] == ("remote", "set-url", "origin"):
             return ""  # Keep the local origin the clone was made from
@@ -57,9 +59,10 @@ def test_task_clone_is_independent_of_the_reference(setup):
     assert _run("rev-parse", "--abbrev-ref", "HEAD", cwd=path).strip() == "task/5"
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
     assert "worktrees" not in {p.name for p in (reference / ".git").iterdir()}
-    clone_call = next(c for c in calls if c[0][0] == "clone")
+    clone_call = next(c for c in calls if c[0] and c[0][0] == "clone")
     assert clone_call[1] == {"allow_file": True}
-    assert not any(kw.get("allow_file") for args, kw in calls if args[0] != "clone")
+    # The local transport is for the clone and for fetches from the reference, never with the token
+    assert all(args[0] in {"clone", "fetch"} and not kw.get("repo_url") for args, kw in calls if kw.get("allow_file"))
 
 
 def test_existing_clone_is_kept(setup):
@@ -137,3 +140,36 @@ def test_file_transport_only_when_asked(monkeypatch):
     assert clone_env["GIT_ALLOW_PROTOCOL"] == "https:file"
     assert "protocol.file.allow=always" not in plain and "protocol.file.allow=always" in clone
     assert "safe.directory=/a" in plain and "safe.directory=/a" in clone
+
+
+def test_token_never_runs_in_an_agent_clone(setup):
+    project, reference, calls = setup
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    # The agent points origin at another private repository
+    _run("remote", "set-url", "origin", "https://github.com/acme/other-private", cwd=path)
+    _run("config", "url.https://github.com/acme/other-private.insteadOf", str(reference), cwd=path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    calls.clear()
+    for step in (
+        worktrees.refresh_clone(project, path),
+        worktrees.prepare_worktree(project, task),
+        worktrees.prepare_desk(project, SimpleNamespace(id=3)),
+        worktrees.push_task_branch(project, task),
+    ):
+        try:
+            asyncio.run(step)
+        except github.GitHubError:
+            pass  # A rewritten URL may break the agent's own clone, but it carries no token
+    token_cwds = {c[1] for c in calls if c[0] == "token-in"}
+    assert token_cwds == {str(reference)}
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)  # pushed from a temporary ref
+
+
+def test_askpass_is_neutralised(monkeypatch):
+    monkeypatch.setattr(settings, "github_token", "secret")
+    for url in (None, "https://github.com/acme/app"):
+        env = github._git_env(url)
+        assert env["GIT_ASKPASS"] == "/bin/true"
+    assert "core.askPass=" in github.SAFE_GIT_CONFIG

@@ -42,7 +42,7 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git clone (made from the project's clone with `--reference --dissociate`, so it never writes to it), then opens a pull request. The branch starts as `task/<id>` and, at the first
+2. **A developer** works on the task in its own git clone (made from the project's clone with `--reference --dissociate`, so it never writes to it; the token never reaches a clone: GitHub is fetched and pushed from the project's clone, and agent clones only talk to it locally), then opens a pull request. The branch starts as `task/<id>` and, at the first
    `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
