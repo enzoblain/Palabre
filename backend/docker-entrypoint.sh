@@ -68,5 +68,16 @@ for project in "$DATA"/projects/project-*; do
   done
 done
 
+# Secrets: Docker mounts them readable by everyone in /run/secrets. Close that directory
+# and hand the backend its own private copy, so no agent (or child process) can read them.
+if [ -d /run/secrets ]; then
+  install -d -o palabre -g palabre -m 500 /run/palabre-secrets
+  for f in /run/secrets/*; do
+    [ -f "$f" ] || continue
+    install -o palabre -g palabre -m 400 "$f" "/run/palabre-secrets/$(basename "$f")"
+  done
+  chmod 700 /run/secrets
+fi
+
 umask 002
 exec setpriv --reuid=palabre --regid=palabre --init-groups "$@"
