@@ -28,7 +28,7 @@ async def finished_tasks_since_reset(s: AsyncSession, employee: Employee) -> int
         or_(Task.assignee_id == employee.id, Task.closed_by_id == employee.id, reviewed),
     )
     if since is not None:
-        query = query.where(Task.updated_at >= since)
+        query = query.where(Task.closed_at >= since)
     return await s.scalar(query) or 0
 
 

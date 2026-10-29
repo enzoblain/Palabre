@@ -249,6 +249,7 @@ async def update_task(
         task.status = new_status
         if new_status == TaskStatus.cancelled and not was_cancelled:
             task.closed_by_id = author.id if author else None
+            task.closed_at = datetime.now(UTC)
             await clean_up_task(await s.get(Project, project_id), task)
         elif new_status == TaskStatus.todo and await dependencies_done(s, task):
             why = "rebase and submit again" if task.pr_number is not None else "back in todo"
@@ -584,6 +585,7 @@ async def merge_task(
     await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
     task.status = TaskStatus.done
     task.closed_by_id = author.id if author else None
+    task.closed_at = datetime.now(UTC)
     await clean_up_task(project, task)
     emit_event(s, project_id, "pr_merged", {"task_id": task.id, "pr_url": task.pr_url})
     await announce(s, task, "Merged" + (f" by {author.name}" if author else ""))
