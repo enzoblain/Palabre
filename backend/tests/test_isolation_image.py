@@ -134,3 +134,21 @@ def test_empty_compose_secret_is_refused_with_its_reason(tmp_path, monkeypatch, 
     with pytest.raises(ValidationError, match=reason) as exc:
         config.Settings(_secrets_dir=tmp_path, _env_file=None)
     assert "s3cret" not in str(exc.value)
+
+
+@pytest.mark.parametrize("missing, reason", [("admin_token", "ADMIN_TOKEN is blank"), ("postgres_password", "POSTGRES_PASSWORD is empty or missing")])
+def test_absent_compose_secret_is_refused_with_its_reason(tmp_path, monkeypatch, missing, reason):
+    # Compose mounts nothing for an empty environment-sourced secret: no file, no env var
+    from pydantic import ValidationError
+
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+    monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
+    for name in ("admin_token", "postgres_password"):
+        if name != missing:
+            (tmp_path / name).write_text("s3cret")
+    with pytest.raises(ValidationError, match=reason) as exc:
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+    assert "s3cret" not in str(exc.value)

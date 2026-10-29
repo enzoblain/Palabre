@@ -177,7 +177,7 @@ jobs:
           [ "$status" = exited ] && [ "$code" != 0 ] || { echo "::error::Backend did not fail: status=$status exit=$code"; exit 1; }
           echo "$logs" | grep -q "${{ matrix.reason }}" || { echo "::error::Refusal reason '${{ matrix.reason }}' not in the backend logs"; exit 1; }
           # The secret itself must never be echoed
-          for secret in "$ADMIN_TOKEN" "$POSTGRES_PASSWORD"; do
+          for secret in "$ADMIN_TOKEN" "$POSTGRES_PASSWORD" "$GITHUB_TOKEN" "$CLAUDE_CODE_OAUTH_TOKENS"; do
             [ -z "$secret" ] || ! echo "$logs" | grep -qF "$secret" || { echo "::error::Secret leaked in logs"; exit 1; }
           done
       - name: Clean up

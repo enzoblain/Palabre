@@ -5,7 +5,7 @@ from typing import Literal
 from pathlib import Path
 from urllib.parse import quote
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets"))
@@ -29,7 +29,9 @@ class Settings(BaseSettings):
     postgres_db: str = "palabre"
     postgres_host: str = "db"
     # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
-    admin_token: str
+    # Default + validate_default: Compose mounts no file for an empty secret, so an absent token
+    # must hit the blank check too (an unvalidated "" default would leave the API open)
+    admin_token: str = Field("", validate_default=True)
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
