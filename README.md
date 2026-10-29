@@ -310,6 +310,7 @@ All optional, in `.env`:
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
+| `MCP_SESSION_BINDING` | `warn` | `warn`: a second MCP session on a run's token is logged and the lead told once, nothing is refused. `enforce`: the token is revoked at the second session. Switch to `enforce` once the backend logs (`MCP initialize: session #n ...`) of a real instance show a single initialize per run |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own.

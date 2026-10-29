@@ -7,6 +7,8 @@ from pathlib import Path
 _active: dict[str, tuple[int, Path | None]] = {}
 # token -> Mcp-Session-Id of the only session allowed to use it (None while it is being opened)
 _sessions: dict[str, str | None] = {}
+# token -> number of initialize requests seen (the session number in the logs)
+_initializes: dict[str, int] = {}
 
 
 def issue(employee_id: int) -> str:
@@ -30,6 +32,12 @@ def employee_of(token: str) -> int | None:
         path.unlink(missing_ok=True)
         _active[token] = (employee_id, None)
     return employee_id
+
+
+def count_initialize(token: str) -> int:
+    """Rank of this initialize among the run's (1 for the first), to see how many sessions claude opens."""
+    _initializes[token] = _initializes.get(token, 0) + 1
+    return _initializes[token]
 
 
 def claim_initialize(token: str) -> bool:
@@ -58,3 +66,4 @@ def session_allowed(token: str, session_id: str) -> bool:
 def revoke(token: str) -> None:
     _active.pop(token, None)
     _sessions.pop(token, None)
+    _initializes.pop(token, None)
