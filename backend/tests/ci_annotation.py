@@ -2,9 +2,14 @@
 
 
 def annotation(report) -> str:
-    path, line, _ = report.location
+    # A collection error has no test line: nodeid is the file, reported at line 1
+    path, line, _ = getattr(report, "location", None) or (report.nodeid.split("::")[0], None, "")
     crash = getattr(report.longrepr, "reprcrash", None)
-    message = getattr(crash, "message", None) or "failed"
+    message = getattr(crash, "message", None)
+    if not message and report.longrepr is not None:
+        # collection errors have no reprcrash: the last line of the text is the exception
+        message = str(report.longrepr).strip().splitlines()[-1] if str(report.longrepr).strip() else None
+    message = message or "failed"
 
     def esc(text: str, prop: bool = False) -> str:
         text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
