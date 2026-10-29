@@ -11,6 +11,7 @@ import platform
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -213,14 +214,14 @@ async def _run(cmd: list[str]) -> None:
     # No pip cache (agents could plant a wheel in it) and a umask that keeps the venv
     # server-only: the server runs the venv's python here, agents must not be able to alter it
     env = {"PATH": os.defpath, "PIP_DISABLE_PIP_VERSION_CHECK": "1", "PIP_NO_CACHE_DIR": "1", "HOME": "/nonexistent"}
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, env=env, umask=0o022, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-    )
+    # subprocess.run in a thread: uvloop's create_subprocess_exec rejects umask
     try:
-        out, _ = await asyncio.wait_for(proc.communicate(), timeout=600)
-    except asyncio.TimeoutError:
-        proc.kill()
+        proc = await asyncio.to_thread(
+            subprocess.run, cmd, env=env, umask=0o022, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600
+        )
+    except subprocess.TimeoutExpired:
         raise WorkflowError("Python install timed out") from None
+    out = proc.stdout
     if proc.returncode:
         raise WorkflowError(f"Python install failed: {out.decode(errors='replace')[-1500:]}")
 
