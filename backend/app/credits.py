@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 # Wait before trying an account again when the output gives no reset time
 FALLBACK_WAIT = timedelta(minutes=30)
+# Upper bound on a parsed reset time: a bogus epoch must not pause an account for centuries
+MAX_WAIT = timedelta(days=8)
 
 # Wording of the limit messages of `claude -p`. A plain rate limit (429), an overload or a
 # crash must not match: they pass by themselves and do not call for a pause.
@@ -37,9 +39,9 @@ def parse_usage_limit(text: str | None, now: datetime | None = None) -> UsageLim
         return None
     now = now or datetime.now(UTC)
     if m := EPOCH_RE.search(text):
-        return UsageLimit(datetime.fromtimestamp(int(m.group(1)), UTC), False)
+        return UsageLimit(min(datetime.fromtimestamp(int(m.group(1)), UTC), now + MAX_WAIT), False)
     reset = _parse_reset(text, now)
-    return UsageLimit(reset, False) if reset else UsageLimit(now + FALLBACK_WAIT, True)
+    return UsageLimit(min(reset, now + MAX_WAIT), False) if reset else UsageLimit(now + FALLBACK_WAIT, True)
 
 
 def _parse_reset(text: str, now: datetime) -> datetime | None:
