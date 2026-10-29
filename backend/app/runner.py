@@ -144,7 +144,10 @@ async def _terminate(proc: asyncio.subprocess.Process) -> None:
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )  # fmt: skip
-    await killer.wait()
+    try:
+        await asyncio.wait_for(killer.wait(), 10)
+    except TimeoutError:
+        killer.kill()
 
 
 def _usage(usage: object) -> dict[str, int | None]:

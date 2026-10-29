@@ -21,10 +21,11 @@ RUN groupadd --gid 1002 work \
 
 # The only things palabre may do as agent: run the claude binary, and kill a process group
 # of the agent's own (a root-owned sudo cannot be signalled by palabre). Nothing else.
+# !use_pty keeps claude in sudo's process group, so the group kill reaches it.
 # !secure_path: the agent's PATH (with the toolchains) is set by the backend.
 # The umask makes the agents' files writable by the backend.
 RUN printf '%s\n' \
-      'Defaults:palabre !requiretty, !secure_path, umask=0002, umask_override' \
+      'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
       'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
       'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
       > /etc/sudoers.d/palabre-agent \
@@ -53,6 +54,7 @@ RUN chmod -R go+rX /home/palabre/.local
 
 COPY --chown=palabre:palabre app ./app
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=755 scripts ./scripts
 
 # Root only for the entrypoint, which fixes /data's permissions and then drops to palabre.
 # The toolchains directory is never in the backend's PATH (only in the agents').

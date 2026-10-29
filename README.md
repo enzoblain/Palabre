@@ -326,6 +326,10 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
   A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
   that timed out. With `AGENT_USER` empty, none of this applies.
+  Known limit: all agents share the one `agent` user, so a run can still read another run's
+  process (its token, its MCP config path). The isolation is between agents and the server,
+  not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
+  To check an image, run `docker exec -u root <container> /srv/scripts/check-isolation.sh`.
   Agents still share the container's network, so keep Postgres' password strong.
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.

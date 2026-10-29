@@ -98,3 +98,8 @@ def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
     # An explicit URL is kept
     s = config.Settings(_secrets_dir=tmp_path, _env_file=None, database_url="postgresql+asyncpg://u:p@h/d")
     assert s.database_url.endswith("@h/d")
+
+
+def test_sudo_keeps_claude_in_sudos_process_group():
+    # With use_pty the group kill of a timed-out run would only reach sudo
+    assert "!use_pty" in DOCKERFILE and "!secure_path" in DOCKERFILE
