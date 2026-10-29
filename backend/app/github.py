@@ -44,8 +44,14 @@ def https_url(repo_url: str) -> str:
     return f"https://github.com/{repo_slug(repo_url)}"
 
 
+# Agents can write the repo config and hooks: never let them run code, least of all with the token
+SAFE_GIT_CONFIG = ("-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false")
+NETWORK_COMMANDS = {"clone", "fetch", "push", "pull", "ls-remote"}
+
+
 def _git_env(repo_url: str | None) -> dict[str, str]:
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    # No system config: only the repo's own config remains, neutralised by SAFE_GIT_CONFIG
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
     if repo_url and repo_url.startswith("https://") and settings.github_token:
         # Passed through the environment so the token never shows up in the process list
         basic = base64.b64encode(f"x-access-token:{settings.github_token}".encode()).decode()
@@ -58,11 +64,13 @@ def _git_env(repo_url: str | None) -> dict[str, str]:
 
 
 async def git(cwd: str | Path, *args: str, repo_url: str | None = None) -> str:
+    # The token only goes to network commands
+    network = bool(args) and args[0] in NETWORK_COMMANDS
     proc = await asyncio.create_subprocess_exec(
-        "git", "-C", str(cwd), *args,
+        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=_git_env(repo_url),
+        env=_git_env(repo_url if network else None),
     )  # fmt: skip
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
