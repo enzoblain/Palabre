@@ -163,7 +163,10 @@ for var in ADMIN_TOKEN POSTGRES_PASSWORD; do
   if docker compose -p smoke-empty up -d --wait --wait-timeout 60 db backend; then
     fail "the stack started with an empty $var"
   fi
-  curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" >/dev/null 2>&1 && fail "backend answers with an empty $var"
+  if body=$(curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" 2>&1); then
+    diag=$(docker ps -a --format '{{.Names}} {{.Status}} {{.Ports}}' 2>&1; docker compose -p smoke-empty logs --no-color --tail 15 backend 2>&1)
+    fail "backend answers with an empty $var: $body ${diag//$'\n'/ | }"
+  fi
   # It must be the refusal of this secret, not an unrelated failure
   logs=$(docker compose -p smoke-empty logs --no-color 2>&1 || true)
   grep -qiE "$reason" <<<"$logs" || fail "no startup error about $var in the logs"
