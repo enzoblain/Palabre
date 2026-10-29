@@ -76,3 +76,21 @@ def test_settings_read_secret_files(tmp_path, monkeypatch):
     s = Settings(_secrets_dir=tmp_path, _env_file=None)
     assert s.admin_token == "a-token"
     assert s.database_url == "postgresql+asyncpg://palabre:p%40ss@db:5432/palabre"
+
+
+def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
+    from pydantic import ValidationError
+
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    (tmp_path / "admin_token").write_text("")
+    with pytest.raises(ValidationError):
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+    (tmp_path / "admin_token").write_text("x")
+    monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
+    with pytest.raises(ValidationError, match="POSTGRES_PASSWORD"):
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+    # An explicit URL is kept
+    s = config.Settings(_secrets_dir=tmp_path, _env_file=None, database_url="postgresql+asyncpg://u:p@h/d")
+    assert s.database_url.endswith("@h/d")

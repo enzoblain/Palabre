@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from urllib.parse import quote
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets"))
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     postgres_db: str = "palabre"
     postgres_host: str = "db"
     # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
-    admin_token: str
+    admin_token: str = Field(min_length=1)
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
@@ -73,6 +73,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _database_url_from_password(self):
+        if "database_url" in self.model_fields_set:
+            return self  # an explicit URL (external database) wins
+        if not self.postgres_password and SECRETS_DIR.is_dir():
+            raise ValueError("POSTGRES_PASSWORD is empty or missing: set it in .env")
         if self.postgres_password:
             user, pw = quote(self.postgres_user, safe=""), quote(self.postgres_password, safe="")
             self.database_url = f"postgresql+asyncpg://{user}:{pw}@{self.postgres_host}:5432/{self.postgres_db}"

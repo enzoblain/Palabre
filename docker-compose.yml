@@ -25,6 +25,9 @@ services:
     restart: unless-stopped
     # No env_file: the secrets are files (see `secrets` below), never in the environment
     secrets: [admin_token, github_token, claude_code_oauth_tokens, postgres_password]
+    # The server's private copy of the secrets stays in memory
+    tmpfs:
+      - /run/palabre-secrets
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-palabre}
       POSTGRES_DB: ${POSTGRES_DB:-palabre}

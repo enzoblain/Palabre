@@ -195,8 +195,10 @@ The server listens on port `2710` and the web app on port `2810`.
 Upgrading from a version before secret files: keep your `.env` as it is, the four secrets are
 still read from it. Compose now mounts them as files (`/run/secrets`) instead of environment
 variables, so you need Compose 2.30 or later, and any other variable you set must be one of
-those listed in [Configuration](#configuration) (the container no longer gets the whole
-`.env`). Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
+those listed in [Configuration](#configuration): the container no longer gets the whole
+`.env`, so settings like `CORS_ORIGINS`, `CLAUDE_MAX_TURNS`, `AGENT_TIMEOUT_S`,
+`IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
+`environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
 else changes; Postgres keeps its current password.
 
 Upgrading from a version before the agent user: nothing to do. The container starts as
