@@ -316,7 +316,14 @@ All optional, in `.env`:
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
-The lead and devops can also install Node.js or Go for the whole team on their own.
+The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
+Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
+The venv lives in `/data/toolchains/python-venv`, sees the image's packages, and its `python`,
+`pip` and commands (`pytest`...) come first in the agents' `PATH`, so `python -m pytest` still works
+after a redeployment. Agents only read the toolchains: packages are installed by the server, from
+PyPI, and the tool takes plain names with an optional version (no option, URL or path). Call it
+again to add packages. Only wheels are installed (no build step runs as the server), the venv is only writable by the server (a venv agents could write in is recreated), and no pip cache is kept. After a base
+image upgrade to another Python minor, the venv is recreated by the next `install_toolchain python`.
 
 ## Security
 
