@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-29
+
+### Added
+
+- direction: add a button to lift a conversation's anti-loop limit (#107)
+
+### Fixed
+
+- orchestrator: count only executed wakeups in the anti-loop limit (#106)
+- orchestrator: persist anti-loop lift and ignore requeued wakeups (#108)
+- front: reset LiftLimitButton when the conversation changes (#110)
+
 ## [0.9.0] - 2026-10-29
 
 ### Added
@@ -288,7 +300,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/enzoblain/Palabre/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/enzoblain/Palabre/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/enzoblain/Palabre/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/enzoblain/Palabre/compare/v0.6.2...v0.7.0
