@@ -30,7 +30,7 @@ make_non_dumpable()
 # Mounted under /mcp, so the endpoint path inside the sub-app is "/".
 # host=127.0.0.1 keeps DNS rebinding protection: agents run in the backend container.
 mcp_app = mcp.streamable_http_app(
-    streamable_http_path="/", json_response=True, stateless_http=True, host="127.0.0.1"
+    streamable_http_path="/", json_response=True, host="127.0.0.1"
 )
 
 
