@@ -37,7 +37,6 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [personality, setPersonality] = useState<Personality | null>(null);
   const [name, setName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
-  const [branch, setBranch] = useState("");
   const [topic, setTopic] = useState("");
   const [mode, setMode] = useState(DEFAULT_MODE.company);
   const research = kind === "research";
@@ -99,7 +98,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
       const project = await api.createProject({
         name: name.trim(),
         mode,
-        ...(research ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur } : { repo_url: repoUrl.trim(), default_branch: branch.trim() }),
+        ...(research ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur } : { repo_url: repoUrl.trim() }),
         seed: team.seed,
         accounts: custom ? {} : accounts,
         ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
@@ -147,11 +146,6 @@ export function NewProject({ claudeAccounts, onCreated }: {
                 placeholder="https://github.com/you/your-repo" autoCapitalize="off" />
             </label>
             {repoUrl && !repoValid && <p className="error">Expected a GitHub URL, like https://github.com/owner/repo</p>}
-            <label className="narrow">
-              Default branch
-              <input value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false} autoCapitalize="off"
-                placeholder="The repository's (main, master…)" />
-            </label>
           </>
         )}
       </section>
