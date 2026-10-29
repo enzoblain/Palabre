@@ -14,6 +14,8 @@ from app.config import settings
 API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
+FAILURE_ANNOTATIONS_MAX = 20
+FAILURE_DETAILS_MAX_CHARS = 4000
 # A branch name we accept: no spaces, "..", leading "-" or trailing "/" or "."
 BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])\Z"
 # A task's own branch: the legacy `task/<id>...` or `<type>/<id>-<slug>`, type as in Conventional Commits
@@ -260,9 +262,54 @@ async def commit_checks(repo: str, sha: str) -> str | None:
         return "no CI checks reported"
     if pending := [r["name"] for r in runs if r["status"] != "completed"]:
         return f"CI still running: {', '.join(pending)}"
-    if failed := [r["name"] for r in runs if r["conclusion"] not in OK_CONCLUSIONS]:
-        return f"CI failed: {', '.join(failed)}"
+    if failed := [r for r in runs if r["conclusion"] not in OK_CONCLUSIONS]:
+        reason = f"CI failed: {', '.join(r['name'] for r in failed)}"
+        if details := await failure_details(repo, failed):
+            reason += "\n" + details
+        return reason
     return None
+
+
+def _plain(value, limit: int) -> str:
+    """Untrusted text from a check run, as plain text: no control characters, bounded."""
+    text = "".join(c for c in str(value or "") if c in "\n\t" or c.isprintable())
+    return text.strip()[:limit]
+
+
+async def failure_details(repo: str, runs: list[dict]) -> str:
+    """The annotations and summary of the failed check runs, as untrusted plain text bounded to
+    FAILURE_DETAILS_MAX_CHARS. Best effort: the CI verdict never depends on it."""
+    parts: list[str] = []
+    count = 0
+    for run in runs:
+        if count >= FAILURE_ANNOTATIONS_MAX:
+            break
+        lines = []
+        output = run.get("output") or {}
+        for key in ("summary", "text"):
+            if body := _plain(output.get(key), 1000):
+                lines.append(body)
+        try:
+            annotations = await _api(
+                "GET", f"/repos/{repo}/check-runs/{int(run['id'])}/annotations",
+                params={"per_page": FAILURE_ANNOTATIONS_MAX - count},
+            )  # fmt: skip
+        except (GitHubError, httpx.HTTPError, KeyError, ValueError, TypeError):
+            annotations = []
+        for a in annotations if isinstance(annotations, list) else []:
+            if count >= FAILURE_ANNOTATIONS_MAX:
+                break
+            count += 1
+            where = _plain(a.get("path"), 200)
+            if a.get("start_line"):
+                where += f":{_plain(a['start_line'], 10)}"
+            lines.append(f"- {where}: {_plain(a.get('message'), 500)}".replace("\n", " "))
+        if lines:
+            parts.append(f"[{_plain(run.get('name'), 100)}]\n" + "\n".join(lines))
+    text = "\n".join(parts)
+    if len(text) > FAILURE_DETAILS_MAX_CHARS:
+        text = text[:FAILURE_DETAILS_MAX_CHARS] + "… (truncated)"
+    return text
 
 
 async def file_content(repo: str, path: str, ref: str) -> str | None:

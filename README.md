@@ -70,6 +70,7 @@ the CI is red on an otherwise approved task, the task goes back to its dev (`cha
 with the problem (rebase, missing CI, failing checks) and a "Palabre" line is posted in the team's
 first channel. The dev is woken up once per head SHA. A red CI only sends the task back once it is
 otherwise approved (no other merge rule is missing); before that, reviewers go first.
+A red check comes with its annotations and summary (at most 20 annotations and 4,000 characters, plain text, fetched by the backend; agents never see the token), in `merge_blockers`, the dev's wakeup and the lead's CI wakeups.
 
 The lead is also woken up (`task_update`) whenever a task moves: PR submitted or resubmitted, each
 review verdict, CI finished, task sent back. Changes of the same task within
