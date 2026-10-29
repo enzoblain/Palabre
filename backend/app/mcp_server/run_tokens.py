@@ -9,17 +9,33 @@ _active: dict[str, tuple[int, Path | None]] = {}
 _sessions: dict[str, str | None] = {}
 # token -> number of initialize requests seen (the session number in the logs)
 _initializes: dict[str, int] = {}
+# token -> (task id, conversation id) the run was started for, fixed at creation (None = not that kind of run)
+_scopes: dict[str, tuple[int | None, int | None]] = {}
 
 
-def issue(employee_id: int) -> str:
+def issue(employee_id: int, task_id: int | None = None, conversation_id: int | None = None) -> str:
     token = secrets.token_urlsafe(32)
     _active[token] = (employee_id, None)
+    _scopes[token] = (task_id, conversation_id)
     return token
+
+
+def scope_of(token: str) -> tuple[int | None, int | None]:
+    """(task id, conversation id) recorded when the run started: the only scope this token may act in."""
+    return _scopes.get(token, (None, None))
 
 
 def attach_config(token: str, path: Path) -> None:
     if token in _active:
         _active[token] = (_active[token][0], path)
+
+
+def scope_matches(token: str, conversation_raw: str, task_raw: str) -> bool:
+    """The request headers name exactly the task or conversation recorded for the token, and nothing else."""
+    task_id, conversation_id = scope_of(token)
+    return task_raw == ("" if task_id is None else str(task_id)) and conversation_raw == (
+        "" if conversation_id is None else str(conversation_id)
+    )
 
 
 def employee_of(token: str) -> int | None:
@@ -67,3 +83,4 @@ def revoke(token: str) -> None:
     _active.pop(token, None)
     _sessions.pop(token, None)
     _initializes.pop(token, None)
+    _scopes.pop(token, None)

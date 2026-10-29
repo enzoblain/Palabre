@@ -174,7 +174,13 @@ def _usage(usage: object) -> dict[str, int | None]:
 
 
 async def run_claude(spec: RunSpec) -> RunResult:
-    token = run_tokens.issue(spec.employee_id)
+    ids = {}
+    for header in ("X-Palabre-Task", "X-Palabre-Conversation"):
+        raw = spec.mcp_headers.get(header)
+        if raw is not None and not raw.isdigit():
+            log.error("Run of employee %s has a non-numeric %s header %r: all its MCP calls will be refused", spec.employee_id, header, raw)
+        ids[header] = int(raw) if raw and raw.isdigit() else None
+    token = run_tokens.issue(spec.employee_id, ids["X-Palabre-Task"], ids["X-Palabre-Conversation"])
     try:
         return await _run_claude(spec, token)
     finally:

@@ -5,6 +5,8 @@ Every request carries headers written by the backend into the run's --mcp-config
   - X-Palabre-Conversation: <id>  for a conversation turn, or
   - X-Palabre-Task: <id>          for a task run (work on the employee's own task)
 The agent therefore chooses neither who it is nor where it acts.
+The scope (task or conversation) is also recorded server-side with the token when the run starts:
+headers that do not match it are refused and logged, so they are never trusted on their own.
 
 A token is also bound to the first MCP session that uses it (the Mcp-Session-Id of its initialize):
 a run that stole another run's token from the process list cannot open a second session with it.
@@ -127,6 +129,14 @@ async def alert_lead(caller: Caller, refused: bool = True) -> None:
 async def resolve_caller(token: str, conversation_raw: str, task_raw: str) -> Caller | None:
     employee_id = run_tokens.employee_of(token) if token else None
     if employee_id is None:
+        return None
+    if not run_tokens.scope_matches(token, conversation_raw, task_raw):
+        scope_task, scope_conversation = run_tokens.scope_of(token)
+        log.warning(
+            "MCP request refused: headers (task %r, conversation %r) do not match the scope of the token of employee %s "
+            "(task %s, conversation %s)",
+            task_raw, conversation_raw, employee_id, scope_task, scope_conversation,
+        )  # fmt: skip
         return None
     async with SessionLocal() as s:
         employee = await s.get(Employee, employee_id)
