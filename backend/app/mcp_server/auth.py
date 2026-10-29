@@ -5,19 +5,28 @@ Every request carries headers written by the backend into the run's --mcp-config
   - X-Palabre-Conversation: <id>  for a conversation turn, or
   - X-Palabre-Task: <id>          for a task run (work on the employee's own task)
 The agent therefore chooses neither who it is nor where it acts.
+
+A token is also bound to the first MCP session that uses it (the Mcp-Session-Id of its initialize):
+a run that stole another run's token from the process list cannot open a second session with it.
+The legitimate run then fails visibly and the lead is told.
 """
+
+import logging
 
 from dataclasses import dataclass
 
 from sqlalchemy import select
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.db import SessionLocal
 from app.mcp_server import run_tokens
 from app.mcp_server.permissions import mcp_tools_for
 from app.models import Conversation, Employee, Task, room_members
+from app.services import direction_conversation_id, post_system_message
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -49,8 +58,48 @@ class AgentAuthMiddleware:
             await JSONResponse({"error": "unauthorized"}, status_code=401)(scope, receive, send)
             return
 
+        session_id = headers.get("mcp-session-id", "")
+        claimed = False
+        if session_id:
+            allowed = run_tokens.session_allowed(token, session_id)
+        else:
+            allowed = claimed = run_tokens.claim_initialize(token)
+        if not allowed:
+            run_tokens.revoke(token)  # fail closed: both sessions die, later attempts get a 401 without alert
+            await alert_lead(caller)
+            await JSONResponse({"error": "token bound to another session"}, status_code=403)(scope, receive, send)
+            return
+
+        async def send_bound(message: Message) -> None:
+            if claimed and message["type"] == "http.response.start":
+                sid = Headers(raw=message["headers"]).get("mcp-session-id")
+                if sid:
+                    run_tokens.bind_session(token, sid)
+                else:
+                    run_tokens.release_claim(token)
+            await send(message)
+
         scope.setdefault("state", {})["palabre_caller"] = caller
-        await self.app(scope, receive, send)
+        try:
+            await self.app(scope, receive, send_bound if claimed else send)
+        except BaseException:
+            if claimed:
+                run_tokens.release_claim(token)
+            raise
+
+
+async def alert_lead(caller: Caller) -> None:
+    """Log the refused session and leave a system line in the direction channel."""
+    log.warning("MCP token of employee %s used on a second session: refused", caller.employee_id)
+    async with SessionLocal() as s:
+        conversation_id = await direction_conversation_id(s, caller.project_id)
+        if conversation_id is not None:
+            await post_system_message(
+                s, conversation_id,
+                f"Security: the MCP token of employee #{caller.employee_id} was used on a second "
+                "session and refused. Another process may have read it.",
+            )  # fmt: skip
+            await s.commit()
 
 
 async def resolve_caller(token: str, conversation_raw: str, task_raw: str) -> Caller | None:
