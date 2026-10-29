@@ -28,19 +28,16 @@ from app.worktrees import sync_repo
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
-async def working_branch(repo_url: str, branch: str) -> str:
-    """The branch a new development project works on. `branch` is the one resolved at
-    creation: when it is the repository's default branch (production), the team works on
-    `dev` instead, created from it if missing, and only propose_release reaches production.
+async def working_branch(repo_url: str) -> str:
+    """The branch a new development project works on. The repository's default branch
+    (production) is detected, never chosen: the team works on `dev` instead, created from
+    it if missing, and only propose_release reaches production.
     An empty repository has no branch to create it from: `dev` is named anyway and its
     first commit (worktrees._initial_commit) creates production, then `dev`."""
     repo = github.repo_slug(repo_url)
     production = await github.resolve_branch(repo, "")
-    branch = branch or production
-    if branch != production:
-        return branch
     if await github.has_commits(repo) and not await github.branch_exists(repo, github.WORKING_BRANCH):
-        await github.create_branch(repo, github.WORKING_BRANCH, branch)
+        await github.create_branch(repo, github.WORKING_BRANCH, production)
     return github.WORKING_BRANCH
 
 
@@ -50,7 +47,6 @@ async def create_project(
     name: str,
     repo_url: str,
     mode: str,
-    default_branch: str = "",
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,
@@ -62,9 +58,10 @@ async def create_project(
     A research project (research mode) has a `topic` and no repository, and a `rapporteur`
     (a peer's name; none: drawn at random, unless the team built by hand has one)."""
     kind = kind_of_mode(mode)
+    default_branch = "main"  # model default; research has no repository
     if kind == "company":
         repo_url = github.https_url(repo_url)  # GitHub URLs only
-        default_branch = await working_branch(repo_url, default_branch)
+        default_branch = await working_branch(repo_url)
     else:
         repo_url = ""
     if employees:

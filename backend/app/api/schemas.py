@@ -94,22 +94,11 @@ class ProjectIn(BaseModel):
     topic: str | None = Field(default=None, max_length=10000)
     # Research: the peer who writes the report (a name); none: drawn at random
     rapporteur: str | None = None
-    # Company: empty for the repository's default branch on GitHub
-    default_branch: str = ""
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=30)
-
-    # Empty means "the repository's default branch"; the name ends up in GitHub URLs and git refspecs
-    @field_validator("default_branch")
-    @classmethod
-    def _valid_default_branch(cls, value: str) -> str:
-        value = value.strip()
-        if value and not re.match(BRANCH_PATTERN, value):
-            raise ValueError("not a valid branch name")
-        return value
 
 
 class ProjectOut(ORM):
