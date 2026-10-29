@@ -45,13 +45,26 @@ def https_url(repo_url: str) -> str:
 
 
 # Agents can write the repo config and hooks: never let them run code, least of all with the token
-SAFE_GIT_CONFIG = ("-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false")
+# Only https, and no credential helper: the repo config cannot make git run a command during a fetch/push
+SAFE_GIT_CONFIG = (
+    "-c", "core.hooksPath=/dev/null",
+    "-c", "core.fsmonitor=false",
+    "-c", "protocol.allow=never",
+    "-c", "protocol.https.allow=always",
+    "-c", "credential.helper=",
+)  # fmt: skip
+# The backend's own secrets (GITHUB_TOKEN, ADMIN_TOKEN, DATABASE_URL...) must not reach git children
+ENV_ALLOWLIST = (
+    "PATH", "HOME", "LANG", "LC_ALL", "TMPDIR",
+    "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy",
+)  # fmt: skip
 NETWORK_COMMANDS = {"clone", "fetch", "push", "pull", "ls-remote"}
 
 
 def _git_env(repo_url: str | None) -> dict[str, str]:
     # No system config: only the repo's own config remains, neutralised by SAFE_GIT_CONFIG
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+    env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
+    env |= {"GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
     if repo_url and repo_url.startswith("https://") and settings.github_token:
         # Passed through the environment so the token never shows up in the process list
         basic = base64.b64encode(f"x-access-token:{settings.github_token}".encode()).decode()

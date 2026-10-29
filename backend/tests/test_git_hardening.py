@@ -44,6 +44,8 @@ def test_hooks_and_fsmonitor_do_not_run(tmp_path, monkeypatch):
 
 def test_token_only_for_network_commands(monkeypatch):
     monkeypatch.setattr(settings, "github_token", "secret")
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
+    monkeypatch.setenv("ADMIN_TOKEN", "admin")
     seen = []
 
     class Proc:
@@ -67,6 +69,9 @@ def test_token_only_for_network_commands(monkeypatch):
     (status_args, status_env), (push_args, push_env) = seen
     assert "GIT_CONFIG_VALUE_0" not in status_env
     assert "GIT_CONFIG_VALUE_0" in push_env
+    for env in (status_env, push_env):
+        assert "GITHUB_TOKEN" not in env and "ADMIN_TOKEN" not in env
+    assert "secret" not in "".join(status_env.values())
     for args, env in seen:
-        assert args[:4] == github.SAFE_GIT_CONFIG
+        assert args[: len(github.SAFE_GIT_CONFIG)] == github.SAFE_GIT_CONFIG
         assert env["GIT_CONFIG_NOSYSTEM"] == "1"
