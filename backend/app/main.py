@@ -14,11 +14,15 @@ from app.api.deps import require_admin
 from app.config import settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
+from app.hardening import make_non_dumpable
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
 from app.mcp_server.server import mcp
 from app.orchestrator.dispatcher import orchestrator
 from app.services import WorkflowError
+
+# Before any agent runs: they share the backend's uid and could read its environ
+make_non_dumpable()
 
 # Mounted under /mcp, so the endpoint path inside the sub-app is "/".
 # host=127.0.0.1 keeps DNS rebinding protection: agents run in the backend container.
