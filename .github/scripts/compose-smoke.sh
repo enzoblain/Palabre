@@ -5,7 +5,7 @@
 #   2. fail-fast: an empty required secret (ADMIN_TOKEN, POSTGRES_PASSWORD) stops the startup
 #   3. updater: it recreates the backend when a new image shows up, secrets still resolved
 #   4. upgrade: the last published release runs on a volume, the current code takes it over
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT=$(pwd)
 # The stack reads .env from the project directory (the updater mounts it): never overwrite a real one
@@ -28,7 +28,9 @@ SECRETS=(
   "POSTGRES_PASSWORD=smokepg5b2d9e7f31"
 )
 
-fail() { echo "FAIL: $*" >&2; exit 1; }
+# ::error:: shows as an annotation on the CI run, readable without the full log
+fail() { echo "::error::FAIL: $*" >&2; exit 1; }
+trap 'echo "::error::command failed (line $LINENO): $BASH_COMMAND" >&2' ERR
 step() { echo; echo "=== $* ==="; }
 
 write_env() { # write_env <file> [VAR=value overrides...]
