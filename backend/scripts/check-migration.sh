@@ -1,0 +1,51 @@
+#!/bin/sh
+# Checks the entrypoint's migration of a /data volume made before the agent user (#101).
+# Run on a machine with Docker, from the host (nothing is touched but a temporary volume):
+#   backend/scripts/check-migration.sh <image>
+# Exits non-zero if the migration leaves something wrong.
+set -u
+
+image=${1:?usage: check-migration.sh <image>}
+volume=palabre-check-migration-$$
+fail=0
+trap 'docker volume rm -f "$volume" >/dev/null 2>&1' EXIT
+root() { docker run --rm --user root --entrypoint sh -v "$volume:/data" "$image" -c "$1"; }
+check() { # description, then a root shell command that must succeed on the volume
+  if root "$2" >/dev/null 2>&1; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
+}
+
+# A volume as the previous versions left it: everything belongs to palabre (uid 1000), 0755
+root '
+  mkdir -p /data/projects/project-1/repo/.git /data/projects/project-1/worktrees/task-5/.git \
+           /data/projects/project-1/desks/employee-2 /data/toolchains/bin /data/toolchains/gopath/pkg \
+           /data/claude/projects /data/runtime
+  echo "[remote]" > /data/projects/project-1/repo/.git/config
+  echo x > /data/projects/project-1/worktrees/task-5/file
+  echo x > /data/toolchains/bin/node
+  echo x > /data/claude/session.json
+  chown -R 1000:1000 /data
+  chmod -R 755 /data
+  rm -f /data/.isolation-v1
+' || { echo "FAIL cannot prepare the old volume"; exit 1; }
+
+# The image's own entrypoint, as docker compose runs it, then a command as the backend
+docker run --rm -v "$volume:/data" "$image" sh -c 'id -un && test -f /data/.isolation-v1' >/dev/null 2>&1 \
+  && echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written" \
+  || { echo "FAIL the entrypoint fails on the old volume"; fail=1; }
+
+check "the marker .isolation-v1 exists" 'test -f /data/.isolation-v1'
+check "the volume belongs to group work, closed to others" '[ "$(stat -c %G:%a /data)" = "work:2710" ]'
+check "the reference clone is private to palabre" '[ "$(stat -c %U:%a /data/projects/project-1/repo)" = "palabre:700" ]'
+check "the task clone is group-writable (agents commit there)" \
+  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw-rw"'
+check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
+check "claude sessions are group-writable" 'stat -c %A /data/claude/session.json | grep -q "^-rw-rw"'
+check "the agent can write in its task clone" \
+  'setpriv --reuid=agent --regid=agent --init-groups touch /data/projects/project-1/worktrees/task-5/new'
+check "the agent cannot read the reference" \
+  '! setpriv --reuid=agent --regid=agent --init-groups ls /data/projects/project-1/repo'
+
+# A second start must change nothing (the marker makes the one-time part a no-op)
+docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
+  && echo "ok   a second start succeeds" || { echo "FAIL a second start fails"; fail=1; }
+exit $fail

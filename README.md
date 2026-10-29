@@ -329,7 +329,7 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
-  To check an image, run `docker exec -u root <container> /srv/scripts/check-isolation.sh`.
+  To check an image, see [Checking the isolation](#checking-the-isolation).
   Agents still share the container's network, so keep Postgres' password strong.
 - Each run gets its own random MCP token, held in server memory: it is revoked when the
   run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
@@ -360,3 +360,31 @@ The lead normally ships with `merge_release` and `publish_version` (see above). 
 GitHub Actions builds the server and web images for amd64 and arm64
 (`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
 every system, attached to the release. A final `notes` job puts the changes back if the builds overwrote the release body, so the notes always read changes, then download text.
+
+### Checking the isolation
+
+Nobody builds the isolation in CI (it needs a real container), so check an image by hand
+after changing the Dockerfile, the entrypoint or the runner. Two scripts in
+`backend/scripts/`:
+
+```sh
+# 1. Migration of a volume made before the agent user (needs Docker on the host only)
+backend/scripts/check-migration.sh <image>
+
+# 2. Agent runs and task flow, in a throwaway container with a scratch GitHub repository
+#    (the token only needs to push to it: the check opens a PR there and merges it)
+printf %s "$GITHUB_TOKEN" > /tmp/github_token
+docker run -d --name palabre-check -v palabre-check-data:/data \
+  -v /tmp/github_token:/run/secrets/github_token:ro <image> sleep infinity
+docker exec -u root -e CHECK_GITHUB_REPO=owner/scratch-repo palabre-check /srv/scripts/check-isolation.sh
+docker rm -f palabre-check && docker volume rm palabre-check-data
+```
+
+The second script swaps `claude` for a stub while it runs (use a throwaway container, never
+one whose orchestrator is running agents), so no Claude account is needed. It checks that a
+run is `uid agent` through `sudo -u` with the right `PATH`; that the agent cannot read the
+backend's `environ`, the project reference, `/data/runtime` or the secret files; that a run
+past its timeout leaves no agent process; that `sudo` has `!use_pty`; and, with
+`CHECK_GITHUB_REPO`, the whole task flow (clone, commit by the agent, push from the
+reference, PR, merge). Without `CHECK_GITHUB_REPO` the flow is skipped and the exit code is
+non-zero. Every line is `ok` or `FAIL`.

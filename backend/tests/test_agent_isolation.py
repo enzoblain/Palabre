@@ -27,7 +27,7 @@ def as_agent(monkeypatch, tmp_path):
 
 def spec(tmp_path):
     return RunSpec(
-        author_name="Mehdi", system_prompt="sys", prompt="do it", cwd=tmp_path,
+        author_name="Mehdi", system_prompt="sys", prompt="do it", cwd=tmp_path, employee_id=1,
         mcp_headers={"Authorization": HEADER}, mcp_tools=["a"], claude_tools=["Read"],
         model="m", oauth_token=TOKEN,
     )  # fmt: skip
