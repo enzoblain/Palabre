@@ -183,8 +183,9 @@ def desk_dir(project: Project, employee: Employee) -> Path:
 async def _clone_from_reference(project: Project, path: Path) -> None:
     """An independent clone of the project: objects borrowed from the reference then copied
     (--dissociate), so the agent never writes to the reference. Objects are copied, never
-    hard-linked (--no-hardlinks): links would share the reference's private modes and inodes. The clone reads the local path
-    (the only call allowed the file transport), then points at GitHub and fetches its branches.
+    hard-linked (--no-hardlinks): links would share the reference's private modes and inodes.
+    The clone reads the local path (the only call allowed the file transport), then points
+    at GitHub and fetches its branches.
     Expects the repo lock held."""
     # The directory holding the clones is closed to agents: they write inside their clone only
     path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
