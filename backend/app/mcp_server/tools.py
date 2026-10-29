@@ -508,7 +508,7 @@ async def install_toolchain(
     - go: version "stable" (default), "1.22", "1.22.3"
     - python: a shared venv (python, pip) that survives redeployments. Agents cannot pip
       install into it: list the PyPI packages in `packages`, e.g. "pytest pytest-asyncio==0.23.0"
-      (call again to add more)
+      (call again to add more). Wheels only, no version argument.
     System packages (apt) cannot be installed this way: ask the boss for those."""
     current_caller(ctx)
     result = await toolchains.install(name, version, packages)

@@ -33,6 +33,12 @@ async def test_python_install_links_wrappers_and_commands(tmp_path, monkeypatch)
 
     monkeypatch.setattr(toolchains, "_run", fake_run)
     await toolchains.install("python", packages="pytest, pytest-asyncio==0.23.0")
+    assert "--only-binary=:all:" in calls[1]
     assert calls[1][-2:] == ["pytest", "pytest-asyncio==0.23.0"]
     assert (tmp_path / "bin" / "python").read_text().startswith("#!/bin/sh")
     assert (tmp_path / "bin" / "pytest").is_symlink()
+
+
+async def test_python_refuses_version():
+    with pytest.raises(WorkflowError):
+        await toolchains.install("python", version="3.11")

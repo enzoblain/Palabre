@@ -10,6 +10,7 @@ import hashlib
 import platform
 import os
 import re
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -62,6 +63,8 @@ async def install(name: str, version: str = "", packages: str = "") -> str:
     async with _locks[name]:
         try:
             if name == "python":
+                if version:
+                    raise WorkflowError("The python toolchain takes no version: list `packages` instead")
                 return await _install_python(packages.replace(",", " ").split())
             if name == "node":
                 return await _install_node(version or "lts")
@@ -145,11 +148,14 @@ async def _install_python(packages: list[str]) -> str:
     if bad is not None:
         raise WorkflowError(f"Invalid package: {bad!r} (a PyPI name with an optional version, e.g. pytest==8.2.0)")
     venv = venv_dir()
+    if (venv / "bin" / "python").exists() and not _venv_matches_python(venv):
+        # Base image upgrade: the venv's python link is dead or of another minor
+        await asyncio.to_thread(shutil.rmtree, venv)
     if not (venv / "bin" / "python").exists():
         # The image's packages (the backend's) stay visible: pytest of the backend needs them
         await _run([sys.executable, "-m", "venv", "--system-site-packages", str(venv)])
     if packages:
-        await _run([str(venv / "bin" / "python"), "-m", "pip", "install", "--no-input", *packages])
+        await _run([str(venv / "bin" / "python"), "-m", "pip", "install", "--no-input", "--only-binary=:all:", *packages])
     # A symlink to the venv's python would lose the venv: wrappers keep it
     bin_dir().mkdir(parents=True, exist_ok=True)
     for command in ("python", "python3", "pip"):
@@ -162,8 +168,24 @@ async def _install_python(packages: list[str]) -> str:
     skip = {"python", "python3", "pip", "pip3"}
     _link(venv / "bin", [p.name for p in sorted((venv / "bin").iterdir()) if p.name not in skip
                          and not p.name.startswith(("python", "activate", "Activate"))])
-    done = ", ".join(packages) or "no extra package"
-    return f"Python venv ready for the whole team (python, pip; installed: {done})."
+    have = ", ".join(_venv_packages(venv)) or "none"
+    return f"Python venv ready for the whole team (python, pip). Packages in the venv: {have}."
+
+
+def _venv_matches_python(venv: Path) -> bool:
+    cfg = venv / "pyvenv.cfg"
+    if not cfg.is_file() or not (venv / "bin" / "python").exists():
+        return False
+    line = next((x for x in cfg.read_text().splitlines() if x.startswith("version")), "")
+    return line.split("=")[-1].strip().startswith(f"{sys.version_info.major}.{sys.version_info.minor}.")
+
+
+def _venv_packages(venv: Path) -> list[str]:
+    """name==version read from the metadata only: the server never runs the venv's python."""
+    from importlib.metadata import distributions
+
+    site = [str(p) for p in venv.glob("lib/python*/site-packages")]
+    return sorted(f"{d.metadata['Name']}=={d.version}" for d in distributions(path=site))
 
 
 async def _run(cmd: list[str]) -> None:
