@@ -324,6 +324,8 @@ export const api = {
     ),
   postMessage: (conversationId: number, content: string) =>
     call<Message>(`/conversations/${conversationId}/messages`, "POST", { content }),
+  liftRateLimit: (conversationId: number) =>
+    call<void>(`/conversations/${conversationId}/lift-rate-limit`, "POST"),
   answerRequest: (messageId: number, answer: RequestAnswer, comment = "") =>
     call<Message>(`/messages/${messageId}/answer`, "POST", { answer, comment }),
 };
