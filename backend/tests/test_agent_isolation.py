@@ -181,7 +181,8 @@ def test_agent_env_lets_git_work_in_a_foreign_owned_clone(as_agent, tmp_path):
     clone.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
     env = runner._env("Mehdi", TOKEN, clone)
-    env = {"PATH": os.environ["PATH"], "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", **env}
+    # The agent account's HOME is not ours to read here
+    env = {**env, "HOME": str(tmp_path), "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "XDG_CONFIG_HOME": str(tmp_path)}
 
     def status(env):
         return subprocess.run(["git", "status"], cwd=clone, env=env, capture_output=True, text=True)
