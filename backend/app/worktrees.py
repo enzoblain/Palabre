@@ -136,9 +136,13 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
 async def _pull_from_reference(project: Project, path: Path) -> None:
     """Bring the clone's origin/* up to date from the reference over the local transport. The
     clone's config is written by the agent (remote URL, insteadOf...): no command carrying the
-    token ever runs there. Expects the repo lock held and the reference synced."""
+    token ever runs there. Expects the repo lock held and the reference synced.
+
+    The command line beats the clone's config: `remote.<path>.uploadpack` would otherwise run
+    an agent command, and submodule recursion would fetch inside agent-written repos."""
     await git(
-        path, "fetch", "--quiet", "--prune", str(repo_dir(project)), "+refs/remotes/origin/*:refs/remotes/origin/*",
+        path, "fetch", "--quiet", "--prune", "--upload-pack=git-upload-pack", "--no-recurse-submodules",
+        str(repo_dir(project)), "+refs/remotes/origin/*:refs/remotes/origin/*",
         allow_file=True,
     )  # fmt: skip
 

@@ -185,6 +185,18 @@ def test_token_never_runs_in_an_agent_clone(setup):
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)  # pushed from a temporary ref
 
 
+def test_clone_config_cannot_replace_upload_pack(setup):
+    project, reference, _ = setup
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    marker = path.parent / "pwned"
+    # Regression guard: git already ignores `remote.<absolute path>.*` (a remote name cannot start
+    # with `/`), so this passes without the flags too; they stay as defence in depth
+    _run("config", f"remote.{reference}.uploadpack", f"touch {marker}; git-upload-pack", cwd=path)
+    asyncio.run(worktrees.refresh_clone(project, path))
+    assert not marker.exists()
+
+
 def test_askpass_is_neutralised(monkeypatch):
     monkeypatch.setattr(settings, "github_token", "secret")
     for url in (None, "https://github.com/acme/app"):
