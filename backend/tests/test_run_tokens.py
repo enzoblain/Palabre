@@ -50,98 +50,33 @@ async def _call(app, token, session_id=None):
     return status[0]
 
 
-async def test_token_is_bound_to_its_first_session(monkeypatch):
-    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
-    caller = auth.Caller(1, 1, 1, 1, None, frozenset())
-    alerts = []
-
-    async def fake_resolve(token, conversation, task):
-        return caller if run_tokens.employee_of(token) else None
-
-    async def fake_alert(c):
-        alerts.append(c)
-
-    async def inner(scope, receive, send):
-        await send({"type": "http.response.start", "status": 200, "headers": [(b"mcp-session-id", b"s1")]})
-
-    monkeypatch.setattr(auth, "resolve_caller", fake_resolve)
-    monkeypatch.setattr(auth, "alert_lead", fake_alert)
-    app = auth.AgentAuthMiddleware(inner)
-    token = run_tokens.issue(1)
-
-    assert await _call(app, token) == 200  # initialize
-    assert await _call(app, token, "s1") == 200  # first session keeps working
-    assert await _call(app, token) == 403  # second initialize: refused, token revoked
-    assert len(alerts) == 1
-    assert await _call(app, token, "s1") == 401  # the first session dies too
-    assert await _call(app, token, "other") == 401  # later attempts: no new alert
-    assert len(alerts) == 1
-
-
-async def test_foreign_session_id_revokes_the_token(monkeypatch):
-    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
-    async def fake_resolve(token, conversation, task):
-        return auth.Caller(1, 1, 1, 1, None, frozenset()) if run_tokens.employee_of(token) else None
-
-    async def fake_alert(c):
-        pass
-
-    async def inner(scope, receive, send):
-        await send({"type": "http.response.start", "status": 200, "headers": [(b"mcp-session-id", b"s1")]})
-
-    monkeypatch.setattr(auth, "resolve_caller", fake_resolve)
-    monkeypatch.setattr(auth, "alert_lead", fake_alert)
-    app = auth.AgentAuthMiddleware(inner)
-    token = run_tokens.issue(1)
-    assert await _call(app, token) == 200
-    assert await _call(app, token, "other") == 403
-    assert await _call(app, token, "s1") == 401
-
-
-async def test_failed_initialize_does_not_burn_the_token(monkeypatch):
-    monkeypatch.setattr(auth.settings, "mcp_session_binding", "enforce")
-    async def fake_resolve(token, conversation, task):
-        return auth.Caller(1, 1, 1, 1, None, frozenset())
-
-    async def inner(scope, receive, send):
-        await send({"type": "http.response.start", "status": 500, "headers": []})
-
-    monkeypatch.setattr(auth, "resolve_caller", fake_resolve)
-    token = run_tokens.issue(1)
-    assert await _call(auth.AgentAuthMiddleware(inner), token) == 500
-    assert run_tokens.claim_initialize(token)
-    run_tokens.revoke(token)
-
-
-async def test_warn_mode_logs_and_alerts_once_without_revoking(monkeypatch, caplog):
-    monkeypatch.setattr(auth.settings, "mcp_session_binding", "warn")
-    alerts = []
+async def test_extra_sessions_are_logged_not_alerted_nor_refused(monkeypatch, caplog):
+    posted = []
 
     async def fake_resolve(token, conversation, task):
         return auth.Caller(1, 1, 1, 1, None, frozenset()) if run_tokens.employee_of(token) else None
 
-    async def fake_alert(c, refused=True):
-        alerts.append(refused)
-
     async def inner(scope, receive, send):
         await send({"type": "http.response.start", "status": 200, "headers": [(b"mcp-session-id", b"s1")]})
 
     monkeypatch.setattr(auth, "resolve_caller", fake_resolve)
-    monkeypatch.setattr(auth, "alert_lead", fake_alert)
+    monkeypatch.setattr(auth, "SessionLocal", lambda: posted.append(1))  # any chat post would open a session
     app = auth.AgentAuthMiddleware(inner)
     token = run_tokens.issue(1)
 
     with caplog.at_level("INFO", logger=auth.log.name):
         assert await _call(app, token) == 200
         assert await _call(app, token) == 200  # second initialize: allowed
-        assert await _call(app, token) == 200  # third: no new alert
+        assert await _call(app, token) == 200  # third
         assert await _call(app, token, "s1") == 200
         assert await _call(app, token, "other") == 200
-    assert alerts == [False]
+    assert posted == []
     initializes = [r.getMessage() for r in caplog.records if "MCP initialize" in r.getMessage()]
     assert [m.split(":")[1].split(" of")[0].strip() for m in initializes] == ["session #1", "session #2", "session #3"]
+    assert all(r.levelname == "INFO" for r in caplog.records)
     assert token not in caplog.text
-    assert run_tokens.employee_of(token) == 1  # not revoked
+    run_tokens.revoke(token)
+    assert await _call(app, token, "s1") == 401  # the run is over: the token is dead
 
 
 async def test_headers_must_match_the_scope_recorded_with_the_token(caplog):
@@ -168,7 +103,7 @@ async def test_unscoped_token_refuses_any_scope_header():
 @pytest.fixture(autouse=True)
 def clean_tokens():
     yield
-    for d in (run_tokens._active, run_tokens._scopes, run_tokens._sessions, run_tokens._initializes):
+    for d in (run_tokens._active, run_tokens._scopes, run_tokens._initializes):
         d.clear()
 
 

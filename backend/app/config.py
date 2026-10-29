@@ -1,7 +1,6 @@
 """Settings read from environment variables and, for secrets, from files (Docker secrets)."""
 
 import os
-from typing import Literal
 from pathlib import Path
 from urllib.parse import quote
 
@@ -51,9 +50,6 @@ class Settings(BaseSettings):
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
     mcp_url: str = "http://127.0.0.1:8000/mcp/"
-    # "warn": a second MCP session on a run's token is logged and the lead alerted once, nothing is revoked.
-    # "enforce": the token is revoked (fail closed). Not checked yet on a real `claude -p` run.
-    mcp_session_binding: Literal["warn", "enforce"] = "warn"
 
     # Orchestrator
     orchestrator_enabled: bool = True
