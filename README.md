@@ -191,6 +191,11 @@ The server listens on port `2710` and the web app on port `2810`.
 
 ### Updates
 
+Upgrading from a version before the agent user: nothing to do. The container starts as
+root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
+makes each project's reference clone private to the server, then drops to `palabre`. If
+you run the image without Docker's entrypoint, do that `chown`/`chmod` yourself.
+
 ```sh
 docker compose pull && docker compose up -d
 ```
@@ -291,6 +296,14 @@ The lead and devops can also install Node.js or Go for the whole team on their o
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.
+- Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
+  process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
+  `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
+  database URL or tokens. In `/data`, only the server can read the project's reference
+  clone and `runtime/`; agents write in their task and desk clones, Claude's sessions and
+  the Go cache, and only read the toolchains. The server's `PATH` never includes the
+  toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
+  Agents still share the container's network, so keep Postgres' password strong.
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
 - The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a

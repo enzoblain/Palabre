@@ -84,7 +84,7 @@ def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
 
 def _write_mcp_config(headers: dict[str, str]) -> Path:
     # Outside the repositories, so the token can never be committed
-    settings.runtime_dir.mkdir(parents=True, exist_ok=True)
+    settings.runtime_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = settings.runtime_dir / f"mcp-{uuid.uuid4().hex}.json"
     config = {"mcpServers": {SERVER_NAME: {"type": "http", "url": settings.mcp_url, "headers": headers}}}
     path.touch(mode=0o600)

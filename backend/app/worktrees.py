@@ -55,10 +55,14 @@ async def sync_repo(project: Project) -> Path:
 async def _sync_repo(project: Project) -> Path:
     repo = repo_dir(project)
     if not (repo / ".git").exists():
-        repo.parent.mkdir(parents=True, exist_ok=True)
+        # Agents cross the project's directory but cannot rename anything in it
+        repo.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         await git(repo.parent, "clone", "--quiet", project.repo_url, str(repo), repo_url=project.repo_url)
     else:
         await git(repo, "fetch", "--quiet", "--prune", "origin", repo_url=project.repo_url)
+    # The reference holds the GitHub remote: the backend alone reads it (agents clone from a
+    # copy made by the backend, see _clone_from_reference)
+    repo.chmod(0o700)
     branch = project.default_branch
     if not await _has_ref(repo, f"refs/remotes/origin/{branch}"):
         if (await git(repo, "branch", "--remotes")).strip():
