@@ -24,7 +24,7 @@ Backend, in `backend/app/`:
 - `company/catalog.toml`: roles, company sizes, research angles, personalities and role permissions.
 - `runner.py`: launches one agent run (`claude -p`) on the employee's Claude account; `accounts.py` picks the account.
 - `toolchains.py`: toolchains agents install for the whole team, without root.
-- `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals, retries and research phases (`scheduler.py`, `retries.py`, `research.py`).
+- `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals, retries and research phases (`scheduler.py`, `retries.py`, `research.py`), and resets agents' Claude sessions every N tasks or runs (`context_reset.py`).
 - `mcp_server/`: the agents' tools (`tools.py`), which role gets which (`permissions.py`), request auth (`auth.py`), server setup (`server.py`).
 
 Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`), `src-tauri/` for the desktop shell.

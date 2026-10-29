@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app import workflow
-from app.models import Base, Employee, Project, Review, Task, TaskStatus, Verdict
+from app.models import AgentSession, Base, Employee, Project, Review, Task, TaskStatus, Verdict
 from app.orchestrator import context_reset
 
 
@@ -190,3 +190,35 @@ async def test_the_lead_is_recorded_when_cancelling(monkeypatch):
         depends_on=None, status="cancelled", author=lead,
     )  # fmt: skip
     assert task.closed_by_id == lead.id and task.closed_at is not None
+
+
+# --- Per-session reset every N runs -------------------------------------------------------
+
+
+async def test_a_worn_session_is_not_resumed_but_the_others_are(db, monkeypatch):
+    monkeypatch.setattr(settings, "context_reset_every_runs", 5)
+    malik, _ = await seed(db)
+    db.add_all([
+        AgentSession(employee_id=malik.id, scope="conversation:1", claude_session_id="a", runs=5),
+        AgentSession(employee_id=malik.id, scope="conversation:2", claude_session_id="b", runs=4),
+    ])  # fmt: skip
+    await db.flush()
+    assert await context_reset.reset_session_if_worn(db, malik, "conversation:1")
+    assert not await context_reset.reset_session_if_worn(db, malik, "conversation:2")
+    assert await db.get(AgentSession, (malik.id, "conversation:1")) is None
+    assert (await db.get(AgentSession, (malik.id, "conversation:2"))).claude_session_id == "b"
+
+
+async def test_no_session_or_zero_means_nothing_to_reset(db, monkeypatch):
+    monkeypatch.setattr(settings, "context_reset_every_runs", 5)
+    malik, _ = await seed(db)
+    assert not await context_reset.reset_session_if_worn(db, malik, "task:1")
+    db.add(AgentSession(employee_id=malik.id, scope="task:1", claude_session_id="a", runs=50))
+    await db.flush()
+    monkeypatch.setattr(settings, "context_reset_every_runs", 0)
+    assert not await context_reset.reset_session_if_worn(db, malik, "task:1")
+    assert await db.get(AgentSession, (malik.id, "task:1")) is not None
+
+
+async def test_default_is_five():
+    assert type(settings).model_fields["context_reset_every_runs"].default == 5

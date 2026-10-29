@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     # Tasks finished (merged or cancelled) by an employee before their next run starts on a blank
     # context, without resuming their Claude sessions; 0 = never
     context_reset_every_tasks: int = 5
+    context_reset_every_runs: int = 5
     # Agent runs per conversation per hour before the boss is asked to step in
     max_runs_per_conversation_hour: int = 40
     # Local time of the daily stand-up ("HH:MM"), empty to disable

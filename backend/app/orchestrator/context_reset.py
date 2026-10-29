@@ -1,4 +1,4 @@
-"""Fresh start of an employee's context every N finished tasks.
+"""Fresh start of an employee's context every N finished tasks, and of one session every N runs.
 
 The context is what `--resume` brings back: the Claude sessions in `agent_sessions`. The prompts
 rebuild everything else from the database on each run, and notes, tasks, room documents and chat
@@ -42,4 +42,19 @@ async def reset_context_if_due(s: AsyncSession, employee: Employee) -> bool:
     employee.context_reset_at = datetime.now(UTC)
     await s.commit()
     log.info("%s: %s tasks finished, starting on a blank context", employee.name, every)
+    return True
+
+
+async def reset_session_if_worn(s: AsyncSession, employee: Employee, scope: str) -> bool:
+    """Forget one session (conversation or task) once it served the threshold of runs; the employee's
+    other sessions are kept. Called while preparing a run, so a run in progress is never cut."""
+    every = settings.context_reset_every_runs
+    if every <= 0:
+        return False
+    session = await s.get(AgentSession, (employee.id, scope))
+    if session is None or session.runs < every:
+        return False
+    await s.delete(session)
+    await s.commit()
+    log.info("%s: %s served %s runs, starting a new session", employee.name, scope, every)
     return True
