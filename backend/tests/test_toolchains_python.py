@@ -51,20 +51,31 @@ async def test_python_refuses_version():
 async def test_run_uses_private_umask_and_no_cache(monkeypatch):
     seen = {}
 
-    class Proc:
-        returncode = 0
-
-        async def communicate(self):
-            return b"", None
-
-    async def fake_exec(*cmd, **kwargs):
+    def fake_run(cmd, **kwargs):
         seen.update(kwargs)
-        return Proc()
+        return subprocess.CompletedProcess(cmd, 0, b"")
 
-    monkeypatch.setattr(toolchains.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(toolchains.subprocess, "run", fake_run)
     await toolchains._run(["true"])
     assert seen["umask"] == 0o022
     assert seen["env"]["PIP_NO_CACHE_DIR"] == "1"
+
+
+def test_run_works_under_uvloop(tmp_path):
+    uvloop = pytest.importorskip("uvloop")
+    target = tmp_path / "made"
+
+    async def main():
+        await toolchains._run([sys.executable, "-c", f"open({str(target)!r}, 'w').close()"])
+        with pytest.raises(WorkflowError, match="failed"):
+            await toolchains._run([sys.executable, "-c", "import sys; sys.exit(3)"])
+
+    old = os.umask(0o077)
+    try:
+        uvloop.run(main())
+    finally:
+        os.umask(old)
+    assert target.stat().st_mode & 0o777 == 0o644
 
 
 @pytest.mark.skipif(sys.prefix != sys.base_prefix, reason="tests already run inside a venv")

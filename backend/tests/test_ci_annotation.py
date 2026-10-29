@@ -28,7 +28,12 @@ def test_collection_error_points_at_the_file_line_1(monkeypatch, capsys):
     from tests import conftest
 
     longrepr = SimpleNamespace(reprcrash=SimpleNamespace(message="ImportError: nope"))
-    collected = SimpleNamespace(nodeid="tests/test_x.py", failed=True, longrepr=longrepr)
+    collected = SimpleNamespace(
+        nodeid="tests/test_x.py",
+        location=("tests/test_x.py", None, "tests/test_x.py"),
+        failed=True,
+        longrepr=longrepr,
+    )
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     conftest.pytest_collectreport(collected)
     out = capsys.readouterr().out
@@ -37,3 +42,15 @@ def test_collection_error_points_at_the_file_line_1(monkeypatch, capsys):
     monkeypatch.delenv("GITHUB_ACTIONS")
     conftest.pytest_collectreport(collected)
     assert capsys.readouterr().out == ""
+
+
+def test_collection_error_with_text_longrepr_and_real_location():
+    # a real ImportError at collection: plain text longrepr, location (fspath, None, fspath)
+    text = "tests/test_x.py:1: in <module>\n    import nope\nE   ModuleNotFoundError: No module named 'nope'"
+    collected = SimpleNamespace(
+        nodeid="tests/test_x.py", location=("tests/test_x.py", None, "tests/test_x.py"), longrepr=text
+    )
+    out = annotation(collected)
+    assert out.startswith("::error file=backend/tests/test_x.py,line=1,")
+    assert out.endswith("- ModuleNotFoundError: No module named 'nope'")
+    assert " E " not in out and "- E" not in out

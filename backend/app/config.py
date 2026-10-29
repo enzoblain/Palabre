@@ -1,7 +1,6 @@
 """Settings read from environment variables and, for secrets, from files (Docker secrets)."""
 
 import os
-from typing import Literal
 from pathlib import Path
 from urllib.parse import quote
 
@@ -14,8 +13,12 @@ SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets")
 class Settings(BaseSettings):
     # Secrets (admin_token, github_token, claude_code_oauth_tokens, postgres_password) are
     # files here, not environment variables: the entrypoint copies them for the backend only
+    # hide_input_in_errors: a model-level error would otherwise print every field, secrets included
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", secrets_dir=SECRETS_DIR if SECRETS_DIR.is_dir() else None
+        env_file=".env",
+        extra="ignore",
+        secrets_dir=SECRETS_DIR if SECRETS_DIR.is_dir() else None,
+        hide_input_in_errors=True,
     )
 
     database_url: str = "postgresql+asyncpg://palabre:palabre@localhost:5432/palabre"
@@ -25,7 +28,9 @@ class Settings(BaseSettings):
     postgres_db: str = "palabre"
     postgres_host: str = "db"
     # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
-    admin_token: str = Field(min_length=1)
+    # Default + validate_default: Compose mounts no file for an empty secret, so an absent token
+    # must hit the blank check too (an unvalidated "" default would leave the API open)
+    admin_token: str = Field("", validate_default=True)
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
@@ -51,9 +56,6 @@ class Settings(BaseSettings):
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
     mcp_url: str = "http://127.0.0.1:8000/mcp/"
-    # "warn": a second MCP session on a run's token is logged and the lead alerted once, nothing is revoked.
-    # "enforce": the token is revoked (fail closed). Not checked yet on a real `claude -p` run.
-    mcp_session_binding: Literal["warn", "enforce"] = "warn"
 
     # Orchestrator
     orchestrator_enabled: bool = True
@@ -111,3 +113,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def removed_settings_present(env_file: Path = Path(".env")) -> list[str]:
+    """Settings that no longer exist but are still set (environment or .env): they are ignored."""
+    removed = ["MCP_SESSION_BINDING"]
+    text = env_file.read_text(errors="ignore") if env_file.is_file() else ""
+    in_file = {l.split("=", 1)[0].strip().removeprefix("export ").strip().upper() for l in text.splitlines() if "=" in l}
+    return [name for name in removed if name in os.environ or name in in_file]
