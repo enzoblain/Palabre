@@ -340,7 +340,9 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   server. Secrets travel in that environment, not in the command line, so `ps` does not show
   them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
   A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
-  that timed out. With `AGENT_USER` empty, none of this applies.
+  that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
+  empties a desk or task clone (files the agent made outside the shared group, which the
+  server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.

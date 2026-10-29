@@ -19,15 +19,19 @@ RUN groupadd --gid 1002 work \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv
 
-# The only things palabre may do as agent: run the claude binary, and kill a process group
-# of the agent's own (a root-owned sudo cannot be signalled by palabre). Nothing else.
+# The only things palabre may do as agent: run the claude binary, kill a process group
+# of the agent's own, and delete a clone (a root-owned sudo cannot be signalled by palabre). Nothing else.
 # !use_pty keeps claude in sudo's process group, so the group kill reaches it.
 # !secure_path: the agent's PATH (with the toolchains) is set by the backend.
 # The umask makes the agents' files writable by the backend.
+# rm-clone deletes a desk or task clone (files the agent made outside the group): root-owned
+# script that only accepts a clone path, so the rule is not a general rm.
+COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
 RUN printf '%s\n' \
       'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
       'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
       'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
+      'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*' \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent
