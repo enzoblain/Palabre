@@ -3,13 +3,16 @@
 # updater, and an upgrade from the last published version on an existing volume.
 # Needs docker; run from anywhere. It writes its own .env in the repository (removed on exit),
 # so it refuses to run over a real .env or an override file.
-set -euo pipefail
+set -Eeuo pipefail
 
 cd "$(dirname "$0")/../.."
 
 fail() { echo "::error title=Compose smoke test::$*"; exit 1; }
 note() { echo "::notice title=Compose smoke test::$*"; }
 step() { echo "--- $*"; }
+# Any other failing command (pull, build, exec...) gets an annotation too, not a bare exit code.
+# The trap does not fire for commands tested by if/||/&&, which report their own failure.
+trap 'echo "::error title=Compose smoke test::line $LINENO: \`$BASH_COMMAND\` failed"' ERR
 
 for f in .env docker-compose.override.yml docker-compose.override.yaml compose.override.yml compose.override.yaml; do
   [ ! -e "$f" ] || fail "$f exists: this script would clobber it. Move it away first."
@@ -114,6 +117,11 @@ check_secrets() { # check_secrets <label>
   out=$(dc exec -T backend cat /run/palabre-secrets/admin_token)
   [ "$out" = "$ADMIN_TOKEN" ] || fail "$1: /run/palabre-secrets/admin_token does not hold the secret"
 
+  # The files must exist for the read checks below to mean something
+  for f in "${SECRET_FILES[@]}"; do
+    dc exec -T backend test -f "/run/secrets/$f" || fail "$1: /run/secrets/$f is not mounted"
+    dc exec -T backend test -f "/run/palabre-secrets/$f" || fail "$1: /run/palabre-secrets/$f is missing"
+  done
   # The agent user must exist, otherwise the checks below prove nothing
   dc exec -T backend id agent >/dev/null 2>&1 || fail "$1: the user 'agent' does not exist in the image"
   for f in "${SECRET_FILES[@]}"; do
@@ -137,7 +145,8 @@ check_secrets() { # check_secrets <label>
 if [ -n "$OLD" ]; then
   step "Start the published $OLD"
   write_env "$OLD"
-  dc pull db backend web
+  # web is not started here: the updater pulls it, so it has to exist at this tag too
+  dc pull db backend web || fail "could not pull the published $OLD (is the ghcr package public, was the release image pushed?)"
   if ! docker run --rm --entrypoint grep "ghcr.io/enzoblain/palabre:$OLD" -q palabre-secrets /usr/local/bin/docker-entrypoint.sh; then
     note "$OLD predates Docker secrets: the upgrade and updater steps are skipped"
     OLD=""
@@ -172,6 +181,8 @@ if [ -n "$OLD" ]; then
   wait_healthy 120 || fail "the backend did not become healthy after the updater recreated it"
   check_api "after the updater"
   check_secrets "after the updater"
+  # The published image now runs on a volume the new version already migrated: a downgrade,
+  # fine because the entrypoint migration is idempotent
   dc --profile autoupdate down -v --remove-orphans
 else
   note "No published version to upgrade from: upgrade and updater steps skipped"
