@@ -245,7 +245,6 @@ class Orchestrator:
             language_rule(services.team_language()),
             version_rule(member.roles),
         ] if p)  # fmt: skip
-        headers = {"Authorization": f"Bearer {employee.mcp_token}"}
         oauth_token = token_for(assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
 
@@ -262,7 +261,8 @@ class Orchestrator:
                 system_prompt=system_prompt + "\n\n" + task_rules(task, project.default_branch),
                 prompt=wake_prompt([w.reason for w in wakeups]),
                 cwd=path,
-                mcp_headers=headers | {"X-Palabre-Task": str(task.id)},
+                employee_id=employee.id,
+                mcp_headers={"X-Palabre-Task": str(task.id)},
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=True)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
@@ -278,7 +278,8 @@ class Orchestrator:
                 prompt=wake_prompt([w.reason for w in wakeups]),
                 # Their own desk: same directory every time (claude sessions are tied to it)
                 cwd=await self._desk(project, employee),
-                mcp_headers=headers | {"X-Palabre-Conversation": str(first.conversation_id)},
+                employee_id=employee.id,
+                mcp_headers={"X-Palabre-Conversation": str(first.conversation_id)},
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,

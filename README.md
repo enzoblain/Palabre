@@ -320,6 +320,13 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   the Go cache, and only read the toolchains. The server's `PATH` never includes the
   toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
   Agents still share the container's network, so keep Postgres' password strong.
+- Each run gets its own random MCP token, held in server memory: it is revoked when the
+  run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
+  A token stolen from another run (`ps`, the config file) stops working once that run is
+  over. Residual risk: all runs share the `agent` uid, so while a run is live another run
+  can still read its `/proc/<pid>/environ` or the config file in that short window. The
+  real fix is one uid per run (or per sensitive role, the lead) or a sandbox per run
+  (bubblewrap, user namespace).
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
 - The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a

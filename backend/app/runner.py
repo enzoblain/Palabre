@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.config import settings
 from app import toolchains
+from app.mcp_server import run_tokens
 from app.mcp_server.server import SERVER_NAME
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,8 @@ class RunSpec:
     system_prompt: str
     prompt: str
     cwd: Path
+    employee_id: int
+    # Scope headers (task or conversation); the Authorization header is issued per run
     mcp_headers: dict[str, str]
     mcp_tools: list[str]
     claude_tools: list[str]
@@ -104,7 +107,16 @@ def _usage(usage: object) -> dict[str, int | None]:
 
 
 async def run_claude(spec: RunSpec) -> RunResult:
-    mcp_config = _write_mcp_config(spec.mcp_headers)
+    token = run_tokens.issue(spec.employee_id)
+    try:
+        return await _run_claude(spec, token)
+    finally:
+        run_tokens.revoke(token)
+
+
+async def _run_claude(spec: RunSpec, token: str) -> RunResult:
+    mcp_config = _write_mcp_config(spec.mcp_headers | {"Authorization": f"Bearer {token}"})
+    run_tokens.attach_config(token, mcp_config)
     allowed = [f"mcp__{SERVER_NAME}__{t}" for t in spec.mcp_tools] + spec.claude_tools
     cmd = [
         settings.claude_bin,
