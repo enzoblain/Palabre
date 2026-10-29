@@ -15,7 +15,14 @@ function resetScroll() {
   if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
 }
 
-document.addEventListener("focusout", () => setTimeout(resetScroll, 100));
+// Only reset once no field is focused: when focus moves to another field the
+// keyboard stays open and the browser has just scrolled that field into view.
+document.addEventListener("focusout", () =>
+  setTimeout(() => {
+    const el = document.activeElement;
+    if (!(el instanceof HTMLElement) || !el.matches("input, textarea, select, [contenteditable='true']")) resetScroll();
+  }, 100),
+);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") resetScroll();
 });
