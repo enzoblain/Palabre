@@ -107,3 +107,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def removed_settings_present(env_file: Path = Path(".env")) -> list[str]:
+    """Settings that no longer exist but are still set (environment or .env): they are ignored."""
+    removed = ["MCP_SESSION_BINDING"]
+    text = env_file.read_text(errors="ignore") if env_file.is_file() else ""
+    in_file = {l.split("=", 1)[0].strip().removeprefix("export ").strip().upper() for l in text.splitlines() if "=" in l}
+    return [name for name in removed if name in os.environ or name in in_file]
