@@ -133,6 +133,13 @@ export type AccountQuota = {
   week: QuotaWindow | null;
   models: ModelQuota[];
 };
+export type ExhaustedAccount = { account: number; resets_at: string; estimated: boolean };
+export type OrchestratorStatus = {
+  enabled: boolean;
+  running_employee_ids: number[];
+  pending_wakeups: number;
+  exhausted_accounts: ExhaustedAccount[];
+};
 export type Quota = { accounts: AccountQuota[] };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
@@ -275,6 +282,7 @@ export async function testConnection(conn: Connection): Promise<void> {
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
   getUsage: () => call<Usage>("/settings/usage"),
+  orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),

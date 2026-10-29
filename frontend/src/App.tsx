@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { DocumentView } from "./components/DocumentView";
@@ -9,10 +9,11 @@ import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
 import { type ProjectState, Sidebar } from "./components/Sidebar";
 import { go, useRoute } from "./router";
-import { usePolling } from "./util";
+import { formatTime, usePolling } from "./util";
 
 const STATUS_POLL_MS = 3000;
 const PENDING_POLL_MS = 4000;
+const CREDITS_POLL_MS = 15000;
 
 export default function App() {
   const [conn, setConn] = useState<Connection | null>(getConnection);
@@ -167,6 +168,12 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     [projectId],
   );
 
+  // Claude accounts out of credits: the whole team is paused until they come back
+  const [exhausted, setExhausted] = useState<ExhaustedAccount[]>([]);
+  usePolling(async () => {
+    setExhausted((await api.orchestratorStatus()).exhausted_accounts);
+  }, CREDITS_POLL_MS, []);
+
   const unread = useUnread(project, route.name === "project" ? route.conversationId : null);
 
   // Opening a project lands in the direction channel, where the CEO talks to the lead
@@ -220,7 +227,25 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
         claudeAccounts={claudeAccounts} pending={pending} unread={unread} />
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-      <main className="main">{main}</main>
+      <main className="main">
+        {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
+        {main}
+      </main>
+    </div>
+  );
+}
+
+function CreditsBanner({ accounts, showAccount }: { accounts: ExhaustedAccount[]; showAccount: boolean }) {
+  return (
+    <div className="credits-banner" role="status">
+      <strong>Claude credits exhausted, the team is paused.</strong>
+      <ul>
+        {accounts.map((a) => (
+          <li key={a.account}>
+            {showAccount && `Account ${a.account}: `}back {a.estimated ? "around " : "at "}{formatTime(a.resets_at)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
