@@ -270,3 +270,31 @@ def test_task_worktree_removal_fails_loudly(setup, restore_perms):
     restore_perms.append(_foreign_dir(path))
     with pytest.raises(worktrees.CloneRemovalError):
         asyncio.run(worktrees.remove_task_worktree(project, task))
+
+
+def _assert_private_copy(path):
+    objects = [p for p in (path / ".git" / "objects").rglob("*") if p.is_file()]
+    assert objects
+    for obj in objects:
+        assert obj.stat().st_nlink == 1, obj
+        assert obj.stat().st_mode & 0o040, obj  # readable by the group
+
+
+def test_clones_share_no_object_with_the_reference(setup):
+    project, reference, _ = setup
+    (reference / "f.txt").write_text("x")
+    _run("add", "f.txt", cwd=reference)
+    _run("commit", "-q", "-m", "more", cwd=reference)
+    _run("update-ref", "refs/remotes/origin/main", "HEAD", cwd=reference)
+    for obj in (reference / ".git" / "objects").rglob("*"):
+        if obj.is_file():
+            obj.chmod(0o400)  # as in the real reference
+    _, task_path = asyncio.run(worktrees.prepare_worktree(project, SimpleNamespace(id=5, branch=None)))
+    _assert_private_copy(task_path)
+    desk = SimpleNamespace(id=7)
+    desk_path = asyncio.run(worktrees.prepare_desk(project, desk))
+    _assert_private_copy(desk_path)
+    _run("fsck", cwd=desk_path)
+    assert all(
+        obj.stat().st_mode & 0o777 == 0o400 for obj in (reference / ".git" / "objects").rglob("*") if obj.is_file()
+    )

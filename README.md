@@ -316,7 +316,14 @@ All optional, in `.env`:
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
-The lead and devops can also install Node.js or Go for the whole team on their own.
+The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
+Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
+The venv lives in `/data/toolchains/python-venv`, sees the image's packages, and its `python`,
+`pip` and commands (`pytest`...) come first in the agents' `PATH`, so `python -m pytest` still works
+after a redeployment. Agents only read the toolchains: packages are installed by the server, from
+PyPI, and the tool takes plain names with an optional version (no option, URL or path). Call it
+again to add packages. Only wheels are installed (no build step runs as the server), the venv is only writable by the server (a venv agents could write in is recreated), and no pip cache is kept. After a base
+image upgrade to another Python minor, the venv is recreated by the next `install_toolchain python`.
 
 ## Security
 
@@ -336,13 +343,19 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   the Go cache, and only read the toolchains. The server's `PATH` never includes the
   toolchains. Do not add `no-new-privileges` to the compose file: `sudo` needs it off.
   Every run is `sudo -n -u agent` with a fixed list of variables (`HOME`, `PATH` with the
-  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity), never inherited from the
+  toolchains, `CLAUDE_CONFIG_DIR`, the account's token, git identity, `safe.directory` set to the run's
+  own clone), never inherited from the
   server. Secrets travel in that environment, not in the command line, so `ps` does not show
   them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
   A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
   that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
   empties a desk or task clone (files the agent made outside the shared group, which the
   server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
+  Clones are made with `--no-hardlinks`, so they share no object with the reference (whose
+  objects stay private). Desks are recloned at every run and fix themselves. A task clone made
+  before this fix still holds hard links: once its work is pushed, delete
+  `/data/projects/<id>/worktrees/task-<n>` (as the server user) and it is recreated on the
+  agent's next start.
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.

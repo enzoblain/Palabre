@@ -499,13 +499,18 @@ async def fix_release(ctx: Context, version: str, message: str) -> dict:
 
 
 @tool
-async def install_toolchain(ctx: Context, name: Literal["node", "go"], version: str = "") -> str:
+async def install_toolchain(
+    ctx: Context, name: Literal["node", "go", "python"], version: str = "", packages: str = ""
+) -> str:
     """Install a toolchain for the whole team: every agent's commands can use it right
     away, and it stays installed. Installing another version switches the team to it.
     - node: Node.js with npm and npx. version: "lts" (default), "latest", "20", "20.11.1"
     - go: version "stable" (default), "1.22", "1.22.3"
+    - python: a shared venv (python, pip) that survives redeployments. Agents cannot pip
+      install into it: list the PyPI packages in `packages`, e.g. "pytest pytest-asyncio==0.23.0"
+      (call again to add more). Wheels only, no version argument.
     System packages (apt) cannot be installed this way: ask the boss for those."""
     current_caller(ctx)
-    result = await toolchains.install(name, version)
+    result = await toolchains.install(name, version, packages)
     commands = ", ".join(sorted(toolchains.installed()))
     return f"{result}\nInstalled commands: {commands}"
