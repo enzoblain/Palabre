@@ -52,6 +52,7 @@ SAFE_GIT_CONFIG = (
     "-c", "protocol.allow=never",
     "-c", "protocol.https.allow=always",
     "-c", "credential.helper=",
+    "-c", "core.askPass=",
 )  # fmt: skip
 # The backend's own secrets (GITHUB_TOKEN, ADMIN_TOKEN, DATABASE_URL...) must not reach git children
 ENV_ALLOWLIST = (
@@ -61,7 +62,7 @@ ENV_ALLOWLIST = (
 NETWORK_COMMANDS = {"clone", "fetch", "push", "pull", "ls-remote"}
 
 
-def _git_env(repo_url: str | None) -> dict[str, str]:
+def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
     # No system config: only the repo's own config remains, neutralised by SAFE_GIT_CONFIG
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     # GIT_ALLOW_PROTOCOL beats every `protocol.<name>.allow` of the repo config (ext::, file...)
@@ -69,7 +70,11 @@ def _git_env(repo_url: str | None) -> dict[str, str]:
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_ALLOW_PROTOCOL": "https",
+        "GIT_ALLOW_PROTOCOL": "https:file" if allow_file else "https",
+        # The env beats `core.askPass`: a 401 must never run a program from the repo config
+        # with the token in its environment
+        "GIT_ASKPASS": "/bin/true",
+        "SSH_ASKPASS": "/bin/true",
     }
     if repo_url and repo_url.startswith("https://") and settings.github_token:
         # Passed through the environment so the token never shows up in the process list
@@ -82,14 +87,27 @@ def _git_env(repo_url: str | None) -> dict[str, str]:
     return env
 
 
-async def git(cwd: str | Path, *args: str, repo_url: str | None = None) -> str:
+async def git(
+    cwd: str | Path, *args: str, repo_url: str | None = None, allow_file: bool = False,
+    trust: str | Path | None = None,
+) -> str:
+    """allow_file: let this one call use the local `file` transport (a clone or a fetch between
+    the reference and an agent clone); every other call stays https only. repo_url (the token) is
+    only ever given for a repository whose config the backend alone writes, never an agent clone.
+    trust: another repository the command reads from, owned by the agent's user."""
     # The token only goes to network commands
     network = bool(args) and args[0] in NETWORK_COMMANDS
+    # Agent clones may belong to another user (isolation, #101): the backend still reads and updates them
+    config = ["-c", f"safe.directory={cwd}"]
+    if trust:
+        config += ["-c", f"safe.directory={trust}"]
+    if allow_file:
+        config += ["-c", "protocol.file.allow=always"]
     proc = await asyncio.create_subprocess_exec(
-        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *args,
+        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *config, *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=_git_env(repo_url if network else None),
+        env=_git_env(repo_url if network else None, allow_file),
     )  # fmt: skip
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:

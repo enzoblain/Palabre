@@ -57,7 +57,7 @@ def make_task(**overrides) -> SimpleNamespace:
     fields = dict(
         id=next(_ids), status=TaskStatus.review, review_round=1, sensitive=False,
         pr_number=42, branch="task/1-demo", assignee_id=None, merge_retry_at=None, unstarted_nudges=0,
-        idle_alert_sha=None, project_id=1, depends_on=[],
+        idle_alert_sha=None, project_id=1, depends_on=[], worktree_path=None,
     )  # fmt: skip
     return SimpleNamespace(**(fields | overrides))
 

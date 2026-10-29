@@ -42,7 +42,7 @@ team channels.
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
-2. **A developer** works on the task in its own git worktree, then opens a pull request. The branch starts as `task/<id>` and, at the first
+2. **A developer** works on the task in its own git clone (made from the project's clone with `--reference --dissociate`, so it never writes to it; the token never reaches a clone: GitHub is fetched and pushed from the project's clone, and agent clones only talk to it locally), then opens a pull request. The branch starts as `task/<id>` and, at the first
    `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
@@ -87,8 +87,8 @@ because the CI is still running, the lead is woken (`merge_retry`) as soon as th
 or as a mergeable task if every rule is then met.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
-closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub and locally) and its
-worktree. Only branches recorded on tasks are touched, never the default branch, `dev` or a
+closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its
+clone. Only branches recorded on tasks are touched, never the default branch, `dev` or a
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
