@@ -13,6 +13,7 @@ from pathlib import Path
 
 from app.config import settings
 from app import toolchains
+from app.credits import UsageLimit, parse_usage_limit
 from app.mcp_server import run_tokens
 from app.mcp_server.server import SERVER_NAME
 
@@ -32,6 +33,14 @@ AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
 
 class ClaudeRunError(RuntimeError):
     pass
+
+
+class UsageLimitReached(ClaudeRunError):
+    """The account ran out of credits or hit its usage limit: not a failure of the run."""
+
+    def __init__(self, limit: UsageLimit) -> None:
+        super().__init__("Claude usage limit reached")
+        self.limit = limit
 
 
 class SessionNotFound(ClaudeRunError):
@@ -223,6 +232,8 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
         session_id = data["session_id"]
     except (json.JSONDecodeError, KeyError, TypeError):
         error = stderr.decode(errors="replace")[-2000:]
+        if limit := parse_usage_limit(error) or parse_usage_limit(stdout.decode(errors="replace")[-2000:]):
+            raise UsageLimitReached(limit) from None
         if spec.resume_session_id and "no conversation found" in error.lower():
             raise SessionNotFound(error) from None
         raise ClaudeRunError(f"claude exited with code {proc.returncode}: {error}") from None
@@ -236,5 +247,7 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
         **_usage(data.get("usage")),
     )
     if result.is_error:
+        if limit := parse_usage_limit(result.text):
+            raise UsageLimitReached(limit)
         log.warning("%s: run ended with an error: %s", spec.author_name, result.text or data.get("subtype"))
     return result
