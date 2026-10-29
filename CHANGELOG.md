@@ -7,16 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- The multinational mode's docs gate now asks for a README or `docs/` change instead of a CHANGELOG one, since the CHANGELOG is generated at release.
+## [0.7.0] - 2026-10-29
 
 ### Added
 
-- `merge_release` computes the next SemVer version from the Conventional Commits since the last tag and commits the version files (lock files included) and the generated CHANGELOG entry (it replaces `[Unreleased]`: developers no longer edit the CHANGELOG by hand) as `chore(release): X.Y.Z` on the team's branch only, so no bump task is needed. `publish_version` also checks the lock files.
-- The lead is woken once per head SHA when the team's branch holds unpublished changes, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default).
-- The wakeup after the CI of production says which version to publish.
-- The `release_reminded_sha` project column, added automatically at startup.
+- orchestrator: count the context reset on closed_at instead of updated_at (#93)
+- orchestrator: count reviewed, tested and merged tasks for the context reset (#92)
+- ci: surface check run annotations of red checks to agents (#89)
+- orchestrator: start agents on a blank context every N finished tasks (#91)
+- security: bind the MCP token to its task or conversation scope server-side (#88)
+- frontend: show a banner when Claude credits are exhausted (#85)
+- security: add MCP_SESSION_BINDING warn mode and log every MCP initialize (#86)
+- orchestrator: pause exhausted Claude accounts and resume with the lead (#82)
+- security: run agents through sudo -u agent with an explicit environment (#77)
+- security: load backend secrets from Docker secret files instead of the environment (#76)
+- security: add the agent user, narrow sudo rule and /data permissions (#75)
+- release: bump version and changelog automatically, remind the lead of pending releases (#71)
+- worktrees: give each task and desk its own clone instead of a linked worktree (#72)
+- security: make the backend process non-dumpable (#74)
+
+### Fixed
+
+- security: reject a blank ADMIN_TOKEN at startup (#90)
+- credits: cap the parsed reset time at now + 8 days (#87)
+- security: bind a run's MCP token to its first MCP session (#84)
+- security: log a warning when prctl(PR_SET_DUMPABLE) fails (#78)
+- security: issue a per-run MCP token revoked at the end of the run (#79)
+- frontend: keep the page still when the mobile keyboard opens (#73)
+- github: stop agent-controlled hooks and fsmonitor from running with the token (#70)
+
+### Upgrading from 0.6.2
+
+- Secrets (`ADMIN_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKENS`, the database password) are now Docker secrets, mounted as files in `/run/secrets`. Keep your `.env` as it is: they are still read from it. Compose 2.30 or later is required.
+- The container no longer gets the whole `.env`: any other setting must be listed in [Configuration](README.md#configuration) and added to the `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers with `docker compose pull && docker compose up -d`.
+- The container starts as root, re-owns the existing `/data` volume once (marker `/data/.isolation-v1`), then drops to `palabre`. Do not add `no-new-privileges` to the compose file: `sudo` needs it off. Without Docker's entrypoint, do the `chown`/`chmod` yourself.
+- Task and desk worktrees are now independent clones instead of linked worktrees: tasks already in progress must be re-cloned or restarted.
+- New settings, all optional: `AGENT_USER`, `MCP_SESSION_BINDING` (`warn` by default) and `CONTEXT_RESET_EVERY_TASKS` (`5` by default).
+- New database columns (`closed_by_id`, `closed_at`, `context_reset_at`, `release_reminded_sha` and the MCP token and session ones) are added automatically at startup. Nothing to do.
 
 ## [0.6.2] - 2026-10-29
 
@@ -245,7 +272,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/enzoblain/Palabre/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/enzoblain/Palabre/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/enzoblain/Palabre/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/enzoblain/Palabre/compare/v0.5.0...v0.6.0
