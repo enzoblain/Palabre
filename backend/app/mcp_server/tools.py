@@ -434,13 +434,33 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
 
 
 @tool
-async def merge_release(ctx: Context, title: str, summary: str, message: str) -> dict:
+async def prepare_release(ctx: Context, message: str) -> dict:
+    """Compute the next version (SemVer, from the Conventional Commits since the last vX.Y.Z tag: fix and
+    perf patch, feat minor, breaking major, minor while in 0.x) and commit it on the team's branch as
+    `chore(release): X.Y.Z`: frontend/package.json and its lock, tauri.conf.json, Cargo.toml and Cargo.lock,
+    plus the CHANGELOG entry. No bump task is needed. Does nothing if the branch already holds that version.
+    Then use merge_release.
+    message: what you tell the team in the chat, in a sentence or two."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, message)
+        me = await s.get(Employee, c.employee_id)
+        project = await projects.load_project(s, c.project_id)
+        prepared = await projects.prepare_release(project)
+        state = "committed" if prepared["committed"] else "already on the branch"
+        await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} (version {prepared['version']} {state})", me)
+    return {"version": prepared["version"], "committed": prepared["committed"], "sha": prepared["sha"], "changelog": prepared["changes"]}
+
+
+@tool
+async def merge_release(ctx: Context, summary: str, message: str, title: str = "") -> dict:
     """Merge the release pull request (the team's branch into production) yourself, without
     waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
     once the checks of a freshly opened PR are done), and the merge fails if the head moved
-    meanwhile. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
+    meanwhile. The version bump is made for you first (see prepare_release): when it commits one, the
+    PR is opened, its CI restarts and you are woken up when it ends, then call merge_release again. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
     opinion first, use propose_release.
-    title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
+    title: optional, what ships in English (it goes to GitHub); the version by default, e.g. "0.7.0".
     summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)

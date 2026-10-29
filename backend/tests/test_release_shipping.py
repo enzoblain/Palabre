@@ -67,6 +67,11 @@ def gh(monkeypatch):
         monkeypatch.setattr(github, fn.__name__, fn)
     monkeypatch.setattr(github, "merge_pull_request", merge)
     state.files = versioned("1.2.0")
+
+    async def nothing_to_bump(_project):
+        raise WorkflowError("Nothing worth a release on dev: only chores")
+
+    monkeypatch.setattr(projects, "prepare_release", nothing_to_bump)  # Covered by test_release_auto.py
     return state
 
 
