@@ -117,3 +117,20 @@ def test_blank_or_missing_admin_token_blocks_startup(tmp_path, monkeypatch, valu
 def test_sudo_keeps_claude_in_sudos_process_group():
     # With use_pty the group kill of a timed-out run would only reach sudo
     assert "!use_pty" in DOCKERFILE and "!secure_path" in DOCKERFILE
+
+
+@pytest.mark.parametrize("empty, reason", [("admin_token", "ADMIN_TOKEN is blank"), ("postgres_password", "POSTGRES_PASSWORD is empty")])
+def test_empty_compose_secret_is_refused_with_its_reason(tmp_path, monkeypatch, empty, reason):
+    # What Compose mounts for `ADMIN_TOKEN=` / `POSTGRES_PASSWORD=` in .env: an empty file
+    from pydantic import ValidationError
+
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+    monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
+    for name in ("admin_token", "postgres_password"):
+        (tmp_path / name).write_text("" if name == empty else "s3cret")
+    with pytest.raises(ValidationError, match=reason) as exc:
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+    assert "s3cret" not in str(exc.value)
