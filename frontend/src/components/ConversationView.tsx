@@ -194,8 +194,6 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  useEffect(() => setFeedback(null), [conversationId]);
-
   async function lift() {
     if (busy) return;
     setBusy(true);
@@ -328,7 +326,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {readOnly
           ? <span className="live-tag muted">● Live · read-only</span>
           : <span className="conv-members muted">{room.members.length} members</span>}
-        <LiftLimitButton conversationId={conversation.id} />
+        <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
       {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 
