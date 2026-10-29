@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Creating a project validates `default_branch` and encodes the source branch when creating a branch (#92).
-- `BRANCH_PATTERN` rejects a trailing newline (#93).
+- Creating a project validates `default_branch` and encodes the source branch when creating a branch.
+- `BRANCH_PATTERN` rejects a trailing newline.
 
 ## [0.6.0] - 2026-10-28
 
