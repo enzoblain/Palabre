@@ -259,6 +259,8 @@ Backend tests (pytest, no database or network needed):
 cd backend && pip install --require-hashes -r requirements-dev.txt && python -m pytest
 ```
 
+In CI, pytest runs with `-rfE --tb=line` and `backend/scripts/pytest_annotations.py` turns each failed test into an `::error` annotation (file, line, test name), so the names show on the PR.
+
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
 merge gates) and `fake_github` (replaces the GitHub and git calls). Counting queries can run against an in-memory SQLite session (`aiosqlite`, dev only), see `tests/test_context_reset.py`.

@@ -55,9 +55,14 @@ jobs:
       - name: pytest
         if: steps.detect.outputs.run == 'true'
         run: |
-          # Exit code 5 = no tests collected: tolerated, anything else fails the job
-          code=0
-          python -m pytest || code=$?
+          # Exit code 5 = no tests collected: tolerated, anything else fails the job.
+          # -rfE --tb=line: one line per failure, turned into ::error annotations so the
+          # failed test names show on the PR instead of just "exit code 1".
+          python -m pytest -rfE --tb=line 2>&1 | tee "$RUNNER_TEMP/pytest.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then
+            python scripts/pytest_annotations.py "$RUNNER_TEMP/pytest.log"
+          fi
           if [ "$code" -eq 5 ]; then echo "No tests collected"; exit 0; fi
           exit "$code"
 
