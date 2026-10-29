@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import services
+from app import credits
 from app.accounts import assign_accounts, token_for
 from app.company.team import render_system_prompt
 from app.config import settings
@@ -17,6 +18,7 @@ from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Message, Project, Task, TaskStatus, Wakeup
+from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
@@ -31,7 +33,7 @@ from app.orchestrator.prompts import (
 from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
-from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, run_claude
+from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, UsageLimitReached, run_claude
 from app.worktrees import desk_dir, prepare_desk, prepare_worktree, repo_dir, sync_repo
 
 log = logging.getLogger(__name__)
@@ -112,6 +114,8 @@ class Orchestrator:
             now = datetime.now(UTC)
             for employee_id, wakeups in pending.items():
                 account = accounts.get(employee_id, 1)
+                if credits.is_exhausted(account):
+                    continue  # Stays queued until the account is back
                 if busy.get(account, 0) >= settings.max_concurrent_agents:
                     continue
                 busy[account] = busy.get(account, 0) + 1
@@ -188,6 +192,9 @@ class Orchestrator:
                 result = await run_claude(spec)
         except asyncio.CancelledError:
             raise  # Shutdown: the wakeups stay started-but-unfinished and are redone on restart
+        except UsageLimitReached as exc:
+            await self._requeue(employee_id, run_id, wakeup_ids, exc.limit)
+            return
         except ClaudeRunError as exc:
             error = str(exc)
             log.error("%s: run failed: %s", employee.name, exc)
@@ -202,7 +209,18 @@ class Orchestrator:
                 log.info("%s: run finished (%s turns)", employee.name, result.num_turns)
                 if result.is_error:
                     error = result.text or "claude reported an error"
+                else:
+                    await on_run_succeeded(s, self._run_accounts.get(employee_id, 1))
             await self._finish(s, run_id, wakeup_ids, ok=result is not None and not result.is_error, error=error, result=result)
+
+    async def _requeue(self, employee_id: int, run_id: int, wakeup_ids: list[int], limit: credits.UsageLimit) -> None:
+        """The account is out of credits: the wakeups go back in the queue, the run is not a failure."""
+        async with SessionLocal() as s:
+            run = await s.get(AgentRun, run_id)
+            run.finished_at, run.error = datetime.now(UTC), "usage limit reached: wakeups queued"
+            await s.execute(update(Wakeup).where(Wakeup.id.in_(wakeup_ids)).values(started_at=None))
+            await s.commit()
+            await on_limit_reached(s, self._run_accounts.get(employee_id, 1), limit)
 
     async def _finish(
         self,
@@ -245,7 +263,7 @@ class Orchestrator:
             language_rule(services.team_language()),
             version_rule(member.roles),
         ] if p)  # fmt: skip
-        oauth_token = token_for(assign_accounts(project.employees)[employee.id])
+        oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
 
         if first.kind == "task":

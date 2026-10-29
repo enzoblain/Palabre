@@ -239,6 +239,17 @@ endpoint with the account's token, which never leaves the backend, and cached fo
 minute. An account that fails returns an `error` without affecting the others.
 `GET /settings/usage` is different: it only sums tokens and cost of the runs Palabre made.
 
+**Credits exhausted**: when a run fails because the account hit its usage limit or has no
+credit left (recognised in the output of `claude -p`, with its reset time when it gives
+one, otherwise a 30-minute estimate), the account is paused until then: no new run starts
+on it, automatic employees are spread over the other accounts, and the wakeups stay queued
+instead of failing (the run does not count as a task failure). The boss gets one line in
+#direction per episode ("Claude credits exhausted on account X, work resumes at HH:MM"),
+and `GET /orchestrator` lists `exhausted_accounts` for the app. Once the reset has passed
+and a run succeeds, the lead is woken with a `credits_back` event (tasks in progress,
+queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
+restart, the first run that hits the limit rebuilds it.
+
 ## Tests
 
 Backend tests (pytest, no database or network needed):
