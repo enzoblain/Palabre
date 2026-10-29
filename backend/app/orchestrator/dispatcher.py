@@ -18,7 +18,7 @@ from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Message, Project, Task, TaskStatus, Wakeup
-from app.orchestrator.context_reset import reset_context_if_due
+from app.orchestrator.context_reset import reset_context_if_due, reset_session_if_worn
 from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
@@ -206,7 +206,7 @@ class Orchestrator:
         # Phase 3: record
         async with SessionLocal() as s:
             if result is not None:
-                await self._save_session(s, employee_id, scope, result.session_id)
+                await self._save_session(s, employee_id, scope, result.session_id, resumed=spec.resume_session_id is not None)
                 log.info("%s: run finished (%s turns)", employee.name, result.num_turns)
                 if result.is_error:
                     error = result.text or "claude reported an error"
@@ -306,6 +306,7 @@ class Orchestrator:
             )
 
         await reset_context_if_due(s, employee)  # Before the lookup: no session left to resume
+        await reset_session_if_worn(s, employee, scope)
         spec.resume_session_id = await s.scalar(
             select(AgentSession.claude_session_id).where(
                 AgentSession.employee_id == employee.id, AgentSession.scope == scope
@@ -403,11 +404,12 @@ class Orchestrator:
             self._throttled_at[conversation_id] = datetime.now(UTC)
         raise SkipRun(f"{runs} runs in this conversation within an hour")
 
-    async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str) -> None:
+    async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
         session = await s.get(AgentSession, (employee_id, scope))
         if session is None:
             s.add(AgentSession(employee_id=employee_id, scope=scope, claude_session_id=session_id))
         else:
+            session.runs = session.runs + 1 if resumed else 1  # Not resumed: a fresh session
             session.claude_session_id = session_id
         await s.commit()
 

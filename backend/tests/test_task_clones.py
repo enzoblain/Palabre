@@ -1,6 +1,8 @@
 """Tasks and desks work in their own clone (--reference --dissociate), never in the reference."""
 
 import asyncio
+import os
+import shutil
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -203,3 +205,68 @@ def test_askpass_is_neutralised(monkeypatch):
         env = github._git_env(url)
         assert env["GIT_ASKPASS"] == "/bin/true"
     assert "core.askPass=" in github.SAFE_GIT_CONFIG
+
+
+def _foreign_dir(path):
+    """What a rename leaves in a desk: a directory the backend cannot empty (cache moved in)."""
+    cache = path / ".pytest_cache"
+    cache.mkdir()
+    (cache / "f").write_text("x")
+    cache.chmod(0o555)
+    return cache
+
+
+@pytest.fixture
+def restore_perms():
+    made = []
+    yield made
+    for d in made:
+        if d.exists():
+            d.chmod(0o755)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can delete anything")
+def test_desk_with_foreign_directory_is_recloned_through_the_agent(setup, monkeypatch, restore_perms):
+    project, _, _ = setup
+    employee = SimpleNamespace(id=3)
+    path = asyncio.run(worktrees.prepare_desk(project, employee))
+    restore_perms.append(_foreign_dir(path))
+    calls = []
+
+    real_exec = asyncio.create_subprocess_exec
+
+    async def fake_exec(*argv, **kw):
+        if argv[0] != "sudo":
+            return await real_exec(*argv, **kw)
+        calls.append(argv)
+        restore_perms[0].chmod(0o755)  # What the agent, owner of the directory, can do
+        for child in Path(argv[-1]).iterdir():  # Contents only: the clone's parent is not the agent's
+            shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+        return SimpleNamespace(returncode=0, communicate=lambda: asyncio.sleep(0, (b"", b"")))
+
+    monkeypatch.setattr(worktrees.settings, "agent_user", "agent")
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    asyncio.run(worktrees.prepare_desk(project, employee))
+    assert calls[0][:5] == ("sudo", "-n", "-u", "agent", "/usr/local/bin/palabre-rm-clone")
+    assert not (path / ".pytest_cache").exists()
+    assert (path / ".git").is_dir()
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can delete anything")
+def test_removal_failure_names_the_real_cause(setup, restore_perms):
+    project, _, _ = setup
+    employee = SimpleNamespace(id=3)
+    path = asyncio.run(worktrees.prepare_desk(project, employee))
+    restore_perms.append(_foreign_dir(path))
+    with pytest.raises(worktrees.CloneRemovalError, match="cannot delete .*Permission denied"):
+        asyncio.run(worktrees.prepare_desk(project, employee))
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can delete anything")
+def test_task_worktree_removal_fails_loudly(setup, restore_perms):
+    project, _, _ = setup
+    task = SimpleNamespace(id=5, branch=None)
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    restore_perms.append(_foreign_dir(path))
+    with pytest.raises(worktrees.CloneRemovalError):
+        asyncio.run(worktrees.remove_task_worktree(project, task))

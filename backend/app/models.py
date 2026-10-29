@@ -357,7 +357,8 @@ class Wakeup(Base):
 
 class AgentSession(Base):
     """Claude session of an employee for a scope ("conversation:<id>" or "task:<id>"),
-    reused with --resume."""
+    reused with --resume. `runs` counts the runs this session served (see orchestrator/context_reset.py);
+    `updated_at` is the end of the last one."""
 
     __tablename__ = "agent_sessions"
 
@@ -366,6 +367,7 @@ class AgentSession(Base):
     )
     scope: Mapped[str] = mapped_column(String(50), primary_key=True)
     claude_session_id: Mapped[str] = mapped_column(String(100))
+    runs: Mapped[int] = mapped_column(Integer, server_default="1", default=1)
     updated_at: Mapped[datetime] = updated_at_column()
 
 

@@ -313,6 +313,7 @@ All optional, in `.env`:
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `MCP_SESSION_BINDING` | `warn` | `warn`: a second MCP session on a run's token is logged and the lead told once, nothing is refused. `enforce`: the token is revoked at the second session. Switch to `enforce` once the backend logs (`MCP initialize: session #n ...`) of a real instance show a single initialize per run |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
+| `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own.
@@ -339,7 +340,9 @@ The lead and devops can also install Node.js or Go for the whole team on their o
   server. Secrets travel in that environment, not in the command line, so `ps` does not show
   them; the run's MCP config is a file in `/data/run`, which agents can cross but not list.
   A second `sudo` rule only lets the server kill a process group of the agent, to stop a run
-  that timed out. With `AGENT_USER` empty, none of this applies.
+  that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
+  empties a desk or task clone (files the agent made outside the shared group, which the
+  server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
