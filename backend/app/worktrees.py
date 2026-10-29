@@ -142,6 +142,36 @@ async def commit_release(project: Project, expected_sha: str, files: dict[str, s
         return sha
 
 
+class CloneRemovalError(GitHubError):
+    pass
+
+
+async def _remove_clone(path: Path) -> None:
+    """Delete a desk or task clone and check it is gone. The agent runs as another user: what
+    it created outside the shared group (a renamed cache directory...) the backend cannot
+    delete, so the leftovers go through the narrow `palabre-rm-clone` sudo rule. Without that
+    the clone would fail later on a non-empty destination, hiding the real cause."""
+    error: str | None = None
+    try:
+        await asyncio.to_thread(shutil.rmtree, path)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        error = str(exc)
+    if path.exists() and settings.agent_user:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(path),
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        _, stderr = await proc.communicate()
+        if proc.returncode:
+            error = f"{error}; as {settings.agent_user}: {stderr.decode(errors='replace').strip()}"
+    if path.exists():
+        raise CloneRemovalError(f"cannot delete {path}: {error or 'still present'}")
+
+
 def desk_dir(project: Project, employee: Employee) -> Path:
     return project_dir(project) / "desks" / f"employee-{employee.id}"
 
@@ -224,7 +254,7 @@ async def prepare_desk(project: Project, employee: Employee) -> Path:
     ref = f"refs/remotes/origin/{project.default_branch}"
     path = desk_dir(project, employee)
     async with _repo_locks[project.id]:
-        await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
+        await _remove_clone(path)
         await _clone_from_reference(project, path)  # Config written by the backend alone
         await git(path, "checkout", "--quiet", "--detach", ref)
     return path
@@ -234,7 +264,7 @@ async def remove_task_worktree(project: Project, task: Task) -> None:
     """A merged task's clone is of no use any more, and its branch went with it."""
     path = project_dir(project) / "worktrees" / f"task-{task.id}"
     async with _repo_locks[project.id]:
-        await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)
+        await _remove_clone(path)
         # Tasks started before clones were linked worktrees; dead code once none is left
         await git(repo_dir(project), "worktree", "prune")
 
