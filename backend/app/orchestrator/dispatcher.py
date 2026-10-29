@@ -5,7 +5,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -55,6 +55,7 @@ class Orchestrator:
         self._run_accounts: dict[int, int] = {}  # employee id → account of its current run
         self._repo_synced_at: dict[int, float] = {}
         self._throttled_at: dict[int, datetime] = {}
+        self._rate_reset_at: dict[int, datetime] = {}  # Limit lifted by the boss; lost on restart
 
     @property
     def running_employee_ids(self) -> list[int]:
@@ -371,7 +372,8 @@ class Orchestrator:
     ) -> None:
         """Stops agents that keep pinging each other in a conversation. Only chatter is
         throttled: workflow events (reviews, merges, bugs, escalations...) always go
-        through. The boss posting in the conversation lifts it."""
+        through. The boss posting in the conversation lifts it, so does `lift_rate_limit`.
+        Skipped wakeups did not run anything: they do not count."""
         if not event_types <= CHATTER_EVENTS:
             return
         since = datetime.now(UTC) - timedelta(hours=1)
@@ -384,6 +386,8 @@ class Orchestrator:
         if last_boss_message is not None:
             last_boss_message = last_boss_message if last_boss_message.tzinfo else last_boss_message.replace(tzinfo=UTC)
             since = max(since, last_boss_message)
+        if (reset_at := self._rate_reset_at.get(conversation_id)) is not None:
+            since = max(since, reset_at)
         runs = await s.scalar(
             select(func.count())
             .select_from(AgentRun)
@@ -391,6 +395,7 @@ class Orchestrator:
                 AgentRun.conversation_id == conversation_id,
                 AgentRun.started_at >= since,
                 AgentRun.id != run_id,
+                or_(AgentRun.error.is_(None), AgentRun.error.not_like("skipped%")),
             )
         )
         if runs < settings.max_runs_per_conversation_hour:
@@ -403,6 +408,11 @@ class Orchestrator:
             await s.commit()
             self._throttled_at[conversation_id] = datetime.now(UTC)
         raise SkipRun(f"{runs} runs in this conversation within an hour")
+
+    def lift_rate_limit(self, conversation_id: int) -> None:
+        """Restarts the anti-loop window of a conversation: earlier runs no longer count."""
+        self._rate_reset_at[conversation_id] = datetime.now(UTC)
+        self._throttled_at.pop(conversation_id, None)
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
         session = await s.get(AgentSession, (employee_id, scope))

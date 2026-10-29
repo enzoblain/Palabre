@@ -9,6 +9,7 @@ from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
 from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room
+from app.orchestrator.dispatcher import orchestrator
 from app.orchestrator.research import start_question
 
 router = APIRouter(tags=["conversations"])
@@ -87,6 +88,23 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     )
     await s.commit()
     return message
+
+
+@router.post("/conversations/{conversation_id}/lift-rate-limit", status_code=status.HTTP_204_NO_CONTENT)
+async def lift_rate_limit(conversation_id: int, s: SessionDep):
+    """Restarts the anti-loop window of a conversation (admin token): agents can be woken in it again."""
+    await get_or_404(s, Conversation, conversation_id)
+    orchestrator.lift_rate_limit(conversation_id)
+    await s.execute(
+        update(Event)
+        .where(
+            Event.type == "conversation_throttled",
+            Event.processed_at.is_(None),
+            Event.payload["conversation_id"].as_integer() == conversation_id,
+        )
+        .values(processed_at=datetime.now(UTC))
+    )
+    await s.commit()
 
 
 @router.post("/messages/{message_id}/answer", response_model=MessageOut)
