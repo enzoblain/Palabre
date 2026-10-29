@@ -96,6 +96,7 @@ assert_secrets_resolved() { # assert_secrets_resolved <project>
   # /run/secrets is closed to anything but root
   [ "$(docker compose -p "$p" exec -T backend stat -c %a /run/secrets)" = 700 ] \
     || fail "/run/secrets is not mode 700"
+  docker compose -p "$p" exec -T -u agent backend true || fail "no agent user in the image"
   # The agents' uid must reach neither /run/secrets nor the backend's private copy
   ! docker compose -p "$p" exec -T -u agent backend cat /run/secrets/github_token >/dev/null 2>&1 \
     || fail "agent can read /run/secrets/github_token"
@@ -162,8 +163,8 @@ for var in ADMIN_TOKEN POSTGRES_PASSWORD; do
   fi
   curl -fsS "http://127.0.0.1:$PALABRE_PORT/health" >/dev/null 2>&1 && fail "backend answers with an empty $var"
   # It must be the refusal of this secret, not an unrelated failure
-  docker compose -p smoke-empty logs --no-color 2>&1 | grep -qiE "$reason" \
-    || fail "no startup error about $var in the logs"
+  logs=$(docker compose -p smoke-empty logs --no-color 2>&1 || true)
+  grep -qiE "$reason" <<<"$logs" || fail "no startup error about $var in the logs"
   echo "ok: empty $var blocks the startup"
   docker compose -p smoke-empty down -v --remove-orphans
 done
