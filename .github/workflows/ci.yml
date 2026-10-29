@@ -111,6 +111,21 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
+  # Runs the real docker-compose.yml (secrets, agent isolation, updater, upgrade of a volume
+  # from the last published version). Only on PRs and on dev/main: it builds the backend
+  # image and pulls the published ones, which is too slow for every branch push.
+  compose:
+    name: Compose smoke test
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The tags give the last published version to upgrade from
+          fetch-depth: 0
+      - run: .github/scripts/compose-smoke.sh
+
   # Known vulnerabilities in the pinned backend dependencies. pip-audit lives only in this job:
   # it is in neither the image nor the requirements files.
   pip-audit:
