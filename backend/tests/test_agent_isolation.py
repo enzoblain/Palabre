@@ -1,7 +1,10 @@
 """Runs under AGENT_USER (#104): sudo with an explicit environment, no secret in argv."""
 
 import asyncio
+import json
 import shutil
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -27,7 +30,7 @@ def as_agent(monkeypatch, tmp_path):
 
 def spec(tmp_path):
     return RunSpec(
-        author_name="Mehdi", system_prompt="sys", prompt="do it", cwd=tmp_path,
+        author_name="Mehdi", system_prompt="sys", prompt="do it", cwd=tmp_path, employee_id=1,
         mcp_headers={"Authorization": HEADER}, mcp_tools=["a"], claude_tools=["Read"],
         model="m", oauth_token=TOKEN,
     )  # fmt: skip
@@ -125,3 +128,42 @@ async def test_timeout_kills_the_group_through_sudo(as_agent, monkeypatch, tmp_p
         await runner.run_claude(spec(tmp_path))
     assert calls[1][:5] == ("sudo", "-n", "-u", "root", "/usr/bin/kill")
     assert calls[1][-3:] == ("-KILL", "--", "-4242")
+
+
+async def test_sudo_run_uses_a_per_run_token_in_the_agent_dir_and_revokes_it(as_agent, monkeypatch, tmp_path):
+    """#104 and #108 together: sudo + explicit env, and a per-run token in a config the agent can read."""
+    from app.mcp_server import run_tokens
+
+    seen = {}
+
+    class Proc:
+        returncode = 0
+        pid = 1
+
+        async def communicate(self):
+            # While the run lives: the config sits in the agent dir with the #108 rights
+            path = Path(seen["argv"][seen["argv"].index("--mcp-config") + 1])
+            seen["path"], seen["mode"] = path, path.stat().st_mode & 0o777
+            seen["config"] = json.loads(path.read_text())
+            token = seen["config"]["mcpServers"][runner.SERVER_NAME]["headers"]["Authorization"].removeprefix("Bearer ")
+            seen["token"], seen["employee"] = token, run_tokens.employee_of(token)  # first use deletes the file
+            seen["deleted_on_use"] = not path.exists()
+            return b'{"session_id": "s", "result": "ok"}', b""
+
+    async def fake_exec(*argv, **kw):
+        seen.update(argv=argv, **kw)
+        return Proc()
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    run_spec = replace(spec(tmp_path), employee_id=7)
+    await runner.run_claude(run_spec)
+
+    assert seen["argv"][:4] == ("sudo", "-n", "-u", "root")  # #104
+    assert "DATABASE_URL" not in seen["env"] and seen["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    assert seen["path"].parent == tmp_path / "run" and seen["mode"] == 0o640  # #104 dir, #108 rights
+    headers = seen["config"]["mcpServers"][runner.SERVER_NAME]["headers"]
+    assert seen["token"] and headers["Authorization"] != HEADER  # per-run token, not the caller's header
+    assert seen["token"] not in " ".join(seen["argv"])
+    assert seen["employee"] == 7 and seen["deleted_on_use"]  # #108
+    assert run_tokens.employee_of(seen["token"]) is None  # revoked at the end of the run
+    assert not seen["path"].exists()
