@@ -29,7 +29,7 @@ root '
 ' || { echo "FAIL cannot prepare the old volume"; exit 1; }
 
 # The image's own entrypoint, as docker compose runs it, then a command as the backend
-docker run --rm -v "$volume:/data" "$image" sh -c 'id -un && test -f /data/.isolation-v1' >/dev/null 2>&1 \
+docker run --rm -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && test -f /data/.isolation-v1' >/dev/null 2>&1 \
   && echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written" \
   || { echo "FAIL the entrypoint fails on the old volume"; fail=1; }
 

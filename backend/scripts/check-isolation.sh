@@ -3,7 +3,7 @@
 #   docker exec -u root [-e CHECK_GITHUB_REPO=owner/scratch-repo] <container> /srv/scripts/check-isolation.sh
 # Prints one line per guarantee and exits non-zero if any is broken (or skipped).
 #
-# For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
+# THROWAWAY CONTAINER ONLY. For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
 # container, not one whose orchestrator is running agents (see "Checking the isolation" in
 # the README). CHECK_GITHUB_REPO names a scratch repository the backend's GitHub token can
 # push to: the check clones it, commits as an agent, pushes, opens a PR and merges it.
@@ -26,7 +26,7 @@ else
   echo "note no uvicorn in this container: the environ check runs on the probe process instead"
 fi
 denied "agent cannot list runtime/" as_agent ls "$DATA/runtime"
-denied "agent cannot read the backend's home" as_agent ls /home/palabre/.local
+denied "agent cannot read the backend's home" as_agent ls /home/palabre
 for repo in "$DATA"/projects/project-*/repo; do
   [ -d "$repo" ] || continue
   denied "agent cannot read $repo" as_agent test -r "$repo/config"
@@ -51,7 +51,7 @@ denied "no agent process is left after the group kill" pgrep -u agent -x sleep
 # agent can see and do from inside the run (stdout is claude's JSON result)
 CLAUDE=/home/palabre/.local/bin/claude
 mv "$CLAUDE" "$CLAUDE.real"
-trap 'mv -f "$CLAUDE.real" "$CLAUDE"' EXIT
+trap 'mv -f "$CLAUDE.real" "$CLAUDE"' EXIT INT TERM
 cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
 # $2 is the prompt: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
