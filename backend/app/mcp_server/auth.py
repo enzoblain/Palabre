@@ -1,7 +1,7 @@
 """Identifies the employee behind each MCP request.
 
 Every request carries headers written by the backend into the run's --mcp-config:
-  - Authorization: Bearer <employee's MCP token>
+  - Authorization: Bearer <token of this run, revoked when it ends>
   - X-Palabre-Conversation: <id>  for a conversation turn, or
   - X-Palabre-Task: <id>          for a task run (work on the employee's own task)
 The agent therefore chooses neither who it is nor where it acts.
@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.db import SessionLocal
+from app.mcp_server import run_tokens
 from app.mcp_server.permissions import mcp_tools_for
 from app.models import Conversation, Employee, Task, room_members
 
@@ -53,10 +54,11 @@ class AgentAuthMiddleware:
 
 
 async def resolve_caller(token: str, conversation_raw: str, task_raw: str) -> Caller | None:
-    if not token:
+    employee_id = run_tokens.employee_of(token) if token else None
+    if employee_id is None:
         return None
     async with SessionLocal() as s:
-        employee = await s.scalar(select(Employee).where(Employee.mcp_token == token))
+        employee = await s.get(Employee, employee_id)
         if employee is None:
             return None
 
