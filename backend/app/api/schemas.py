@@ -102,6 +102,15 @@ class ProjectIn(BaseModel):
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=30)
 
+    # Empty means "the repository's default branch"; the name ends up in GitHub URLs and git refspecs
+    @field_validator("default_branch")
+    @classmethod
+    def _valid_default_branch(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.match(BRANCH_PATTERN, value):
+            raise ValueError("not a valid branch name")
+        return value
+
 
 class ProjectOut(ORM):
     id: int

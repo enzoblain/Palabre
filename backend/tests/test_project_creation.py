@@ -187,3 +187,32 @@ def test_orientation_only_on_the_first_run():
 
 async def test_working_branch_without_a_branch_resolves_production(repo):
     assert await projects.working_branch(URL, "") == "dev"
+
+
+@pytest.mark.parametrize("branch", ["x/../../foo?bar", "a#b", "-x", "a..b", "a/", "a b"])
+def test_project_in_rejects_an_invalid_default_branch(branch):
+    from pydantic import ValidationError
+
+    from app.api.schemas import ProjectIn
+
+    with pytest.raises(ValidationError):
+        ProjectIn(name="p", repo_url=URL, default_branch=branch)
+
+
+def test_project_in_accepts_empty_and_valid_default_branches():
+    from app.api.schemas import ProjectIn
+
+    assert ProjectIn(name="p", default_branch="").default_branch == ""
+    assert ProjectIn(name="p", default_branch=" feat/x-1 ").default_branch == "feat/x-1"
+
+
+async def test_create_branch_encodes_the_source_branch(monkeypatch):
+    calls = []
+
+    async def api(method, path, **kwargs):
+        calls.append((method, path))
+        return {"object": {"sha": "abc"}}
+
+    monkeypatch.setattr(github, "_api", api)
+    await github.create_branch("acme/app", "dev", "a?b#c")
+    assert calls[0] == ("GET", "/repos/acme/app/git/ref/heads/a%3Fb%23c")
