@@ -1,5 +1,6 @@
 """FastAPI app: startup, API routers, MCP server and scheduler."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
@@ -21,6 +22,8 @@ from app.mcp_server.server import mcp
 from app.orchestrator.dispatcher import orchestrator
 from app.services import WorkflowError
 
+log = logging.getLogger(__name__)
+
 # Before any agent runs: they share the backend's uid and could read its environ
 make_non_dumpable()
 
@@ -33,6 +36,11 @@ mcp_app = mcp.streamable_http_app(
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if not settings.agent_user:
+        log.warning(
+            "AGENT_USER is empty: agents run as the backend's own user and can read its "
+            "environment and files. Fine for the desktop app or local development, not for a server."
+        )
     # TODO: Alembic migrations
     async with engine.begin() as conn:
         await conn.run_sync(upgrade_schema)

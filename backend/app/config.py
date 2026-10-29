@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     projects_dir: Path = Path("/data/projects")
     # Temporary files of runs (MCP configs), kept outside the repositories
     runtime_dir: Path = Path("/data/runtime")
+    # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
+    # Empty = same user as the backend (desktop app, local dev without sudo).
+    agent_user: str = ""
+    # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)
+    agent_run_dir: Path = Path("/data/run")
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")
 

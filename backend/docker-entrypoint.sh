@@ -14,8 +14,8 @@ DATA=/data
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
-mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/toolchains" "$DATA/claude"
-for dir in projects runtime toolchains claude; do
+mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
+for dir in projects runtime run toolchains claude; do
   real_dir "$DATA/$dir" || { echo "$DATA/$dir is not a plain directory" >&2; exit 1; }
 done
 
@@ -33,6 +33,9 @@ chmod 2775 "$DATA/toolchains/gopath"
 # The backend alone: runtime holds the MCP tokens of the runs
 chown palabre:palabre "$DATA/runtime"
 chmod 700 "$DATA/runtime"
+# MCP configs the agent reads: crossed, never listed
+chown palabre:work "$DATA/run"
+chmod 2711 "$DATA/run"
 
 # Migration of a volume made before the isolation: one pass, then a marker
 if [ ! -e "$DATA/.isolation-v1" ]; then

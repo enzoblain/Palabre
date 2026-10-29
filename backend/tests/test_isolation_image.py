@@ -19,8 +19,12 @@ def test_agent_user_and_shared_group():
 
 def test_single_narrow_sudo_rule():
     rules = re.findall(r"'(palabre ALL=[^']*)'", DOCKERFILE)
-    # Only the claude binary, only as agent, never as root
-    assert rules == ["palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude"]
+    # Only the claude binary and a process-group kill, only as agent, never as root
+    assert rules == [
+        "palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
+        "palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
+    ]
+    assert "AGENT_USER=agent" in DOCKERFILE
 
 
 def test_toolchains_not_in_backend_path():
@@ -94,3 +98,8 @@ def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
     # An explicit URL is kept
     s = config.Settings(_secrets_dir=tmp_path, _env_file=None, database_url="postgresql+asyncpg://u:p@h/d")
     assert s.database_url.endswith("@h/d")
+
+
+def test_sudo_keeps_claude_in_sudos_process_group():
+    # With use_pty the group kill of a timed-out run would only reach sudo
+    assert "!use_pty" in DOCKERFILE and "!secure_path" in DOCKERFILE

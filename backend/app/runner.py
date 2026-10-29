@@ -4,7 +4,9 @@ import asyncio
 import json
 import logging
 import os
+import pwd
 import re
+import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +24,10 @@ ENV_ALLOWLIST = (
     "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR",
     "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
 )  # fmt: skip
+# Part of the allowlist that is the backend's own (its home, its user, its PATH): with
+# AGENT_USER they are replaced by the agent's, never inherited
+BACKEND_OWN = ("PATH", "HOME", "USER", "SHELL", "TMPDIR")
+AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
 
 
 class ClaudeRunError(RuntimeError):
@@ -64,8 +70,20 @@ class RunResult:
     cache_read_tokens: int | None = None
 
 
+def _agent_account() -> pwd.struct_passwd:
+    try:
+        return pwd.getpwnam(settings.agent_user)
+    except KeyError:
+        raise ClaudeRunError(f"AGENT_USER {settings.agent_user!r} does not exist on this machine") from None
+
+
 def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
+    if settings.agent_user:
+        account = _agent_account()
+        for key in BACKEND_OWN:
+            env.pop(key, None)
+        env |= {"HOME": account.pw_dir, "USER": account.pw_name, "LOGNAME": account.pw_name, "PATH": AGENT_PATH}
     if not oauth_token:
         raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
@@ -87,12 +105,52 @@ def _env(author_name: str, oauth_token: str | None) -> dict[str, str]:
 
 def _write_mcp_config(headers: dict[str, str]) -> Path:
     # Outside the repositories, so the token can never be committed
-    settings.runtime_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path = settings.runtime_dir / f"mcp-{uuid.uuid4().hex}.json"
     config = {"mcpServers": {SERVER_NAME: {"type": "http", "url": settings.mcp_url, "headers": headers}}}
-    path.touch(mode=0o600)
+    if settings.agent_user:
+        # The agent must read it, and runtime_dir is closed to it: a directory it can only
+        # cross, a name it cannot guess, readable by the group and nobody else
+        directory = settings.agent_run_dir
+        directory.mkdir(mode=0o711, parents=True, exist_ok=True)
+        mode = 0o640
+    else:
+        directory = settings.runtime_dir
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        mode = 0o600
+    path = directory / f"mcp-{uuid.uuid4().hex}.json"
+    path.touch(mode=mode)
     path.write_text(json.dumps(config))
     return path
+
+
+def _command(cmd: list[str], env: dict[str, str]) -> list[str]:
+    """Wraps the claude command in sudo when agents run as another user.
+
+    The variables travel in sudo's own environment (not its argv, which `ps` shows);
+    `--preserve-env` names the ones sudo lets through, and it resets all the others.
+    """
+    if not settings.agent_user:
+        return cmd
+    # The sudo rule names the binary by its full path
+    binary = shutil.which(cmd[0]) or cmd[0]
+    names = ",".join(sorted(env))
+    return ["sudo", "-n", "-u", settings.agent_user, f"--preserve-env={names}", "--", binary, *cmd[1:]]
+
+
+async def _terminate(proc: asyncio.subprocess.Process) -> None:
+    """Kills a run. Under sudo the process is root's: only the agent's group can be signalled."""
+    if not settings.agent_user:
+        proc.kill()
+        return
+    killer = await asyncio.create_subprocess_exec(
+        "sudo", "-n", "-u", settings.agent_user, "/usr/bin/kill", "-KILL", "--", f"-{proc.pid}",
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )  # fmt: skip
+    try:
+        await asyncio.wait_for(killer.wait(), 10)
+    except TimeoutError:
+        killer.kill()
 
 
 def _usage(usage: object) -> dict[str, int | None]:
@@ -136,20 +194,23 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
 
     try:
         try:
+            env = _env(spec.author_name, spec.oauth_token)
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                *_command(cmd, env),
                 cwd=spec.cwd,
-                env=_env(spec.author_name, spec.oauth_token),
+                env=env,
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                # Own process group, so the whole run can be killed through the agent
+                start_new_session=bool(settings.agent_user),
             )
         except OSError as exc:
             raise ClaudeRunError(f"Cannot start {settings.claude_bin}: {exc}") from exc
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), settings.agent_timeout_s)
         except (TimeoutError, asyncio.CancelledError) as exc:
-            proc.kill()
+            await _terminate(proc)
             await proc.wait()
             if isinstance(exc, TimeoutError):
                 raise ClaudeRunError(f"Timed out after {settings.agent_timeout_s}s") from exc
