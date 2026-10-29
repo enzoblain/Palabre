@@ -14,8 +14,12 @@ SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets")
 class Settings(BaseSettings):
     # Secrets (admin_token, github_token, claude_code_oauth_tokens, postgres_password) are
     # files here, not environment variables: the entrypoint copies them for the backend only
+    # hide_input_in_errors: a model-level error would otherwise print every field, secrets included
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", secrets_dir=SECRETS_DIR if SECRETS_DIR.is_dir() else None
+        env_file=".env",
+        extra="ignore",
+        secrets_dir=SECRETS_DIR if SECRETS_DIR.is_dir() else None,
+        hide_input_in_errors=True,
     )
 
     database_url: str = "postgresql+asyncpg://palabre:palabre@localhost:5432/palabre"
@@ -25,7 +29,9 @@ class Settings(BaseSettings):
     postgres_db: str = "palabre"
     postgres_host: str = "db"
     # Protects the REST API (Authorization: Bearer <ADMIN_TOKEN>)
-    admin_token: str = Field(min_length=1)
+    # Default + validate_default: Compose mounts no file for an empty secret, so an absent token
+    # must hit the blank check too (an unvalidated "" default would leave the API open)
+    admin_token: str = Field("", validate_default=True)
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.

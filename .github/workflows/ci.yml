@@ -124,3 +124,62 @@ jobs:
           python-version: "3.12"
       - run: pip install pip-audit==2.10.1
       - run: pip-audit --require-hashes --disable-pip -r backend/requirements.txt
+
+  # The backend must refuse to start on an empty secret, and say why. Each case has its own
+  # Compose project and port, so a /health answer can never come from another stack; the
+  # reason is read in the logs of that project's own backend container.
+  failfast:
+    name: Fail-fast (${{ matrix.case }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { case: admin-token, project: failfast-admin, port: 28710, admin: "", pg: "pg-secret", reason: "ADMIN_TOKEN is blank" }
+          - { case: postgres-password, project: failfast-pg, port: 28711, admin: "admin-secret", pg: "", reason: "POSTGRES_PASSWORD is empty or missing" }
+    env:
+      COMPOSE_PROJECT_NAME: ${{ matrix.project }}
+      PALABRE_PORT: ${{ matrix.port }}
+      PALABRE_VERSION: failfast
+      ADMIN_TOKEN: ${{ matrix.admin }}
+      POSTGRES_PASSWORD: ${{ matrix.pg }}
+      # Dummy values: Compose must find every secret's variable, only the tested one is empty
+      GITHUB_TOKEN: dummy-github-token
+      CLAUDE_CODE_OAUTH_TOKENS: dummy-claude-token
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./backend
+          load: true
+          tags: ghcr.io/enzoblain/palabre:failfast
+          cache-from: type=gha,scope=palabre
+      - name: Backend refuses to start
+        run: |
+          # No .env on the runner: only the variables above reach Compose. No restart loop,
+          # and no db: the settings are checked before the database is touched.
+          printf 'services:\n  backend:\n    restart: "no"\n' > override.yml
+          docker compose -f docker-compose.yml -f override.yml up -d --no-deps --no-build --pull never backend 2>&1 || echo "compose up exited with $?"
+          id=$(docker compose ps -a -q backend)
+          [ -n "$id" ] || { echo "::error::No backend container in project $COMPOSE_PROJECT_NAME"; exit 1; }
+          for _ in $(seq 60); do
+            [ "$(docker inspect -f '{{.State.Status}}' "$id")" = exited ] && break
+            sleep 1
+          done
+          status=$(docker inspect -f '{{.State.Status}}' "$id")
+          docker inspect -f '{{json .State}}' "$id"
+          [ "$status" != created ] || { echo "::error::Backend container was created but never started: the test checks nothing"; exit 1; }
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$id")
+          logs=$(docker logs "$id" 2>&1)
+          echo "$logs"
+          [ "$status" = exited ] && [ "$code" != 0 ] || { echo "::error::Backend did not fail: status=$status exit=$code"; exit 1; }
+          echo "$logs" | grep -q "${{ matrix.reason }}" || { echo "::error::Refusal reason '${{ matrix.reason }}' not in the backend logs"; exit 1; }
+          # The secret itself must never be echoed
+          for secret in "$ADMIN_TOKEN" "$POSTGRES_PASSWORD" "$GITHUB_TOKEN" "$CLAUDE_CODE_OAUTH_TOKENS"; do
+            [ -z "$secret" ] || ! echo "$logs" | grep -qF "$secret" || { echo "::error::Secret leaked in logs"; exit 1; }
+          done
+      - name: Clean up
+        if: always()
+        run: docker compose down -v --remove-orphans || true
