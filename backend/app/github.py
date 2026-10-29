@@ -15,7 +15,7 @@ API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
 # A branch name we accept: no spaces, "..", leading "-" or trailing "/" or "."
-BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])$"
+BRANCH_PATTERN = r"^(?!-)(?!.*\.\.)[\w./-]{1,200}(?<![/.])\Z"
 # A task's own branch: the legacy `task/<id>...` or `<type>/<id>-<slug>`, type as in Conventional Commits
 TASK_BRANCH_RE = re.compile(
     r"(task|feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)/\d+(-[a-z0-9]+)*"
