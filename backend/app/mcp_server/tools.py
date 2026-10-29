@@ -434,13 +434,15 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
 
 
 @tool
-async def merge_release(ctx: Context, title: str, summary: str, message: str) -> dict:
+async def merge_release(ctx: Context, summary: str, message: str, title: str = "") -> dict:
     """Merge the release pull request (the team's branch into production) yourself, without
     waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
     once the checks of a freshly opened PR are done), and the merge fails if the head moved
-    meanwhile. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
+    meanwhile. The version bump is made for you first (no bump task): the next SemVer version and the CHANGELOG entry are
+    committed on the team's branch; the PR is then opened, its CI restarts and you are woken up when it ends, then call
+    merge_release again. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
     opinion first, use propose_release.
-    title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
+    title: optional, what ships in English (it goes to GitHub); the version by default, e.g. "0.7.0".
     summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)

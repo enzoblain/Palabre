@@ -12,7 +12,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app import github, services
+from app import github, release, services
 from app.company.team import Employee as TeamMember
 from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
@@ -23,6 +23,7 @@ from app.models import (
 )  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
+from app import worktrees
 from app.worktrees import sync_repo
 
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
@@ -359,6 +360,72 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
             pass  # Already closed or merged on GitHub
 
 
+class NothingToRelease(WorkflowError):
+    """No commit since the last tag deserves a version."""
+
+
+async def release_plan(project: Project) -> dict | None:
+    """What the team's branch would publish: the next version (SemVer, from the Conventional Commits since
+    the last vX.Y.Z tag), the previous one, the commits, the branch's tip and the number of commits
+    production lacks. None when there is nothing worth a release."""
+    repo = github.repo_slug(project.repo_url)
+    production = await github.resolve_branch(repo, "")
+    if project.default_branch == production:
+        raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
+    tag = await github.latest_version_tag(repo)
+    previous = tag.removeprefix("v") if tag else None
+    _, commits = await github.compare_commits(repo, tag or production, project.default_branch)
+    version = release.next_version(previous or "0.0.0", commits)
+    if version is None:
+        return None
+    ahead, _ = await github.compare_commits(repo, production, project.default_branch)
+    return {
+        "version": version, "previous": previous, "commits": commits, "ahead": ahead,
+        "tip": await github.branch_tip(repo, project.default_branch),
+    }  # fmt: skip
+
+
+async def prepare_release(project: Project) -> dict:
+    """Commit the version bump and the CHANGELOG entry on the team's branch only (one commit,
+    `chore(release): X.Y.Z`, made and pushed by the backend from its clone), computed from the
+    commits since the last tag. Nothing is committed when the branch already holds that version."""
+    plan = await release_plan(project)
+    if plan is None:
+        raise NothingToRelease(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
+    version, tip = plan["version"], plan["tip"]
+    repo = github.repo_slug(project.repo_url)
+    changes = release.changelog_entry(version, datetime.now(UTC).date().isoformat(), plan["commits"])
+    result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": changes}
+    texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
+    if all(texts[path] is None for path in VERSION_FILES):
+        raise WorkflowError("No version file found in the repository: nothing to bump")
+    package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
+    if all(texts[path] is None or VERSION_FILES[path](texts[path], package) == version for path in VERSION_FILES):
+        return result  # Already bumped
+    files = {}
+    for path, text in texts.items():
+        if text is None or path == "CHANGELOG.md":
+            continue
+        if (new := release.set_version(path, text, version, package)) != text:
+            files[path] = new
+    if texts["CHANGELOG.md"] is not None:
+        try:
+            files["CHANGELOG.md"] = release.update_changelog(texts["CHANGELOG.md"], version, plan["previous"], changes)
+        except ValueError as exc:
+            raise WorkflowError(str(exc)) from exc
+    if not files:
+        raise WorkflowError("No version file found to bump")
+    for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) != version:
+            raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
+    try:
+        result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
+    except github.GitHubError as exc:
+        raise WorkflowError(f"The version bump could not be pushed to {project.default_branch}: {exc}") from exc
+    result["committed"] = True
+    return result
+
+
 async def merge_release(s: AsyncSession, project: Project, title: str, summary: str) -> tuple[str, int]:
     """The lead merges the release PR (team's branch to production) without the boss's answer,
     under the same CI gate as a task. Opens the PR if there is none; a release the boss
@@ -367,6 +434,13 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     production = await github.resolve_branch(repo, "")
     if project.default_branch == production:
         raise WorkflowError(f"The team already merges into {production}: there is nothing to release")
+    try:
+        prepared = await prepare_release(project)  # No bump task: the version is computed here
+    except NothingToRelease:
+        prepared = None  # Only chores since the last tag: the lead merges as before
+    title = title or (prepared["version"] if prepared else "")
+    if not title:
+        raise WorkflowError("A title is required when there is no version to publish")
     pr = await github.find_pull_request(repo, project.default_branch, production)
     if pr is None:
         try:
@@ -375,6 +449,11 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
             if "No commits between" in str(exc):
                 raise WorkflowError(f"{project.default_branch} has nothing that {production} does not have yet") from None
             raise
+    if prepared and prepared["committed"]:
+        raise WorkflowError(
+            f"Version {prepared['version']} was committed on {project.default_branch} and the release PR #{pr['number']} is open: "
+            "its CI restarted, you will be woken up when it ends, then call merge_release again"
+        )  # fmt: skip
     # CI is checked on this exact commit and the merge is pinned to it: a task merged into
     # the team's branch in between makes GitHub refuse instead of shipping unchecked code
     head_sha = pr["head"]["sha"]
@@ -400,13 +479,27 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     return pr["html_url"], pr["number"]
 
 
-SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+SEMVER_RE = release.SEMVER_RE
+def _lock_version(lock: dict) -> str:
+    """The version of a package-lock.json: its two mentions must agree."""
+    top, inner = lock.get("version"), lock.get("packages", {}).get("", {}).get("version", lock.get("version"))
+    return str(top) if top == inner else f"{top} and {inner}"
+
+
+def _package_name(cargo_toml: str | None) -> str:
+    return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
+
+
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
-    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
-    "frontend/src-tauri/tauri.conf.json": lambda text: str(json.loads(text).get("version")),
-    "frontend/src-tauri/Cargo.toml": lambda text: str(tomllib.loads(text).get("package", {}).get("version")),
-}
+    "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
+    "frontend/package-lock.json": lambda text, _package: _lock_version(json.loads(text)),
+    "frontend/src-tauri/tauri.conf.json": lambda text, _package: str(json.loads(text).get("version")),
+    "frontend/src-tauri/Cargo.toml": lambda text, _package: str(tomllib.loads(text).get("package", {}).get("version")),
+    "frontend/src-tauri/Cargo.lock": lambda text, package: str(
+        next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
+    ),
+}  # fmt: skip
 
 
 async def publish_version(project: Project, version: str) -> str:
@@ -425,20 +518,23 @@ async def publish_version(project: Project, version: str) -> str:
     if ci := await github.commit_checks(repo, sha):
         raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
     mismatches = []
+    package = ""
     for path, read in VERSION_FILES.items():
         text = await github.file_content(repo, path, sha)
         if text is None:
             continue  # A project without this file has no version to match
+        if path.endswith("Cargo.toml"):
+            package = _package_name(text)  # Before Cargo.lock, which needs it
         try:
-            found = read(text)
+            found = read(text, package)
         except ValueError:  # includes malformed JSON and TOML
             found = "unreadable"
         if found != version:
             mismatches.append(f"{path} says {found}")
     if mismatches:
         raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")
-    release = await github.create_release(repo, tag, sha)
-    return release["html_url"]
+    published = await github.create_release(repo, tag, sha)
+    return published["html_url"]
 
 
 async def fix_release(project: Project, version: str) -> str:
@@ -450,10 +546,10 @@ async def fix_release(project: Project, version: str) -> str:
     if not await github.tag_exists(repo, f"v{version}"):
         raise WorkflowError(f"The tag v{version} does not exist")
     try:
-        release = await github.update_release(repo, f"v{version}")
+        published = await github.update_release(repo, f"v{version}")
     except github.GitHubError as exc:
         raise WorkflowError(f"v{version} has no release to fix: {exc}") from exc
-    return release["html_url"]
+    return published["html_url"]
 
 
 async def open_pull_requests(s: AsyncSession, project: Project) -> list[dict]:

@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     merge_reminder_minutes: int = 10
     # Minutes a task in progress or in review may stay still before the lead is alerted (once per head SHA)
     idle_task_minutes: int = 10
+    # Minutes of calm on the team's branch, with no open task, before the lead is told changes wait for a release
+    release_wait_minutes: int = 5
     # Seconds during which further changes of a task do not wake the lead again
     lead_debounce_seconds: int = 30
     # Minutes after a submission without any CI check before the PR goes back to its dev

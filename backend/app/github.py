@@ -380,3 +380,26 @@ async def update_release(repo: str, tag: str) -> dict:
         f"/repos/{repo}/releases/{release['id']}",
         json={"name": release_name(tag), "body": await _notes_with_changes(repo, tag, tag)},
     )
+
+
+def latest_tag(tags: list[str]) -> str | None:
+    """The highest vX.Y.Z tag, if any."""
+    versions = [name for name in tags if VERSION_TAG_RE.match(name)]
+    return max(versions, key=lambda name: tuple(int(n) for n in VERSION_TAG_RE.match(name).groups()), default=None)
+
+
+async def latest_version_tag(repo: str) -> str | None:
+    return latest_tag([t["name"] for t in await _api("GET", f"/repos/{repo}/tags", params={"per_page": 100})])
+
+
+async def compare_commits(repo: str, base: str, head: str) -> tuple[int, list[str]]:
+    """(commits of `head` that `base` lacks, their messages without merge commits), oldest first."""
+    data = await _api("GET", f"/repos/{repo}/compare/{quote(base, safe='')}...{quote(head, safe='')}")
+    messages = [c["commit"]["message"] for c in data["commits"] if len(c.get("parents", [])) < 2]
+    return data["ahead_by"], messages
+
+
+async def branch_tip(repo: str, branch: str) -> dict:
+    """The tip of a branch: its SHA, the message and the date of its commit."""
+    data = (await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}"))["commit"]
+    return {"sha": data["sha"], "message": data["commit"]["message"], "date": data["commit"]["committer"]["date"]}

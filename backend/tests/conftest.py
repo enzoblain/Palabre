@@ -102,8 +102,8 @@ def process(monkeypatch):
 
 @pytest.fixture
 def fake_github(monkeypatch):
-    """CI is green and the diff holds a changelog, unless the test changes it."""
-    state = SimpleNamespace(ci=None, changed_files=["app/x.py", "CHANGELOG.md"], git_calls=[])
+    """CI is green and the diff holds a README, unless the test changes it."""
+    state = SimpleNamespace(ci=None, changed_files=["app/x.py", "README.md"], git_calls=[])
 
     async def checks_status(_repo, _number):
         return state.ci
