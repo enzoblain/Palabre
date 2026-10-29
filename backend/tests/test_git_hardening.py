@@ -49,7 +49,7 @@ def test_ext_protocol_from_repo_config_is_refused(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     marker = tmp_path / "ran"
     _init_repo(repo)
-    for key, value in (("protocol.ext.allow", "always"), ("remote.origin.url", f"ext::sh -c 'touch {marker}'")):
+    for key, value in (("protocol.ext.allow", "always"), ("remote.origin.url", f"ext::touch {marker}")):
         subprocess.run(["git", "-C", str(repo), "config", key, value], check=True)
 
     with pytest.raises(github.GitHubError):
