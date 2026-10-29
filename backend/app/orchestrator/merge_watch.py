@@ -115,10 +115,10 @@ async def _send_back(s: AsyncSession, project: Project, task: Task, sha: str, pr
     """Give the task back to its dev with the problem, and tell the team."""
     task.status, task.stuck_sha, task.merge_ready_at = TaskStatus.changes_requested, sha, None
     await workflow.wake_dev(s, task, "pr_blocked", {"problem": problem})
-    workflow.wake_lead(task, f"sent back to its dev: {problem}")
-    # The CI output stays in the wakeups: the team channel only gets the headline
+    # The CI output only goes to the dev: the lead and the team channel get the headline
+    headline = problem.split("\n", 1)[0]
+    workflow.wake_lead(task, f"sent back to its dev: {headline}")
     if (conversation_id := await team_conversation_id(s, project.id)) is not None:
-        headline = problem.split("\n", 1)[0]
         await post_system_message(s, conversation_id, f"#{task.id} {task.title} sent back to its dev: {headline} · {task.pr_url or ''}".strip())
 
 

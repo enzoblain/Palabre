@@ -265,9 +265,13 @@ async def commit_checks(repo: str, sha: str) -> str | None:
     if pending := [r["name"] for r in runs if r["status"] != "completed"]:
         return f"CI still running: {', '.join(pending)}"
     if failed := [r for r in runs if r["conclusion"] not in OK_CONCLUSIONS]:
-        reason = f"CI failed: {', '.join(r['name'] for r in failed)}"
+        # Check names come from the workflow files: no link or mention in the headline
+        names = (re.sub(r"[\[\]()@]", "", _plain(r["name"], 100)) for r in failed)
+        reason = f"CI failed: {', '.join(names)}"
         if details := await failure_details(repo, failed):
-            reason += f"\n{CI_OUTPUT_START}\n{details}\n{CI_OUTPUT_END}"
+            # Every line is prefixed, so nothing the CI printed can look like a Palabre line or close the frame
+            quoted = "\n".join("| " + line for line in details.splitlines())
+            reason += f"\n{CI_OUTPUT_START}\n{quoted}\n{CI_OUTPUT_END}"
         return reason
     return None
 
