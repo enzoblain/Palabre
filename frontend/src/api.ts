@@ -296,7 +296,6 @@ export const api = {
     topic?: string;
     rapporteur?: string | null;
     mode: string;
-    default_branch?: string;
     seed: number;
     accounts: Record<string, number>;
     employees?: MemberIn[];
