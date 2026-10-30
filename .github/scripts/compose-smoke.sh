@@ -266,9 +266,14 @@ rm -f "$iso_out" "$iso_out.clean"
 # The entrypoint's migration of an old volume, on the image just built. The "ok" lines and the
 # final count stay in the log: a check that did not run must not look like one that passed.
 step "Migration of a volume made before the agent user"
+# 1 entrypoint check + 14 checks + 1 second start; keep in sync with check-migration.sh
+MIG_EXPECTED_OK=16
+mig_rc=0
 mig_out=$(backend/scripts/check-migration.sh "ghcr.io/enzoblain/palabre:$NEW" 2>&1) || mig_rc=$?
 printf '%s\n' "$mig_out"
-[ "${mig_rc:-0}" -eq 0 ] || fail "check-migration.sh failed (exit ${mig_rc:-0}): $(printf '%s' "$mig_out" | grep '^FAIL ' | head -n 3 | tr '\n' ';')"
-printf '%s\n' "$mig_out" | grep -q '^ok   ' || fail "check-migration.sh printed no ok line: it did not run"
+[ "$mig_rc" -eq 0 ] || fail "check-migration.sh failed (exit $mig_rc): $(printf '%s' "$mig_out" | { grep '^FAIL ' || true; } | head -n 3 | tr '\n' ';')"
+# Pin the summary line: with the number of checks fixed, a check that silently vanished fails too
+printf '%s\n' "$mig_out" | grep -qxE "check-migration: $MIG_EXPECTED_OK ok, 0 FAIL" \
+  || fail "check-migration.sh summary is not 'check-migration: $MIG_EXPECTED_OK ok, 0 FAIL' (it did not run, or a check was added or removed: update MIG_EXPECTED_OK)"
 
 echo "Compose smoke test passed"

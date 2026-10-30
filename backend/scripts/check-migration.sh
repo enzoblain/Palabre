@@ -43,6 +43,8 @@ check "the reference clone is private to palabre" \
   'case "$(stat -c %U:%a /data/projects/project-1/repo)" in palabre:700|palabre:2700) true ;; *) false ;; esac'
 check "the task clone is group-writable (agents commit there)" \
   '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw.rw"'
+check "the task clone is closed to others (o-rwx)" \
+  '[ -z "$(find /data/projects/project-1/worktrees -perm /007)" ]'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
@@ -51,6 +53,12 @@ check "the agent can write in its task clone" \
   'setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \
   '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
+check "a pool account (agent1) cannot read the claude store" \
+  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/claude'
+check "a pool account (agent1) cannot read the reference" \
+  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/projects/project-1/repo'
+check "a pool account (agent1) can write in its task clone" \
+  'setpriv --reuid=agent1 --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
