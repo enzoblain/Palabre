@@ -48,13 +48,21 @@ class SkipRun(Exception):
     """The wakeup is no longer relevant (task done, guard tripped, ...)."""
 
 
+class Throttled(Exception):
+    """Too much chatter for this employee: the wakeups stay queued until `until`."""
+
+    def __init__(self, message: str, until: datetime) -> None:
+        super().__init__(message)
+        self.until = until
+
+
 class Orchestrator:
     def __init__(self) -> None:
         self._loops: list[asyncio.Task] = []
         self._runs: dict[int, asyncio.Task] = {}  # employee id → its current run
         self._run_accounts: dict[int, int] = {}  # employee id → account of its current run
         self._repo_synced_at: dict[int, float] = {}
-        self._throttled_at: dict[int, datetime] = {}
+        self._throttled_at: dict[tuple[int, int], datetime] = {}
 
     @property
     def running_employee_ids(self) -> list[int]:
@@ -103,7 +111,9 @@ class Orchestrator:
         batches: list[tuple[int, int, list[int]]] = []
         async with SessionLocal() as s:
             pending: dict[int, list[Wakeup]] = {}
-            for w in await s.scalars(select(Wakeup).where(Wakeup.started_at.is_(None)).order_by(Wakeup.id)):
+            now = datetime.now(UTC)
+            ready = or_(Wakeup.not_before.is_(None), Wakeup.not_before <= now)
+            for w in await s.scalars(select(Wakeup).where(Wakeup.started_at.is_(None), ready).order_by(Wakeup.id)):
                 if w.employee_id not in self._runs:
                     pending.setdefault(w.employee_id, []).append(w)
             if not pending:
@@ -112,7 +122,6 @@ class Orchestrator:
             busy: dict[int, int] = {}
             for account in self._run_accounts.values():
                 busy[account] = busy.get(account, 0) + 1
-            now = datetime.now(UTC)
             for employee_id, wakeups in pending.items():
                 account = accounts.get(employee_id, 1)
                 if credits.is_exhausted(account):
@@ -171,6 +180,9 @@ class Orchestrator:
             except SkipRun as exc:
                 await self._finish(s, run_id, wakeup_ids, error=f"skipped: {exc}")
                 return
+            except Throttled as exc:
+                await self._defer(s, run_id, wakeup_ids, exc)
+                return
             except (GitHubError, ClaudeRunError) as exc:
                 log.error("%s: could not prepare the run: %s", employee.name, exc)
                 await self._finish(s, run_id, wakeup_ids, ok=False, error=str(exc))
@@ -213,6 +225,15 @@ class Orchestrator:
                 else:
                     await on_run_succeeded(s, self._run_accounts.get(employee_id, 1))
             await self._finish(s, run_id, wakeup_ids, ok=result is not None and not result.is_error, error=error, result=result)
+
+    async def _defer(self, s: AsyncSession, run_id: int, wakeup_ids: list[int], exc: Throttled) -> None:
+        """Throttled: the run is skipped but the wakeups go back in the queue, to be grouped later."""
+        run = await s.get(AgentRun, run_id)
+        run.finished_at, run.error = datetime.now(UTC), f"skipped: {exc}"
+        await s.execute(
+            update(Wakeup).where(Wakeup.id.in_(wakeup_ids)).values(started_at=None, not_before=exc.until)
+        )
+        await s.commit()
 
     async def _requeue(self, employee_id: int, run_id: int, wakeup_ids: list[int], limit: credits.UsageLimit) -> None:
         """The account is out of credits: the wakeups go back in the queue, the run is not a failure."""
@@ -289,7 +310,7 @@ class Orchestrator:
                 max_turns=settings.claude_task_max_turns,
             )
         else:
-            await self._check_rate(s, project, first.conversation_id, run_id, {w.event_type for w in wakeups})
+            await self._check_rate(s, project, employee.id, first.conversation_id, run_id, {w.event_type for w in wakeups})
             scope = f"conversation:{first.conversation_id}"
             spec = RunSpec(
                 author_name=employee.name,
@@ -367,11 +388,12 @@ class Orchestrator:
             raise SkipRun(f"{task.review_round} review rounds: the lead has to step in")
 
     async def _check_rate(
-        self, s: AsyncSession, project: Project, conversation_id: int, run_id: int, event_types: set[str]
+        self, s: AsyncSession, project: Project, employee_id: int, conversation_id: int, run_id: int, event_types: set[str]
     ) -> None:
-        """Stops agents that keep pinging each other in a conversation. Only chatter is
-        throttled: workflow events (reviews, merges, bugs, escalations...) always go
-        through. The boss posting in the conversation lifts it, so does `lift_rate_limit`.
+        """Stops agents that keep pinging each other: runs are counted per employee. Only chatter
+        is throttled: workflow events (reviews, merges, bugs, escalations...) always go
+        through. Throttled wakeups are not lost: they wait until the window frees up (raises
+        Throttled). The boss posting in the conversation lifts it, so does `lift_rate_limit`.
         Skipped wakeups did not run anything: they do not count."""
         if not event_types <= CHATTER_EVENTS:
             return
@@ -392,26 +414,36 @@ class Orchestrator:
         )
         if last_lift is not None:
             since = max(since, last_lift if last_lift.tzinfo else last_lift.replace(tzinfo=UTC))
-        runs = await s.scalar(
-            select(func.count())
-            .select_from(AgentRun)
-            .where(
-                AgentRun.conversation_id == conversation_id,
-                AgentRun.started_at >= since,
-                AgentRun.id != run_id,
-                or_(AgentRun.error.is_(None), AgentRun.error.not_like("skipped%")),
+        started = list(
+            await s.scalars(
+                select(AgentRun.started_at)
+                .where(
+                    AgentRun.employee_id == employee_id,
+                    AgentRun.conversation_id.is_not(None),
+                    AgentRun.started_at >= since,
+                    AgentRun.id != run_id,
+                    or_(AgentRun.error.is_(None), AgentRun.error.not_like("skipped%")),
+                )
+                .order_by(AgentRun.started_at)
             )
         )
-        if runs < settings.max_runs_per_conversation_hour:
+        runs = len(started)
+        limit = settings.max_runs_per_conversation_hour
+        if runs < limit:
             return
-        last = self._throttled_at.get(conversation_id)
+        last = self._throttled_at.get((employee_id, conversation_id))
         if last is None or last < since:
             services.emit_event(
-                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "runs": runs}, role="lead"
+                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "employee_id": employee_id, "runs": runs}, role="lead"
             )
             await s.commit()
-            self._throttled_at[conversation_id] = datetime.now(UTC)
-        raise SkipRun(f"{runs} runs in this conversation within an hour")
+            self._throttled_at[(employee_id, conversation_id)] = datetime.now(UTC)
+        # A slot frees up when the run that makes us exceed the limit leaves the hour
+        if not started:  # limit 0: nothing ever runs, look again in an hour
+            raise Throttled("chatter is disabled", datetime.now(UTC) + timedelta(hours=1))
+        frees = started[runs - limit]
+        frees = frees if frees.tzinfo else frees.replace(tzinfo=UTC)
+        raise Throttled(f"{runs} runs for this employee within an hour", frees + timedelta(hours=1))
 
     async def lift_rate_limit(self, s: AsyncSession, project_id: int, conversation_id: int) -> None:
         """Restarts the anti-loop window of a conversation: earlier runs no longer count.
@@ -423,7 +455,8 @@ class Orchestrator:
             )
         )  # fmt: skip
         await s.commit()
-        self._throttled_at.pop(conversation_id, None)
+        for key in [k for k in self._throttled_at if k[1] == conversation_id]:
+            del self._throttled_at[key]
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
         session = await s.get(AgentSession, (employee_id, scope))

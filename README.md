@@ -94,11 +94,13 @@ clone. Only branches recorded on tasks are touched, never the default branch, `d
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
-Agents that keep pinging each other in a conversation are throttled: past
-`MAX_RUNS_PER_CONVERSATION_HOUR` executed runs within an hour (skipped wakeups do not count),
-chatter wakeups are skipped and the lead is alerted. The boss posting there lifts the limit, or
-call `POST /api/conversations/{id}/lift-rate-limit` (admin token, `204`): earlier runs stop
-counting. The reset is kept in memory, so a backend restart forgets it.
+Agents that keep pinging each other are throttled: past `MAX_RUNS_PER_CONVERSATION_HOUR`
+executed chatter runs of one employee within an hour, across all their conversations (skipped
+wakeups do not count), the lead is alerted. Their chatter wakeups (mentions...) are not lost:
+they stay queued and run grouped in one run once the window frees a slot. The boss posting in a
+conversation lifts the limit there, or call `POST /api/conversations/{id}/lift-rate-limit` (admin
+token, `204`): earlier runs stop counting and held wakeups of that conversation run right away
+(those held in other conversations keep waiting). counting. The reset is kept in memory, so a backend restart forgets it.
 
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts

@@ -353,6 +353,8 @@ class Wakeup(Base):
     created_at: Mapped[datetime] = created_at_column()
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Throttled chatter waits in the queue until then instead of being lost
+    not_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AgentSession(Base):
