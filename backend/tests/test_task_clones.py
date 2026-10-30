@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -302,9 +303,6 @@ def test_clones_share_no_object_with_the_reference(setup):
 
 def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     # Git drops -c and GIT_CONFIG_* for the upload-pack of a local fetch: the command carries them
-    import shlex
-    import subprocess
-
     command = github.upload_pack_command("/data/a b")
     words = shlex.split(command)
     assert words[0] == "git" and words[-1] == "upload-pack"
@@ -318,5 +316,7 @@ def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     out = subprocess.run(
         ["git", "-C", str(tmp_path), "ls-remote", f"--upload-pack={github.upload_pack_command(repo)}", str(repo)],
         capture_output=True, text=True,
+        # Makes git treat every repo as foreign-owned, so only the exact safe.directory entry passes
+        env={**os.environ, "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"},
     )
     assert out.returncode == 0 and "HEAD" in out.stdout

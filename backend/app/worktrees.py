@@ -234,6 +234,7 @@ async def push_task_branch(project: Project, task: Task) -> None:
     ref = f"refs/heads/{task.branch}"
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
+        # trust= is inert for the local transport (the upload-pack command carries its own safe.directory)
         await git(
             reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(task.worktree_path)}",
             task.worktree_path, f"+{ref}:{ref}",
