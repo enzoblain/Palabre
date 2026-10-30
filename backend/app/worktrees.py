@@ -204,7 +204,10 @@ def _share_with_group(path: Path) -> None:
         gid = grp.getgrnam(SHARED_GROUP).gr_gid
     except KeyError as e:
         raise OSError(f"group {SHARED_GROUP!r} does not exist") from e
-    for root, dirs, files in os.walk(path):
+    def fail(e: OSError) -> None:
+        raise e  # An unreadable directory must not be skipped silently: the clone would stay half shared
+
+    for root, dirs, files in os.walk(path, onerror=fail):
         for name in (*dirs, *files):
             entry = os.path.join(root, name)
             os.chown(entry, -1, gid, follow_symlinks=False)
