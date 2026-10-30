@@ -45,6 +45,8 @@
     --active: rgba(157, 151, 255, 0.18);
     --error: #ff6b6b;
     --success: #5fd07a;
+    --working: #22a559;
+    --waiting: #e0a100;
     --resting: #7c7c8c;
     --code-bg: #24242c;
     --mention-me-bg: rgba(187, 128, 9, 0.15);
