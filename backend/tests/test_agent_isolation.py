@@ -299,3 +299,106 @@ def test_copy_reads_at_most_the_checked_size(as_agent, monkeypatch, tmp_path):
     monkeypatch.setattr(claude_store, "MAX_FILE_BYTES", 10)
     claude_store._copy_tree(src, tmp_path / "dst", file_mode=0o600, dir_mode=0o700)
     assert not (tmp_path / "dst" / "s.jsonl").exists()  # over the cap: skipped
+
+
+# One system user per live run (#152)
+
+
+def test_pool_users_are_numbered_after_agent_user(monkeypatch):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 2)
+    assert agent_pool.users() == ["agent1", "agent2", "agent"]
+
+
+def test_live_runs_never_share_a_user(monkeypatch):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 2)
+    agent_pool.reset()
+
+    async def scenario():
+        order = []
+        release = asyncio.Event()
+
+        async def run(name):
+            async with agent_pool.lease() as user:
+                order.append((name, user))
+                await release.wait()
+
+        tasks = [asyncio.create_task(run(n)) for n in "abc"]
+        await asyncio.sleep(0.05)
+        # The third run waits for a free account instead of sharing one
+        assert len(order) == 2 and order[0][1] != order[1][1]
+        release.set()
+        await asyncio.gather(*tasks)
+        assert len(order) == 3
+
+    asyncio.run(scenario())
+    agent_pool.reset()
+
+
+def test_cancelled_waiter_does_not_leak_a_user(monkeypatch):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 1)
+    agent_pool.reset()
+
+    async def scenario():
+        async with agent_pool.lease() as first:
+            waiter = asyncio.create_task(agent_pool.lease().__aenter__())
+            await asyncio.sleep(0.01)
+            waiter.cancel()
+        async with agent_pool.lease() as again:
+            assert again == first
+
+    asyncio.run(scenario())
+    agent_pool.reset()
+
+
+def test_no_pool_keeps_the_single_agent_user(monkeypatch):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 0)
+
+    async def scenario():
+        async with agent_pool.lease() as a, agent_pool.lease() as b:
+            assert a == b == "agent"
+
+    asyncio.run(scenario())
+
+
+def test_command_runs_as_the_leased_user(as_agent, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/home/palabre/.local/bin/claude")
+    cmd = runner._command(["claude", "-p"], {"A": "b"}, "agent3")
+    assert cmd[:4] == ["sudo", "-n", "-u", "agent3"]
+
+
+def test_mcp_config_of_a_pool_user_belongs_to_its_group(as_agent, monkeypatch):
+    calls = []
+    monkeypatch.setattr(shutil, "chown", lambda path, user=None, group=None: calls.append((Path(path).name[:4], group)))
+    path = runner._write_mcp_config({"Authorization": HEADER}, "agent3")
+    assert path.stat().st_mode & 0o777 == 0o640
+    assert calls == [("mcp-", "agent3")]  # group agent3 only: other runs' users are not in it
+
+
+@pytest.mark.skipif(os.geteuid() != 0 or shutil.which("setpriv") is None, reason="needs root and setpriv")
+def test_other_uid_cannot_read_environ_of_a_live_run(tmp_path):
+    secret = "sk-ant-oat-lead-secret"
+    proc = subprocess.Popen(
+        ["setpriv", "--reuid=65001", "--regid=65001", "--clear-groups", "sleep", "30"],
+        env={"CLAUDE_CODE_OAUTH_TOKEN": secret}, stdin=subprocess.DEVNULL,
+    )  # fmt: skip
+    try:
+        out = subprocess.run(
+            ["setpriv", "--reuid=65002", "--regid=65002", "--clear-groups", "cat", f"/proc/{proc.pid}/environ"],
+            capture_output=True, text=True,
+        )  # fmt: skip
+        assert out.returncode != 0 and secret not in out.stdout
+    finally:
+        proc.kill()
+        proc.wait()

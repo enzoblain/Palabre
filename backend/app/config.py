@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
     # Empty = same user as the backend (desktop app, local dev without sudo).
     agent_user: str = ""
+    # Number of per-run accounts `<agent_user>1..N` (0 = every run shares agent_user). A run takes
+    # a free one for its whole life, so no two live runs share a uid (see "Security" in the README).
+    agent_pool_size: int = 0
     # The backend's private store of Claude sessions, one directory per employee (default: CLAUDE_CONFIG_DIR)
     claude_store_dir: Path | None = None
     # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)

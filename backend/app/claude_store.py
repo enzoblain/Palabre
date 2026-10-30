@@ -91,15 +91,20 @@ def _copy_tree(src: Path, dst: Path, *, file_mode: int, dir_mode: int, names: se
         os.close(fd)
 
 
-def prepare_run_dir(employee_id: int, resume_session_id: str | None) -> Path:
+def prepare_run_dir(employee_id: int, resume_session_id: str | None, user: str | None = None) -> Path:
     """A fresh CLAUDE_CONFIG_DIR for one run: no settings, no hooks, only the session to resume.
 
     The agent user writes in it through group `work` (setgid, like /data/run), and the name is
-    unguessable under agent_run_dir, which agents can cross but not list."""
+    unguessable under agent_run_dir, which agents can cross but not list. With a per-run user
+    the directory belongs to that user's private group instead, closed to the other runs."""
+    user = settings.agent_user if user is None else user
     parent = settings.agent_run_dir
     parent.mkdir(mode=0o711, parents=True, exist_ok=True)
     run_dir = parent / f"claude-{uuid.uuid4().hex}"
     _mkdir(run_dir, RUN_DIR_MODE)
+    group = user if user and user != settings.agent_user else None
+    if group:
+        shutil.chown(run_dir, group=group)
     if resume_session_id and SESSION_ID.fullmatch(resume_session_id):
         projects = employee_store(employee_id) / "projects"
         if projects.is_dir() and not projects.is_symlink():
@@ -108,6 +113,10 @@ def prepare_run_dir(employee_id: int, resume_session_id: str | None) -> Path:
             for project in projects.iterdir():
                 if project.is_dir() and not project.is_symlink() and wanted & {c.name for c in project.iterdir()}:
                     _copy_tree(project, run_dir / "projects" / project.name, file_mode=0o660, dir_mode=RUN_DIR_MODE, names=wanted)
+            if group:
+                for path in (run_dir / "projects").rglob("*"):
+                    shutil.chown(path, group=group)
+                shutil.chown(run_dir / "projects", group=group)
     return run_dir
 
 
@@ -132,13 +141,14 @@ def collect_run_dir(employee_id: int, run_dir: Path) -> bool:
     return True
 
 
-async def collect(employee_id: int, run_dir: Path) -> None:
+async def collect(employee_id: int, run_dir: Path, user: str | None = None) -> None:
     """collect_run_dir, then, if the backend could not delete everything, the agent user empties it."""
-    if await asyncio.to_thread(collect_run_dir, employee_id, run_dir) or not settings.agent_user:
+    user = settings.agent_user if user is None else user
+    if await asyncio.to_thread(collect_run_dir, employee_id, run_dir) or not user:
         return
     try:
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(run_dir),
+            "sudo", "-n", "-u", user, "/usr/local/bin/palabre-rm-clone", str(run_dir),
             stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
         )  # fmt: skip
         _, stderr = await proc.communicate()

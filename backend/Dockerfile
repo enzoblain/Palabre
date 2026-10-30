@@ -15,16 +15,26 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tzdata ${EXTRA_APT_PACKAGES} \
     && rm -rf /var/lib/apt/lists/*
 
-# Two users: palabre runs the backend (database, GitHub token, Claude tokens), agent runs the
-# agents' `claude` processes. They share the group "work" for the files agents work in.
+# palabre runs the backend (database, GitHub token, Claude tokens). The agents' `claude` processes run
+# as agent1..agentN (AGENT_POOL_SIZE): a live run holds one of them alone, so it cannot read another
+# run's /proc/<pid>/environ (the lead's MCP token, the Claude account tokens). All share the group
+# "work" for the files they work in, and each has a private group agentN (palabre belongs to it)
+# that guards its MCP config and Claude config dir against the other runs. "agent" is the legacy single user.
+ARG AGENT_POOL_SIZE=8
 RUN groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
-    && useradd --create-home --uid 1001 --groups work agent \
+    && useradd --create-home --uid 1001 --gid work agent \
     && chmod 711 /home/palabre \
+    && for i in $(seq 1 ${AGENT_POOL_SIZE}); do \
+         groupadd --gid $((3000 + i)) "agent$i" \
+         && useradd --create-home --uid $((2000 + i)) --gid work --groups "agent$i" "agent$i" \
+         && usermod --append --groups "agent$i" palabre \
+         && chmod 700 "/home/agent$i"; \
+       done \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv
 
-# The only things palabre may do as agent: run the claude binary, kill a process group
+# The only things palabre may do as an agent user: run the claude binary, kill a process group
 # of the agent's own, and delete a clone (a root-owned sudo cannot be signalled by palabre). Nothing else.
 # !use_pty keeps claude in sudo's process group, so the group kill reaches it.
 # !secure_path: the agent's PATH (with the toolchains) is set by the backend.
@@ -32,12 +42,13 @@ RUN groupadd --gid 1002 work \
 # rm-clone deletes a desk or task clone (files the agent made outside the group): root-owned
 # script that only accepts a clone path, so the rule is not a general rm.
 COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
-RUN printf '%s\n' \
+RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i"; done)" \
+    && printf '%s\n' \
       'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
-      'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
-      'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
-      'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*' \
-      'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*' \
+      "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude" \
+      "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*" \
+      "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*" \
+      "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*" \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent
@@ -54,6 +65,7 @@ ENV HOME=/home/palabre \
     CLAUDE_STORE_DIR=/data/claude \
     DISABLE_AUTOUPDATER=1 \
     AGENT_USER=agent \
+    AGENT_POOL_SIZE=${AGENT_POOL_SIZE} \
     PYTHONUNBUFFERED=1
 
 # Native binary (no Node.js needed), downloaded from the official bucket and checked against the
