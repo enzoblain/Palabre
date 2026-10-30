@@ -266,9 +266,13 @@ rm -f "$iso_out" "$iso_out.clean"
 # The entrypoint's migration of an old volume, on the image just built. The "ok" lines and the
 # final count stay in the log: a check that did not run must not look like one that passed.
 step "Migration of a volume made before the agent user"
+mig_rc=0
 mig_out=$(backend/scripts/check-migration.sh "ghcr.io/enzoblain/palabre:$NEW" 2>&1) || mig_rc=$?
 printf '%s\n' "$mig_out"
-[ "${mig_rc:-0}" -eq 0 ] || fail "check-migration.sh failed (exit ${mig_rc:-0}): $(printf '%s' "$mig_out" | grep '^FAIL ' | head -n 3 | tr '\n' ';')"
-printf '%s\n' "$mig_out" | grep -q '^ok   ' || fail "check-migration.sh printed no ok line: it did not run"
+[ "$mig_rc" -eq 0 ] || fail "check-migration.sh failed (exit $mig_rc): $(printf '%s' "$mig_out" | grep '^FAIL ' | head -n 3 | tr '\n' ';' || true)"
+# The summary line must show every check ran and none failed; pinned count: update it with the script
+MIG_EXPECTED_OK=15
+printf '%s\n' "$mig_out" | grep -qx "check-migration: $MIG_EXPECTED_OK ok, 0 FAIL" \
+  || fail "check-migration.sh: summary line is not 'check-migration: $MIG_EXPECTED_OK ok, 0 FAIL' (got: $(printf '%s' "$mig_out" | grep '^check-migration: ' | tail -n 1 || true))"
 
 echo "Compose smoke test passed"

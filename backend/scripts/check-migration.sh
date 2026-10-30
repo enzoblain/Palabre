@@ -52,6 +52,13 @@ check "the agent can write in its task clone" \
 check "the agent cannot read the reference" \
   '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
 
+check "the task clone, its dirs and files have no permission for others (o-rwx)" \
+  'for p in /data/projects/project-1/worktrees/task-5 /data/projects/project-1/worktrees/task-5/file /data/projects/project-1/worktrees/task-5/.git; do [ "$((0$(stat -c %a "$p") & 7))" -eq 0 ] || exit 1; done'
+# A pool account (agent1) is a different uid from the legacy agent: same walls
+check "a pool agent (agent1) cannot read the claude store" '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/claude'
+check "a pool agent (agent1) cannot read the reference" \
+  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/projects/project-1/repo'
+
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
   && { echo "ok   a second start succeeds"; nok=$((nok + 1)); } \
