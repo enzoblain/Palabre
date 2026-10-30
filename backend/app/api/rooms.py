@@ -46,9 +46,7 @@ def check_not_dm(room: Room) -> None:
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
     q = select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
-    if not services.BOSS_READS_DMS:
-        q = q.where(Room.kind != services.DM)
-    return list(await s.scalars(q))
+    return list(await s.scalars(services.hide_dms(q)))
 
 
 @router.post("/projects/{project_id}/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)

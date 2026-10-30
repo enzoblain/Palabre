@@ -39,6 +39,11 @@ DM = "dm"
 BOSS_READS_DMS = True
 
 
+def hide_dms(q):
+    """Leaves the DMs out of a query on rooms unless BOSS_READS_DMS (the one rule for every listing)."""
+    return q if BOSS_READS_DMS else q.where(Room.kind != DM)
+
+
 class WorkflowError(Exception):
     """A rule of the company was not respected; the message is shown to the agent."""
 
