@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app import github, projects
+from app import github, presence, projects
 from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import (
@@ -13,6 +13,7 @@ from app.api.schemas import (
     BranchChange,
     MemberIn,
     ModeChange,
+    PresenceOut,
     ProjectDetail,
     ProjectIn,
     ProjectOut,
@@ -129,6 +130,13 @@ async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
 @router.get("/projects/{project_id}/employees", response_model=list[EmployeeOut])
 async def list_employees(project_id: int, s: SessionDep):
     return (await _project(s, project_id)).employees
+
+
+@router.get("/projects/{project_id}/presence", response_model=list[PresenceOut])
+async def team_presence(project_id: int, s: SessionDep):
+    """Who is working (open run, with its task or conversation) and who is idle; the front polls it."""
+    await get_or_404(s, Project, project_id)
+    return await presence.team_presence(s, project_id)
 
 
 @router.get("/employees/{employee_id}", response_model=EmployeeDetail)

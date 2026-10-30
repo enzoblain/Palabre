@@ -54,6 +54,20 @@ class EmployeeOut(EmployeeBrief):
     account: int | None
 
 
+class PresenceOut(BaseModel):
+    employee_id: int
+    name: str
+    roles: list[str]
+    # working: a run is open; idle: none. "Blocked" is deferred: not derived yet.
+    state: Literal["working", "idle"]
+    # Of the open run: "task" / "conversation" ... and what it is about
+    kind: str | None
+    task_id: int | None
+    conversation_id: int | None
+    # Start of the employee's latest run; None: never launched
+    last_run_at: datetime | None
+
+
 class EmployeeDetail(EmployeeOut):
     system_prompt: str
 
