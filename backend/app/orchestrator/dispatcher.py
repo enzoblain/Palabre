@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app import services
 from app import credits
 from app.accounts import assign_accounts, token_for
-from app.company.team import render_system_prompt
+from app.company.team import effort_for, render_system_prompt
 from app.config import settings
 from app.db import SessionLocal
 from app.github import GitHubError
@@ -306,6 +306,7 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=True)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
+                effort=effort_for(member.roles),
                 oauth_token=oauth_token,
                 max_turns=settings.claude_task_max_turns,
             )
@@ -323,6 +324,7 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
+                effort=effort_for(member.roles),
                 oauth_token=oauth_token,
             )
 

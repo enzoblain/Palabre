@@ -18,6 +18,7 @@ prompt = """
 # --- Roles -------------------------------------------------------------------------
 # permissions: capabilities enforced by the backend (allowed MCP tools / Claude tools).
 # wakes_on: events that wake this role up.
+# effort (optional): claude --effort level (low, medium, high, xhigh, max); absent = claude's default.
 
 [roles.lead]
 title = "Lead / CTO"
@@ -60,6 +61,7 @@ wakes_on = ["objective_set", "technical_choice", "structural_pr", "mention"]
 [roles.product_owner]
 title = "Product Owner"
 model = "sonnet"
+effort = "low"
 mission = "Represent the boss's needs and turn their ideas into precise user stories."
 responsibilities = [
   "Write user stories and their acceptance criteria",
@@ -159,6 +161,7 @@ wakes_on = ["pr_ready", "before_merge", "milestone_end", "mention"]
 [roles.scribe]
 title = "Scribe"
 model = "haiku"
+effort = "low"
 mission = "Keep the room's shared document up to date."
 responsibilities = [
   "Update the summary after every significant exchange",
@@ -209,6 +212,7 @@ wakes_on = ["sensitive_pr", "dependency_change", "mention"]
 [roles.designer]
 title = "UX/UI designer"
 model = "sonnet"
+effort = "low"
 mission = "Design clear, accessible screens and user flows."
 responsibilities = [
   "Propose user flows and screens",
@@ -472,6 +476,7 @@ prompt = """
 [research.roles.explorer]
 title = "Explorer"
 model = "sonnet"
+effort = "low"
 mission = "Map the topic: its sub-questions, its main sources and the positions that exist."
 responsibilities = [
   "Break the topic down into the questions that matter",
@@ -488,6 +493,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.skeptic]
 title = "Skeptic"
 model = "sonnet"
+effort = "low"
 mission = "Make sure every claim the group keeps is backed by solid evidence."
 responsibilities = [
   "Check the sources behind claims: who says it, when, based on what",
@@ -504,6 +510,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.analyst]
 title = "Data analyst"
 model = "sonnet"
+effort = "low"
 mission = "Bring numbers: data, studies and orders of magnitude."
 responsibilities = [
   "Find quantitative data and statistics on the topic",
@@ -520,6 +527,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.specialist]
 title = "Domain specialist"
 model = "sonnet"
+effort = "low"
 mission = "Go deep into the technical or scientific core of the topic."
 responsibilities = [
   "Read the specialized literature and documentation",
@@ -536,6 +544,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.contrarian]
 title = "Devil's advocate"
 model = "sonnet"
+effort = "low"
 mission = "Defend the alternative hypotheses, so the group's conclusions survive the strongest objections."
 responsibilities = [
   "Build the strongest version of the opposing view, with sources",
@@ -552,6 +561,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.practitioner]
 title = "Practitioner"
 model = "sonnet"
+effort = "low"
 mission = "Bring the topic back to the real world: practice, costs, case studies."
 responsibilities = [
   "Find real cases, feedback from the field and implementations",
@@ -568,6 +578,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.historian]
 title = "Historian"
 model = "sonnet"
+effort = "low"
 mission = "Give the context: how the topic evolved, its precedents and what they taught."
 responsibilities = [
   "Trace the history of the topic and of the debate around it",
@@ -584,6 +595,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.ethicist]
 title = "Ethics & impact"
 model = "sonnet"
+effort = "low"
 mission = "Weigh the consequences: who gains, who loses, which risks."
 responsibilities = [
   "Identify the stakeholders and how the topic affects them",
@@ -600,6 +612,7 @@ wakes_on = ["research_start", "research_debate", "research_conclude", "mention",
 [research.roles.forecaster]
 title = "Forecaster"
 model = "sonnet"
+effort = "low"
 mission = "Look ahead: trends, scenarios and what to watch."
 responsibilities = [
   "Identify the trends and the signals behind them",

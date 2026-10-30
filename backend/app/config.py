@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     claude_code_oauth_tokens: str = ""
     claude_bin: str = "claude"
     # Turns per run: a conversation turn is short, work on a task can take long
-    claude_max_turns: int = 30
+    claude_max_turns: int = 20
     claude_task_max_turns: int = 100
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
