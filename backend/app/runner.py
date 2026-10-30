@@ -153,9 +153,12 @@ async def _claim(paths: list[Path], user: str) -> None:
     With user "palabre" it is the release: the paths go back to the backend."""
     for path in paths:
         try:
-            path.mkdir(mode=0o700, parents=True, exist_ok=True)
-            if not any(path.iterdir()):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                path.mkdir(mode=0o700)
                 path.chmod(0o700)  # A fresh directory is never open to the work group, even for an instant
+            except FileExistsError:
+                pass  # Not ours to chmod: the claim script takes it over
         except OSError as exc:  # e.g. still owned by the previous account
             raise ClaudeRunError(f"Cannot prepare {path} for {user}: {exc}") from exc
         proc = await asyncio.create_subprocess_exec(
