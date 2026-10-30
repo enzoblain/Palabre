@@ -351,6 +351,8 @@ All optional, in `.env`:
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
+| `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
+| `CLAUDE_TASK_MAX_TURNS` | `100` | Turn limit of a task run |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
 | `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. Build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
@@ -473,6 +475,7 @@ To check the frontend (TypeScript typecheck, then Vite build), run `npm run chec
 
 Roles, company sizes, research angles and personalities are all defined in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
+A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64

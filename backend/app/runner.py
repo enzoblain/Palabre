@@ -59,6 +59,8 @@ class RunSpec:
     mcp_tools: list[str]
     claude_tools: list[str]
     model: str
+    # claude --effort level; None leaves claude's default
+    effort: str | None = None
     # Token of the Claude account the employee runs on
     oauth_token: str | None = None
     max_turns: int | None = None
@@ -264,6 +266,8 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         "--max-turns", str(spec.max_turns or settings.claude_max_turns),
         "--model", spec.model,
     ]  # fmt: skip
+    if spec.effort:
+        cmd += ["--effort", spec.effort]
     if spec.resume_session_id:
         cmd += ["--resume", spec.resume_session_id]
 
