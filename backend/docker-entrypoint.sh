@@ -56,11 +56,12 @@ if [ ! -e "$DATA/.isolation-v1" ]; then
   touch "$DATA/.isolation-v1"
 fi
 
-# Sessions written by the shared config dir cannot be told apart by employee: purge them
+# Sessions written in the shared config dir cannot be trusted or told apart by employee: purge them
 # (agents start a new session on their next run) and make everything left the backend's.
 if [ ! -e "$DATA/.isolation-v2" ]; then
   if real_dir "$DATA/claude"; then
-    find -P "$DATA/claude" -mindepth 1 -maxdepth 1 ! -name 'employee-*' -exec rm -rf {} +
+    # Everything: the directory was group-writable, so even an employee-* directory could be planted
+    find -P "$DATA/claude" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
     chown -R palabre:palabre "$DATA/claude"
     chmod -R go-rwx "$DATA/claude"
   fi

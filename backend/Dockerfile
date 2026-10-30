@@ -32,6 +32,7 @@ RUN printf '%s\n' \
       'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
       'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
       'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*' \
+      'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*' \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent

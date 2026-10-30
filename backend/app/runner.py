@@ -242,7 +242,7 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
     finally:
         mcp_config.unlink(missing_ok=True)
         if config_dir:
-            await asyncio.to_thread(claude_store.collect_run_dir, spec.employee_id, config_dir)
+            await claude_store.collect(spec.employee_id, config_dir)
 
     try:
         data = json.loads(stdout)

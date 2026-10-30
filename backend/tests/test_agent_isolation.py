@@ -237,3 +237,40 @@ def test_resume_id_cannot_escape_the_store(as_agent, monkeypatch, tmp_path):
     (tmp_path / "store" / "employee-1" / "projects" / "p").mkdir(parents=True)
     run_dir = claude_store.prepare_run_dir(1, "../../employee-1")
     assert not (run_dir / "projects").exists()
+
+
+def test_file_swapped_for_a_symlink_after_the_scan_is_not_followed(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "store"))
+    secret = tmp_path / "secret"
+    secret.write_text("db-password")
+    run_dir = claude_store.prepare_run_dir(1, None)
+    project = run_dir / "projects" / "p"
+    project.mkdir(parents=True)
+    (project / "s.jsonl").write_text("mine")
+    (project / "sub").mkdir()
+    real_listdir = os.listdir
+
+    def swapping(fd):
+        names = real_listdir(fd)
+        # Between the listing and the open: a file and a directory become symlinks
+        if "s.jsonl" in names:
+            (project / "s.jsonl").unlink()
+            (project / "s.jsonl").symlink_to(secret)
+            (project / "sub").rmdir()
+            (project / "sub").symlink_to(tmp_path)
+        return names
+
+    monkeypatch.setattr(claude_store.os, "listdir", swapping)
+    claude_store.collect_run_dir(1, run_dir)
+    monkeypatch.undo()
+    copied = [p for p in (tmp_path / "store").rglob("*") if p.is_file()]
+    assert copied == []
+
+
+def test_run_dir_keeps_setgid(as_agent, tmp_path):
+    from app import claude_store
+
+    run_dir = claude_store.prepare_run_dir(1, None)
+    assert run_dir.stat().st_mode & 0o7777 == 0o2770

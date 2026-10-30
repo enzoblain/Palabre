@@ -378,7 +378,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   the run and never reaches another employee's. Sessions of a volume made before this change
   are purged at the first start (agents begin a new session).
   Known limit: all agents share the one `agent` user, so a run can still read another run's
-  process (its token, its MCP config path). The isolation is between agents and the server,
+  process (its token, its MCP config path, its `CLAUDE_CONFIG_DIR`): while a run is live, another
+  run can write into its session, which is then collected into that employee's store. The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
   To check an image, see [Checking the isolation](#checking-the-isolation).
   Agents still share the container's network, so keep Postgres' password strong.
