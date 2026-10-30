@@ -13,19 +13,24 @@ ENTRYPOINT = BACKEND / "docker-entrypoint.sh"
 
 
 def test_agent_user_and_shared_group():
-    assert "useradd --create-home --uid 1001 --groups work agent" in DOCKERFILE
+    assert "useradd --create-home --uid 1001 --gid work agent" in DOCKERFILE
+    # One account per live run, each with a private group the backend also belongs to
+    assert 'useradd --create-home --uid $((2000 + i)) --gid work --groups "agent$i" "agent$i"' in DOCKERFILE
+    assert 'usermod --append --groups "agent$i" palabre' in DOCKERFILE
+    assert "AGENT_POOL_SIZE=${AGENT_POOL_SIZE}" in DOCKERFILE
     assert "useradd --create-home --uid 1000 --groups work palabre" in DOCKERFILE
 
 
 def test_single_narrow_sudo_rule():
-    rules = re.findall(r"'(palabre ALL=[^']*)'", DOCKERFILE)
-    # Only the claude binary, a process-group kill and the clone remover, only as agent, never as root
+    rules = re.findall(r'"(palabre ALL=[^"]*)"', DOCKERFILE)
+    # Only the claude binary, a process-group kill and the clone remover, only as the agent users, never as root
     assert rules == [
-        "palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
-        "palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
-        "palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
-        "palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
+        "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
+        "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
     ]
+    assert 'users="agent$(for i in' in DOCKERFILE
     assert "AGENT_USER=agent" in DOCKERFILE
 
 

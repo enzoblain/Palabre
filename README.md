@@ -343,6 +343,7 @@ All optional, in `.env`:
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. Build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
@@ -388,6 +389,7 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
   empties a desk or task clone (files the agent made outside the shared group, which the
   server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
+  Each live run also gets its own account (`agent1..agentN`, `AGENT_POOL_SIZE`), with a private group the server belongs to: the run's MCP config and Claude config dir are readable by that group only, so another run can read neither the environment nor the config of a live run. Runs beyond the pool size wait for a free account.
   Clones are made with `--no-hardlinks`, so they share no object with the reference (whose
   objects stay private). Desks are recloned at every run and fix themselves. A task clone made
   before this fix still holds hard links: once its work is pushed, delete
