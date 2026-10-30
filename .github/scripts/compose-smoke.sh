@@ -229,4 +229,38 @@ check_web_headers "fresh start"
 check_api "fresh start"
 check_secrets "fresh start"
 
+# The pool of agent accounts on a real container: no run is going on in the smoke stack, so the
+# script may swap claude for its stub. The exit code is the verdict.
+step "Agent pool isolation (agent1..N)"
+# The output is captured and replayed: a workflow command only counts at the start of a line,
+# and GitHub keeps 10 annotations per step, so on failure the ::error lines are re-emitted
+# bare, most informative first (kill blocks, other FAILs, raw dumps), and the dumps go in groups.
+iso_out=$(mktemp)
+iso_rc=0
+dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh >"$iso_out" 2>&1 || iso_rc=$?
+tr -d '\r' <"$iso_out" | sed 's/^[[:space:]]*\(::\)/\1/' >"$iso_out.clean"
+if [ "$iso_rc" -eq 0 ]; then
+  cat "$iso_out.clean"
+else
+  # The dumps sit between stop-commands markers: the sorted block below is the only place
+  # where the ::error lines are live.
+  token=$(date +%s%N)
+  echo "::stop-commands::$token"
+  echo "::group::check-isolation.sh, full output (exit $iso_rc)"
+  cat "$iso_out.clean"
+  echo "::endgroup::"
+  echo "::group::check-isolation.sh, last 40 lines"
+  tail -n 40 "$iso_out.clean"
+  echo "::endgroup::"
+  echo "::$token::"
+  grep '^FAIL ' "$iso_out.clean" || true
+  # Kill blocks first, then the other FAILs, then the sudo -ll dumps; 8 at most, plus the final fail.
+  { grep -E '^::error::no (live )?agent process' "$iso_out.clean" || true
+    grep '^::error::' "$iso_out.clean" | grep -vE '^::error::(no (live )?agent process|sudo -ll)' || true
+    grep '^::error::sudo -ll' "$iso_out.clean" || true; } | head -n 8
+  nfail=$(grep -c '^FAIL ' "$iso_out.clean" || true)
+fi
+rm -f "$iso_out" "$iso_out.clean"
+[ "$iso_rc" -eq 0 ] || fail "the agent isolation check failed (exit $iso_rc, $nfail FAIL line(s)); details in the annotations above"
+
 echo "Compose smoke test passed"
