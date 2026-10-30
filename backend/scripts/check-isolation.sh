@@ -244,12 +244,24 @@ as_palabre git init -q "$victim"
 as_palabre git -C "$victim" -c user.name=t -c user.email=t@t commit -q --allow-empty -m secret
 secret=$(as_palabre git -C "$victim" rev-parse HEAD)
 rm -f "$claim_root/foreign" "$claim_root/alias"
+as_palabre git -C "$claim_root" -c user.name=t -c user.email=t@t commit -q --allow-empty -m legit
+legit=$(as_palabre git -C "$claim_root" rev-parse HEAD)
+as_palabre git -C "$claim_root" update-ref refs/heads/task/1 "$legit"
 as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
-echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates" 2>/dev/null \
-  || { mkdir -p "$claim_root/.git/objects/info"; echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates"; }
-as_pool_sh agent1 git -C "$claim_root" update-ref refs/heads/task/1 "$secret" >/dev/null 2>&1 || true
-served=$(as_palabre git -C /tmp fetch --upload-pack="sudo -n -u agent1 /usr/local/bin/palabre-upload-pack" "$claim_root" refs/heads/task/1 2>&1 || true)
-expect "the upload-pack as agent1 serves nothing of another project" "$(printf '%s' "$served" | grep -c "$secret")" 0
+UP="sudo -n -u agent1 /usr/local/bin/palabre-upload-pack"
+scratch=$(mktemp -d) && chown palabre:palabre "$scratch" && as_palabre git init -q "$scratch"
+# Positive control: also proves the sudoers rule matches what git invokes
+check "the upload-pack as agent1 serves the clone's own commit" \
+  as_palabre git -C "$scratch" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+check "the legit commit reached the scratch repo" as_palabre git -C "$scratch" cat-file -e "$legit"
+# Alternates to the victim, and a ref (written as root) naming its commit
+echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates"
+echo "$secret" > "$claim_root/.git/refs/heads/task/1"
+scratch2=$(mktemp -d) && chown palabre:palabre "$scratch2" && as_palabre git init -q "$scratch2"
+denied "the upload-pack as agent1 cannot serve another project through alternates" \
+  as_palabre git -C "$scratch2" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+denied "the other project's commit did not reach the scratch repo" as_palabre git -C "$scratch2" cat-file -e "$secret"
+rm -rf "$scratch" "$scratch2"
 denied "palabre cannot upload-pack a path that is not a task clone" as_palabre sudo -n -u agent1 /usr/local/bin/palabre-upload-pack "$victim"
 rm -rf "$DATA/projects/project-99996"
 rm -rf "$DATA/projects/project-99997" "$gocache"

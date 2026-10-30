@@ -467,15 +467,39 @@ def test_push_fails_when_sudo_is_unavailable(agent_pool_env, monkeypatch):
     assert not log.exists()
 
 
+def _commit_with_dotgit_entry(path):
+    blob = subprocess.run(
+        [*G, "hash-object", "-w", "--stdin"], cwd=path, check=True, capture_output=True, input=b"",
+    ).stdout.decode().strip()  # fmt: skip
+    # A tree entry named .git: hasDotgit is an error for fsck, plain transfer accepts it
+    tree = subprocess.run(
+        [*G, "hash-object", "-w", "-t", "tree", "--literally", "--stdin"], cwd=path, check=True,
+        capture_output=True, input=b"100644 .git\0" + bytes.fromhex(blob),
+    ).stdout.decode().strip()  # fmt: skip
+    return _run("commit-tree", tree, "-m", "bad", cwd=path).strip()
+
+
+def test_malformed_object_is_only_refused_by_fsck(agent_pool_env, tmp_path):
+    _, _, task, _, _ = agent_pool_env
+    path = Path(task.worktree_path)
+    commit = _commit_with_dotgit_entry(path)
+    _run("update-ref", "refs/heads/task/5", commit, cwd=path)
+    # Counterpart: without the fsck setting the very same commit is fetched
+    plain = tmp_path / "plain"
+    _run("init", "-q", str(plain), cwd=tmp_path)
+    _run("-c", "protocol.file.allow=always", "fetch", "-q", str(path), "refs/heads/task/5", cwd=plain)
+    _run("cat-file", "-e", commit, cwd=plain)
+    strict = tmp_path / "strict"
+    _run("init", "-q", str(strict), cwd=tmp_path)
+    with pytest.raises(subprocess.CalledProcessError):
+        _run("-c", "protocol.file.allow=always", "-c", "transfer.fsckObjects=true", "fetch", "-q", str(path),
+             "refs/heads/task/5", cwd=strict)  # fmt: skip
+
+
 def test_push_refuses_a_malformed_object(agent_pool_env):
     project, reference, task, _, _ = agent_pool_env
     path = Path(task.worktree_path)
-    # A tree whose entry has a zero-padded mode: fsck rejects it, plain transfer would not
-    tree = subprocess.run(
-        [*G, "hash-object", "-w", "-t", "tree", "--literally", "--stdin"], cwd=path, check=True,
-        capture_output=True, input=b"040000 d\0" + b"\x01" * 20 + b"0100644 f\0" + b"\x02" * 20,
-    ).stdout.decode().strip()  # fmt: skip
-    commit = _run("commit-tree", tree, "-m", "bad", cwd=path).strip()
+    commit = _commit_with_dotgit_entry(path)
     _run("update-ref", "refs/heads/task/5", commit, cwd=path)
     with pytest.raises(github.GitHubError, match="fetch failed"):
         asyncio.run(worktrees.push_task_branch(project, task))
