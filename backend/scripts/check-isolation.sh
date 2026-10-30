@@ -130,7 +130,16 @@ fi
 # agent can see and do from inside the run (stdout is claude's JSON result)
 CLAUDE=/home/palabre/.local/bin/claude
 mv "$CLAUDE" "$CLAUDE.real"
-trap 'mv -f "$CLAUDE.real" "$CLAUDE"' EXIT
+# POSIX sh has no ERR trap: on exit, a non-zero status that no FAIL line explains is reported here
+on_exit() {
+  rc=$?
+  mv -f "$CLAUDE.real" "$CLAUDE"
+  if [ "$rc" -ne 0 ] && [ "$fail" -eq 0 ]; then
+    echo "FAIL unexpected exit (rc=$rc) before any check failed"
+    echo "::error::check-isolation.sh exited unexpectedly with rc=$rc without a failed check"
+  fi
+}
+trap on_exit EXIT
 trap 'exit 130' INT TERM
 cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
@@ -185,9 +194,18 @@ esac
 STUB
 chmod 755 "$CLAUDE"
 
-run_as_palabre() { # script
+run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
+  err=$(mktemp) || { echo "FAIL cannot create a temp file for $1"; echo "::error::cannot create a temp file for $1"; return 1; }
   ( cd /srv && umask 002 && exec setpriv --reuid=palabre --regid=palabre --init-groups \
-      env PATH="/home/palabre/.local/bin:$PATH" HOME=/home/palabre python "/srv/scripts/$1" )
+      env PATH="/home/palabre/.local/bin:$PATH" HOME=/home/palabre python "/srv/scripts/$1" ) 2>"$err"
+  rc=$?
+  cat "$err" >&2
+  if [ "$rc" -ne 0 ]; then
+    echo "FAIL $1 exited with rc=$rc"
+    echo "::error::$1 exited with rc=$rc; last stderr lines: $(tail -n 20 "$err" | tr '\n' '~')"
+  fi
+  rm -f "$err"
+  return "$rc"
 }
 [ "${CHECK_POOL_ONLY:-}" = 1 ] || run_as_palabre check_isolation_flow.py || fail=1
 run_as_palabre check_isolation_pool.py || fail=1
