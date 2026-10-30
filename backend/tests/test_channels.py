@@ -77,6 +77,7 @@ class FakeServiceSession:
     def __init__(self, scalars=(), scalar=()):
         self._scalars, self._scalar = list(scalars), list(scalar)
         self.added = []
+        self.executed = 0
 
     async def scalars(self, _query):
         return self._scalars.pop(0)
@@ -86,6 +87,9 @@ class FakeServiceSession:
 
     def add(self, obj):
         self.added.append(obj)
+
+    async def execute(self, _statement):
+        self.executed += 1
 
     async def flush(self):
         for obj in self.added:
@@ -189,3 +193,101 @@ async def test_dm_message_wakes_the_other_member_only(monkeypatch):
     s = Session(scalar=["dm"], scalars=[[maya.id]])
     await services.post_message(s, 1, 9, "salut", me)
     assert events == [("mention", maya.id)]
+
+
+# --- DM hardening ------------------------------------------------------------------------
+
+
+async def test_dm_is_found_by_its_members_and_creation_takes_the_pair_lock():
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    renamed = Room(id=8, project_id=1, name="renamed", kind="dm")
+    s = FakeServiceSession(scalar=[maya, renamed, 77])
+    assert await services.get_or_create_dm(s, 1, me, "@Maya") == 77
+    assert s.executed == 1  # the advisory lock, taken before the lookup
+    assert not [o for o in s.added if isinstance(o, Room)]
+
+
+async def test_admin_api_cannot_edit_a_dm():
+    from app.api import rooms
+
+    dm = Room(id=8, project_id=1, name="a·b", kind="dm")
+    with pytest.raises(HTTPException) as exc:
+        rooms.check_not_dm(dm)
+    assert exc.value.status_code == 409
+    rooms.check_not_dm(Room(id=9, project_id=1, name="backend", kind="team"))
+
+
+async def test_admin_endpoints_refuse_a_dm():
+    from app.api import rooms
+    from app.api.schemas import RoomPatch
+
+    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
+
+    class S:
+        async def scalar(self, _q):
+            return dm
+
+    for call in (
+        rooms.update_room(8, RoomPatch(name="x"), S()),
+        rooms.add_member(8, 1, S()),
+        rooms.remove_member(8, 1, S()),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await call
+        assert exc.value.status_code == 409
+
+
+async def test_escalate_from_a_dm_goes_through_a_team_channel(monkeypatch):
+    me = make_employee("Malik", "dev_backend")
+    lead = make_employee("Louise", "lead")
+    posted, events = [], []
+
+    async def post_message(_s, _p, conversation_id, content, _author):
+        posted.append(conversation_id)
+        return SimpleNamespace(id=3)
+
+    monkeypatch.setattr(services, "post_message", post_message)
+    monkeypatch.setattr(services, "emit_event", lambda _s, _p, type, payload=None, **kw: events.append((type, payload)))
+    # conversation 6 -> room 5 (a DM) -> team room 10, conversation 20
+    s = FakeServiceSession(scalar=[5, "dm", "dm", 10, 20], scalars=[[lead]])
+    await services.escalate(s, 1, 6, me, "lead", "stuck")
+    assert posted == [20]
+    assert events[0][1]["conversation_id"] == 20
+
+
+async def test_mentioning_a_third_party_in_a_dm_is_refused():
+    me = make_employee("Malik", "dev_backend")
+    s = FakeServiceSession(scalar=["dm"], scalars=[["Karim"]])
+    with pytest.raises(services.WorkflowError, match="@Karim"):
+        await services.post_message(s, 1, 9, "regarde ça @karim", me)
+    assert not s.added
+
+
+def test_dm_wake_prompt_is_not_a_mention():
+    from app.orchestrator.prompts import reason_for
+
+    reason = reason_for("mention", {"message_id": 4, "dm_from": "Maya"})
+    assert "Maya sent you a direct message" in reason and "mentioned" not in reason
+    assert "mentioned" in reason_for("mention", {"message_id": 4})
+
+
+async def test_boss_reads_dms_is_the_one_switch(monkeypatch):
+    from app.api import conversations, rooms
+
+    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
+
+    class S:
+        async def scalar(self, _q):
+            return dm
+
+        async def get(self, _m, _id):
+            return dm
+
+    monkeypatch.setattr(services, "BOSS_READS_DMS", True)
+    assert await rooms.load_room(S(), 8) is dm
+    assert await conversations.get_visible_room(S(), 8) is dm
+    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
+    for call in (rooms.load_room(S(), 8), conversations.get_visible_room(S(), 8)):
+        with pytest.raises(HTTPException) as exc:
+            await call
+        assert exc.value.status_code == 404

@@ -16,15 +16,23 @@ from app.orchestrator.research import start_question
 router = APIRouter(tags=["conversations"])
 
 
+async def get_visible_room(s: AsyncSession, room_id: int) -> Room:
+    """The room, or 404 for a DM while BOSS_READS_DMS is off."""
+    room = await get_or_404(s, Room, room_id)
+    if room.kind == services.DM and not services.BOSS_READS_DMS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
+    return room
+
+
 @router.get("/rooms/{room_id}/conversations", response_model=list[ConversationOut])
 async def list_conversations(room_id: int, s: SessionDep):
-    await get_or_404(s, Room, room_id)
+    await get_visible_room(s, room_id)
     return list(await s.scalars(select(Conversation).where(Conversation.room_id == room_id).order_by(Conversation.id)))
 
 
 @router.post("/rooms/{room_id}/conversations", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
 async def create_conversation(room_id: int, body: ConversationIn, s: SessionDep):
-    await get_or_404(s, Room, room_id)
+    await get_visible_room(s, room_id)
     conversation = Conversation(room_id=room_id, title=body.title)
     s.add(conversation)
     await s.commit()
@@ -33,7 +41,9 @@ async def create_conversation(room_id: int, body: ConversationIn, s: SessionDep)
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationOut)
 async def get_conversation(conversation_id: int, s: SessionDep):
-    return await get_or_404(s, Conversation, conversation_id)
+    conversation = await get_or_404(s, Conversation, conversation_id)
+    await get_visible_room(s, conversation.room_id)
+    return conversation
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])
@@ -44,7 +54,8 @@ async def list_messages(
     limit: int = Query(100, ge=1, le=500),
 ):
     """Messages in chronological order; poll with since_id = last id seen."""
-    await get_or_404(s, Conversation, conversation_id)
+    conversation = await get_or_404(s, Conversation, conversation_id)
+    await get_visible_room(s, conversation.room_id)
     return await services.get_messages(s, conversation_id, since_id, limit)
 
 
@@ -53,7 +64,7 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     """Post as the boss. In a company the boss only writes in the direction channel, and
     only the lead is woken up. A research group starts researching the question instead."""
     conversation = await get_or_404(s, Conversation, conversation_id)
-    room = await get_or_404(s, Room, conversation.room_id)
+    room = await get_visible_room(s, conversation.room_id)
     project = await get_or_404(s, Project, room.project_id)
     if project.kind == "company" and room.kind != services.DIRECTION:
         raise HTTPException(

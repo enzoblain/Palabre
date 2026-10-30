@@ -47,7 +47,8 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
     message, like you would send a colleague (a long or report-like one is refused).
     Mention colleagues with @Name to get their attention.
     channel: a channel you are a member of, or "@Name" for a direct message (the other
-    person is woken up without an @). Only the lead may post in "direction"."""
+    person is woken up without an @; a DM has two members, so an @ to anyone else in it is refused).
+    Only the lead may post in "direction"."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
