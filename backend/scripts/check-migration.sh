@@ -51,6 +51,12 @@ check "the agent can write in its task clone" \
   'setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \
   '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
+check "a pool account (agent1) cannot read the claude store" \
+  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/claude'
+check "a pool account (agent1) cannot read the reference" \
+  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/projects/project-1/repo'
+check "a pool account (agent1) can write in its task clone" \
+  'setpriv --reuid=agent1 --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
