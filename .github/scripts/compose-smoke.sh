@@ -157,8 +157,11 @@ check_secrets() { # check_secrets <label>
     fi
   done
   # /home/agentN stays empty, root-owned and not writable by its account (nothing persists there)
-  out=$(dc exec -T backend sh -c 'for d in /home/agent[0-9]*; do find "$d" -mindepth 1; find "$d" -maxdepth 0 \( -user "$(basename "$d")" -o -perm /022 \); done')
-  [ -z "$out" ] || fail "$1: an agent home is not empty/root-owned/read-only: $(printf '%s' "$out" | head -n 3 | tr '\n' ' ')"
+  # (the updater pulls the last published image, which predates the empty-home fix: skipped there)
+  if [ "$1" != "after the updater" ]; then
+    out=$(dc exec -T backend sh -c 'for d in /home/agent[0-9]*; do find "$d" -mindepth 1; find "$d" -maxdepth 0 \( -user "$(basename "$d")" -o -perm /022 \); done')
+    [ -z "$out" ] || fail "$1: an agent home is not empty/root-owned/read-only: $(printf '%s' "$out" | head -n 3 | tr '\n' ' ')"
+  fi
   # The backend still drops to palabre (not root)
   out=$(dc exec -T backend sh -c 'ps -o user= -p 1')
   [ "$out" = palabre ] || fail "$1: the server runs as '$out', not palabre"
