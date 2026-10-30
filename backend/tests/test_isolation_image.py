@@ -113,9 +113,40 @@ def test_entrypoint_root_guard_fails_closed(tmp_path):
     # Runtime PROJECTS_DIR differing from the image's root: refuse to start
     done = _entrypoint_guard(tmp_path, "/srv/projects", "/data/projects")
     assert done.returncode == 1 and "differs" in done.stderr
+    # Explicitly empty is not "unset": pydantic would turn it into "."
+    done = _entrypoint_guard(tmp_path, "/srv/projects", "")
+    assert done.returncode == 1 and "differs" in done.stderr
     for env_dir in (None, "/srv/projects"):
         done = _entrypoint_guard(tmp_path, "/srv/projects", env_dir)
         assert done.returncode == 0 and done.stdout.strip() == "ok /srv/projects"
+
+
+OVERLAPPING_ROOTS = (
+    "/data", "/data/run", "/data/run/x", "/data/runtime", "/data/claude", "/data/toolchains",
+    "/data/toolchains/gopath", "/etc", "/etc/projects", "/usr/local", "/var/lib", "/root", "/proc",
+)
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+@pytest.mark.parametrize("root", OVERLAPPING_ROOTS)
+def test_entrypoint_refuses_roots_overlapping_data_or_system(tmp_path, root):
+    done = _entrypoint_guard(tmp_path, root, None)
+    assert done.returncode == 1 and "overlaps" in done.stderr
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+@pytest.mark.parametrize("root", OVERLAPPING_ROOTS)
+def test_dockerfile_refuses_roots_overlapping_data_or_system(root):
+    line = next(l for l in DOCKERFILE.splitlines() if l.startswith('RUN case "${PROJECTS_DIR}"'))
+    check = line.removeprefix("RUN ").removesuffix(" \\")
+    done = subprocess.run(["sh", "-c", check.replace("${PROJECTS_DIR}", root)], capture_output=True, text=True)
+    assert done.returncode == 1 and "overlaps" in done.stderr
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+@pytest.mark.parametrize("root", ("/data/projects", "/srv/projects", "/data/p"))
+def test_entrypoint_accepts_ordinary_roots(tmp_path, root):
+    assert _entrypoint_guard(tmp_path, root, None).returncode == 0
 
 
 def test_backend_home_is_traversable_only():

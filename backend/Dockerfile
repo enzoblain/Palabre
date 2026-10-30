@@ -56,8 +56,9 @@ COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
 COPY --chmod=755 scripts/claim-clone.sh /usr/local/bin/palabre-claim-clone
 COPY --chmod=755 scripts/upload-pack.sh /usr/local/bin/palabre-upload-pack
 
+# Not /data's own directories nor the system's (the entrypoint chowns the root as root); same list as docker-entrypoint.sh
 # Absolute, no trailing slash, plain characters: otherwise the build fails instead of writing a rule that matches too much
-RUN case "${PROJECTS_DIR}" in /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad PROJECTS_DIR: ${PROJECTS_DIR}" >&2; exit 1 ;; /*) ;; *) echo "bad PROJECTS_DIR: ${PROJECTS_DIR}" >&2; exit 1 ;; esac \
+RUN case "${PROJECTS_DIR}" in /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad PROJECTS_DIR: ${PROJECTS_DIR}" >&2; exit 1 ;; /data|/data/runtime|/data/runtime/*|/data/run|/data/run/*|/data/claude|/data/claude/*|/data/toolchains|/data/toolchains/*|/etc|/etc/*|/bin|/bin/*|/sbin|/sbin/*|/usr|/usr/*|/lib|/lib/*|/lib64|/lib64/*|/boot|/boot/*|/dev|/dev/*|/proc|/proc/*|/sys|/sys/*|/root|/root/*|/home|/home/*|/run|/run/*|/var|/var/*) echo "PROJECTS_DIR overlaps the runtime directories or the system: ${PROJECTS_DIR}" >&2; exit 1 ;; /*) ;; *) echo "bad PROJECTS_DIR: ${PROJECTS_DIR}" >&2; exit 1 ;; esac \
     && mkdir -p /etc/palabre && printf '%s' "${PROJECTS_DIR}" > /etc/palabre/projects-root.conf && chmod 644 /etc/palabre/projects-root.conf
 RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i"; done)" \
     && printf '%s\n' \

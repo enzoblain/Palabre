@@ -589,6 +589,8 @@ def test_script_accepts_a_clone_under_the_configured_root(tmp_path, script):
     # Past the path guards: upload-pack then fails on the missing .git, claim-clone on the missing account
     assert "not a task clone path" not in done.stderr and "not a clone path" not in done.stderr
     assert "projects root" not in done.stderr
+    if script == "rm-clone.sh":
+        assert done.returncode == 0
 
 
 @pytest.mark.parametrize("script", ROOTED)

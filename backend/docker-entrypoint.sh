@@ -16,15 +16,18 @@ DATA=/data
 PROJECTS=$(cat /etc/palabre/projects-root.conf 2>/dev/null) || { echo "no projects root configured" >&2; exit 1; }
 case "$PROJECTS" in
   /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
+  /data|/data/runtime|/data/runtime/*|/data/run|/data/run/*|/data/claude|/data/claude/*|/data/toolchains|/data/toolchains/*|/etc|/etc/*|/bin|/bin/*|/sbin|/sbin/*|/usr|/usr/*|/lib|/lib/*|/lib64|/lib64/*|/boot|/boot/*|/dev|/dev/*|/proc|/proc/*|/sys|/sys/*|/root|/root/*|/home|/home/*|/run|/run/*|/var|/var/*) echo "projects root overlaps the runtime directories or the system: $PROJECTS" >&2; exit 1 ;;
   /*) ;;
   *) echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
 esac
-if [ "${PROJECTS_DIR:-$PROJECTS}" != "$PROJECTS" ]; then
+# "-" not ":-": an explicitly empty PROJECTS_DIR must differ too (pydantic would read it as ".")
+if [ "${PROJECTS_DIR-$PROJECTS}" != "$PROJECTS" ]; then
   echo "PROJECTS_DIR=$PROJECTS_DIR differs from the projects root of this image ($PROJECTS): rebuild with that PROJECTS_DIR" >&2
   exit 1
 fi
 
-# The next steps run as root on a volume the agents could once write in: never follow a
+# The next steps run as root (tests/test_isolation_image.py cuts the script at this line to run the guard above)
+# on a volume the agents could once write in: never follow a
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
