@@ -20,16 +20,18 @@ RUN apt-get update \
 # run's /proc/<pid>/environ (the lead's MCP token, the Claude account tokens). Each has a private
 # group agentN as its primary one (palabre belongs to it) that guards its MCP config, Claude config dir and
 # the clone it runs in (palabre-claim-clone) against the other runs. They only read the shared
-# files (toolchains) through the group "work". Their /home/agentN (empty skel, no dotfile to inherit) is root's (r-x for the group, nothing
-# for others): a run writes in its own HOME under its run dir, so nothing persists there. "agent" is the legacy single user.
+# files (toolchains) through the group "work". Their /home/agentN (empty skel, no dotfile to inherit)
+# is root's (r-x for the group, nothing for others): a run writes in its own HOME under its run dir,
+# so nothing persists there. "agent" is the legacy single user.
 ARG AGENT_POOL_SIZE=8
-RUN groupadd --gid 1002 work \
+RUN mkdir /etc/skel-empty \
+    && groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
     && useradd --create-home --uid 1001 --gid work agent \
     && chmod 711 /home/palabre \
     && for i in $(seq 1 ${AGENT_POOL_SIZE}); do \
          groupadd --gid $((3000 + i)) "agent$i" \
-         && useradd --create-home --skel /dev/null --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i" \
+         && useradd --create-home --skel /etc/skel-empty --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i" \
          && usermod --append --groups "agent$i" palabre \
          && chown -R root:"agent$i" "/home/agent$i" \
          && chmod -R g-w,o-rwx "/home/agent$i" && chmod 550 "/home/agent$i"; \

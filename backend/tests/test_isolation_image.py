@@ -15,8 +15,12 @@ ENTRYPOINT = BACKEND / "docker-entrypoint.sh"
 def test_agent_user_and_shared_group():
     assert "useradd --create-home --uid 1001 --gid work agent" in DOCKERFILE
     # One account per live run, each with a private group the backend also belongs to
-    assert 'useradd --create-home --skel /dev/null --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i"' in DOCKERFILE
+    assert 'useradd --create-home --skel /etc/skel-empty --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i"' in DOCKERFILE
     assert 'usermod --append --groups "agent$i" palabre' in DOCKERFILE
+    # /home/agentN: empty skel, root-owned, group r-x, nothing for others
+    assert "mkdir /etc/skel-empty" in DOCKERFILE
+    assert 'chown -R root:"agent$i" "/home/agent$i"' in DOCKERFILE
+    assert 'chmod -R g-w,o-rwx "/home/agent$i" && chmod 550 "/home/agent$i"' in DOCKERFILE
     assert "AGENT_POOL_SIZE=${AGENT_POOL_SIZE}" in DOCKERFILE
     assert "useradd --create-home --uid 1000 --groups work palabre" in DOCKERFILE
 
