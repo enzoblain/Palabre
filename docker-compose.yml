@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-palabre}
@@ -16,12 +16,11 @@ services:
 
   backend:
     # Published image (`docker compose pull`); `docker compose up -d --build` builds it here instead
-    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-latest}
+    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-0.10.1}
     build:
       context: ./backend
       args:
         EXTRA_APT_PACKAGES: ${EXTRA_APT_PACKAGES:-}
-        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
     restart: unless-stopped
     # No env_file: the secrets are files (see `secrets` below), never in the environment
     secrets: [admin_token, github_token, claude_code_oauth_tokens, postgres_password]
@@ -49,7 +48,7 @@ services:
 
   web:
     # The app in a browser (phone...): the interface, with /api passed on to the backend
-    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-latest}
+    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.10.1}
     build: ./frontend
     restart: unless-stopped
     depends_on:
@@ -59,8 +58,11 @@ services:
 
   updater:
     # Off by default: COMPOSE_PROFILES=autoupdate in .env turns it on. Every few minutes
-    # it pulls the images and restarts the server and the web app if a new version came out
-    image: docker:27-cli
+    # it pulls the images and restarts the server and the web app if a new version came out.
+    # It only sees new images under a moving tag (PALABRE_VERSION=latest), so turning it on
+    # means trusting whatever is published there. It also holds the Docker socket, which is
+    # root on the host: see "Automatic updates" in the README.
+    image: docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
     profiles: [autoupdate]
     restart: unless-stopped
     volumes:
