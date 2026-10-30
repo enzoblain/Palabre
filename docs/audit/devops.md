@@ -44,18 +44,21 @@ something I reproduced, the finding says so.
 
 - Where: `backend/app/toolchains.py:59-74` (only `httpx.HTTPError` is converted), `:147-179`
   (`_install_python`), `:263-265` (`_extract`); tool in `backend/app/mcp_server/tools.py:502-516`.
-- What is wrong: the python install was reported to fail with no error message. Only
-  `WorkflowError` carries a readable message to the agent. Everything else that can go wrong
-  escapes as a raw exception: `OSError`/`PermissionError` from `shutil.rmtree`, `_make_private`,
+- Known cause, already fixed: the python install failure with no message came from uvloop's
+  `create_subprocess_exec` rejecting `umask`, which raised a raw exception (#144, merged; `_run` now
+  uses `subprocess.run` in a thread, `toolchains.py:217-221`). What remains is the general weakness
+  that made it opaque, kept here as hardening.
+- What is wrong: only `WorkflowError` and `httpx.HTTPError` (`:73-74`) reach the agent with a
+  readable message. Anything else that can go wrong escapes as a raw exception: `OSError`/`PermissionError` from `shutil.rmtree`, `_make_private`,
   `bin_dir().mkdir`, `wrapper.write_text` or `_link` (the volume mixes uids and a setgid group, so
   permission errors are plausible), `tarfile.TarError`, `KeyError`/`ValueError` when the Node or Go
   JSON changes shape, `FileNotFoundError` from `(venv / "bin").iterdir()` when the venv is
-  half-built. The MCP layer shows these as a generic tool error. I did not reproduce the python
-  failure (no access to the production volume); this is the most likely cause, not a proven one.
-  Also, `_run` (`:213-226`) runs pip with a stripped environment (`PATH=os.defpath`, `HOME=/nonexistent`,
+  half-built. The MCP layer shows these as a generic tool error. These other cases are plausible, not
+  reproduced. Also, `_run` (`:213-226`) runs pip with a stripped environment (`PATH=os.defpath`, `HOME=/nonexistent`,
   no proxy or CA variables), so on a host behind a proxy or a custom CA pip fails, and only the last
   1500 characters of output are returned.
-- Severity: High. It blocks the team's setup and gives nobody a way to diagnose.
+- Severity: High while it was unexplained; now Medium as hardening, but kept in the High list because the
+  next unexpected exception will be just as opaque.
 - Fix: wrap the body of `install()` in a catch for `OSError`, `tarfile.TarError`, `ValueError`,
   `KeyError`, convert to `WorkflowError(f"{name} install failed: {type(exc).__name__}: {exc}")`, and log
   the traceback server side. Pass through `HTTP(S)_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`,
@@ -64,12 +67,12 @@ something I reproduced, the finding says so.
 
 ### 2. GHCR package visibility is not guaranteed or checked
 
-- Where: `.github/workflows/release.yml:14-48` (push), `docker-compose.yml:190,223,234-262` (pull by
+- Where: `.github/workflows/release.yml:14-48` (push), `docker-compose.yml:19,52,60-91` (pull by
   the user and by the updater), `.github/workflows/ci.yml:117-138` and
-  `.github/scripts/compose-smoke.sh:55-57` (smoke pulls the published image).
+  `.github/scripts/compose-smoke.sh:156` (smoke pulls the published image).
 - What is wrong: a package first pushed by a workflow is **private** by default. Then
   `docker compose pull` and the updater fail for any user who is not logged in to GHCR, with a
-  "denied" message that the updater only logs (`Update failed: ...`, `:259`), so a self-hosted
+  "denied" message that the updater only logs (`Update failed: ...`, `docker-compose.yml:88`), so a self-hosted
   install silently never updates. The CI smoke test only works because it logs in with
   `GITHUB_TOKEN` and `packages: read`: it would not notice a private package. It also cannot run on
   fork PRs for the same reason. Visibility is a one-time manual setting nobody verifies.
@@ -90,7 +93,7 @@ something I reproduced, the finding says so.
     `ci-${{ github.ref }}`, and the refs differ (`refs/heads/x` vs `refs/pull/N/merge`), so the two
     runs never cancel each other: every PR commit costs two full runs, compose smoke included.
   - The backend image is built from scratch in four places per run: the `docker` job, `compose`
-    (`dc build backend` twice in `compose-smoke.sh:~160,~190`, the second one cached locally only)
+    (`dc build backend` twice in `compose-smoke.sh:170,202`, the second one cached locally only)
     and the two `failfast` cases. Only `docker` and `failfast` use the GHA cache, and `compose`
     uses none.
   - The `compose` job (25 min timeout) is by far the longest and runs after merge on `dev` and `main`
@@ -124,30 +127,33 @@ something I reproduced, the finding says so.
   22 and pin the Rust toolchain version in a `rust-toolchain.toml`.
 - Effort: M.
 
-### 5. Updater has no rollback and follows `latest` blindly
+### 5. Updater has no rollback and its default follows `latest`
 
-- Where: `docker-compose.yml:231-262`.
+- Where: `docker-compose.yml:60-91`.
 - What is wrong:
-  - It pulls `latest` and recreates `backend` and `web`. If the new backend does not start or
+  - By default (`PALABRE_VERSION` unset, `:19,52`) it pulls `latest` and recreates `backend` and `web`. If the new backend does not start or
     migrates the volume (`docker-entrypoint.sh` migration) and then crashes, nothing goes back to the
     previous image: the server stays down until a human acts. There is no plan B.
-  - `docker.sock` is mounted in a container: root on the host if the container is compromised. The
-    image is pulled from a registry we control, but the surface is worth stating.
+  - `docker.sock` is mounted in a container (`:67`): root on the host if the container is compromised.
+    The image is pulled from a registry we control, but the surface is worth stating. The
+    `.:/project:ro` mount (`:68`) also gives the updater the whole project directory, `.env` included.
   - Pulling failures are only printed (see 2); there is no alert. No health check is waited for after
     `up -d`, `web` has no healthcheck and `depends_on` has no condition.
-  - A breaking minor in 0.x is applied automatically.
+  - With the default, a breaking minor in 0.x is applied automatically. Following patches only already
+    works: `release.yml:38` pushes `{{major}}.{{minor}}` tags, so `PALABRE_VERSION=0.10` does it. It is
+    just not documented.
 - Severity: High for people running it unattended on a NAS.
 - Fix: before `up`, record the running image digests; after `up -d --wait`, if the backend is not
   healthy within N seconds, retag/restore the previous digests and `up -d` again, and log it loudly.
-  Add a healthcheck to `web`. Offer `PALABRE_VERSION` as a `X.Y` tag to follow only patches. Document
-  the `docker.sock` trade-off, or move the updater to a host-side cron/systemd timer.
+  Add a healthcheck to `web`. Document `PALABRE_VERSION=X.Y` in the README and `.env.example` (and consider it as the default instead of
+  `latest`). Document the `docker.sock` and `.env` mount trade-off, or move the updater to a host-side cron/systemd timer.
 - Effort: M.
 
 ## Medium
 
 ### 6. `publish_version` timing against the CI of `main`
 
-- Where: `.github/workflows/ci.yml:11-17,117-120`; the gate is in `backend/app/github.py:~262`
+- Where: `.github/workflows/ci.yml:11-17,117-120`; the gate is in `backend/app/github.py:262`
   (`check-runs` of the head commit) and the README ("CI must be green on it").
 - What is wrong: after `merge_release`, the merge to `main` starts a full CI run (compose smoke
   included, see 3). `publish_version` refuses while any check is pending, so the lead polls or is
@@ -162,23 +168,23 @@ something I reproduced, the finding says so.
   Longer term, tag from a `workflow_run` on CI success.
 - Effort: S for (c) and the wait, M for (a).
 
-### 7. Claude Code install is unpinned and cached by Docker
+### 7. Released images always get Claude Code `stable`, possibly from a stale cache
 
-- Where: `backend/Dockerfile:330-332`, `docker-compose.yml:195`.
-- What is wrong: `curl -fsSL https://claude.ai/install.sh | bash -s -- stable` runs at build time
-  with no checksum. Two consequences: a build is not reproducible, and the layer text is identical
-  from one build to the next, so BuildKit (and the GHA cache with `mode=max`) keep serving an old
-  "stable" until the cache is evicted. Released images can therefore ship an old or an unexpected
-  Claude Code version.
+- Where: `backend/Dockerfile:7,54-55`, `docker-compose.yml:24`, `.github/workflows/release.yml:40-48`.
+- What is wrong: the `CLAUDE_CODE_VERSION` build arg already exists (default `stable`) and compose passes
+  it through. But `release.yml` passes no `build-args`, so every released image gets `stable`, installed
+  by `curl | bash` with no checksum. The layer text is identical from one build to the next, so BuildKit
+  and the GHA cache (`mode=max`) can keep serving an old `stable` until the cache is evicted. A release
+  can therefore ship an old or an unexpected Claude Code version, and it is not recorded anywhere.
 - Severity: Medium.
-- Fix: pass an exact version (`CLAUDE_CODE_VERSION=x.y.z`) from the release workflow as a build arg,
-  resolved when tagging and recorded in the image label; keep `stable` for local builds only. Verify
-  the downloaded installer or binary against a published checksum if one exists.
+- Fix: in `release.yml`, resolve the version when tagging and pass it as
+  `build-args: CLAUDE_CODE_VERSION=x.y.z` (and as an image label); keep `stable` for local builds. Verify
+  the installer or binary against a published checksum if one exists.
 - Effort: S.
 
 ### 8. Floating base images, no Docker/npm/cargo dependency watch
 
-- Where: `backend/Dockerfile:1`, `frontend/Dockerfile:5,11`, `docker-compose.yml:174,234`,
+- Where: `backend/Dockerfile:1`, `frontend/Dockerfile:5,12`, `docker-compose.yml:3,63`,
   `.github/dependabot.yml`.
 - What is wrong: `python:3.12-slim-bookworm`, `node:22-slim`, `nginx:1.27-alpine`,
   `postgres:16-alpine` and `docker:27-cli` are tags, not digests. Dependabot only watches
@@ -209,8 +215,8 @@ something I reproduced, the finding says so.
 
 ### 10. Skip logic can hide a broken CI
 
-- Where: `.github/workflows/ci.yml:43-47` (detect tests), `:68-75` (detect check script),
-  `:57` and the `exit 5` handling (`:57-63` of the pytest step).
+- Where: `.github/workflows/ci.yml:43-47` (detect tests), `:79-84` (detect check script)
+  and the `exit 5` handling (`:58-63`, pytest step).
 - What is wrong: the header says the skips exist "so the workflow is green before pytest exists".
   That was useful at bootstrap. Now, deleting `requirements-dev.txt`, renaming the `check` script or
   breaking test collection (exit code 5, "no tests collected") all turn the job green. A refactor
@@ -235,11 +241,11 @@ something I reproduced, the finding says so.
 
 ### 12. Ports published on all interfaces, plain HTTP
 
-- Where: `docker-compose.yml:213-214,228-229`.
+- Where: `docker-compose.yml:42-43,57-58`.
 - What is wrong: the API (admin token in a bearer header) and the web app are published on
   `0.0.0.0` over HTTP. On a NAS or a VPS they are reachable from the whole network or the Internet,
   and the token travels in clear. `.env.example` and the README should say what to put in front.
-- Severity: Medium. Mostly a doc gap but with a real risk; to share with Inès.
+- Severity: Medium. Mostly a doc gap but with a real risk; to review with Inès (security).
 - Fix: default to `127.0.0.1:${PALABRE_PORT:-2710}:8000` with a documented override for LAN use, and
   document a reverse proxy with TLS (Caddy or Traefik snippet).
 - Effort: S.
@@ -248,7 +254,7 @@ something I reproduced, the finding says so.
 
 ### 13. Smoke test gaps
 
-- Where: `.github/scripts/compose-smoke.sh:~129-150,~165-175,~196`.
+- Where: `.github/scripts/compose-smoke.sh` (whole file).
 - What is wrong: the `web` image is built in CI but never started: nothing checks that nginx serves
   the app and proxies `/api` to the backend. The upgrade step ends by running the *old* image on the
   *new* volume ("downgrade"), which is more a curiosity than a requirement. The script hardcodes
@@ -262,7 +268,7 @@ something I reproduced, the finding says so.
 
 ### 14. Redundant work inside jobs
 
-- Where: `.github/workflows/ci.yml:49-54` (two `pip install` of the same file), `:99-110` (`pip-audit` job
+- Where: `.github/workflows/ci.yml:49-54` (two `pip install` of the same file), `:140-150` (`pip-audit` job
   reinstalls Python and itself).
 - What is wrong: `requirements.txt` is installed, then installed again with the dev lock. `pip-audit` is a
   separate job that could be a step of the backend job (it uses the same Python, and pip cache) or run
@@ -288,8 +294,8 @@ something I reproduced, the finding says so.
 
 ### 16. Image names hardcoded to the owner
 
-- Where: `docker-compose.yml:190,223`, `.github/workflows/ci.yml:177`, `.github/scripts/compose-smoke.sh`
-  (the `ghcr.io/enzoblain/palabre:$OLD` references), README.
+- Where: `docker-compose.yml:19,52`, `.github/workflows/ci.yml:181`, `.github/scripts/compose-smoke.sh:156`
+  (`ghcr.io/enzoblain/palabre:$OLD`), README.
 - What is wrong: a fork cannot use the compose file or the smoke test without editing four places.
   `release.yml` uses `github.repository_owner`, so images go to the fork's namespace while compose points to
   `enzoblain`.
