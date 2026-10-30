@@ -211,6 +211,12 @@ def _symlinked_pack_file(path):
     (pack / "pack-x.pack").symlink_to(path.parent / "elsewhere")
 
 
+def _symlinked_objects(path):
+    objects = path / ".git" / "objects"
+    shutil.rmtree(objects)
+    objects.symlink_to(path.parent / "elsewhere")
+
+
 def _gitfile(path):
     shutil.rmtree(path / ".git")
     (path / ".git").write_text("gitdir: /data/projects/project-9/repo/.git\n")
@@ -224,6 +230,7 @@ def _gitfile(path):
         _commondir,
         _symlinked_pack,
         _symlinked_pack_file,
+        _symlinked_objects,
         _gitfile,
     ],
 )

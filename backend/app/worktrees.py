@@ -238,6 +238,9 @@ def _clone_indirection(path: Path) -> str | None:
     for name in ("objects/info/alternates", "objects/info/http-alternates", "commondir"):
         if os.path.lexists(git_dir / name):
             return f"it has {name}"
+    # scandir follows a symlink given as argument, so `objects` itself is checked first
+    if not stat.S_ISDIR((git_dir / "objects").lstat().st_mode):
+        return "objects is not a real directory"
     pending = [git_dir / "objects"]
     while pending:
         with os.scandir(pending.pop()) as entries:
@@ -277,7 +280,9 @@ async def push_task_branch(project: Project, task: Task) -> None:
             allow_file=True, trust=Path(task.worktree_path) / ".git",
         )  # fmt: skip
         try:
-            await _require_isolated_clone(Path(task.worktree_path))  # Shrinks the window for a late write
+            # Shrinks the window for a late write. On failure the fetched objects stay unreferenced
+            # in the reference until gc: harmless, they cannot be pushed without a ref.
+            await _require_isolated_clone(Path(task.worktree_path))
             await git(
                 reference, "push", "--quiet", "--force-with-lease", "origin", f"{ref}:{ref}",
                 repo_url=project.repo_url,
