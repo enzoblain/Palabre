@@ -293,6 +293,56 @@ async def test_boss_reads_dms_is_the_one_switch(monkeypatch):
         assert exc.value.status_code == 404
 
 
+async def test_every_room_route_hides_a_dm_when_boss_does_not_read_dms(monkeypatch):
+    from app.api import conversations, rooms, tasks
+    from app.api.schemas import MessageIn, QuestionIn, RoomPatch, TaskIn
+    from app.models import Conversation
+
+    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
+    conversation = Conversation(id=3, room_id=8)
+
+    class S:
+        async def scalar(self, _q):
+            return dm
+
+        async def get(self, model, _id):
+            return conversation if model is Conversation else dm
+
+        async def scalars(self, _q):
+            raise AssertionError("must 404 before reading anything")
+
+    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
+    calls = [
+        rooms.get_room(8, S()),
+        rooms.update_room(8, RoomPatch(name="x"), S()),
+        rooms.delete_room(8, S()),
+        rooms.add_member(8, 1, S()),
+        rooms.remove_member(8, 1, S()),
+        rooms.get_document(8, S()),
+        rooms.add_question(8, QuestionIn(question="?"), S()),
+        tasks.create_task(8, TaskIn(title="t"), S()),
+        conversations.list_conversations(8, S()),
+        conversations.lift_rate_limit(3, S()),
+    ]
+    for call in calls:
+        with pytest.raises(HTTPException) as exc:
+            await call
+        assert exc.value.status_code == 404
+
+
+async def test_lead_cannot_post_in_a_dm_by_its_name():
+    class S:
+        query = None
+
+        async def scalar(self, q):
+            S.query = str(q.compile(compile_kwargs={"literal_binds": True}))
+            return None
+
+    with pytest.raises(services.WorkflowError):
+        await services.channel_conversation_id(S(), 1, "a·b")
+    assert "rooms.kind != 'dm'" in S.query
+
+
 def test_project_detail_hides_dms_unless_boss_reads_them(monkeypatch):
     from datetime import datetime
 

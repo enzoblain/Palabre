@@ -387,7 +387,7 @@ async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -
     conversation_id = await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
-        .where(Room.project_id == project_id, named)
+        .where(Room.project_id == project_id, Room.kind != DM, named)  # a DM is never a channel to post in
         .order_by(Conversation.id.desc())  # the active one is the latest
         .limit(1)
     )

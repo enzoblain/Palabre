@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import workflow
+from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import MergeIn, ReviewOut, TaskDetail, TaskIn, TaskOut, TaskPatch
-from app.models import Conversation, Project, Review, Room, Task, TaskStatus
+from app.models import Conversation, Project, Review, Task, TaskStatus
 
 router = APIRouter(tags=["tasks"])
 
@@ -49,7 +50,7 @@ async def list_tasks(project_id: int, s: SessionDep, status: TaskStatus | None =
 @router.post("/rooms/{room_id}/tasks", response_model=TaskDetail, status_code=status.HTTP_201_CREATED)
 async def create_task(room_id: int, body: TaskIn, s: SessionDep):
     """Create a task as the boss; the assignee (first name) is woken up."""
-    room = await get_or_404(s, Room, room_id)
+    room = await get_visible_room(s, room_id)
     conversation_id = body.conversation_id or await s.scalar(
         select(Conversation.id).where(Conversation.room_id == room_id).order_by(Conversation.id.desc()).limit(1)
     )

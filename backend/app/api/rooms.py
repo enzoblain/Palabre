@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import github, projects, services
+from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import (
     DecisionOut,
@@ -161,7 +162,7 @@ async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
 
 @router.post("/rooms/{room_id}/questions", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)
 async def add_question(room_id: int, body: QuestionIn, s: SessionDep):
-    await get_or_404(s, Room, room_id)
+    await get_visible_room(s, room_id)
     question = OpenQuestion(room_id=room_id, question=body.question, asked_by=services.boss_display_name())
     s.add(question)
     await s.commit()

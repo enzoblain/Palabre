@@ -117,7 +117,7 @@ async def _clear_throttle(s: AsyncSession, conversation_id: int) -> None:
 async def lift_rate_limit(conversation_id: int, s: SessionDep):
     """Restarts the anti-loop window of a conversation (admin token): agents can be woken in it again."""
     conversation = await get_or_404(s, Conversation, conversation_id)
-    room = await get_or_404(s, Room, conversation.room_id)
+    room = await get_visible_room(s, conversation.room_id)
     await orchestrator.lift_rate_limit(s, room.project_id, conversation_id)
     await _clear_throttle(s, conversation_id)
     await s.commit()
