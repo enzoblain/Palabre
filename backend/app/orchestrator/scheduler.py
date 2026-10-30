@@ -73,13 +73,21 @@ async def _daily(s: AsyncSession) -> None:
 async def _idle_conversations(s: AsyncSession) -> None:
     cutoff = datetime.now(UTC) - timedelta(minutes=settings.idle_minutes)
     rows = await s.execute(
-        select(Conversation, Room.project_id, func.max(Message.id), func.max(Message.created_at))
+        select(
+            Conversation,
+            Room.project_id,
+            func.max(Message.id),
+            func.max(Message.created_at),
+            # Message ids are global, so count the new messages of this conversation
+            func.count(Message.id).filter(Message.id > Conversation.idle_notified_message_id),
+        )
         .join(Message, Message.conversation_id == Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
         .group_by(Conversation.id, Room.project_id)
     )
-    for conversation, project_id, last_id, last_at in rows:
-        if last_id > conversation.idle_notified_message_id and _aware(last_at) < cutoff:
+    for conversation, project_id, last_id, last_at, new_messages in rows:
+        # Below the threshold the scribe stays asleep; the daily still refreshes the document
+        if new_messages >= settings.idle_min_messages and _aware(last_at) < cutoff:
             emit_event(s, project_id, "conversation_idle", {"conversation_id": conversation.id})
             conversation.idle_notified_message_id = last_id
     await s.commit()

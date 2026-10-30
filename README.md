@@ -349,6 +349,8 @@ All optional, in `.env`:
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
+| `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
+| `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |

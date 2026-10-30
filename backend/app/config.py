@@ -89,7 +89,9 @@ class Settings(BaseSettings):
     # Local time of the daily stand-up ("HH:MM"), empty to disable
     daily_time: str = "09:30"
     # Quiet minutes before the scribe is asked to update the room document
-    idle_minutes: int = 10
+    idle_minutes: int = 30
+    # New messages since the last scribe wakeup needed to ask it again
+    idle_min_messages: int = 5
 
     # Minutes a mergeable task may wait before the lead is reminded (once)
     merge_reminder_minutes: int = 10
