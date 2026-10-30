@@ -194,6 +194,25 @@ esac
 STUB
 chmod 755 "$CLAUDE"
 
+# A claimed clone and Go cache belong to one account alone (#160): through the real sudo rule, as the backend does
+as_pool_sh() { u=$1; shift; setpriv --reuid="$u" --regid="$u" --init-groups "$@"; }
+claim_root=$DATA/projects/project-99997/worktrees/task-1
+gocache=$DATA/toolchains/gopath/employee-99997
+mkdir -p "$claim_root" "$gocache"
+chown palabre:palabre "$DATA/projects/project-99997" "$DATA/projects/project-99997/worktrees" "$claim_root" "$gocache"
+as_palabre git init -q "$claim_root"
+for target in "$claim_root" "$gocache"; do
+  check "palabre can claim $target for agent1" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" agent1
+done
+check "agent1 can write a hook in its claimed clone" as_pool_sh agent1 touch "$claim_root/.git/hooks/pre-commit"
+check "agent1 can write the git config of its claimed clone" as_pool_sh agent1 sh -c "echo >> '$claim_root/.git/config'"
+check "agent1 can write in its claimed Go cache" as_pool_sh agent1 touch "$gocache/x"
+denied "agent2 cannot plant a hook in agent1's clone" as_pool_sh agent2 touch "$claim_root/.git/hooks/post-commit"
+denied "agent2 cannot overwrite agent1's hook" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/hooks/pre-commit'"
+denied "agent2 cannot write the git config of agent1's clone" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent2 cannot write in agent1's Go cache" as_pool_sh agent2 touch "$gocache/y"
+rm -rf "$DATA/projects/project-99997" "$gocache"
+
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
   err=$(mktemp) || { echo "FAIL cannot create a temp file for $1"; echo "::error::cannot create a temp file for $1"; return 1; }
   ( cd /srv && umask 002 && exec setpriv --reuid=palabre --regid=palabre --init-groups \
