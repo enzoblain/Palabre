@@ -274,3 +274,28 @@ def test_run_dir_keeps_setgid(as_agent, tmp_path):
 
     run_dir = claude_store.prepare_run_dir(1, None)
     assert run_dir.stat().st_mode & 0o7777 == 0o2770
+
+
+def test_failing_copy_does_not_lose_the_result(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "store"))
+    run_dir = claude_store.prepare_run_dir(1, None)
+
+    def full_disk(*a, **k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(claude_store, "_copy_tree", full_disk)
+    assert claude_store.collect_run_dir(1, run_dir) is True  # logged, run dir still deleted
+    assert not run_dir.exists()
+
+
+def test_copy_reads_at_most_the_checked_size(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "s.jsonl").write_text("x" * 100)
+    monkeypatch.setattr(claude_store, "MAX_FILE_BYTES", 10)
+    claude_store._copy_tree(src, tmp_path / "dst", file_mode=0o600, dir_mode=0o700)
+    assert not (tmp_path / "dst" / "s.jsonl").exists()  # over the cap: skipped

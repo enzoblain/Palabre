@@ -1,8 +1,9 @@
 """Claude sessions kept out of the agents' reach: one private store per employee, and a throwaway config dir per run."""
 
-import os
 import asyncio
+import errno
 import logging
+import os
 import re
 import shutil
 import stat
@@ -18,7 +19,8 @@ SESSION_ID = re.compile(r"[A-Za-z0-9-]{1,64}")
 
 
 def store_root() -> Path:
-    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    # A variable of its own: the runs receive CLAUDE_CONFIG_DIR, and must never be given the store
+    return settings.claude_store_dir or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
 def employee_store(employee_id: int) -> Path:
@@ -57,8 +59,11 @@ def _copy_fd(src_fd: int, dst: Path, *, file_mode: int, dir_mode: int, names: se
                     os.close(fd)
                 continue
             fd = os.open(name, FILE_FLAGS, dir_fd=src_fd)
-        except OSError:
-            continue  # a symlink (ELOOP), a vanished entry or anything else we do not follow
+        except OSError as exc:
+            # A symlink (ELOOP) or a vanished entry is expected; EACCES means claude wrote a mode we cannot read
+            if exc.errno not in (errno.ELOOP, errno.ENOENT, errno.ENOTDIR):
+                log.warning("Claude store: cannot read %s: %s", dst / name, exc)
+            continue
         with os.fdopen(fd, "rb") as fin:
             info = os.fstat(fin.fileno())
             if not stat.S_ISREG(info.st_mode):
@@ -70,8 +75,9 @@ def _copy_fd(src_fd: int, dst: Path, *, file_mode: int, dir_mode: int, names: se
             tmp = dst / f".{name}.{uuid.uuid4().hex}.tmp"
             with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, file_mode), "wb") as fout:
                 os.fchmod(fout.fileno(), file_mode)
-                shutil.copyfileobj(fin, fout)
-            os.replace(tmp, dst / name)
+                # At most the size checked above: a live run may keep appending
+                fout.write(fin.read(info.st_size))
+            os.replace(tmp, dst / name)  # concurrent runs of one employee: the last writer wins
 
 
 def _copy_tree(src: Path, dst: Path, *, file_mode: int, dir_mode: int, names: set[str] | None = None) -> None:
@@ -114,6 +120,9 @@ def collect_run_dir(employee_id: int, run_dir: Path) -> bool:
         store = employee_store(employee_id)
         store.mkdir(mode=0o700, parents=True, exist_ok=True)
         _copy_tree(run_dir / "projects", store / "projects", file_mode=0o600, dir_mode=0o700)
+    except OSError:
+        # A full disk must not turn a finished run into a failure that drops its result
+        log.exception("Claude sessions of employee %s could not be saved", employee_id)
     finally:
         failed = []
         shutil.rmtree(run_dir, onexc=lambda _f, p, _e: failed.append(p))
@@ -127,11 +136,15 @@ async def collect(employee_id: int, run_dir: Path) -> None:
     """collect_run_dir, then, if the backend could not delete everything, the agent user empties it."""
     if await asyncio.to_thread(collect_run_dir, employee_id, run_dir) or not settings.agent_user:
         return
-    proc = await asyncio.create_subprocess_exec(
-        "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(run_dir),
-        stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
-    )  # fmt: skip
-    _, stderr = await proc.communicate()
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(run_dir),
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        _, stderr = await proc.communicate()
+    except OSError:
+        log.exception("Claude run dir %s: cannot start the cleanup as the agent", run_dir)
+        return
     await asyncio.to_thread(shutil.rmtree, run_dir, True)
     if proc.returncode or run_dir.exists():
         log.error("Claude run dir %s is still there: %s", run_dir, stderr.decode(errors="replace").strip())

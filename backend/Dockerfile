@@ -46,7 +46,7 @@ USER palabre
 # Claude sessions (needed for --resume) live in the /data volume
 ENV HOME=/home/palabre \
     PATH=/home/palabre/.local/bin:$PATH \
-    CLAUDE_CONFIG_DIR=/data/claude \
+    CLAUDE_STORE_DIR=/data/claude \
     DISABLE_AUTOUPDATER=1 \
     AGENT_USER=agent \
     PYTHONUNBUFFERED=1

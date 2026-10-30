@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
     # Empty = same user as the backend (desktop app, local dev without sudo).
     agent_user: str = ""
+    # The backend's private store of Claude sessions, one directory per employee (default: CLAUDE_CONFIG_DIR)
+    claude_store_dir: Path | None = None
     # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)
     agent_run_dir: Path = Path("/data/run")
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
