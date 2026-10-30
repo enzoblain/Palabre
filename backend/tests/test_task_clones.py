@@ -508,3 +508,66 @@ def test_push_refuses_a_malformed_object(agent_pool_env):
     with pytest.raises(github.GitHubError, match="fetch failed"):
         asyncio.run(worktrees.push_task_branch(project, task))
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    root = tmp_path / "projects" / "project-3"
+    (root / "repo").mkdir(parents=True)
+    (root / "repo" / "a.txt").write_text("x")
+
+    def fake_rmtree(path, onexc=None, **_kw):
+        onexc(os.unlink, str(Path(path) / "repo" / "a.txt"), PermissionError("denied"))
+
+    monkeypatch.setattr(worktrees.shutil, "rmtree", fake_rmtree)
+    with caplog.at_level("ERROR", logger="app.worktrees"):
+        asyncio.run(worktrees.remove_project_files(3))  # does not raise
+    assert "cannot delete" in caplog.text and "a.txt" in caplog.text and "denied" in caplog.text
+
+
+def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
+    asyncio.run(worktrees.remove_project_files(4))
+    assert not (tmp_path / "projects" / "project-4").exists()
+
+
+def _rm_clone(tmp_path, root, path):
+    conf = tmp_path / "conf"
+    conf.write_text(root)
+    script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
+    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(conf)}
+    return subprocess.run(["sh", str(script), str(path)], env=env, capture_output=True, text=True)
+
+
+def test_rm_clone_root_comes_from_config(tmp_path):
+    script = (Path(__file__).parent.parent / "scripts" / "rm-clone.sh").read_text()
+    assert "/data/projects" not in script
+    root = tmp_path / "projs"
+    clone = root / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    (clone / "f").write_text("x")
+    done = _rm_clone(tmp_path, str(root), clone)
+    assert done.returncode == 0, done.stderr
+    assert clone.is_dir() and not any(clone.iterdir())
+
+
+def test_rm_clone_refuses_outside_the_root(tmp_path):
+    root = tmp_path / "projs"
+    other = tmp_path / "other" / "project-1" / "worktrees" / "task-2"
+    other.mkdir(parents=True)
+    (other / "f").write_text("x")
+    done = _rm_clone(tmp_path, str(root), other)
+    assert done.returncode == 2 and (other / "f").exists()
+
+
+def test_rm_clone_fails_closed_on_bad_root(tmp_path):
+    clone = tmp_path / "projs" / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    (clone / "f").write_text("x")
+    for root in ("", "/", "relative", f"{tmp_path}/projs/"):
+        assert _rm_clone(tmp_path, root, clone).returncode == 2
+    assert (clone / "f").exists()
+    # No config file at all
+    script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
+    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(tmp_path / "missing")}
+    assert subprocess.run(["sh", str(script), str(clone)], env=env, capture_output=True).returncode == 2
