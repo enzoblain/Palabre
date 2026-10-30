@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.config import settings
+from pydantic import ValidationError
+
+from app.config import Settings, settings
 from app.orchestrator import scheduler
 
 
@@ -44,13 +46,21 @@ def test_defaults():
     [(5, 31, True), (12, 31, True), (4, 31, False), (1, 31, False), (5, 29, False)],
 )
 async def test_idle_needs_quiet_and_enough_messages(emitted, new_messages, quiet_minutes, woken):
-    conversation, *_ = rows = [row(new_messages, quiet_minutes)]
+    rows = [row(new_messages, quiet_minutes)]
+    conversation = rows[0][0]
     await scheduler._idle_conversations(RowsSession(rows))
     assert emitted == ([(7, "conversation_idle", {"conversation_id": 1})] if woken else [])
-    assert conversation[0].idle_notified_message_id == (100 if woken else 0)
+    assert conversation.idle_notified_message_id == (100 if woken else 0)
 
 
 async def test_threshold_is_configurable(emitted, monkeypatch):
     monkeypatch.setattr(settings, "idle_min_messages", 2)
     await scheduler._idle_conversations(RowsSession([row(2, 31)]))
     assert len(emitted) == 1
+
+
+@pytest.mark.parametrize("name", ["idle_minutes", "idle_min_messages"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_idle_bounds_reject_zero_and_negative(name, value):
+    with pytest.raises(ValidationError):
+        Settings(**{name: value})
