@@ -33,11 +33,13 @@ speed vs quality...), or you build the team yourself.
 
 You only talk to the lead, in `#direction`: it is the one channel you can write in, and
 it holds only you and the lead. The team works in its own channels (`#general`,
-`#engineering`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
+`#engineering`, `#dev`, `#quality`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
 You read every channel live but they are read-only for you (the API refuses your messages
 there), and only the lead is woken by what you post. The lead relays between direction and
 the team. Existing projects get their `#direction` channel at startup; their rooms become
-team channels.
+team channels. A team you build by hand starts with `#general`; a single Claude call
+(`company/channel_planner.py`, in the background) then proposes its other channels, and
+the catalog's channels are used if that fails.
 
 From there the team works on its own:
 

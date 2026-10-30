@@ -58,6 +58,8 @@ async def create_project(body: ProjectIn, s: SessionDep):
     if body.employees is not None:
         _check_team(body.employees, kind)
     project = await projects.create_project(s, **body.model_dump())
+    if body.employees and kind == "company":
+        projects.plan_custom_channels_later(project.id)
     return await _project(s, project.id)
 
 

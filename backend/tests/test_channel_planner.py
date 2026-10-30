@@ -1,0 +1,146 @@
+"""Channels of a project: targeted catalog channels, and the model's plan for a custom team (runner mocked)."""
+
+import asyncio
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from app import projects
+from app.company import channel_planner as planner
+from app.models import Employee, Project, Room
+from app.company.team import generate_team, load_catalog
+from app.runner import ClaudeRunError, RunResult
+
+MEMBERS = [
+    planner.Member(name="Ana", roles=["lead"]),
+    planner.Member(name="Bob", roles=["dev_backend"]),
+    planner.Member(name="Cy", roles=["dev_frontend"]),
+    planner.Member(name="Di", roles=["qa"]),
+]
+
+
+def answer(text: str, is_error: bool = False) -> RunResult:
+    return RunResult(session_id="s", text=text, is_error=is_error, num_turns=1, cost_usd=0)
+
+
+@pytest.fixture
+def run(monkeypatch):
+    """Replaces the claude run: `run.result` is returned (or raised, or awaited forever)."""
+    state = SimpleNamespace(result=answer("[]"), specs=[])
+
+    async def fake(spec):
+        state.specs.append(spec)
+        if isinstance(state.result, BaseException):
+            raise state.result
+        if state.result == "hang":
+            await asyncio.sleep(3600)
+        return state.result
+
+    monkeypatch.setattr(planner, "run_claude", fake)
+    return state
+
+
+async def plan():
+    return await planner.plan_channels(MEMBERS, lead_id=1, lead_name="Ana", token="t", cwd="/tmp")
+
+
+async def test_valid_plan_is_returned(run):
+    run.result = answer(json.dumps([{"name": "dev", "members": ["Bob", "Cy"]}, {"name": "qa", "members": ["Di", "Ana"]}]))
+    channels = await plan()
+    assert [(c.name, c.members) for c in channels] == [("dev", ["Bob", "Cy"]), ("qa", ["Di", "Ana"])]
+    spec = run.specs[0]
+    assert spec.mcp_tools == [] and spec.claude_tools == [] and spec.employee_id == 1 and spec.oauth_token == "t"
+
+
+async def test_code_fence_is_accepted(run):
+    run.result = answer('```json\n[{"name": "dev", "members": ["Bob", "Cy"]}]\n```')
+    assert [c.name for c in await plan()] == ["dev"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "not json",
+        "{}",
+        "[]",
+        '[{"name": "dev", "members": ["Bob", "Zed"]}]',  # unknown member
+        '[{"name": "dev", "members": ["Bob"]}]',  # fewer than 2
+        '[{"name": "dev", "members": ["Bob", "Bob"]}]',  # twice the same member
+        '[{"name": "dev", "members": ["Bob", "Cy"]}, {"name": "dev", "members": ["Di", "Cy"]}]',  # same name
+        '[{"name": "Dev Team", "members": ["Bob", "Cy"]}]',  # bad name
+        '[{"name": "direction", "members": ["Bob", "Cy"]}]',  # reserved
+        '[{"name": "dev", "members": ["Bob", "Cy"], "x": 1}]',  # extra field
+        '[{"name": "dev", "members": "Bob"}]',  # wrong type
+        '[{"name": 3, "members": ["Bob", "Cy"]}]',
+        json.dumps([{"name": f"c{i}", "members": ["Bob", "Cy"]} for i in range(7)]),  # too many
+    ],
+)
+async def test_invalid_plan_falls_back(run, text, caplog):
+    run.result = answer(text)
+    assert await plan() is None
+    assert "using the catalog" in caplog.text
+
+
+async def test_run_error_and_error_result_fall_back(run):
+    run.result = ClaudeRunError("boom")
+    assert await plan() is None
+    run.result = answer('[{"name": "dev", "members": ["Bob", "Cy"]}]', is_error=True)
+    assert await plan() is None
+
+
+async def test_timeout_falls_back(run, monkeypatch, caplog):
+    monkeypatch.setattr(planner, "TIMEOUT_S", 0.01)
+    run.result = "hang"
+    assert await plan() is None
+    assert "timed out" in caplog.text
+
+
+def test_catalog_has_targeted_channels():
+    channels = {c["name"]: c["roles"] for c in load_catalog()["channels"]}
+    assert channels["dev"] == ["dev", "dev_backend", "dev_frontend"]
+    assert set(channels["quality"]) == {"reviewer", "qa", "security"}
+
+
+class Session:
+    def __init__(self):
+        self.added = []
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        pass
+
+
+def project_of(mode: str = "enterprise") -> Project:
+    project = Project(name="P", repo_url="", default_branch="dev", mode=mode, seed=1)
+    project.employees = [Employee(name=m.name, roles=m.roles) for m in generate_team(mode, 1).employees]
+    return project
+
+
+def opened(session: Session) -> dict[str, Room]:
+    return {o.name: o for o in session.added if isinstance(o, Room)}
+
+
+async def test_predefined_team_gets_targeted_channels():
+    s = Session()
+    await projects._open_channels(s, project_of())
+    rooms = opened(s)
+    assert {"general", "dev", "quality"} <= set(rooms)
+    assert all({"dev", "dev_backend", "dev_frontend"} & set(e.roles) for e in rooms["dev"].members)
+    assert all({"reviewer", "qa", "security"} & set(e.roles) for e in rooms["quality"].members)
+
+
+async def test_general_only_for_a_custom_team():
+    s = Session()
+    await projects._open_channels(s, project_of(), True)
+    assert list(opened(s)) == ["general"]
+
+
+async def test_open_rooms_skips_duplicates_and_small_rooms():
+    s = Session()
+    project = project_of()
+    ana, bob, cy = project.employees[:3]
+    await projects._open_rooms(s, project, [("a", [ana, bob]), ("b", [bob, ana]), ("c", [cy]), ("a", [bob, cy]), ("d", [bob, cy])])
+    assert list(opened(s)) == ["a", "d"]

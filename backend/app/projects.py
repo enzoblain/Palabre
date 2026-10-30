@@ -1,6 +1,8 @@
 """Project creation: the team is drawn at random from the catalog."""
 
+import asyncio
 import json
+import logging
 import random
 import re
 import secrets
@@ -13,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github, release, services
+from app.accounts import assign_accounts, token_for
+from app.company import channel_planner
 from app.company.team import Employee as TeamMember
 from app.company.team import (
     RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
@@ -26,6 +30,9 @@ from app.services import WorkflowError
 from app import worktrees
 from app.worktrees import sync_repo
 
+log = logging.getLogger(__name__)
+
+_background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
@@ -92,7 +99,8 @@ async def create_project(
         for member in team.employees
     ]
     s.add(project)
-    await _open_channels(s, project)
+    # A custom team only gets "general" now: the others come from plan_custom_channels
+    await _open_channels(s, project, bool(employees) and kind == "company")
     await ensure_direction(s, project)
     await s.commit()
     if kind == "research" and topic:
@@ -116,21 +124,65 @@ def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]
     return [e for e in employees if "*" in roles or roles & set(e.roles)]
 
 
-async def _open_channels(s: AsyncSession, project: Project) -> None:
+async def _open_channels(s: AsyncSession, project: Project, general_only: bool = False) -> None:
     """Create the catalog's channels the company is big enough for (each with a first
     conversation). Channels that already exist are left alone."""
+    channels = load_catalog()["channels"]
+    if general_only:
+        channels = [c for c in channels if "*" in c["roles"]]
+    await _open_rooms(s, project, [(c["name"], _channel_members(c, project.employees)) for c in channels])
+
+
+async def _open_rooms(s: AsyncSession, project: Project, rooms: list[tuple[str, list[Employee]]]) -> None:
+    """Create the rooms with at least 2 members, a new name and a composition no room has yet."""
     existing = {room.name for room in project.rooms}
     groups = [{e.name for e in room.members} for room in project.rooms]
-    for channel in load_catalog()["channels"]:
-        members = _channel_members(channel, project.employees)
+    for name, members in rooms:
         names = {e.name for e in members}
-        if channel["name"] in existing or len(members) < 2 or names in groups:
+        if name in existing or len(members) < 2 or names in groups:
             continue
-        room = Room(project=project, name=channel["name"], members=members)
+        room = Room(project=project, name=name, members=members)
         s.add(room)
         await s.flush()
         s.add(Conversation(room_id=room.id, title="Kickoff"))
         groups.append(names)
+        existing.add(name)
+
+
+def plan_custom_channels_later(project_id: int) -> None:
+    """Plan the channels of a custom team in the background, never in the request."""
+    task = asyncio.create_task(plan_custom_channels(project_id), name=f"channel-planner-{project_id}")
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+async def plan_custom_channels(project_id: int) -> None:
+    """Open the channels a model proposes for a custom team; if it fails, those of the catalog."""
+    from app.db import SessionLocal  # Late: tests import this module without a database
+
+    try:
+        async with SessionLocal() as s:
+            project = await load_project(s, project_id)
+            lead = next((e for e in project.employees if "lead" in e.roles), None) if project else None
+            if project is None or lead is None:
+                return
+            members = [channel_planner.Member(name=e.name, roles=list(e.roles)) for e in project.employees]
+            cwd = worktrees.desk_dir(project, lead)
+            cwd.mkdir(parents=True, exist_ok=True)
+            token = token_for(assign_accounts(project.employees)[lead.id])
+            await s.rollback()  # No transaction open during the model call
+            plan = await channel_planner.plan_channels(
+                members, lead_id=lead.id, lead_name=lead.name, token=token, cwd=cwd
+            )
+            project = await load_project(s, project_id)
+            if plan is None:
+                await _open_channels(s, project)
+            else:
+                by_name = {e.name: e for e in project.employees}
+                await _open_rooms(s, project, [(c.name, [by_name[n] for n in c.members]) for c in plan])
+            await s.commit()
+    except Exception:
+        log.exception("Cannot open the channels of project %s", project_id)
 
 
 async def ensure_direction(s: AsyncSession, project: Project) -> None:
