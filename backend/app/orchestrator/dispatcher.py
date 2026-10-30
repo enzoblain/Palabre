@@ -62,7 +62,7 @@ class Orchestrator:
         self._runs: dict[int, asyncio.Task] = {}  # employee id → its current run
         self._run_accounts: dict[int, int] = {}  # employee id → account of its current run
         self._repo_synced_at: dict[int, float] = {}
-        self._throttled_at: dict[int, datetime] = {}
+        self._throttled_at: dict[tuple[int, int], datetime] = {}
 
     @property
     def running_employee_ids(self) -> list[int]:
@@ -431,15 +431,17 @@ class Orchestrator:
         limit = settings.max_runs_per_conversation_hour
         if runs < limit:
             return
-        last = self._throttled_at.get(conversation_id)
+        last = self._throttled_at.get((employee_id, conversation_id))
         if last is None or last < since:
             services.emit_event(
-                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "runs": runs}, role="lead"
+                s, project.id, "conversation_throttled", {"conversation_id": conversation_id, "employee_id": employee_id, "runs": runs}, role="lead"
             )
             await s.commit()
-            self._throttled_at[conversation_id] = datetime.now(UTC)
+            self._throttled_at[(employee_id, conversation_id)] = datetime.now(UTC)
         # A slot frees up when the run that makes us exceed the limit leaves the hour
-        frees = started[runs - limit] if limit > 0 else started[0]
+        if not started:  # limit 0: nothing ever runs, look again in an hour
+            raise Throttled("chatter is disabled", datetime.now(UTC) + timedelta(hours=1))
+        frees = started[runs - limit]
         frees = frees if frees.tzinfo else frees.replace(tzinfo=UTC)
         raise Throttled(f"{runs} runs for this employee within an hour", frees + timedelta(hours=1))
 
@@ -453,7 +455,8 @@ class Orchestrator:
             )
         )  # fmt: skip
         await s.commit()
-        self._throttled_at.pop(conversation_id, None)
+        for key in [k for k in self._throttled_at if k[1] == conversation_id]:
+            del self._throttled_at[key]
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
         session = await s.get(AgentSession, (employee_id, scope))

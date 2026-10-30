@@ -1,5 +1,6 @@
 """Anti-loop limit on a real in-memory database: only executed runs count, and the boss can lift it."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -116,3 +117,47 @@ async def test_throttled_wakeup_waits_then_runs_when_the_window_frees(db, monkey
     await db.refresh(w[0])
     assert w[0].started_at is None and w[0].finished_at is None  # Not lost
     assert w[0].not_before.replace(tzinfo=UTC) == exc.value.until
+
+
+async def test_dispatch_picks_only_ready_wakeups_and_groups_them(db, monkeypatch):
+    from app.orchestrator import dispatcher
+
+    now = datetime.now(UTC)
+    mk = lambda reason, nb=None: Wakeup(employee_id=1, event_type="mention", kind="conversation",  # noqa: E731
+                                        conversation_id=1, reason=reason, not_before=nb)  # fmt: skip
+    db.add_all([mk("future", now + timedelta(minutes=10)), mk("past", now - timedelta(minutes=1)), mk("fresh")])
+    await db.flush()
+    await db.commit()
+    monkeypatch.setattr(dispatcher, "SessionLocal", lambda: _Same(db))
+    monkeypatch.setattr(dispatcher, "credits", SimpleNamespace(is_exhausted=lambda a: False))
+    orch = Orchestrator()
+    got = []
+
+    async def fake_run(employee_id, ids):
+        got.append(ids)
+
+    monkeypatch.setattr(orch, "_run", fake_run)
+    await orch._dispatch()
+    await asyncio.gather(*orch._runs.values())
+    assert got == [[2, 3]]  # The held one stays out; the other two run in one batch
+    held = await db.get(Wakeup, 1)
+    assert held.started_at is None
+
+    held.not_before = now - timedelta(seconds=1)  # The window freed up
+    await db.commit()
+    await orch._dispatch()
+    await asyncio.gather(*orch._runs.values())
+    assert got == [[2, 3], [1]]
+
+
+class _Same:
+    """Hands the test session to code that opens its own, without closing it."""
+
+    def __init__(self, s):
+        self.s = s
+
+    async def __aenter__(self):
+        return self.s
+
+    async def __aexit__(self, *a):
+        return False
