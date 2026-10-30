@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-30
+
+### Added
+
+- runner: per-role claude effort and 20 max turns for conversation runs (#181)
+
+### Changed
+
+- orchestrator: do not resume Claude sessions for conversation wakeups (#154)
+- orchestrator: add resumable(scope) helper and purge legacy conversation sessions (#159)
+- orchestrator: lower chat runs cap from 40 to 20 per employee per hour (#179)
+- catalog: run the reviewer on sonnet instead of opus (#178)
+- scheduler: wake the scribe less often (idle 30 min, at least 5 new messages) (#182)
+
+### Fixed
+
+- github: trust the exact agent clone's .git in the local upload-pack (#155)
+- github: refuse to push a clone with object alternates or indirection (#157)
+- github: run push_task_branch's upload-pack as the agent user and fsck the fetch (#160)
+- cleanup: log what remove_project_files cannot delete, derive rm-clone root from config (#164)
+- entrypoint: share task clones with the agent group at start in shared-account mode (#165)
+- worktrees: open fresh clones to the work group in shared-account mode (#167)
+- docker: refuse an empty PROJECTS_DIR and roots overlapping /data or /etc (#170)
+
 ## [0.11.1] - 2026-10-30
 
 ### Fixed
@@ -337,7 +361,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/enzoblain/Palabre/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/enzoblain/Palabre/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/enzoblain/Palabre/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/enzoblain/Palabre/compare/v0.10.0...v0.10.1

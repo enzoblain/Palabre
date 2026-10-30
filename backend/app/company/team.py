@@ -16,6 +16,7 @@ from pathlib import Path
 
 CATALOG_PATH = Path(__file__).with_name("catalog.toml")
 MODEL_RANK = {"haiku": 0, "sonnet": 1, "opus": 2}
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 DIVERSITY_ATTEMPTS = 1000
 
 
@@ -32,6 +33,16 @@ def load_catalog() -> dict:
         catalog[section] = {k: {**v, "kind": "company"} for k, v in catalog[section].items()}
         catalog[section] |= {k: {**v, "kind": "research"} for k, v in research[section].items()}
     return catalog
+
+
+def effort_for(role_keys: list[str]) -> str | None:
+    """The claude --effort level of an employee: the highest of their roles, None (claude's
+    default) as soon as one role sets none."""
+    roles = load_catalog()["roles"]
+    levels = [roles[k].get("effort") for k in role_keys]
+    if not levels or None in levels:
+        return None
+    return max(levels, key=EFFORT_LEVELS.index)
 
 
 def kind_of_mode(mode: str) -> str:

@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     claude_code_oauth_tokens: str = ""
     claude_bin: str = "claude"
     # Turns per run: a conversation turn is short, work on a task can take long
-    claude_max_turns: int = 30
+    claude_max_turns: int = 20
     claude_task_max_turns: int = 100
     agent_timeout_s: int = 1800
     # Seen from the `claude` processes, which run in the backend container
@@ -85,11 +85,13 @@ class Settings(BaseSettings):
     # as a resumed session gets costlier at each run; 0 = never. The employee's other sessions are kept
     context_reset_every_runs: int = 5
     # Chatter runs per employee per hour (all conversations); past it, their wakeups wait for the window to free
-    max_runs_per_conversation_hour: int = 40
+    max_runs_per_conversation_hour: int = 20
     # Local time of the daily stand-up ("HH:MM"), empty to disable
     daily_time: str = "09:30"
     # Quiet minutes before the scribe is asked to update the room document
-    idle_minutes: int = 10
+    idle_minutes: int = Field(30, ge=1)
+    # New messages since the last scribe wakeup needed to ask it again
+    idle_min_messages: int = Field(5, ge=1)
 
     # Minutes a mergeable task may wait before the lead is reminded (once)
     merge_reminder_minutes: int = 10

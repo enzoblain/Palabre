@@ -17,6 +17,12 @@ from app.models import AgentSession, Employee, Review, Task, TaskStatus
 log = logging.getLogger(__name__)
 
 
+def resumable(scope: str) -> bool:
+    """Only task scopes keep a Claude session: a conversation wakeup comes after the cache TTL,
+    so resuming would rewrite the whole history."""
+    return scope.startswith("task:")
+
+
 async def finished_tasks_since_reset(s: AsyncSession, employee: Employee) -> int:
     """Merged or cancelled tasks the employee took part in (assignee, reviewer of any kind, or the
     one who merged or cancelled it) since their last reset or arrival. One per task, however
@@ -46,10 +52,10 @@ async def reset_context_if_due(s: AsyncSession, employee: Employee) -> bool:
 
 
 async def reset_session_if_worn(s: AsyncSession, employee: Employee, scope: str) -> bool:
-    """Forget one session (conversation or task) once it served the threshold of runs; the employee's
+    """Forget one task session once it served the threshold of runs; the employee's
     other sessions are kept. Called while preparing a run, so a run in progress is never cut."""
     every = settings.context_reset_every_runs
-    if every <= 0:
+    if every <= 0 or not resumable(scope):
         return False
     session = await s.get(AgentSession, (employee.id, scope))
     if session is None or session.runs < every:

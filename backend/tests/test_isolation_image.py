@@ -1,5 +1,6 @@
 """The image's isolation setup (#101): two users, one narrow sudo rule, a safe /data."""
 
+import os
 import re
 import shutil
 import subprocess
@@ -27,17 +28,19 @@ def test_agent_user_and_shared_group():
 
 def test_single_narrow_sudo_rule():
     rules = re.findall(r'"(palabre ALL=[^"]*)"', DOCKERFILE)
-    # Only the claude binary, a process-group kill and the clone remover, as the agent users, and root only for the four claim-clone rules below
+    # Only the claude binary, a process-group kill and the clone remover and the clone upload-pack, as the agent users, and root only for the four claim-clone rules below
     assert rules == [
         "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
         "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
-        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone ${PROJECTS_DIR}/*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
+        # Serves a task clone to the push fetch as its owner (#193)
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack ${PROJECTS_DIR}/*",
         # Hands a clone to an agent account (#160): the script checks both arguments
-        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone ${PROJECTS_DIR}/* agent*",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*",
         # And takes it back once the run's processes are dead
-        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone ${PROJECTS_DIR}/* palabre",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre",
     ]
     assert 'users="agent$(for i in' in DOCKERFILE
@@ -74,6 +77,71 @@ def test_entrypoint_does_not_follow_symlinks_as_root():
     assert '[ ! -L "$1" ]' in script
     # No root chmod/chown -R on a bare glob result: every one is behind real_dir
     assert 'for repo in "$DATA"/projects/project-*/repo' not in script
+
+
+def test_entrypoint_uses_the_configured_projects_root():
+    script = ENTRYPOINT.read_text()
+    assert "/etc/palabre/projects-root.conf" in script
+    assert "$DATA/projects" not in script and '"$DATA"/projects' not in script
+    assert 'for project in "$PROJECTS"/project-*' in script
+    assert 'chmod 2751 "$PROJECTS"' in script
+
+
+def _entrypoint_guard(tmp_path, root, env_dir):
+    """Runs the root-validation block of the entrypoint against a conf holding `root`."""
+    text = ENTRYPOINT.read_text()
+    block = text[text.index("PROJECTS=$(cat"):text.index("# The next steps run as root")]
+    conf = tmp_path / "conf"
+    if root is None:
+        conf.unlink(missing_ok=True)
+    else:
+        conf.write_text(root)
+    block = block.replace("/etc/palabre/projects-root.conf", str(conf))
+    env = {k: v for k, v in os.environ.items() if k != "PROJECTS_DIR"}
+    if env_dir is not None:
+        env["PROJECTS_DIR"] = env_dir
+    return subprocess.run(["sh", "-c", block + "\necho ok $PROJECTS"], env=env, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_entrypoint_root_guard_fails_closed(tmp_path):
+    for root in ("", "/", "relative", "/data/projects/", "/data/pro.js", "/data//projects"):
+        done = _entrypoint_guard(tmp_path, root, None)
+        assert done.returncode == 1 and "bad projects root" in done.stderr, root
+    done = _entrypoint_guard(tmp_path, None, None)
+    assert done.returncode == 1 and "no projects root" in done.stderr
+    # Runtime PROJECTS_DIR differing from the image's root: refuse to start
+    done = _entrypoint_guard(tmp_path, "/data/srv", "/data/projects")
+    assert done.returncode == 1 and "differs" in done.stderr
+    # An explicitly empty PROJECTS_DIR is a mismatch, not "unset"
+    done = _entrypoint_guard(tmp_path, "/data/projects", "")
+    assert done.returncode == 1 and "set but empty" in done.stderr
+    for env_dir in (None, "/data/srv"):
+        done = _entrypoint_guard(tmp_path, "/data/srv", env_dir)
+        assert done.returncode == 0 and done.stdout.strip() == "ok /data/srv"
+
+
+OVERLAPPING_ROOTS = ("/data", "/data/run", "/data/claude", "/data/runtime", "/data/toolchains", "/data/run/x", "/etc", "/srv/projects")
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_entrypoint_refuses_overlapping_roots(tmp_path):
+    for root in OVERLAPPING_ROOTS:
+        done = _entrypoint_guard(tmp_path, root, None)
+        expected = "bad projects root" if root in ("/data", "/etc", "/srv/projects") else "overlaps"
+        assert done.returncode == 1 and expected in done.stderr, root
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_dockerfile_refuses_overlapping_roots():
+    line = next(l for l in DOCKERFILE.splitlines() if l.startswith("RUN case"))
+    case = line[len("RUN "):line.index(" \\")] if line.endswith("\\") else line[len("RUN "):]
+    for root in OVERLAPPING_ROOTS + ("/data/",):
+        done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", root)], capture_output=True, text=True)
+        expected = "bad PROJECTS_DIR" if root in ("/data", "/data/", "/etc", "/srv/projects") else "overlaps"
+        assert done.returncode == 1 and expected in done.stderr, root
+    done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", "/data/projects")], capture_output=True, text=True)
+    assert done.returncode == 0
 
 
 def test_backend_home_is_traversable_only():
@@ -210,7 +278,10 @@ def test_runs_have_a_private_primary_group_and_no_shared_writable_dir():
     assert 'chown -hR palabre:palabre' in script and "chown palabre:work \"$project/$parent\"" in script
     # The per-employee Go caches go back to the backend at every start, like the clones
     gopath = [l for l in script.splitlines() if "toolchains/gopath/employee-*" in l]
-    assert gopath and "take_back" in script.split(gopath[0])[1].split("done")[0]
+    assert gopath and "claim_back" in script.split(gopath[0])[1].split("done")[0]
+    # Without a pool the shared agent gets the clones back through group work, not through the backend
+    assert "share_back()" in script and "shared_account=1" in script
+    assert 'if [ "$shared_account" = 1 ]; then share_back "$1"; else take_back "$1"; fi' in script
     # One rights model for what goes back to palabre: the entrypoint and claim-clone.sh both drop group and others
     take_back = script[script.index("take_back() {") :].split("\n}\n")[0]
     assert "chmod -R u+rwX,go-rwx,ug-s" in take_back and "g+rwX" not in take_back

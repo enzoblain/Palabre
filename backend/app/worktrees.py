@@ -1,17 +1,24 @@
 """Local clone of each project's repository (the reference), and one clone per task and per desk."""
 
 import asyncio
+import grp
+import logging
 import os
+import pwd
 import re
 import shutil
+import stat
 from collections import defaultdict
 from pathlib import Path
 
 from app import agent_pool, claude_store
 from app.config import settings
-from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch
+from app.github import BRANCH_PATTERN, UPLOAD_PACK_SCRIPT, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
 from app.models import Employee, Project, Task
 
+log = logging.getLogger(__name__)
+
+SHARED_GROUP = "work"  # The agent group, as in docker-entrypoint.sh
 
 # One git operation at a time on a project's main clone (clone, fetch, and every clone made from it)
 _repo_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -23,11 +30,19 @@ def project_dir(project: Project) -> Path:
 
 async def remove_project_files(project_id: int) -> None:
     """Everything a project left on disk: clone, task clones, desks, and the agents'
-    Claude sessions. The GitHub repository itself is not touched."""
+    Claude sessions. The GitHub repository itself is not touched. A path that cannot be
+    removed is logged, never raised: the project is deleted anyway."""
+
+    def remove(target: Path) -> None:
+        def failed(_func, path, exc: BaseException) -> None:
+            log.error("Project %s: cannot delete %s: %s", project_id, path, exc)
+
+        if target.exists() or target.is_symlink():
+            shutil.rmtree(target, onexc=failed)
     targets = [settings.projects_dir / f"project-{project_id}", *claude_store.session_dirs(project_id)]
     async with _repo_locks[project_id]:
         for target in targets:
-            await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
+            await asyncio.to_thread(remove, target)
     _repo_locks.pop(project_id, None)
 
 
@@ -175,6 +190,41 @@ def desk_dir(project: Project, employee: Employee) -> Path:
     return project_dir(project) / "desks" / f"employee-{employee.id}"
 
 
+def _shares_clones() -> bool:
+    """Shared agent account (no pool): nothing claims a clone per run, so it is opened to the
+    agent group. With a pool the clone stays 0700 and `_claim` hands it to the run's account."""
+    return bool(settings.agent_user) and settings.agent_pool_size <= 0
+
+
+def _share_with_group(path: Path) -> None:
+    """Group work, group-writable, setgid directories (2770): same rights as the entrypoint's
+    share_back, so the shared agent can write in the clone and serve it to the upload-pack.
+    Symlinks are left alone (never followed). An unreadable directory raises OSError rather than
+    being skipped, so the caller drops the clone."""
+    try:
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    except KeyError as e:
+        raise OSError(f"group {SHARED_GROUP!r} does not exist") from e
+    def fail(e: OSError) -> None:
+        raise e
+
+    for root, dirs, files in os.walk(path, onerror=fail):
+        for name in (*dirs, *files):
+            entry = os.path.join(root, name)
+            os.chown(entry, -1, gid, follow_symlinks=False)
+            if not os.path.islink(entry):
+                mode = os.lstat(entry).st_mode
+                # Like g+rwX: group x only on directories and on files already executable
+                add = 0o060
+                if stat.S_ISDIR(mode):
+                    add |= 0o010 | stat.S_ISGID
+                elif mode & 0o111:
+                    add |= 0o010
+                os.chmod(entry, stat.S_IMODE(mode) | add)
+    os.chown(path, -1, gid)
+    os.chmod(path, 0o2770 | stat.S_IMODE(os.lstat(path).st_mode))
+
+
 async def _clone_from_reference(project: Project, path: Path) -> None:
     """An independent clone of the project: objects borrowed from the reference then copied
     (--dissociate), so the agent never writes to the reference. Objects are copied, never
@@ -197,7 +247,9 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
         )  # fmt: skip
         await git(path, "remote", "set-url", "origin", project.repo_url)
         await _pull_from_reference(project, path)
-    except GitHubError:
+        if _shares_clones():
+            await asyncio.to_thread(_share_with_group, path)
+    except (GitHubError, OSError):
         await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)  # Never leave a half clone
         raise
 
@@ -227,6 +279,71 @@ async def refresh_clone(project: Project, path: Path) -> None:
         await _pull_from_reference(project, path)
 
 
+def _clone_indirection(path: Path) -> str | None:
+    """Why the clone's object store cannot be trusted, or None. Defence in depth behind the
+    per-account upload-pack (#193): alternates, `commondir`, symlinks and gitfiles would
+    otherwise serve another project's objects."""
+    git_dir = path / ".git"
+    if not stat.S_ISDIR(git_dir.lstat().st_mode):
+        return ".git is not a real directory"
+    for name in ("objects/info/alternates", "objects/info/http-alternates", "commondir"):
+        if os.path.lexists(git_dir / name):
+            return f"it has {name}"
+    # scandir follows a symlink given as argument, so `objects` itself is checked first
+    if not stat.S_ISDIR((git_dir / "objects").lstat().st_mode):
+        return "objects is not a real directory"
+    pending = [git_dir / "objects"]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                if entry.is_symlink():
+                    return f"{Path(entry.path).relative_to(git_dir)} is a symlink"
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(Path(entry.path))
+    return None
+
+
+async def _require_isolated_clone(path: Path) -> None:
+    """Fail closed: refuse to read a clone that points outside itself, with a clear error."""
+    try:
+        reason = await asyncio.to_thread(_clone_indirection, path)
+    except OSError as exc:
+        reason = f"its object store cannot be inspected ({exc})"
+    if reason:
+        raise GitHubError(
+            f"Refusing to push: {reason}, which could pull in objects from another repository. "
+            "Fix the clone (remove the file or symlink, keep .git a plain directory) and submit again."
+        )
+
+
+def _clone_owner_account(path: Path) -> str | None:
+    """The agent account the push fetch must run as, or None when agents share the backend's
+    user (no agent user configured). Fails closed: a pool clone not owned by a pool account was
+    taken back (or never claimed), and serving it as another user would be the very thing this avoids."""
+    if not settings.agent_user:
+        return None
+    if settings.agent_pool_size <= 0:
+        return settings.agent_user  # Legacy shared account: clones are owned by the backend, shared through group work
+    try:
+        uids = {os.lstat(path).st_uid, os.lstat(path / ".git").st_uid}
+        names = {pwd.getpwuid(uid).pw_name for uid in uids}
+    except (OSError, KeyError) as exc:
+        raise GitHubError(f"Refusing to push: cannot determine who owns the clone ({exc}).") from exc
+    if len(names) != 1 or not names <= set(agent_pool.users()) - {settings.agent_user}:
+        raise GitHubError(
+            f"Refusing to push: the clone is owned by {', '.join(sorted(names))}, not by an agent account "
+            "(it was taken back after the run). Run the task's agent again, then submit."
+        )
+    return names.pop()
+
+
+def _require_sudo_upload_pack() -> None:
+    if shutil.which("sudo") is None or not os.access(UPLOAD_PACK_SCRIPT, os.X_OK):
+        raise GitHubError(
+            f"Refusing to push: sudo or {UPLOAD_PACK_SCRIPT} is unavailable, and the clone is not read as the backend user."
+        )
+
+
 async def push_task_branch(project: Project, task: Task) -> None:
     """Publish the task's branch. The agent clone is only read, over the local transport; the
     push itself runs from the reference, whose config the backend owns, so the token never
@@ -234,11 +351,22 @@ async def push_task_branch(project: Project, task: Task) -> None:
     ref = f"refs/heads/{task.branch}"
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
+        clone = Path(task.worktree_path)
+        user = _clone_owner_account(clone)
+        if user:
+            _require_sudo_upload_pack()
+        await _require_isolated_clone(clone)  # Inside the lock, right before the fetch
+        # fsckObjects: the fetch runs as the backend, so a malformed pack (booby-trapped .gitmodules,
+        # symlinked paths) is refused here, before anything leaves for GitHub
         await git(
-            reference, "fetch", "--quiet", "--no-tags", task.worktree_path, f"+{ref}:{ref}",
-            allow_file=True, trust=task.worktree_path,
+            reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(clone, user)}",
+            task.worktree_path, f"+{ref}:{ref}",
+            allow_file=True, trust=clone / ".git", config=("transfer.fsckObjects=true",),
         )  # fmt: skip
         try:
+            # Shrinks the window for a late write. On failure the fetched objects stay unreferenced
+            # in the reference until gc: harmless, they cannot be pushed without a ref.
+            await _require_isolated_clone(Path(task.worktree_path))
             await git(
                 reference, "push", "--quiet", "--force-with-lease", "origin", f"{ref}:{ref}",
                 repo_url=project.repo_url,

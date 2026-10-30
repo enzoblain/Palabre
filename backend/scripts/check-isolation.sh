@@ -2,7 +2,7 @@
 # Checks the agent isolation inside the built image. Run as root in the container:
 #   docker exec -u root [-e CHECK_GITHUB_REPO=owner/scratch-repo] <container> /srv/scripts/check-isolation.sh
 # Prints one line per guarantee and exits non-zero if any is broken (or skipped).
-# CHECK_POOL_ONLY=1 skips the GitHub flow and runs the checks of the agent1..N pool only (no GitHub repository needed): that is
+# CHECK_POOL_ONLY=1 skips the GitHub flow and runs the checks that need no GitHub repository (the agent1..N pool, the legacy shared-account upload-pack): that is
 # what the Compose smoke test runs in CI.
 #
 # THROWAWAY CONTAINER ONLY. For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
@@ -12,6 +12,9 @@
 set -u
 
 DATA=/data
+# The projects root the image was built with: the same file the root-owned scripts read
+PROJECTS=$(cat /etc/palabre/projects-root.conf 2>/dev/null)
+case "$PROJECTS" in /?*) ;; *) echo "::error::no projects root in /etc/palabre/projects-root.conf"; exit 1 ;; esac
 fail=0
 # The agent has no group of its own (useradd --gid work): --regid=agent would fail before running the command
 as_agent() { setpriv --reuid=agent --regid=work --init-groups "$@"; }
@@ -37,7 +40,7 @@ else
 fi
 denied "agent cannot list runtime/" as_agent ls "$DATA/runtime"
 denied "agent cannot read the backend's home" as_agent ls /home/palabre
-for repo in "$DATA"/projects/project-*/repo; do
+for repo in "$PROJECTS"/project-*/repo; do
   [ -d "$repo" ] || continue
   denied "agent cannot read $repo" as_agent test -r "$repo/config"
   denied "agent cannot write in $repo" as_agent touch "$repo/x"
@@ -71,13 +74,13 @@ expect() { # description, got, expected
   if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
 }
 cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
-expect "sudo -l shows exactly 8 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 8
+expect "sudo -l shows exactly 9 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 9
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
 expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
+    "/usr/local/bin/palabre-rm-clone $PROJECTS/*" '/usr/local/bin/palabre-rm-clone /data/run/claude-*' "/usr/local/bin/palabre-upload-pack $PROJECTS/*" \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* agent*" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* palabre" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
 # The only rules running as root are the four claim-clone ones
@@ -199,6 +202,24 @@ esac
 STUB
 chmod 755 "$CLAUDE"
 
+# Restart of the entrypoint, shared account (AGENT_POOL_SIZE=0): the existing clones go to group work, so the one agent can
+# still write in them (and serve them to upload-pack); with a pool they stay palabre:palabre go-rwx until claimed.
+restart_clone=$DATA/projects/project-99997/worktrees/task-2
+mkdir -p "$restart_clone"
+chown palabre:palabre "$restart_clone"
+as_palabre git init -q "$restart_clone"
+as_palabre git -C "$restart_clone" -c user.name=t -c user.email=t@t commit -q --allow-empty -m restart
+as_palabre git -C "$restart_clone" update-ref refs/heads/task/2 HEAD
+chmod -R go-rwx "$restart_clone"
+check "entrypoint restart (shared account)" env AGENT_POOL_SIZE=0 docker-entrypoint.sh true
+check "shared account: after a restart agent can write in an existing clone" as_agent touch "$restart_clone/.git/hooks/pre-commit"
+restart_scratch=$(mktemp -d) && chown palabre:palabre "$restart_scratch" && as_palabre git init -q "$restart_scratch"
+check "shared account: after a restart agent can serve the clone to palabre-upload-pack" \
+  as_palabre git -C "$restart_scratch" fetch -q --no-tags --upload-pack="sudo -n -u agent /usr/local/bin/palabre-upload-pack" "$restart_clone" refs/heads/task/2:refs/heads/task/2
+# Back to a pool: the clone that was shared is taken back
+check "entrypoint restart (pool)" env AGENT_POOL_SIZE=8 docker-entrypoint.sh true
+denied "pool mode: a restart takes back a shared clone" as_agent test -r "$restart_clone/.git/config"
+
 # A claimed clone and Go cache belong to one account alone (#160): through the real sudo rule, as the backend does
 as_pool_sh() { u=$1; shift; setpriv --reuid="$u" --regid="$u" --init-groups "$@"; }
 claim_root=$DATA/projects/project-99997/worktrees/task-1
@@ -236,6 +257,34 @@ touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
 denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
 chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
 denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+# The push fetch reads a task clone as the account owning it (#193): an alternates entry pointing at another
+# project's objects (private to palabre) gets nothing served, whatever the denylist would say
+victim=$DATA/projects/project-99996/repo
+mkdir -p "$victim" && chown palabre:palabre "$DATA/projects/project-99996" "$victim" && chmod 700 "$victim"
+as_palabre git init -q "$victim"
+as_palabre git -C "$victim" -c user.name=t -c user.email=t@t commit -q --allow-empty -m secret
+secret=$(as_palabre git -C "$victim" rev-parse HEAD)
+rm -f "$claim_root/foreign" "$claim_root/alias"
+as_palabre git -C "$claim_root" -c user.name=t -c user.email=t@t commit -q --allow-empty -m legit
+legit=$(as_palabre git -C "$claim_root" rev-parse HEAD)
+as_palabre git -C "$claim_root" update-ref refs/heads/task/1 "$legit"
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+UP="sudo -n -u agent1 /usr/local/bin/palabre-upload-pack"
+scratch=$(mktemp -d) && chown palabre:palabre "$scratch" && as_palabre git init -q "$scratch"
+# Positive control: also proves the sudoers rule matches what git invokes
+check "the upload-pack as agent1 serves the clone's own commit" \
+  as_palabre git -C "$scratch" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+check "the legit commit reached the scratch repo" as_palabre git -C "$scratch" cat-file -e "$legit"
+# Alternates to the victim, and a ref (written as root) naming its commit
+echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates"
+echo "$secret" > "$claim_root/.git/refs/heads/task/1"
+scratch2=$(mktemp -d) && chown palabre:palabre "$scratch2" && as_palabre git init -q "$scratch2"
+denied "the upload-pack as agent1 cannot serve another project through alternates" \
+  as_palabre git -C "$scratch2" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+denied "the other project's commit did not reach the scratch repo" as_palabre git -C "$scratch2" cat-file -e "$secret"
+rm -rf "$scratch" "$scratch2"
+denied "palabre cannot upload-pack a path that is not a task clone" as_palabre sudo -n -u agent1 /usr/local/bin/palabre-upload-pack "$victim"
+rm -rf "$DATA/projects/project-99996"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
@@ -253,5 +302,7 @@ run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is repo
 }
 [ "${CHECK_POOL_ONLY:-}" = 1 ] || run_as_palabre check_isolation_flow.py || fail=1
 run_as_palabre check_isolation_pool.py || fail=1
+# Outside the pool-only gate on purpose: the legacy shared-account mode must stay covered by the CI smoke
+run_as_palabre check_isolation_legacy.py || fail=1
 
 exit $fail

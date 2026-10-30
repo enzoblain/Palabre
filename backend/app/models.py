@@ -361,7 +361,7 @@ class Wakeup(Base):
 
 
 class AgentSession(Base):
-    """Claude session of an employee for a scope ("conversation:<id>" or "task:<id>"),
+    """Claude session of an employee for a task scope ("task:<id>"; conversations are never stored),
     reused with --resume. `runs` counts the runs this session served (see orchestrator/context_reset.py);
     `updated_at` is the end of the last one."""
 

@@ -12,13 +12,13 @@ from sqlalchemy.orm import selectinload
 from app import services
 from app import credits
 from app.accounts import assign_accounts, token_for
-from app.company.team import render_system_prompt
+from app.company.team import effort_for, render_system_prompt
 from app.config import settings
 from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Event, Message, Project, Task, TaskStatus, Wakeup
-from app.orchestrator.context_reset import reset_context_if_due, reset_session_if_worn
+from app.orchestrator.context_reset import reset_context_if_due, reset_session_if_worn, resumable
 from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
@@ -306,6 +306,7 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=True)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
+                effort=effort_for(member.roles),
                 oauth_token=oauth_token,
                 max_turns=settings.claude_task_max_turns,
             )
@@ -323,17 +324,22 @@ class Orchestrator:
                 mcp_tools=sorted(mcp_tools_for(employee.permissions, task_run=False)),
                 claude_tools=claude_tools_for(employee.permissions),
                 model=employee.model,
+                effort=effort_for(member.roles),
                 oauth_token=oauth_token,
             )
 
         await reset_context_if_due(s, employee)  # Before the lookup: no session left to resume
         await reset_session_if_worn(s, employee, scope)
-        spec.resume_session_id = await s.scalar(
-            select(AgentSession.claude_session_id).where(
-                AgentSession.employee_id == employee.id, AgentSession.scope == scope
-            )
-        )
+        spec.resume_session_id = await self._session_to_resume(s, employee, scope)
         return spec, scope
+
+    @staticmethod
+    async def _session_to_resume(s: AsyncSession, employee: Employee, scope: str) -> str | None:
+        if not resumable(scope):
+            return None
+        return await s.scalar(
+            select(AgentSession.claude_session_id).where(AgentSession.employee_id == employee.id, AgentSession.scope == scope)
+        )
 
     async def _desk(self, project: Project, employee: Employee):
         if project.kind == "research":  # No repository: a plain drafts folder
@@ -459,6 +465,8 @@ class Orchestrator:
             del self._throttled_at[key]
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
+        if not resumable(scope):  # Never resumed: nothing worth storing
+            return
         session = await s.get(AgentSession, (employee_id, scope))
         if session is None:
             s.add(AgentSession(employee_id=employee_id, scope=scope, claude_session_id=session_id))

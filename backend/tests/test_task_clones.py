@@ -2,8 +2,10 @@
 
 import asyncio
 import os
+import shlex
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,9 +22,9 @@ def _run(*args, cwd):
 
 
 @pytest.fixture
-def setup(tmp_path, monkeypatch):
+def setup(safe_tmp, monkeypatch):
     monkeypatch.undo()  # drops the autouse subprocess guard: real git on local repos
-    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "projects_dir", safe_tmp / "projects")
     project = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="main")
     reference = worktrees.repo_dir(project)
     reference.mkdir(parents=True)
@@ -187,6 +189,66 @@ def test_token_never_runs_in_an_agent_clone(setup):
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)  # pushed from a temporary ref
 
 
+def _alternates(name):
+    def tamper(path):
+        (path / ".git" / "objects" / "info" / name).write_text("/data/projects/project-9/repo/.git/objects\n")
+
+    return tamper
+
+
+def _commondir(path):
+    (path / ".git" / "commondir").write_text("/data/projects/project-9/repo/.git\n")
+
+
+def _symlinked_pack(path):
+    pack = path / ".git" / "objects" / "pack"
+    shutil.rmtree(pack)
+    pack.symlink_to(path.parent / "elsewhere")
+
+
+def _symlinked_pack_file(path):
+    pack = path / ".git" / "objects" / "pack"
+    pack.mkdir(exist_ok=True)
+    (pack / "pack-x.pack").symlink_to(path.parent / "elsewhere")
+
+
+def _symlinked_objects(path):
+    objects = path / ".git" / "objects"
+    shutil.rmtree(objects)
+    objects.symlink_to(path.parent / "elsewhere")
+
+
+def _gitfile(path):
+    shutil.rmtree(path / ".git")
+    (path / ".git").write_text("gitdir: /data/projects/project-9/repo/.git\n")
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        _alternates("alternates"),
+        _alternates("http-alternates"),
+        _commondir,
+        _symlinked_pack,
+        _symlinked_pack_file,
+        _symlinked_objects,
+        _gitfile,
+    ],
+)
+def test_push_refuses_a_clone_that_points_elsewhere(setup, tamper):
+    project, reference, calls = setup
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    tamper(path)
+    calls.clear()
+    with pytest.raises(github.GitHubError, match="Refusing to push"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert calls == []  # Nothing ran, in particular no fetch from the clone
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
 def test_clone_config_cannot_replace_upload_pack(setup):
     project, reference, _ = setup
     task = SimpleNamespace(id=5, branch="task/5")
@@ -245,6 +307,7 @@ def test_desk_with_foreign_directory_is_recloned_through_the_agent(setup, monkey
         return SimpleNamespace(returncode=0, communicate=lambda: asyncio.sleep(0, (b"", b"")))
 
     monkeypatch.setattr(worktrees.settings, "agent_user", "agent")
+    monkeypatch.setattr(worktrees, "_share_with_group", lambda path: None)  # No work group on CI
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
     asyncio.run(worktrees.prepare_desk(project, employee))
     assert calls[0][:5] == ("sudo", "-n", "-u", "agent", "/usr/local/bin/palabre-rm-clone")
@@ -298,3 +361,267 @@ def test_clones_share_no_object_with_the_reference(setup):
     assert all(
         obj.stat().st_mode & 0o777 == 0o400 for obj in (reference / ".git" / "objects").rglob("*") if obj.is_file()
     )
+
+
+def _ls_remote(tmp_path, repo, command, **env):
+    """ls-remote through an upload-pack command, with git's config isolated from the host's."""
+    return subprocess.run(
+        ["git", "-C", str(tmp_path), "ls-remote", f"--upload-pack={command}", str(repo)],
+        capture_output=True, text=True,
+        env={
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+            # Makes git treat every repo as foreign-owned, so only the exact safe.directory entry passes
+            "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1",
+            **env,
+        },
+    )  # fmt: skip
+
+
+def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
+    # Git drops -c and GIT_CONFIG_* for the upload-pack of a local fetch: the command carries them
+    command = github.upload_pack_command("/data/a b")
+    words = shlex.split(command)
+    assert words[0] == "git" and words[-1] == "upload-pack"
+    assert "safe.directory=/data/a b/.git" in words and "safe.directory=*" not in words
+    assert "safe.directory=/data/a b" not in words
+    assert "core.hooksPath=/dev/null" in words and "core.fsmonitor=false" in words
+    # And it is a working upload-pack
+    repo = tmp_path / "r"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=n", "-c", "user.email=e@x", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    out = _ls_remote(tmp_path, repo, github.upload_pack_command(repo))
+    assert out.returncode == 0 and "HEAD" in out.stdout
+    # Without any safe.directory entry the foreign-owned repo is refused (the env var proves the entry matters)
+    bare = shlex.join(["git", "upload-pack"])
+    refused = _ls_remote(tmp_path, repo, bare)
+    if refused.returncode == 0:
+        pytest.skip("this git ignores GIT_TEST_ASSUME_DIFFERENT_OWNER: cannot prove the entry matters")
+    assert "HEAD" not in refused.stdout
+
+
+def test_upload_pack_command_runs_under_the_account():
+    words = shlex.split(github.upload_pack_command("/data/projects/project-1/worktrees/task-5", "agent2"))
+    assert words == ["sudo", "-n", "-u", "agent2", github.UPLOAD_PACK_SCRIPT]
+
+
+def test_upload_pack_script_refuses_other_paths(tmp_path):
+    conf = tmp_path / "conf"
+    conf.write_text("/data/projects")
+    script = _with_conf(tmp_path, "upload-pack.sh", conf)
+    for bad in ("/data/projects/project-2/repo", "/data/projects/project-1/worktrees/task-5/../..", "/etc", "relative", "/data/projects/project-1/worktrees/task-5\n/x"):
+        out = subprocess.run(["sh", str(script), bad], capture_output=True, text=True)
+        assert out.returncode == 2 and "not a task clone path" in out.stderr, bad
+
+
+@pytest.fixture
+def agent_pool_env(setup, monkeypatch, safe_tmp):
+    """The push as the pool does it: the clone owned by `agent1` (faked), sudo replaced by a shim
+    that drops `-n -u <user>` and runs a stand-in for the root script."""
+    project, reference, calls = setup
+    bin_dir = safe_tmp / "bin"
+    bin_dir.mkdir()
+    log = safe_tmp / "sudo.log"
+    (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
+    # The real root script, its projects root pointed at the test's tmp dir, so its git command line is exercised
+    real = (Path(__file__).parent.parent / "scripts" / "upload-pack.sh").read_text()
+    conf = safe_tmp / "projects-root.conf"
+    conf.write_text(f"{safe_tmp}/projects")
+    # The git environment is scrubbed on the way, so the default conf path is swapped rather than the variable set
+    (bin_dir / "palabre-upload-pack").write_text(real.replace("/etc/palabre/projects-root.conf", str(conf)))
+    for f in bin_dir.iterdir():
+        f.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    monkeypatch.setattr(github, "UPLOAD_PACK_SCRIPT", str(bin_dir / "palabre-upload-pack"))
+    monkeypatch.setattr(worktrees, "UPLOAD_PACK_SCRIPT", str(bin_dir / "palabre-upload-pack"))
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 2)
+    owner = SimpleNamespace(pw_name="agent1")
+    monkeypatch.setattr(worktrees.pwd, "getpwuid", lambda uid: owner)
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    return project, reference, task, log, owner
+
+
+def test_push_fetches_as_the_clone_owner(agent_pool_env, monkeypatch):
+    project, reference, task, log, _ = agent_pool_env
+    seen = []
+
+    async def spy(cwd, *args, **kwargs):
+        if args[0] == "update-ref" and args[1] == "-d":  # Before the ref is dropped
+            seen.append(_run("rev-parse", "--verify", "refs/heads/task/5", cwd=reference).strip())
+        return await worktrees_git(cwd, *args, **kwargs)
+
+    worktrees_git = worktrees.git
+    monkeypatch.setattr(worktrees, "git", spy)
+    asyncio.run(worktrees.push_task_branch(project, task))
+    assert seen  # The branch was served by the account's upload-pack
+    assert log.read_text().split()[:3] == ["-n", "-u", "agent1"]
+
+
+def test_push_fails_closed_when_the_clone_was_taken_back(agent_pool_env, monkeypatch):
+    project, reference, task, log, owner = agent_pool_env
+    owner.pw_name = "palabre"
+    with pytest.raises(github.GitHubError, match="owned by palabre.*taken back"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert not log.exists()  # Never fell back to reading it as the backend
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
+def test_push_fails_when_sudo_is_unavailable(agent_pool_env, monkeypatch):
+    project, _, task, log, _ = agent_pool_env
+    monkeypatch.setattr(worktrees, "UPLOAD_PACK_SCRIPT", "/nonexistent/palabre-upload-pack")
+    with pytest.raises(github.GitHubError, match="sudo or /nonexistent/palabre-upload-pack is unavailable"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert not log.exists()
+
+
+def _commit_with_dotgit_entry(path):
+    blob = subprocess.run(
+        [*G, "hash-object", "-w", "--stdin"], cwd=path, check=True, capture_output=True, input=b"",
+    ).stdout.decode().strip()  # fmt: skip
+    # A tree entry named .git: hasDotgit is an error for fsck, plain transfer accepts it
+    tree = subprocess.run(
+        [*G, "hash-object", "-w", "-t", "tree", "--literally", "--stdin"], cwd=path, check=True,
+        capture_output=True, input=b"100644 .git\0" + bytes.fromhex(blob),
+    ).stdout.decode().strip()  # fmt: skip
+    return _run("commit-tree", tree, "-m", "bad", cwd=path).strip()
+
+
+def test_malformed_object_is_only_refused_by_fsck(agent_pool_env, tmp_path):
+    _, _, task, _, _ = agent_pool_env
+    path = Path(task.worktree_path)
+    commit = _commit_with_dotgit_entry(path)
+    _run("update-ref", "refs/heads/task/5", commit, cwd=path)
+    # Counterpart: without the fsck setting the very same commit is fetched
+    plain = tmp_path / "plain"
+    _run("init", "-q", str(plain), cwd=tmp_path)
+    _run("-c", "protocol.file.allow=always", "fetch", "-q", str(path), "refs/heads/task/5", cwd=plain)
+    _run("cat-file", "-e", commit, cwd=plain)
+    strict = tmp_path / "strict"
+    _run("init", "-q", str(strict), cwd=tmp_path)
+    with pytest.raises(subprocess.CalledProcessError):
+        _run("-c", "protocol.file.allow=always", "-c", "transfer.fsckObjects=true", "fetch", "-q", str(path),
+             "refs/heads/task/5", cwd=strict)  # fmt: skip
+
+
+def test_push_refuses_a_malformed_object(agent_pool_env):
+    project, reference, task, _, _ = agent_pool_env
+    path = Path(task.worktree_path)
+    commit = _commit_with_dotgit_entry(path)
+    _run("update-ref", "refs/heads/task/5", commit, cwd=path)
+    with pytest.raises(github.GitHubError, match="fetch failed"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
+def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
+    root = tmp_path / "projects" / "project-3"
+    (root / "repo").mkdir(parents=True)
+    (root / "repo" / "a.txt").write_text("x")
+
+    def fake_rmtree(path, onexc=None, **_kw):
+        onexc(os.unlink, str(Path(path) / "repo" / "a.txt"), PermissionError("denied"))
+
+    monkeypatch.setattr(worktrees.shutil, "rmtree", fake_rmtree)
+    with caplog.at_level("ERROR", logger="app.worktrees"):
+        asyncio.run(worktrees.remove_project_files(3))  # does not raise
+    assert "cannot delete" in caplog.text and "a.txt" in caplog.text and "denied" in caplog.text
+
+
+def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
+    (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
+    asyncio.run(worktrees.remove_project_files(4))
+    assert not (tmp_path / "projects" / "project-4").exists()
+
+
+SCRIPTS = Path(__file__).parent.parent / "scripts"
+# script, a clone path shape it accepts under the root
+ROOTED = {
+    "rm-clone.sh": ("project-1/worktrees/task-2", []),
+    "upload-pack.sh": ("project-1/worktrees/task-2", []),
+    "claim-clone.sh": ("project-1/worktrees/task-2", ["palabre"]),
+}
+
+
+@pytest.fixture
+def safe_tmp():
+    """A temp dir under /tmp: the scripts refuse a root with a "." and pytest's basetemp may contain one."""
+    path = Path(tempfile.mkdtemp(prefix="palabre-rooted-", dir="/tmp"))
+    yield path
+    shutil.rmtree(path, ignore_errors=True)
+
+
+def _with_conf(safe_tmp, script, conf):
+    """A copy of the root script reading `conf`: the scripts hard-code their conf path (they run as root)."""
+    text = (SCRIPTS / script).read_text()
+    assert "CONF=/etc/palabre/projects-root.conf\n" in text
+    copy = safe_tmp / f"patched-{script}"
+    copy.write_text(text.replace("CONF=/etc/palabre/projects-root.conf\n", f"CONF={conf}\n"))
+    return copy
+
+
+def _rooted(safe_tmp, script, root, path, conf=None):
+    conf = conf or safe_tmp / "conf"
+    if root is not None:
+        conf.write_text(root)
+    args = [str(path), *ROOTED[script][1]]
+    return subprocess.run(["sh", str(_with_conf(safe_tmp, script, conf)), *args], capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_scripts_have_no_hardcoded_projects_root(script):
+    assert "/data/projects" not in (SCRIPTS / script).read_text()
+
+
+def test_rm_clone_root_comes_from_config(safe_tmp):
+    root = safe_tmp / "projs"
+    clone = root / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    (clone / "f").write_text("x")
+    done = _rooted(safe_tmp, "rm-clone.sh", str(root), clone)
+    assert done.returncode == 0, done.stderr
+    assert clone.is_dir() and not any(clone.iterdir())
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_accepts_a_clone_under_the_configured_root(safe_tmp, script):
+    root = safe_tmp / "projs"
+    clone = root / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    done = _rooted(safe_tmp, script, str(root), clone)
+    # Past the path guards: upload-pack then fails on the missing .git, claim-clone on the missing account
+    if script == "rm-clone.sh":
+        assert done.returncode == 0, done.stderr
+    assert "not a task clone path" not in done.stderr and "not a clone path" not in done.stderr
+    assert "projects root" not in done.stderr
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_refuses_outside_the_root(safe_tmp, script):
+    root = safe_tmp / "projs"
+    other = safe_tmp / "other" / "project-1" / "worktrees" / "task-2"
+    other.mkdir(parents=True)
+    (other / "f").write_text("x")
+    done = _rooted(safe_tmp, script, str(root), other)
+    assert done.returncode == 2 and (other / "f").exists()
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_fails_closed_on_bad_root(safe_tmp, script):
+    clone = safe_tmp / "projs" / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    (clone / "f").write_text("x")
+    for root in ("", "/", "relative", f"{safe_tmp}/projs/", f"{safe_tmp}/pro.js"):
+        done = _rooted(safe_tmp, script, root, clone)
+        assert done.returncode == 2 and "projects root" in done.stderr, root
+    assert (clone / "f").exists()
+    # No config file at all
+    done = _rooted(safe_tmp, script, None, clone, conf=safe_tmp / "missing")
+    assert done.returncode == 2 and "no projects root" in done.stderr
