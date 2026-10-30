@@ -188,6 +188,66 @@ def test_token_never_runs_in_an_agent_clone(setup):
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)  # pushed from a temporary ref
 
 
+def _alternates(name):
+    def tamper(path):
+        (path / ".git" / "objects" / "info" / name).write_text("/data/projects/project-9/repo/.git/objects\n")
+
+    return tamper
+
+
+def _commondir(path):
+    (path / ".git" / "commondir").write_text("/data/projects/project-9/repo/.git\n")
+
+
+def _symlinked_pack(path):
+    pack = path / ".git" / "objects" / "pack"
+    shutil.rmtree(pack)
+    pack.symlink_to(path.parent / "elsewhere")
+
+
+def _symlinked_pack_file(path):
+    pack = path / ".git" / "objects" / "pack"
+    pack.mkdir(exist_ok=True)
+    (pack / "pack-x.pack").symlink_to(path.parent / "elsewhere")
+
+
+def _symlinked_objects(path):
+    objects = path / ".git" / "objects"
+    shutil.rmtree(objects)
+    objects.symlink_to(path.parent / "elsewhere")
+
+
+def _gitfile(path):
+    shutil.rmtree(path / ".git")
+    (path / ".git").write_text("gitdir: /data/projects/project-9/repo/.git\n")
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        _alternates("alternates"),
+        _alternates("http-alternates"),
+        _commondir,
+        _symlinked_pack,
+        _symlinked_pack_file,
+        _symlinked_objects,
+        _gitfile,
+    ],
+)
+def test_push_refuses_a_clone_that_points_elsewhere(setup, tamper):
+    project, reference, calls = setup
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    tamper(path)
+    calls.clear()
+    with pytest.raises(github.GitHubError, match="Refusing to push"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert calls == []  # Nothing ran, in particular no fetch from the clone
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
 def test_clone_config_cannot_replace_upload_pack(setup):
     project, reference, _ = setup
     task = SimpleNamespace(id=5, branch="task/5")
