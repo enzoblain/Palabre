@@ -23,7 +23,7 @@ def test_agent_user_and_shared_group():
 
 def test_single_narrow_sudo_rule():
     rules = re.findall(r'"(palabre ALL=[^"]*)"', DOCKERFILE)
-    # Only the claude binary, a process-group kill and the clone remover, only as the agent users, never as root
+    # Only the claude binary, a process-group kill and the clone remover, as the agent users, and root only for the four claim-clone rules below
     assert rules == [
         "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
         "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
@@ -204,6 +204,9 @@ def test_runs_have_a_private_primary_group_and_no_shared_writable_dir():
     script = ENTRYPOINT.read_text()
     assert "2775" not in script and "chmod -R g+rwX \"$dir\"" not in script
     assert 'chown -hR palabre:palabre' in script and "chown palabre:work \"$project/$parent\"" in script
+    # The per-employee Go caches go back to the backend at every start, like the clones
+    gopath = [l for l in script.splitlines() if "toolchains/gopath" in l and "-name 'employee-*'" in l]
+    assert any("chown -hR palabre:palabre" in l for l in gopath) and any("chmod -R" in l and "o-rwx" in l for l in gopath)
 
 
 CLAIM = BACKEND / "scripts" / "claim-clone.sh"

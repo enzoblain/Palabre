@@ -96,6 +96,13 @@ for project in "$DATA"/projects/project-*; do
   done
 done
 
+# Per-employee Go caches: same as the clones, back to the backend at every start (a run's
+# account may have left files in them); the next run of the employee claims its cache.
+if real_dir "$DATA/toolchains/gopath"; then
+  find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -type d -name 'employee-*' -exec chown -hR palabre:palabre {} +
+  find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -type d -name 'employee-*' -exec chmod -R u+rwX,g+rwX,go-s,o-rwx {} +
+fi
+
 # Secrets: Docker mounts them readable by everyone in /run/secrets. Close that directory
 # and hand the backend its own private copy, so no agent (or child process) can read them.
 if [ -d /run/secrets ]; then

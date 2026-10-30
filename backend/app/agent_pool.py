@@ -99,6 +99,11 @@ def quarantine(user: str) -> None:
     _quarantined.add(user)
 
 
+def unquarantine(user: str) -> None:
+    """Lets `user` go back to the pool: its clone and cache were taken back."""
+    _quarantined.discard(user)
+
+
 def reset() -> None:
     """Forgets the leases (tests, settings changes)."""
     global _pool

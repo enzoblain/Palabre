@@ -71,13 +71,18 @@ expect() { # description, got, expected
   if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
 }
 cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
-expect "sudo -l shows exactly 4 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 4
+expect "sudo -l shows exactly 8 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 8
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
-expect "every rule runs as the pool users only ($pool)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s' "$pool" | norm)"
+expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*'; do
+    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' \
+    '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
+    '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
+# The only rules running as root are the four claim-clone ones
+expect "the root rules are the 4 claim-clone ones only" "$(printf '%s\n' "$rules" | grep '^root|' | cut -d'|' -f3 | grep -c '^/usr/local/bin/palabre-claim-clone ')" 4
+expect "no other rule runs as root" "$(printf '%s\n' "$rules" | grep -c '^root|')" 4
 expect "SETENV is on the claude rule only" "$(printf '%s\n' "$rules" | grep '|1|' | cut -d'|' -f3 | tr '\n' ' ')" "/home/palabre/.local/bin/claude "
 for user in $(printf '%s' "$pool" | tr ',' ' '); do
   [ "$user" = agent ] && continue

@@ -228,13 +228,17 @@ async def _take_back(owned: list[Path], user: str, dead: bool) -> None:
     """Gives the clone and Go cache back to the backend before `user` serves another employee: it could
     otherwise keep writing a hook in a clone it no longer runs in. Fail closed: if the kill or the
     hand-back failed, the account stays out of the pool (it still owns them)."""
-    if dead:
-        try:
-            await _claim(owned, "palabre")
-            return
-        except Exception:
-            log.exception("Cannot take %s back from %s", owned, user)
+    # Quarantine first, lifted only once the hand-back succeeded: a cancellation (BaseException)
+    # during the hand-back must leave the account out of the pool too
     agent_pool.quarantine(user)
+    if not dead:
+        return
+    try:
+        await _claim(owned, "palabre")
+    except Exception:
+        log.exception("Cannot take %s back from %s", owned, user)
+        return
+    agent_pool.unquarantine(user)
 
 
 async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:

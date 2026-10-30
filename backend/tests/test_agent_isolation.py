@@ -643,6 +643,13 @@ def pooled(monkeypatch):
     return events, kill_ok
 
 
+def _track_quarantine(monkeypatch):
+    quarantined = set()
+    monkeypatch.setattr(runner.agent_pool, "quarantine", quarantined.add)
+    monkeypatch.setattr(runner.agent_pool, "unquarantine", quarantined.discard)
+    return quarantined
+
+
 def _fake_proc(monkeypatch, events):
     class Proc:
         returncode = 0
@@ -689,12 +696,39 @@ async def test_account_stays_out_of_the_pool_if_the_clone_cannot_be_taken_back(a
         if user == "palabre":
             raise runner.ClaudeRunError("boom")
 
-    quarantined = []
+    quarantined = _track_quarantine(monkeypatch)
     monkeypatch.setattr(runner, "_claim", claim)
-    monkeypatch.setattr(runner.agent_pool, "quarantine", quarantined.append)
     _fake_proc(monkeypatch, events)
     await runner.run_claude(replace(spec(tmp_path), employee_id=7))
-    assert quarantined == ["agent3"]
+    assert quarantined == {"agent3"}
+
+
+async def test_account_is_lifted_from_quarantine_once_the_clone_is_back(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+
+    async def claim(paths, user):
+        pass
+
+    quarantined = _track_quarantine(monkeypatch)
+    monkeypatch.setattr(runner, "_claim", claim)
+    _fake_proc(monkeypatch, events)
+    await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert quarantined == set()
+
+
+async def test_account_stays_quarantined_if_the_hand_back_is_cancelled(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+
+    async def claim(paths, user):
+        if user == "palabre":
+            raise asyncio.CancelledError
+
+    quarantined = _track_quarantine(monkeypatch)
+    monkeypatch.setattr(runner, "_claim", claim)
+    _fake_proc(monkeypatch, events)
+    with pytest.raises(asyncio.CancelledError):
+        await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert quarantined == {"agent3"}
 
 
 async def test_clone_is_taken_back_even_if_collecting_the_session_fails(as_agent, pooled, monkeypatch, tmp_path):
@@ -718,16 +752,15 @@ async def test_clone_is_taken_back_even_if_collecting_the_session_fails(as_agent
 async def test_unkillable_account_is_quarantined(as_agent, pooled, monkeypatch, tmp_path):
     events, kill_ok = pooled
     kill_ok[0] = False
-    quarantined = []
+    quarantined = _track_quarantine(monkeypatch)
 
     async def claim(paths, user):
         pass
 
     monkeypatch.setattr(runner, "_claim", claim)
-    monkeypatch.setattr(runner.agent_pool, "quarantine", quarantined.append)
     _fake_proc(monkeypatch, events)
     await runner.run_claude(replace(spec(tmp_path), employee_id=7))
-    assert quarantined == ["agent3"]
+    assert quarantined == {"agent3"}
 
 
 async def test_lease_does_not_release_a_quarantined_account(monkeypatch):
