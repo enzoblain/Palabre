@@ -199,6 +199,24 @@ esac
 STUB
 chmod 755 "$CLAUDE"
 
+# Restart of the entrypoint, shared account (AGENT_POOL_SIZE=0): the existing clones go to group work, so the one agent can
+# still write in them (and serve them to upload-pack); with a pool they stay palabre:palabre go-rwx until claimed.
+restart_clone=$DATA/projects/project-99997/worktrees/task-2
+mkdir -p "$restart_clone"
+chown palabre:palabre "$restart_clone"
+as_palabre git init -q "$restart_clone"
+as_palabre git -C "$restart_clone" -c user.name=t -c user.email=t@t commit -q --allow-empty -m restart
+as_palabre git -C "$restart_clone" update-ref refs/heads/task/2 HEAD
+chmod -R go-rwx "$restart_clone"
+check "entrypoint restart (shared account)" env AGENT_POOL_SIZE=0 docker-entrypoint.sh true
+check "shared account: after a restart agent can write in an existing clone" as_agent touch "$restart_clone/.git/hooks/pre-commit"
+restart_scratch=$(mktemp -d) && chown palabre:palabre "$restart_scratch" && as_palabre git init -q "$restart_scratch"
+check "shared account: after a restart agent can serve the clone to palabre-upload-pack" \
+  as_palabre git -C "$restart_scratch" fetch -q --no-tags --upload-pack="sudo -n -u agent /usr/local/bin/palabre-upload-pack" "$restart_clone" refs/heads/task/2:refs/heads/task/2
+# Back to a pool: the clone that was shared is taken back
+check "entrypoint restart (pool)" env AGENT_POOL_SIZE=8 docker-entrypoint.sh true
+denied "pool mode: a restart takes back a shared clone" as_agent test -r "$restart_clone/.git/config"
+
 # A claimed clone and Go cache belong to one account alone (#160): through the real sudo rule, as the backend does
 as_pool_sh() { u=$1; shift; setpriv --reuid="$u" --regid="$u" --init-groups "$@"; }
 claim_root=$DATA/projects/project-99997/worktrees/task-1
