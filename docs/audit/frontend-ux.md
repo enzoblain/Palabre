@@ -32,23 +32,23 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 
 ### 1. No tests and no linter on the frontend
 
-- Where: `frontend/package.json:6-12` (`check` is `tsc --noEmit` plus `vite build`), `.github/workflows/ci.yml:65-90`. No test runner, no ESLint, no `react-hooks` rules. `src/util.ts:24` and `src/App.tsx` carry an `eslint-disable` comment for a tool that is not installed.
-- Problem: the only guard is the type check. The riskiest logic is untested: unread counting (`App.tsx:63-121`), `spreadAccounts` (`util.ts:56`, must mirror `backend/app/accounts.py`), the Markdown mention plugin (`Markdown.tsx:13-42`), `normalizeServer`, `parseDate`, team validation (`TeamEditor.tsx:48-60`). The hand-written `useEffect` dependency lists (`App.tsx:75,89`, `ConversationView.tsx:226`) are never checked.
-- Fix: add Vitest plus Testing Library for the pure helpers and the `RequestBox`/`Composer` flows; add ESLint with `react-hooks/exhaustive-deps` and `jsx-a11y`; run both in `npm run check`. Add one Playwright smoke test (connect, open direction, send, answer a request) at a phone viewport.
+- Where: `frontend/package.json:6-12` (`check` is `tsc --noEmit` plus `vite build`), `.github/workflows/ci.yml:65-90`. No test runner, no ESLint, no `react-hooks` rules. `src/util.ts:24` carries an `eslint-disable` comment for a tool that is not installed.
+- Problem: the only guard is the type check. The riskiest logic is untested: unread counting (`App.tsx:63-121`), `spreadAccounts` (`util.ts:56`, must mirror `backend/app/accounts.py`), the Markdown mention plugin (`Markdown.tsx:13-42`), `normalizeServer`, `parseDate`, team validation (`TeamEditor.tsx:48-60`). The hand-written `useEffect` dependency lists (`App.tsx:75,89`, `ConversationView.tsx:227`) are never checked.
+- Fix: (each tool is a new dev dependency to weigh, with Inès on the supply-chain side; see also the QA audit on tests) add Vitest plus Testing Library for the pure helpers and the `RequestBox`/`Composer` flows; add ESLint with `react-hooks/exhaustive-deps` and `jsx-a11y`; run both in `npm run check`. Add one Playwright smoke test (connect, open direction, send, answer a request) at a phone viewport.
 - Effort: M.
 
 ### 2. Access token in clear in `localStorage`, and no CSP
 
-- Where: `src/api.ts:127-152` (`palabre.connection` holds server and bearer token), `src-tauri/tauri.conf.json:25-27` (`"csp": null`), `Markdown.tsx:74` (renders agent-written Markdown).
+- Where: `src/api.ts:184-207` (`palabre.connection` holds server and bearer token), `src-tauri/tauri.conf.json:23` (`"csp": null`), `Markdown.tsx:74` (renders agent-written Markdown).
 - Problem: the admin token is readable by any script in the page. Agents write the Markdown the UI renders; `react-markdown` escapes HTML by default, which is good, but with no CSP any future slip (for example adding `rehype-raw`, or a dependency compromise) gives full access to the token and therefore to the whole company. In Tauri the same applies, with the `http:default` capability on top (see 15). The token is also in the `Connect` form as `type="password"` with no `autocomplete` hint.
-- Fix: set a strict CSP in `tauri.conf.json` (`default-src 'self'`, `connect-src` limited to what Tauri needs, `img-src 'self' data:`) and the same as a header in `nginx.conf`; in the desktop app keep the token in the OS keychain or a Tauri store rather than `localStorage`; add `autoComplete="off"` / `current-password` deliberately on the token field. Add a comment and a test that `rehype-raw` is never enabled.
+- Fix (see also M4 and L5 of the architecture audit and the security review for overlap): set a strict CSP in `tauri.conf.json` (`default-src 'self'`, `connect-src` limited to what Tauri needs, `img-src 'self' data:`) and the same as a header in `nginx.conf`; in the desktop app keep the token in the OS keychain or a Tauri store rather than `localStorage`; add `autoComplete="off"` / `current-password` deliberately on the token field. Add a comment and a test that `rehype-raw` is never enabled.
 - Effort: M. Needs Inès (security) to review.
 
 ### 3. API responses are cast, never validated
 
 - Where: `src/api.ts:258` (`await res.json()) as T`), `src/api.ts:193` (`JSON.parse(raw) as Connection`), `src/components/DocumentView.tsx:25` (`roomDocument<T>` lets the caller pick the type), `src/router.ts:16` (`as "report"`).
 - Problem: strict mode is on (`tsconfig.json`), but the type system stops at the network edge. Any backend change that renames or nulls a field compiles fine and crashes at runtime (for example `m.rooms.map`, `p.name.slice`). A corrupted `localStorage` value passes as a `Connection` and yields `undefined/api/...` requests.
-- Fix: validate at the boundary. Either generate types from the FastAPI OpenAPI schema (see 12) or add a small schema library (zod or valibot) for the handful of hot responses (`ProjectDetail`, `Message`, `EmployeeStatus`) and for the stored connection. At minimum check `typeof server === "string"` in `readConnection`.
+- Fix: validate at the boundary. Either generate types from the FastAPI OpenAPI schema (see 12) or, only if the generated types are not enough, weigh a small runtime schema library (zod or valibot, a new dependency; the generated route avoids it) for the handful of hot responses (`ProjectDetail`, `Message`, `EmployeeStatus`) and for the stored connection. At minimum check `typeof server === "string"` in `readConnection`.
 - Effort: M.
 
 ### 4. Silent failures: errors are swallowed
@@ -83,7 +83,7 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 
 ### 8. History is capped at 200 messages, with no way to load older ones
 
-- Where: `src/api.ts:174-177` (`limit=200`), `ConversationView.tsx:274-288`, `App.tsx:154`.
+- Where: `src/api.ts:323` (`limit=200`), `ConversationView.tsx:274-288`, `App.tsx:154`.
 - Problem: opening a long conversation shows the 200 messages the server returns, and nothing lets the CEO scroll further back. Direction can become the longest thread of the product, and the CEO cannot find an old decision there. Pending counting (`App.tsx:154-155`) also only sees those 200 messages: an old unanswered request beyond the window is invisible and the badge is wrong. Conversely the in-memory list grows without bound during a long session and every poll re-renders it (only `MessageRow` is memoized).
 - Fix: add `before_id` pagination (backend task) and a "Load earlier messages" control that keeps the scroll position; add a search or "jump to pending" shortcut; virtualise the list above a few hundred rows if needed. For the badge, ask the backend for a pending count instead of deriving it.
 - Effort: M (plus a small backend change).
@@ -97,8 +97,8 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 
 ### 10. No offline or reconnecting state
 
-- Where: `src/api.ts:185-187` (network errors become `ApiError(0, ...)`), `App.tsx:18-35`, `Connect.tsx`.
-- Problem: only a 401 is handled globally (`api.ts:205`, and it signs the user out). A server restart or a Wi-Fi drop is invisible; after it, a send can fail with a message the user must interpret (`Cannot reach the server at ...`) and the draft is kept, which is good, but there is no automatic retry. A 401 caused by a transient proxy error would log the CEO out and clear the stored connection with no confirmation.
+- Where: `src/api.ts:245` (network errors become `ApiError(0, ...)`), `App.tsx:18-35`, `Connect.tsx`.
+- Problem: only a 401 is handled globally (`api.ts:264`, and it signs the user out). A server restart or a Wi-Fi drop is invisible; after it, a send can fail with a message the user must interpret (`Cannot reach the server at ...`) and the draft is kept, which is good, but there is no automatic retry. A 401 caused by a transient proxy error would log the CEO out and clear the stored connection with no confirmation.
 - Fix: a global connection banner driven by polling failures (`status === 0`), retried automatically; on 401 keep the server address and only clear the token, with a message explaining why the user is back on the login screen.
 - Effort: S.
 
@@ -111,7 +111,7 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 
 ### 12. Hand-written types drift from the backend
 
-- Where: `src/api.ts:10-121` ("mirror `backend/app/api/schemas.py`" is a comment, not a check), `DocumentView.tsx:9-16` (local `Question`, `Task`, `RoomDocument` types), `Message.request_kind: string | null`, `Project.mode: string`, `Task.status: string` (`DocumentView.tsx:10`).
+- Where: `src/api.ts:10-184` ("mirror `backend/app/api/schemas.py`" is a comment, not a check), `DocumentView.tsx:9-16` (local `Question`, `Task`, `RoomDocument` types), `Message.request_kind: string | null`, `Project.mode: string`, `Task.status: string` (`DocumentView.tsx:10`).
 - Problem: duplicated contracts. `request_kind` and `status` are free strings, so a typo in a comparison compiles. `ProjectDetail` and `Conversation` are used but defined elsewhere in the file and are easy to desynchronise from `schemas.py`.
 - Fix: generate `api.d.ts` from the FastAPI OpenAPI document in a script (`openapi-typescript`) and check in CI that it is up to date; narrow the string fields to unions; move the document types into `api.ts`.
 - Effort: M.
@@ -157,7 +157,7 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 
 - Where: `src/App.tsx` (`Shell` handles routing, settings, projects, pending, statuses, credits, unread and layout, lines 123-236), `ConversationView.tsx` (380 lines, six components), `Settings.tsx` (421 lines, seven sections), `NewProject.tsx` (249 lines, a dozen `useState`).
 - Problem: harder to test and to change safely (see 1); data fetching is mixed with markup, with no shared cache, so Settings refetches every project's detail (`Settings.tsx:100-105`, one request per project on every render of `projects`) and `useProject` refetches everything on each route change to another project.
-- Fix: extract hooks (`useDirectionPending`, `useTeamStatus`, `useCredits`) and split files per section; consider TanStack Query for the cache, retries, polling and visibility handling in one place (this would also solve 4 and 6; a proven library fits the project's "reuse" rule better than the custom hook).
+- Fix: extract hooks (`useDirectionPending`, `useTeamStatus`, `useCredits`) and split files per section; TanStack Query would give the cache, retries, polling and visibility handling in one place (it would also solve 4 and 6), but it is a new dependency: CLAUDE.md asks to keep dependencies minimal, so weigh it against a small custom hook, with Inès on the supply-chain side.
 - Effort: M.
 
 ### 19. Minor nits
