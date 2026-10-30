@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import shutil
+import stat
 from collections import defaultdict
 from pathlib import Path
 
@@ -227,29 +228,56 @@ async def refresh_clone(project: Project, path: Path) -> None:
         await _pull_from_reference(project, path)
 
 
+def _clone_indirection(path: Path) -> str | None:
+    """Why the clone's object store cannot be trusted, or None. upload-pack runs as the backend
+    user and follows whatever the agent put in `.git`: alternates, `commondir`, symlinks and
+    gitfiles would all serve another project's objects."""
+    git_dir = path / ".git"
+    if not stat.S_ISDIR(git_dir.lstat().st_mode):
+        return ".git is not a real directory"
+    for name in ("objects/info/alternates", "objects/info/http-alternates", "commondir"):
+        if os.path.lexists(git_dir / name):
+            return f"it has {name}"
+    pending = [git_dir / "objects"]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                if entry.is_symlink():
+                    return f"{Path(entry.path).relative_to(git_dir)} is a symlink"
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(Path(entry.path))
+    return None
+
+
+async def _require_isolated_clone(path: Path) -> None:
+    """Fail closed: refuse to read a clone that points outside itself, with a clear error."""
+    try:
+        reason = await asyncio.to_thread(_clone_indirection, path)
+    except OSError as exc:
+        reason = f"its object store cannot be inspected ({exc})"
+    if reason:
+        raise GitHubError(
+            f"Refusing to push: {reason}, which could pull in objects from another repository. "
+            "Fix the clone (remove the file or symlink, keep .git a plain directory) and submit again."
+        )
+
+
 async def push_task_branch(project: Project, task: Task) -> None:
     """Publish the task's branch. The agent clone is only read, over the local transport; the
     push itself runs from the reference, whose config the backend owns, so the token never
     meets agent-written config. The lease is checked against the reference's origin/<branch>."""
     ref = f"refs/heads/{task.branch}"
-    # upload-pack follows alternates: a clone pointing at another project's object store could
-    # leak its objects. Fail closed rather than deleting the file silently.
-    info = Path(task.worktree_path) / ".git" / "objects" / "info"
-    for name in ("alternates", "http-alternates"):
-        if await asyncio.to_thread(os.path.lexists, info / name):
-            raise GitHubError(
-                f"Refusing to push: the clone has objects/info/{name}, which could pull in objects "
-                "from another repository. Remove that file and submit again."
-            )
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
         # trust= is inert for the local transport (the upload-pack command carries its own safe.directory)
+        await _require_isolated_clone(Path(task.worktree_path))  # Inside the lock, right before the fetch
         await git(
             reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(task.worktree_path)}",
             task.worktree_path, f"+{ref}:{ref}",
             allow_file=True, trust=Path(task.worktree_path) / ".git",
         )  # fmt: skip
         try:
+            await _require_isolated_clone(Path(task.worktree_path))  # Shrinks the window for a late write
             await git(
                 reference, "push", "--quiet", "--force-with-lease", "origin", f"{ref}:{ref}",
                 repo_url=project.repo_url,
