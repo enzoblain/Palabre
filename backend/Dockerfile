@@ -46,10 +46,13 @@ RUN mkdir /etc/skel-empty \
 # The umask makes the agents' files writable by the backend.
 # rm-clone deletes a desk or task clone (files the agent made outside the group): root-owned
 # script that only accepts a clone path, so the rule is not a general rm.
+# upload-pack serves a task clone to the push fetch as the account owning it (#193): only that
+# command, on an exact task clone path, so the rule is not a general git.
 # claim-clone gives a clone to the account about to run in it, as root: same idea, only exact paths
 # and agent accounts (the script checks its arguments; sudo's * would let anything through).
 COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
 COPY --chmod=755 scripts/claim-clone.sh /usr/local/bin/palabre-claim-clone
+COPY --chmod=755 scripts/upload-pack.sh /usr/local/bin/palabre-upload-pack
 RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i"; done)" \
     && printf '%s\n' \
       'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
@@ -57,6 +60,7 @@ RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i
       "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*" \
+      "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack /data/projects/*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre" \

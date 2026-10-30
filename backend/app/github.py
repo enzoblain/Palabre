@@ -92,32 +92,43 @@ def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
     return env
 
 
-def upload_pack_command(repo: str | Path) -> str:
-    """The `--upload-pack` for fetching from a repository owned by another user. Git clears its
-    config environment for a local transport, so the `-c safe.directory` of `git()` never reaches
-    the upload-pack it spawns there: it gets the exact path again, with the same neutralised config.
+UPLOAD_PACK_SCRIPT = "/usr/local/bin/palabre-upload-pack"
+
+
+def upload_pack_command(repo: str | Path, user: str | None = None) -> str:
+    """The `--upload-pack` for fetching from an agent's clone. With `user`, it runs under that
+    account through the narrow sudo rule: the OS then bounds what the clone's `.git` can make it read.
+    Without (no agent user configured), a plain upload-pack as the backend. Git clears its config
+    environment for a local transport, so the `-c safe.directory` of `git()` never reaches the
+    upload-pack it spawns: it gets the exact path again, with the same neutralised config.
     upload-pack checks the ownership of `<repo>/.git`, not of `<repo>`, so that is what is trusted."""
+    if user:
+        return shlex.join(["sudo", "-n", "-u", user, UPLOAD_PACK_SCRIPT])
     return shlex.join(["git", *SAFE_GIT_CONFIG, "-c", f"safe.directory={Path(repo) / '.git'}", "upload-pack"])
 
 
 async def git(
     cwd: str | Path, *args: str, repo_url: str | None = None, allow_file: bool = False,
-    trust: str | Path | None = None,
+    trust: str | Path | None = None, config: tuple[str, ...] = (),
 ) -> str:
     """allow_file: let this one call use the local `file` transport (a clone or a fetch between
     the reference and an agent clone); every other call stays https only. repo_url (the token) is
     only ever given for a repository whose config the backend alone writes, never an agent clone.
-    trust: another repository the command reads from, owned by the agent's user."""
+    trust: another repository the command reads from, owned by the agent's user (inert for the
+    local transport, whose upload-pack carries its own safe.directory; kept for commands that read it directly).
+    config: extra `key=value` settings for this call."""
     # The token only goes to network commands
     network = bool(args) and args[0] in NETWORK_COMMANDS
     # Agent clones may belong to another user (isolation, #101): the backend still reads and updates them
-    config = ["-c", f"safe.directory={cwd}"]
+    flags = ["-c", f"safe.directory={cwd}"]
     if trust:
-        config += ["-c", f"safe.directory={trust}"]
+        flags += ["-c", f"safe.directory={trust}"]
     if allow_file:
-        config += ["-c", "protocol.file.allow=always"]
+        flags += ["-c", "protocol.file.allow=always"]
+    for setting in config:
+        flags += ["-c", setting]
     proc = await asyncio.create_subprocess_exec(
-        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *config, *args,
+        "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *flags, *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=_git_env(repo_url if network else None, allow_file),

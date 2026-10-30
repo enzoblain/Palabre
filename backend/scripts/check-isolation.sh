@@ -71,11 +71,11 @@ expect() { # description, got, expected
   if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
 }
 cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
-expect "sudo -l shows exactly 8 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 8
+expect "sudo -l shows exactly 9 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 9
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
 expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' \
+    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' '/usr/local/bin/palabre-upload-pack /data/projects/*' \
     '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
     '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
@@ -236,6 +236,34 @@ touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
 denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
 chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
 denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+# The push fetch reads a task clone as the account owning it (#193): an alternates entry pointing at another
+# project's objects (private to palabre) gets nothing served, whatever the denylist would say
+victim=$DATA/projects/project-99996/repo
+mkdir -p "$victim" && chown palabre:palabre "$DATA/projects/project-99996" "$victim" && chmod 700 "$victim"
+as_palabre git init -q "$victim"
+as_palabre git -C "$victim" -c user.name=t -c user.email=t@t commit -q --allow-empty -m secret
+secret=$(as_palabre git -C "$victim" rev-parse HEAD)
+rm -f "$claim_root/foreign" "$claim_root/alias"
+as_palabre git -C "$claim_root" -c user.name=t -c user.email=t@t commit -q --allow-empty -m legit
+legit=$(as_palabre git -C "$claim_root" rev-parse HEAD)
+as_palabre git -C "$claim_root" update-ref refs/heads/task/1 "$legit"
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+UP="sudo -n -u agent1 /usr/local/bin/palabre-upload-pack"
+scratch=$(mktemp -d) && chown palabre:palabre "$scratch" && as_palabre git init -q "$scratch"
+# Positive control: also proves the sudoers rule matches what git invokes
+check "the upload-pack as agent1 serves the clone's own commit" \
+  as_palabre git -C "$scratch" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+check "the legit commit reached the scratch repo" as_palabre git -C "$scratch" cat-file -e "$legit"
+# Alternates to the victim, and a ref (written as root) naming its commit
+echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates"
+echo "$secret" > "$claim_root/.git/refs/heads/task/1"
+scratch2=$(mktemp -d) && chown palabre:palabre "$scratch2" && as_palabre git init -q "$scratch2"
+denied "the upload-pack as agent1 cannot serve another project through alternates" \
+  as_palabre git -C "$scratch2" fetch -q --no-tags --upload-pack="$UP" "$claim_root" refs/heads/task/1:refs/heads/task/1
+denied "the other project's commit did not reach the scratch repo" as_palabre git -C "$scratch2" cat-file -e "$secret"
+rm -rf "$scratch" "$scratch2"
+denied "palabre cannot upload-pack a path that is not a task clone" as_palabre sudo -n -u agent1 /usr/local/bin/palabre-upload-pack "$victim"
+rm -rf "$DATA/projects/project-99996"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
