@@ -298,3 +298,25 @@ def test_clones_share_no_object_with_the_reference(setup):
     assert all(
         obj.stat().st_mode & 0o777 == 0o400 for obj in (reference / ".git" / "objects").rglob("*") if obj.is_file()
     )
+
+
+def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
+    # Git drops -c and GIT_CONFIG_* for the upload-pack of a local fetch: the command carries them
+    import shlex
+    import subprocess
+
+    command = github.upload_pack_command("/data/a b")
+    words = shlex.split(command)
+    assert words[0] == "git" and words[-1] == "upload-pack"
+    assert "safe.directory=/data/a b/.git" in words and "safe.directory=*" not in words
+    assert "safe.directory=/data/a b" not in words
+    assert "core.hooksPath=/dev/null" in words and "core.fsmonitor=false" in words
+    # And it is a working upload-pack
+    repo = tmp_path / "r"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=n", "-c", "user.email=e@x", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    out = subprocess.run(
+        ["git", "-C", str(tmp_path), "ls-remote", f"--upload-pack={github.upload_pack_command(repo)}", str(repo)],
+        capture_output=True, text=True,
+    )
+    assert out.returncode == 0 and "HEAD" in out.stdout

@@ -4,6 +4,7 @@ import asyncio
 import base64
 import os
 import re
+import shlex
 from pathlib import Path
 from urllib.parse import quote
 
@@ -89,6 +90,14 @@ def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
             "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {basic}",
         }
     return env
+
+
+def upload_pack_command(repo: str | Path) -> str:
+    """The `--upload-pack` for fetching from a repository owned by another user. Git clears its
+    config environment for a local transport, so the `-c safe.directory` of `git()` never reaches
+    the upload-pack it spawns there: it gets the exact path again, with the same neutralised config.
+    upload-pack checks the ownership of `<repo>/.git`, not of `<repo>`, so that is what is trusted."""
+    return shlex.join(["git", *SAFE_GIT_CONFIG, "-c", f"safe.directory={Path(repo) / '.git'}", "upload-pack"])
 
 
 async def git(

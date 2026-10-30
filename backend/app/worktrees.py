@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app import agent_pool, claude_store
 from app.config import settings
-from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch
+from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
 from app.models import Employee, Project, Task
 
 
@@ -235,8 +235,9 @@ async def push_task_branch(project: Project, task: Task) -> None:
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
         await git(
-            reference, "fetch", "--quiet", "--no-tags", task.worktree_path, f"+{ref}:{ref}",
-            allow_file=True, trust=task.worktree_path,
+            reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(task.worktree_path)}",
+            task.worktree_path, f"+{ref}:{ref}",
+            allow_file=True, trust=Path(task.worktree_path) / ".git",
         )  # fmt: skip
         try:
             await git(
