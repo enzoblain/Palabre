@@ -283,7 +283,7 @@ def _clone_owner_account(path: Path) -> str | None:
     if not settings.agent_user:
         return None
     if settings.agent_pool_size <= 0:
-        return settings.agent_user  # Legacy shared account: clones stay the backend's, nothing is claimed
+        return settings.agent_user  # Legacy shared account: clones are owned by the backend, shared through group work
     try:
         uids = {os.lstat(path).st_uid, os.lstat(path / ".git").st_uid}
         names = {pwd.getpwuid(uid).pw_name for uid in uids}

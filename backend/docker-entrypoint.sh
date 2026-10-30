@@ -40,7 +40,7 @@ share_back() {
   find -P "$1" -type d -exec chmod g+s {} +
 }
 
-# Per-clone hand-back at start: private to the backend with a pool, shared with the agent group without
+# Per-clone hand-back at start: private to the backend with a pool, shared with the agent group (work) without
 claim_back() {
   if [ "$shared_account" = 1 ]; then share_back "$1"; else take_back "$1"; fi
 }
