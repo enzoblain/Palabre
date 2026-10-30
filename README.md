@@ -225,7 +225,7 @@ Automatic updates are a security trade-off. The `updater` mounts `/var/run/docke
 is root on the host, and it only finds new images under a moving tag, so you also set
 `PALABRE_VERSION=latest`: a compromised image or registry account would then run on your
 machine without anyone choosing it. Leave it off (the default) unless you accept that; by
-default every image is pinned (Palabre by version, `postgres`, `docker` and the Python base by digest)
+default every image is pinned (Palabre by version; `postgres`, `docker`, and the Python, Node and nginx bases by digest)
 and you update on purpose with the command above.
 
 Claude Code is installed in the image at the version pinned in `backend/Dockerfile`, after its

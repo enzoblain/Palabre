@@ -68,6 +68,8 @@ RUN set -eu; \
     chmod +x /tmp/claude; \
     /tmp/claude install "${CLAUDE_CODE_VERSION}"; \
     rm -f /tmp/claude; \
+    installed=$(sha256sum "$(readlink -f "$(command -v claude)")" | cut -d" " -f1); \
+    [ "$installed" = "${sha}" ] || { echo "The installed claude is not the checked binary" >&2; exit 1; }; \
     claude --version
 # The agent runs the binary but cannot change it
 RUN chmod -R go+rX /home/palabre/.local

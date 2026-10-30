@@ -124,6 +124,8 @@ def set_version(path: str, text: str, version: str, package: str = "") -> str:
         return re.sub(r'(\n    "": \{[^}]*?"version": ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     if name == "Cargo.toml":
         return re.sub(r'(?m)^(version = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
+    if name == "docker-compose.yml":  # The pinned image version, so the compose file and its images match
+        return re.sub(r"(\$\{PALABRE_VERSION:-)[^}]*(\})", rf"\g<1>{version}\g<2>", text)
     if name == "Cargo.lock" and package:
         return re.sub(rf'(name = "{re.escape(package)}"\nversion = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     return text

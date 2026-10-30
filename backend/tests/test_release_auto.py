@@ -389,3 +389,10 @@ async def test_commit_release_refuses_a_symlinked_target(tmp_path, monkeypatch):
 def test_update_changelog_keeps_every_section_without_a_tag():
     out = release.update_changelog(CHANGELOG, "0.1.0", None, release.changelog_entry("0.1.0", "2026-11-01", ["feat: a"]))
     assert "## [0.6.1]" in out
+
+
+def test_set_version_bumps_the_compose_image_default():
+    text = "image: a:${PALABRE_VERSION:-0.6.1}\nimage: b:${PALABRE_VERSION:-0.6.1}\nx: ${OTHER:-0.6.1}\n"
+    out = release.set_version("docker-compose.yml", text, "0.7.0")
+    assert out == "image: a:${PALABRE_VERSION:-0.7.0}\nimage: b:${PALABRE_VERSION:-0.7.0}\nx: ${OTHER:-0.6.1}\n"
+    assert projects.VERSION_FILES["docker-compose.yml"](out, "") == "0.7.0"
