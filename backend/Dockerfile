@@ -19,7 +19,8 @@ RUN apt-get update \
 # as agent1..agentN (AGENT_POOL_SIZE): a live run holds one of them alone, so it cannot read another
 # run's /proc/<pid>/environ (the lead's MCP token, the Claude account tokens). All share the group
 # "work" for the files they work in, and each has a private group agentN (palabre belongs to it)
-# that guards its MCP config and Claude config dir against the other runs. "agent" is the legacy single user.
+# that guards its MCP config and Claude config dir against the other runs. Their /home/agentN is root's
+# (r-x for the group, nothing for others): a run writes in its own HOME under its run dir, so nothing persists there. "agent" is the legacy single user.
 ARG AGENT_POOL_SIZE=8
 RUN groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
@@ -29,7 +30,8 @@ RUN groupadd --gid 1002 work \
          groupadd --gid $((3000 + i)) "agent$i" \
          && useradd --create-home --uid $((2000 + i)) --gid work --groups "agent$i" "agent$i" \
          && usermod --append --groups "agent$i" palabre \
-         && chmod 700 "/home/agent$i"; \
+         && chown root:"agent$i" "/home/agent$i" \
+         && chmod 550 "/home/agent$i"; \
        done \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv

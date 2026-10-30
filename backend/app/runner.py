@@ -99,6 +99,8 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
         # A pool user gets a fresh HOME per run (inside the run's config dir): what a run writes
         # there (.gitconfig, .npmrc...) must not be executed by the next run on the same uid
         home = str(config_dir / "home") if config_dir and user != settings.agent_user else account.pw_dir
+        if config_dir and user != settings.agent_user:
+            env["TMPDIR"] = str(config_dir / "tmp")
         env |= {"HOME": home, "USER": account.pw_name, "LOGNAME": account.pw_name, "PATH": AGENT_PATH}
     if not oauth_token:
         raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
@@ -254,6 +256,10 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
     finally:
         mcp_config.unlink(missing_ok=True)
         if config_dir:
+            # Nothing of the run may still write in its dir while it is collected (a lease's kill
+            # comes too late for that). Not for the shared legacy user: it would kill other runs.
+            if user and user != settings.agent_user:
+                await agent_pool.kill_all(user)
             await claude_store.collect(spec.employee_id, config_dir, user)
 
     try:

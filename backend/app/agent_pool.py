@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import pwd
 from collections import deque
 from collections.abc import AsyncIterator
 
@@ -17,6 +18,26 @@ def users() -> list[str]:
         return []
     pool = [f"{settings.agent_user}{i}" for i in range(1, settings.agent_pool_size + 1)]
     return pool + [settings.agent_user]
+
+
+def check() -> None:
+    """At startup: shrinks the pool to the accounts that exist, with a clear error for the first missing one.
+
+    Pool users are numbered, so the pool is the run of accounts present from agent1 on."""
+    if not settings.agent_user or settings.agent_pool_size <= 0:
+        return
+    for size in range(settings.agent_pool_size):
+        name = f"{settings.agent_user}{size + 1}"
+        try:
+            pwd.getpwnam(name)
+        except KeyError:
+            log.error(
+                "Agent account %s does not exist (AGENT_POOL_SIZE=%d): the pool is reduced to %d account(s)",
+                name, settings.agent_pool_size, size,
+            )  # fmt: skip
+            settings.agent_pool_size = size
+            reset()
+            return
 
 
 class _Pool:
@@ -73,7 +94,7 @@ async def lease() -> AsyncIterator[str]:
     """The system user one run executes as; waits if every pool user has a live run.
 
     Two live runs never share a uid, so neither can read the other's /proc/<pid>/environ.
-    Without a pool (pool size 0) every run uses AGENT_USER; without AGENT_USER, the backend's own user ("")."""
+    Without a pool (pool size 0, or no pool account on this machine) every run uses AGENT_USER; without AGENT_USER, the backend's own user ("")."""
     if not settings.agent_user or settings.agent_pool_size <= 0:
         yield settings.agent_user
         return
@@ -83,13 +104,13 @@ async def lease() -> AsyncIterator[str]:
     finally:
         # A process a run left behind (setsid nohup ...) would keep this uid and read the
         # environment of the next run to get it: the account only goes back once it is empty
-        if await _kill_all(user):
+        if await kill_all(user):
             _pool.release(user)
         else:
             log.error("Agent account %s still may have processes: removed from the pool until restart", user)
 
 
-async def _kill_all(user: str) -> bool:
+async def kill_all(user: str) -> bool:
     try:
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "-u", user, "/usr/bin/kill", "-KILL", "--", "-1",

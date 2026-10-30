@@ -322,7 +322,7 @@ def kills(monkeypatch):
         killed.append(user)
         return True
 
-    monkeypatch.setattr(agent_pool, "_kill_all", fake)
+    monkeypatch.setattr(agent_pool, "kill_all", fake)
     return killed
 
 
@@ -440,7 +440,7 @@ def test_user_whose_processes_cannot_be_killed_is_not_reused(monkeypatch, kills)
     async def failing(user):
         return False
 
-    monkeypatch.setattr(agent_pool, "_kill_all", failing)
+    monkeypatch.setattr(agent_pool, "kill_all", failing)
     monkeypatch.setattr(settings, "agent_user", "agent")
     monkeypatch.setattr(settings, "agent_pool_size", 2)
     agent_pool.reset()
@@ -471,7 +471,7 @@ def test_kill_all_runs_the_sudo_kill_of_the_whole_uid(monkeypatch):
         return Proc()
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
-    assert asyncio.run(agent_pool._kill_all("agent3")) is True
+    assert asyncio.run(agent_pool.kill_all("agent3")) is True
     assert seen["args"] == ("sudo", "-n", "-u", "agent3", "/usr/bin/kill", "-KILL", "--", "-1")
 
 
@@ -516,3 +516,67 @@ def test_pool_user_gets_a_fresh_home_in_its_run_dir(as_agent, monkeypatch, tmp_p
     assert env["HOME"] == str(run_dir / "home")
     # The legacy single user keeps its persistent home
     assert runner._env("Mehdi", TOKEN, tmp_path, run_dir, "root")["HOME"] == "/root"
+
+
+# Follow-ups of #152
+
+
+def test_pool_user_gets_a_tmpdir_in_its_run_dir(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setattr(shutil, "chown", lambda *a, **k: None)
+    monkeypatch.setattr(runner, "_agent_account", lambda user: runner.pwd.getpwnam("root"))
+    run_dir = claude_store.prepare_run_dir(1, None, "agent3")
+    assert (run_dir / "tmp").is_dir()
+    assert runner._env("Mehdi", TOKEN, tmp_path, run_dir, "agent3")["TMPDIR"] == str(run_dir / "tmp")
+    # The legacy single user shares its uid between runs: no per-run tmp
+    assert "TMPDIR" not in runner._env("Mehdi", TOKEN, tmp_path, run_dir, "root")
+
+
+async def test_uid_is_killed_before_the_run_dir_is_collected(as_agent, monkeypatch, tmp_path):
+    from app import agent_pool, claude_store
+
+    order = []
+
+    class Proc:
+        returncode = 0
+        pid = 1
+
+        async def communicate(self):
+            return b'{"session_id": "s", "result": "ok"}', b""
+
+    async def fake_exec(*argv, **kw):
+        return Proc()
+
+    async def fake_kill(user):
+        order.append(("kill", user))
+        return True
+
+    async def fake_collect(employee_id, run_dir, user=None):
+        order.append(("collect", user))
+
+    monkeypatch.setattr(shutil, "chown", lambda *a, **k: None)
+    monkeypatch.setattr(runner, "_agent_account", lambda user: runner.pwd.getpwnam("root"))
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(agent_pool, "kill_all", fake_kill)
+    monkeypatch.setattr(claude_store, "collect", fake_collect)
+    await runner._run_claude(spec(tmp_path), "tok", "agent3")
+    assert order == [("kill", "agent3"), ("collect", "agent3")]
+
+
+def test_pool_shrinks_to_the_accounts_that_exist(monkeypatch, caplog):
+    from app import agent_pool
+
+    present = {"agent1", "agent2", "agent4"}
+
+    def getpwnam(name):
+        if name not in present:
+            raise KeyError(name)
+
+    monkeypatch.setattr(agent_pool.pwd, "getpwnam", getpwnam)
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 4)
+    agent_pool.check()
+    assert settings.agent_pool_size == 2
+    assert "agent3 does not exist" in caplog.text
+    agent_pool.reset()
