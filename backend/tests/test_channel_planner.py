@@ -144,3 +144,85 @@ async def test_open_rooms_skips_duplicates_and_small_rooms():
     ana, bob, cy = project.employees[:3]
     await projects._open_rooms(s, project, [("a", [ana, bob]), ("b", [bob, ana]), ("c", [cy]), ("a", [bob, cy]), ("d", [bob, cy])])
     assert list(opened(s)) == ["a", "d"]
+
+
+class Expiring(Session):
+    """Like an async session: after a rollback, reading an attribute of a loaded object fails."""
+
+    def __init__(self, project):
+        super().__init__()
+        self.project = project
+        self.rolled_back = False
+        self.committed = False
+
+    async def rollback(self):
+        self.rolled_back = True
+
+    async def commit(self):
+        self.committed = True
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+@pytest.fixture
+def planned(monkeypatch, tmp_path):
+    """Runs plan_custom_channels on a fake session; `planned.plan` is what the planner returns."""
+    project = project_of()
+    for i, e in enumerate(project.employees, 1):
+        e.id = i
+    sessions = []
+    state = SimpleNamespace(plan=None, project=project, sessions=sessions, calls=[])
+
+    def factory():
+        s = Expiring(project)
+        sessions.append(s)
+        return s
+
+    async def fake_load(s, project_id):
+        if s.rolled_back:
+            raise AssertionError("project reloaded in the session that rolled back")
+        return project
+
+    async def fake_plan(members, **kw):
+        state.calls.append(kw)
+        if isinstance(state.plan, BaseException):
+            raise state.plan
+        return state.plan
+
+    import app.db
+
+    monkeypatch.setattr(app.db, "SessionLocal", factory, raising=False)
+    monkeypatch.setattr(projects, "load_project", fake_load)
+    monkeypatch.setattr(projects, "assign_accounts", lambda emps: {e.id: object() for e in emps})
+    monkeypatch.setattr(projects, "token_for", lambda a: "tok")
+    monkeypatch.setattr(projects.worktrees, "desk_dir", lambda p, e: tmp_path / e.name)
+    monkeypatch.setattr(planner, "plan_channels", fake_plan)
+    return state
+
+
+def rooms_of(state) -> set[str]:
+    return {o.name for s in state.sessions for o in s.added if isinstance(o, Room)}
+
+
+async def test_plan_custom_channels_opens_planned_rooms(planned):
+    a, b, *_ = planned.project.employees
+    planned.plan = [planner.PlannedChannel(name="duo", members=[a.name, b.name])]
+    await projects.plan_custom_channels(1)
+    assert rooms_of(planned) == {"duo"}
+    assert planned.calls[0]["lead_id"] is not None and planned.calls[0]["lead_name"]
+    assert planned.sessions[0].rolled_back and planned.sessions[-1].committed
+
+
+async def test_plan_custom_channels_falls_back_to_catalog(planned):
+    await projects.plan_custom_channels(1)
+    assert {"general", "dev", "quality"} <= rooms_of(planned)
+
+
+async def test_plan_custom_channels_falls_back_on_planner_error(planned):
+    planned.plan = RuntimeError("boom")
+    await projects.plan_custom_channels(1)
+    assert {"general", "dev", "quality"} <= rooms_of(planned)

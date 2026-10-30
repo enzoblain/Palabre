@@ -157,24 +157,31 @@ def plan_custom_channels_later(project_id: int) -> None:
 
 
 async def plan_custom_channels(project_id: int) -> None:
-    """Open the channels a model proposes for a custom team; if it fails, those of the catalog."""
+    """Open the channels a model proposes for a custom team; if anything fails, those of the catalog."""
     from app.db import SessionLocal  # Late: tests import this module without a database
 
+    plan = None
     try:
         async with SessionLocal() as s:
             project = await load_project(s, project_id)
             lead = next((e for e in project.employees if "lead" in e.roles), None) if project else None
             if project is None or lead is None:
                 return
+            # Everything the call needs is read now: the rollback below expires the instances
+            lead_id, lead_name = lead.id, lead.name
             members = [channel_planner.Member(name=e.name, roles=list(e.roles)) for e in project.employees]
             cwd = worktrees.desk_dir(project, lead)
-            cwd.mkdir(parents=True, exist_ok=True)
-            token = token_for(assign_accounts(project.employees)[lead.id])
+            token = token_for(assign_accounts(project.employees)[lead_id])
             await s.rollback()  # No transaction open during the model call
-            plan = await channel_planner.plan_channels(
-                members, lead_id=lead.id, lead_name=lead.name, token=token, cwd=cwd
-            )
+        cwd.mkdir(parents=True, exist_ok=True)
+        plan = await channel_planner.plan_channels(members, lead_id=lead_id, lead_name=lead_name, token=token, cwd=cwd)
+    except Exception:
+        log.exception("Cannot plan the channels of project %s, falling back to the catalog", project_id)
+    try:
+        async with SessionLocal() as s:
             project = await load_project(s, project_id)
+            if project is None:
+                return
             if plan is None:
                 await _open_channels(s, project)
             else:
