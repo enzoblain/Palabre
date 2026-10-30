@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import pwd
 import re
 import shutil
 import stat
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from app import agent_pool, claude_store
 from app.config import settings
-from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
+from app.github import BRANCH_PATTERN, UPLOAD_PACK_SCRIPT, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
 from app.models import Employee, Project, Task
 
 
@@ -265,6 +266,34 @@ async def _require_isolated_clone(path: Path) -> None:
         )
 
 
+def _clone_owner_account(path: Path) -> str | None:
+    """The agent account the push fetch must run as, or None when agents share the backend's
+    user (no agent user configured). Fails closed: a pool clone not owned by a pool account was
+    taken back (or never claimed), and serving it as another user would be the very thing this avoids."""
+    if not settings.agent_user:
+        return None
+    if settings.agent_pool_size <= 0:
+        return settings.agent_user  # Legacy shared account: clones stay the backend's, nothing is claimed
+    try:
+        uids = {os.lstat(path).st_uid, os.lstat(path / ".git").st_uid}
+        names = {pwd.getpwuid(uid).pw_name for uid in uids}
+    except (OSError, KeyError) as exc:
+        raise GitHubError(f"Refusing to push: cannot determine who owns the clone ({exc}).") from exc
+    if len(names) != 1 or not names <= set(agent_pool.users()) - {settings.agent_user}:
+        raise GitHubError(
+            f"Refusing to push: the clone is owned by {', '.join(sorted(names))}, not by an agent account "
+            "(it was taken back after the run). Run the task's agent again, then submit."
+        )
+    return names.pop()
+
+
+def _require_sudo_upload_pack() -> None:
+    if shutil.which("sudo") is None or not os.access(UPLOAD_PACK_SCRIPT, os.X_OK):
+        raise GitHubError(
+            f"Refusing to push: sudo or {UPLOAD_PACK_SCRIPT} is unavailable, and the clone is not read as the backend user."
+        )
+
+
 async def push_task_branch(project: Project, task: Task) -> None:
     """Publish the task's branch. The agent clone is only read, over the local transport; the
     push itself runs from the reference, whose config the backend owns, so the token never
@@ -272,12 +301,17 @@ async def push_task_branch(project: Project, task: Task) -> None:
     ref = f"refs/heads/{task.branch}"
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
-        # trust= is inert for the local transport (the upload-pack command carries its own safe.directory)
-        await _require_isolated_clone(Path(task.worktree_path))  # Inside the lock, right before the fetch
+        clone = Path(task.worktree_path)
+        user = _clone_owner_account(clone)
+        if user:
+            _require_sudo_upload_pack()
+        await _require_isolated_clone(clone)  # Inside the lock, right before the fetch
+        # fsckObjects: the fetch runs as the backend, so a malformed pack (booby-trapped .gitmodules,
+        # symlinked paths) is refused here, before anything leaves for GitHub
         await git(
-            reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(task.worktree_path)}",
+            reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(clone, user)}",
             task.worktree_path, f"+{ref}:{ref}",
-            allow_file=True, trust=Path(task.worktree_path) / ".git",
+            allow_file=True, trust=clone / ".git", config=("transfer.fsckObjects=true",),
         )  # fmt: skip
         try:
             # Shrinks the window for a late write. On failure the fetched objects stay unreferenced

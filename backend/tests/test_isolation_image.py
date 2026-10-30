@@ -27,12 +27,14 @@ def test_agent_user_and_shared_group():
 
 def test_single_narrow_sudo_rule():
     rules = re.findall(r'"(palabre ALL=[^"]*)"', DOCKERFILE)
-    # Only the claude binary, a process-group kill and the clone remover, as the agent users, and root only for the four claim-clone rules below
+    # Only the claude binary, a process-group kill and the clone remover and the clone upload-pack, as the agent users, and root only for the four claim-clone rules below
     assert rules == [
         "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
         "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
+        # Serves a task clone to the push fetch as its owner (#193)
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack /data/projects/*",
         # Hands a clone to an agent account (#160): the script checks both arguments
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*",

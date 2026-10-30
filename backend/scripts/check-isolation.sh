@@ -71,11 +71,11 @@ expect() { # description, got, expected
   if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
 }
 cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
-expect "sudo -l shows exactly 8 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 8
+expect "sudo -l shows exactly 9 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 9
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
 expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' \
+    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' '/usr/local/bin/palabre-upload-pack /data/projects/*' \
     '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
     '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
@@ -236,6 +236,22 @@ touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
 denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
 chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
 denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+# The push fetch reads a task clone as the account owning it (#193): an alternates entry pointing at another
+# project's objects (private to palabre) gets nothing served, whatever the denylist would say
+victim=$DATA/projects/project-99996/repo
+mkdir -p "$victim" && chown palabre:palabre "$DATA/projects/project-99996" "$victim" && chmod 700 "$victim"
+as_palabre git init -q "$victim"
+as_palabre git -C "$victim" -c user.name=t -c user.email=t@t commit -q --allow-empty -m secret
+secret=$(as_palabre git -C "$victim" rev-parse HEAD)
+rm -f "$claim_root/foreign" "$claim_root/alias"
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates" 2>/dev/null \
+  || { mkdir -p "$claim_root/.git/objects/info"; echo "$victim/.git/objects" > "$claim_root/.git/objects/info/alternates"; }
+as_pool_sh agent1 git -C "$claim_root" update-ref refs/heads/task/1 "$secret" >/dev/null 2>&1 || true
+served=$(as_palabre git -C /tmp fetch --upload-pack="sudo -n -u agent1 /usr/local/bin/palabre-upload-pack" "$claim_root" refs/heads/task/1 2>&1 || true)
+expect "the upload-pack as agent1 serves nothing of another project" "$(printf '%s' "$served" | grep -c "$secret")" 0
+denied "palabre cannot upload-pack a path that is not a task clone" as_palabre sudo -n -u agent1 /usr/local/bin/palabre-upload-pack "$victim"
+rm -rf "$DATA/projects/project-99996"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines

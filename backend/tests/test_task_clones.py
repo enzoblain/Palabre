@@ -361,6 +361,21 @@ def test_clones_share_no_object_with_the_reference(setup):
     )
 
 
+def _ls_remote(tmp_path, repo, command, **env):
+    """ls-remote through an upload-pack command, with git's config isolated from the host's."""
+    return subprocess.run(
+        ["git", "-C", str(tmp_path), "ls-remote", f"--upload-pack={command}", str(repo)],
+        capture_output=True, text=True,
+        env={
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+            # Makes git treat every repo as foreign-owned, so only the exact safe.directory entry passes
+            "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1",
+            **env,
+        },
+    )  # fmt: skip
+
+
 def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     # Git drops -c and GIT_CONFIG_* for the upload-pack of a local fetch: the command carries them
     command = github.upload_pack_command("/data/a b")
@@ -373,10 +388,95 @@ def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     repo = tmp_path / "r"
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=n", "-c", "user.email=e@x", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
-    out = subprocess.run(
-        ["git", "-C", str(tmp_path), "ls-remote", f"--upload-pack={github.upload_pack_command(repo)}", str(repo)],
-        capture_output=True, text=True,
-        # Makes git treat every repo as foreign-owned, so only the exact safe.directory entry passes
-        env={**os.environ, "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"},
-    )
+    out = _ls_remote(tmp_path, repo, github.upload_pack_command(repo))
     assert out.returncode == 0 and "HEAD" in out.stdout
+    # Trusting the repo directory instead of its .git is not enough: that is the entry upload-pack checks
+    wrong = shlex.join(["git", *github.SAFE_GIT_CONFIG, "-c", f"safe.directory={repo}", "upload-pack"])
+    refused = _ls_remote(tmp_path, repo, wrong)
+    assert refused.returncode != 0 and "HEAD" not in refused.stdout
+
+
+def test_upload_pack_command_runs_under_the_account():
+    words = shlex.split(github.upload_pack_command("/data/projects/project-1/worktrees/task-5", "agent2"))
+    assert words == ["sudo", "-n", "-u", "agent2", github.UPLOAD_PACK_SCRIPT]
+
+
+def test_upload_pack_script_refuses_other_paths():
+    script = Path(__file__).resolve().parents[1] / "scripts" / "upload-pack.sh"
+    for bad in ("/data/projects/project-2/repo", "/data/projects/project-1/worktrees/task-5/../..", "/etc", "relative", "/data/projects/project-1/worktrees/task-5\n/x"):
+        out = subprocess.run(["sh", str(script), bad], capture_output=True, text=True)
+        assert out.returncode == 2 and "not a task clone path" in out.stderr, bad
+
+
+@pytest.fixture
+def agent_pool_env(setup, monkeypatch, tmp_path):
+    """The push as the pool does it: the clone owned by `agent1` (faked), sudo replaced by a shim
+    that drops `-n -u <user>` and runs a stand-in for the root script."""
+    project, reference, calls = setup
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "sudo.log"
+    (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
+    (bin_dir / "palabre-upload-pack").write_text('#!/bin/sh\nexec git -c "safe.directory=$1/.git" upload-pack "$1"\n')
+    for f in bin_dir.iterdir():
+        f.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    monkeypatch.setattr(github, "UPLOAD_PACK_SCRIPT", str(bin_dir / "palabre-upload-pack"))
+    monkeypatch.setattr(worktrees, "UPLOAD_PACK_SCRIPT", str(bin_dir / "palabre-upload-pack"))
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 2)
+    owner = SimpleNamespace(pw_name="agent1")
+    monkeypatch.setattr(worktrees.pwd, "getpwuid", lambda uid: owner)
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    return project, reference, task, log, owner
+
+
+def test_push_fetches_as_the_clone_owner(agent_pool_env, monkeypatch):
+    project, reference, task, log, _ = agent_pool_env
+    seen = []
+
+    async def spy(cwd, *args, **kwargs):
+        if args[0] == "update-ref" and args[1] == "-d":  # Before the ref is dropped
+            seen.append(_run("rev-parse", "--verify", "refs/heads/task/5", cwd=reference).strip())
+        return await worktrees_git(cwd, *args, **kwargs)
+
+    worktrees_git = worktrees.git
+    monkeypatch.setattr(worktrees, "git", spy)
+    asyncio.run(worktrees.push_task_branch(project, task))
+    assert seen  # The branch was served by the account's upload-pack
+    assert log.read_text().split()[:3] == ["-n", "-u", "agent1"]
+
+
+def test_push_fails_closed_when_the_clone_was_taken_back(agent_pool_env, monkeypatch):
+    project, reference, task, log, owner = agent_pool_env
+    owner.pw_name = "palabre"
+    with pytest.raises(github.GitHubError, match="owned by palabre.*taken back"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert not log.exists()  # Never fell back to reading it as the backend
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
+def test_push_fails_when_sudo_is_unavailable(agent_pool_env, monkeypatch):
+    project, _, task, log, _ = agent_pool_env
+    monkeypatch.setattr(worktrees, "UPLOAD_PACK_SCRIPT", "/nonexistent/palabre-upload-pack")
+    with pytest.raises(github.GitHubError, match="sudo or /nonexistent/palabre-upload-pack is unavailable"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert not log.exists()
+
+
+def test_push_refuses_a_malformed_object(agent_pool_env):
+    project, reference, task, _, _ = agent_pool_env
+    path = Path(task.worktree_path)
+    # A tree whose entry has a zero-padded mode: fsck rejects it, plain transfer would not
+    tree = subprocess.run(
+        [*G, "hash-object", "-w", "-t", "tree", "--literally", "--stdin"], cwd=path, check=True,
+        capture_output=True, input=b"040000 d\0" + b"\x01" * 20 + b"0100644 f\0" + b"\x02" * 20,
+    ).stdout.decode().strip()  # fmt: skip
+    commit = _run("commit-tree", tree, "-m", "bad", cwd=path).strip()
+    _run("update-ref", "refs/heads/task/5", commit, cwd=path)
+    with pytest.raises(github.GitHubError, match="fetch failed"):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
