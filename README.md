@@ -100,7 +100,7 @@ wakeups do not count), the lead is alerted. Their chatter wakeups (mentions...) 
 they stay queued and run grouped in one run once the window frees a slot. The boss posting in a
 conversation lifts the limit there, or call `POST /api/conversations/{id}/lift-rate-limit` (admin
 token, `204`): earlier runs stop counting and held wakeups of that conversation run right away
-(those held in other conversations keep waiting). counting. The reset is kept in memory, so a backend restart forgets it.
+(those held in other conversations keep waiting). The reset is kept in memory, so a backend restart forgets it.
 
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts

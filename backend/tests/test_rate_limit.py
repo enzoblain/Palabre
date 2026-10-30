@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models import AgentRun, Wakeup, Base, Conversation, Employee, Event, Project, Room
+from app.models import AgentRun, Base, Conversation, Employee, Event, Project, Room, Wakeup
 from app.orchestrator.dispatcher import Orchestrator, Throttled
 
 
@@ -57,6 +57,15 @@ async def test_skipped_queued_and_done_and_running_runs(db):
     add_run(db, finished=False)  # Still running
     await db.flush()
     assert await count_seen(db) == 2
+
+
+async def test_limit_zero_with_a_recent_run_defers_instead_of_crashing(db, monkeypatch):
+    monkeypatch.setattr(settings, "max_runs_per_conversation_hour", 0)
+    add_run(db)
+    await db.flush()
+    with pytest.raises(Throttled) as exc:
+        await check(db)  # Used to raise IndexError
+    assert timedelta(minutes=59) < exc.value.until - datetime.now(UTC) <= timedelta(hours=1)
 
 
 async def test_below_the_limit_the_wakeup_passes(db):
