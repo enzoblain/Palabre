@@ -14,6 +14,7 @@
   --error: #c62828;
   --success: #2e7d32;
   --working: #16783c;
+  --busy: #8a5300;
   --waiting: #9a6f00;
   --resting: #868696;
   --code-bg: #f0f0f4;
@@ -46,6 +47,7 @@
     --error: #ff6b6b;
     --success: #5fd07a;
     --working: #22a559;
+    --busy: #f0b429;
     --waiting: #e0a100;
     --resting: #7c7c8c;
     --code-bg: #24242c;
@@ -112,14 +114,12 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .brand-mark.small { width: 26px; height: 26px; border-radius: 7px; font-size: 13px; }
 
 /* --- Layout --- */
-.shell { display: grid; grid-template-columns: 260px 1fr; height: 100%; }
+.shell { display: grid; grid-template-columns: 1fr 280px; height: 100%; }
+.shell.no-panel { grid-template-columns: 1fr; }
+.shell.no-panel .main { display: flex; flex-direction: column; }
 .main { min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 
-.sidebar { background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-.sidebar-head { display: flex; align-items: center; gap: 8px; padding: 14px 12px; height: 56px; border-bottom: 1px solid var(--border); }
 .sidebar-title { font-weight: 600; font-size: 15px; }
-.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 1px; }
-.sidebar-foot { border-top: 1px solid var(--border); padding: 8px; }
 .section-label {
   font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
   padding: 12px 8px 4px; display: flex; justify-content: space-between;
@@ -376,18 +376,19 @@ details summary { cursor: pointer; margin-top: 6px; }
 
 /* --- Small screens (the app in a phone's browser) --- */
 .mobile-bar, .nav-backdrop { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
   .mobile-bar {
-    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px 0 12px; flex-shrink: 0;
     background: var(--sidebar); border-bottom: 1px solid var(--border);
   }
-  .sidebar {
-    position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;
-    transform: translateX(-100%); transition: transform 0.2s ease;
+  .mobile-bar .sidebar-title { flex: 1; }
+  .team-panel {
+    position: fixed; inset: 0 0 0 auto; width: min(300px, 85vw); z-index: 20;
+    transform: translateX(100%); transition: transform 0.2s ease; visibility: hidden;
   }
-  .nav-open .sidebar { transform: none; }
+  .team-panel.open { transform: none; visibility: visible; }
   .nav-open .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.35); }
 
   .page { padding: 20px 16px 32px; }
@@ -429,3 +430,51 @@ details summary { cursor: pointer; margin-top: 6px; }
 
 .credits-banner { flex: none; padding: 8px 16px; font-size: 13px; background: var(--mention-me-bg); border-bottom: 1px solid var(--mention-me-border); }
 .credits-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--muted); }
+
+/* --- Team panel (right column, a drawer under 900px) --- */
+.team-panel { background: var(--sidebar); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; width: 280px; }
+.panel-head { padding: 8px; height: 56px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+.panel-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 1px; }
+.panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.panel-empty, .panel-note { padding: 8px 12px; margin: 0; font-size: 13px; }
+.topbar { display: flex; align-items: center; height: 56px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--sidebar); flex-shrink: 0; }
+.project-menu { position: relative; min-width: 0; width: 100%; }
+.topbar .project-menu { width: auto; min-width: 200px; }
+.project-menu-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 6px; border: none;
+  background: none; cursor: pointer; font-weight: 600; font-size: 15px; color: var(--text); text-align: left; min-height: 40px;
+}
+.project-menu-btn:hover { background: var(--hover); }
+.project-menu-btn .truncate { flex: 1; }
+.caret { color: var(--muted); font-size: 12px; }
+.menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 220px; z-index: 30; padding: 6px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); display: flex; flex-direction: column; gap: 1px; max-height: 70vh; overflow-y: auto;
+}
+.menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
+.menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text); text-decoration: none; min-height: 36px; }
+.menu-item:hover { background: var(--hover); }
+.menu-item[aria-current="true"] { background: var(--active); color: var(--accent); font-weight: 500; }
+.menu-item:focus-visible, .nav-item:focus-visible, .project-menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.team-panel .nav-item { text-decoration: none; }
+.team-panel .member { padding: 6px 8px; }
+.member-role { font-size: 12px; color: var(--muted); }
+.dm-list { padding-left: 12px; }
+.presence {
+  position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--sidebar); box-sizing: border-box;
+}
+/* Working: filled amber; available: green ring. The label says it too, color is never alone */
+.presence-working { background: var(--busy); }
+.presence-idle { background: transparent; border-color: var(--working); }
+.presence-label { font-size: 12px; font-weight: 500; }
+.presence-label-working { color: var(--busy); }
+.presence-label-idle { color: var(--working); }
+.for-you {
+  font-size: 11px; font-weight: 600; padding: 0 8px; border-radius: 999px; line-height: 18px;
+  background: var(--accent); color: var(--accent-text);
+}
+.conv-people { font-size: 13px; min-width: 0; flex: 1; }
+.conv-people + .live-tag, .conv-people + .conv-members { margin-left: 0; }
+@media (prefers-reduced-motion: reduce) { .team-panel { transition: none; } }
