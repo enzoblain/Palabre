@@ -58,7 +58,7 @@ class PresenceOut(BaseModel):
     employee_id: int
     name: str
     roles: list[str]
-    # working: a run is open; idle: none. "Blocked" is not derived (yet).
+    # working: a run is open; idle: none. "Blocked" is deferred: not derived yet.
     state: Literal["working", "idle"]
     # Of the open run: "task" / "conversation" ... and what it is about
     kind: str | None

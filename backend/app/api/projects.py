@@ -13,9 +13,9 @@ from app.api.schemas import (
     BranchChange,
     MemberIn,
     ModeChange,
+    PresenceOut,
     ProjectDetail,
     ProjectIn,
-    PresenceOut,
     ProjectOut,
 )
 from app.company.team import kind_of_mode, load_catalog, render_system_prompt
