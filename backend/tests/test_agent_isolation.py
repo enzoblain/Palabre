@@ -312,7 +312,21 @@ def test_pool_users_are_numbered_after_agent_user(monkeypatch):
     assert agent_pool.users() == ["agent1", "agent2", "agent"]
 
 
-def test_live_runs_never_share_a_user(monkeypatch):
+@pytest.fixture
+def kills(monkeypatch):
+    from app import agent_pool
+
+    killed = []
+
+    async def fake(user):
+        killed.append(user)
+        return True
+
+    monkeypatch.setattr(agent_pool, "_kill_all", fake)
+    return killed
+
+
+def test_live_runs_never_share_a_user(monkeypatch, kills):
     from app import agent_pool
 
     monkeypatch.setattr(settings, "agent_user", "agent")
@@ -340,7 +354,7 @@ def test_live_runs_never_share_a_user(monkeypatch):
     agent_pool.reset()
 
 
-def test_cancelled_waiter_does_not_leak_a_user(monkeypatch):
+def test_cancelled_waiter_does_not_leak_a_user(monkeypatch, kills):
     from app import agent_pool
 
     monkeypatch.setattr(settings, "agent_user", "agent")
@@ -402,3 +416,103 @@ def test_other_uid_cannot_read_environ_of_a_live_run(tmp_path):
     finally:
         proc.kill()
         proc.wait()
+
+
+def test_user_is_emptied_before_it_returns_to_the_pool(monkeypatch, kills):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 1)
+    agent_pool.reset()
+
+    async def scenario():
+        async with agent_pool.lease() as user:
+            assert kills == []
+        assert kills == [user]
+
+    asyncio.run(scenario())
+    agent_pool.reset()
+
+
+def test_user_whose_processes_cannot_be_killed_is_not_reused(monkeypatch, kills):
+    from app import agent_pool
+
+    async def failing(user):
+        return False
+
+    monkeypatch.setattr(agent_pool, "_kill_all", failing)
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 2)
+    agent_pool.reset()
+
+    async def scenario():
+        async with agent_pool.lease() as first:
+            pass
+        async with agent_pool.lease() as second:
+            assert second != first
+
+    asyncio.run(scenario())
+    agent_pool.reset()
+
+
+def test_kill_all_runs_the_sudo_kill_of_the_whole_uid(monkeypatch):
+    from app import agent_pool
+
+    seen = {}
+
+    class Proc:
+        returncode = 1
+
+        async def communicate(self):
+            return b"", b"kill: sending signal to -1 failed: No such process"
+
+    async def fake_exec(*args, **kw):
+        seen["args"] = args
+        return Proc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    assert asyncio.run(agent_pool._kill_all("agent3")) is True
+    assert seen["args"] == ("sudo", "-n", "-u", "agent3", "/usr/bin/kill", "-KILL", "--", "-1")
+
+
+def test_wakeup_of_a_cancelled_waiter_goes_to_the_next(monkeypatch, kills):
+    from app import agent_pool
+
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 1)
+    agent_pool.reset()
+
+    async def scenario():
+        got = []
+
+        async def want(name):
+            async with agent_pool.lease() as user:
+                got.append(name)
+
+        cm = agent_pool.lease()
+        await cm.__aenter__()
+        first = asyncio.create_task(want("a"))
+        second = asyncio.create_task(want("b"))
+        await asyncio.sleep(0.01)
+        await cm.__aexit__(None, None, None)  # wakes "a"...
+        first.cancel()  # ...which is cancelled before it runs
+        await asyncio.wait_for(second, 1)
+        assert "b" in got
+
+    asyncio.run(scenario())
+    agent_pool.reset()
+
+
+def test_pool_user_gets_a_fresh_home_in_its_run_dir(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setattr(settings, "agent_user", "root")
+    monkeypatch.setattr(shutil, "chown", lambda *a, **k: None)
+    pw = runner.pwd.getpwnam("root")
+    monkeypatch.setattr(runner, "_agent_account", lambda user: pw)
+    run_dir = claude_store.prepare_run_dir(1, None, "agent3")
+    assert (run_dir / "home").is_dir()
+    env = runner._env("Mehdi", TOKEN, tmp_path, run_dir, "agent3")
+    assert env["HOME"] == str(run_dir / "home")
+    # The legacy single user keeps its persistent home
+    assert runner._env("Mehdi", TOKEN, tmp_path, run_dir, "root")["HOME"] == "/root"

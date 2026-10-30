@@ -105,6 +105,8 @@ def prepare_run_dir(employee_id: int, resume_session_id: str | None, user: str |
     group = user if user and user != settings.agent_user else None
     if group:
         shutil.chown(run_dir, group=group)
+        _mkdir(run_dir / "home", RUN_DIR_MODE)  # the run's HOME, deleted with the run dir
+        shutil.chown(run_dir / "home", group=group)
     if resume_session_id and SESSION_ID.fullmatch(resume_session_id):
         projects = employee_store(employee_id) / "projects"
         if projects.is_dir() and not projects.is_symlink():

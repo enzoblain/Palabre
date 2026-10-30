@@ -96,7 +96,10 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
         account = _agent_account(user)
         for key in BACKEND_OWN:
             env.pop(key, None)
-        env |= {"HOME": account.pw_dir, "USER": account.pw_name, "LOGNAME": account.pw_name, "PATH": AGENT_PATH}
+        # A pool user gets a fresh HOME per run (inside the run's config dir): what a run writes
+        # there (.gitconfig, .npmrc...) must not be executed by the next run on the same uid
+        home = str(config_dir / "home") if config_dir and user != settings.agent_user else account.pw_dir
+        env |= {"HOME": home, "USER": account.pw_name, "LOGNAME": account.pw_name, "PATH": AGENT_PATH}
     if not oauth_token:
         raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token

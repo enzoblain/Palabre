@@ -2,10 +2,13 @@
 
 import asyncio
 import contextlib
+import logging
 from collections import deque
 from collections.abc import AsyncIterator
 
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 
 def users() -> list[str]:
@@ -31,8 +34,14 @@ class _Pool:
         while not free:
             waiter = asyncio.get_running_loop().create_future()
             self.waiters.append(waiter)
+            log.info("Every agent account has a live run: %d run(s) waiting for one", len(self.waiters))
             try:
                 await waiter
+            except asyncio.CancelledError:
+                # Woken by a release and cancelled right after: pass the free account on
+                if waiter.done() and not waiter.cancelled():
+                    self._wake_next()
+                raise
             finally:
                 if waiter in self.waiters:
                     self.waiters.remove(waiter)
@@ -40,6 +49,9 @@ class _Pool:
 
     def release(self, user: str) -> None:
         self._init().append(user)
+        self._wake_next()
+
+    def _wake_next(self) -> None:
         while self.waiters:
             waiter = self.waiters.popleft()
             if not waiter.done():
@@ -69,4 +81,23 @@ async def lease() -> AsyncIterator[str]:
     try:
         yield user
     finally:
-        _pool.release(user)
+        # A process a run left behind (setsid nohup ...) would keep this uid and read the
+        # environment of the next run to get it: the account only goes back once it is empty
+        if await _kill_all(user):
+            _pool.release(user)
+        else:
+            log.error("Agent account %s still may have processes: removed from the pool until restart", user)
+
+
+async def _kill_all(user: str) -> bool:
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", "-u", user, "/usr/bin/kill", "-KILL", "--", "-1",
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        _, stderr = await asyncio.wait_for(proc.communicate(), 10)
+    except (OSError, TimeoutError):
+        log.exception("Cannot kill the processes of %s", user)
+        return False
+    # Nothing left to signal is the normal case: kill then says "No such process"
+    return proc.returncode == 0 or b"No such process" in stderr
