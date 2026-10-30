@@ -229,4 +229,9 @@ check_web_headers "fresh start"
 check_api "fresh start"
 check_secrets "fresh start"
 
+# The pool of agent accounts on a real container: no run is going on in the smoke stack, so the
+# script may swap claude for its stub. The exit code is the verdict.
+step "Agent pool isolation (agent1..N)"
+dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh || fail "the agent isolation check failed (see the lines above)"
+
 echo "Compose smoke test passed"
