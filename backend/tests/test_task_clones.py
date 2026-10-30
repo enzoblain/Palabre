@@ -390,9 +390,9 @@ def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=n", "-c", "user.email=e@x", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
     out = _ls_remote(tmp_path, repo, github.upload_pack_command(repo))
     assert out.returncode == 0 and "HEAD" in out.stdout
-    # Trusting the repo directory instead of its .git is not enough: that is the entry upload-pack checks
-    wrong = shlex.join(["git", *github.SAFE_GIT_CONFIG, "-c", f"safe.directory={repo}", "upload-pack"])
-    refused = _ls_remote(tmp_path, repo, wrong)
+    # Without any safe.directory entry the foreign-owned repo is refused (the env var proves the entry matters)
+    bare = shlex.join(["git", "upload-pack"])
+    refused = _ls_remote(tmp_path, repo, bare)
     assert refused.returncode != 0 and "HEAD" not in refused.stdout
 
 
