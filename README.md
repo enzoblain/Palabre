@@ -96,7 +96,7 @@ clone. Only branches recorded on tasks are touched, never the default branch, `d
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
-Agents that keep pinging each other are throttled: past `MAX_RUNS_PER_CONVERSATION_HOUR`
+Agents that keep pinging each other are throttled: past `MAX_RUNS_PER_CONVERSATION_HOUR` (default 20)
 executed chatter runs of one employee within an hour, across all their conversations (skipped
 wakeups do not count), the lead is alerted. Their chatter wakeups (mentions...) are not lost:
 they stay queued and run grouped in one run once the window frees a slot. The boss posting in a

@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     # as a resumed session gets costlier at each run; 0 = never. The employee's other sessions are kept
     context_reset_every_runs: int = 5
     # Chatter runs per employee per hour (all conversations); past it, their wakeups wait for the window to free
-    max_runs_per_conversation_hour: int = 40
+    max_runs_per_conversation_hour: int = 20
     # Local time of the daily stand-up ("HH:MM"), empty to disable
     daily_time: str = "09:30"
     # Quiet minutes before the scribe is asked to update the room document
