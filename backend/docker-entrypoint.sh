@@ -33,7 +33,6 @@ real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
 # Gives a clone (or Go cache) back to the backend, private to it, as claim-clone.sh does after a run.
 # Skipped when nothing in it is foreign or open to group/others (a symlink is always 777: ignored).
-# Keep in sync with worktrees._share_with_group, which applies the same rights to fresh clones.
 take_back() {
   real_dir "$1" || return 0
   [ -n "$(find -P "$1" \( ! -user palabre -o ! -group palabre -o \( ! -type l -perm /go+rwx \) \) -print -quit)" ] || return 0

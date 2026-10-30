@@ -199,12 +199,16 @@ def _shares_clones() -> bool:
 def _share_with_group(path: Path) -> None:
     """Group work, group-writable, setgid directories (2770): same rights as the entrypoint's
     share_back, so the shared agent can write in the clone and serve it to the upload-pack.
-    Symlinks are left alone (never followed)."""
+    Symlinks are left alone (never followed). An unreadable directory raises OSError rather than
+    being skipped, so the caller drops the clone."""
     try:
         gid = grp.getgrnam(SHARED_GROUP).gr_gid
     except KeyError as e:
         raise OSError(f"group {SHARED_GROUP!r} does not exist") from e
-    for root, dirs, files in os.walk(path):
+    def fail(e: OSError) -> None:
+        raise e
+
+    for root, dirs, files in os.walk(path, onerror=fail):
         for name in (*dirs, *files):
             entry = os.path.join(root, name)
             os.chown(entry, -1, gid, follow_symlinks=False)
