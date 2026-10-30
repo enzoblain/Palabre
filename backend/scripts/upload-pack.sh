@@ -12,5 +12,6 @@ esac
 printf '%s\n' "$1" | grep -Eq '^/data/projects/project-[0-9]+/worktrees/task-[0-9]+$' \
   || { echo "not a task clone path: $1" >&2; exit 2; }
 [ -d "$1" ] && [ ! -L "$1" ] || { echo "not a directory: $1" >&2; exit 2; }
+# sudo drops GIT_PROTOCOL from the environment, so the transfer stays in protocol v0 (no v2 negotiation).
 exec /usr/bin/env GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null /usr/bin/git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c protocol.allow=never \
   -c credential.helper= -c core.askPass= -c "safe.directory=$1/.git" upload-pack --strict "$1/.git"
