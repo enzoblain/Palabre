@@ -158,8 +158,12 @@ check_secrets() { # check_secrets <label>
   done
   # /home/agentN stays empty, root-owned and not writable by its account (nothing persists there)
   # (the updater pulls the last published image, which predates the empty-home fix: skipped there)
+  # TODO: drop once the first image with the empty home (/etc/skel-empty) is the published OLD
   if [ "$1" != "after the updater" ]; then
-    out=$(dc exec -T backend sh -c 'for d in /home/agent[0-9]*; do find "$d" -mindepth 1; find "$d" -maxdepth 0 \( -user "$(basename "$d")" -o -perm /022 \); done')
+    # The pool must exist, otherwise the glob below is empty and the check proves nothing
+    dc exec -T backend test -d /home/agent1 || fail "$1: /home/agent1 does not exist in the image"
+    out=$(dc exec -T backend sh -c 'for d in /home/agent[0-9]*; do find "$d" -mindepth 1 || echo "find failed on $d"; find "$d" -maxdepth 0 \( ! -user root -o -perm /022 \) || echo "find failed on $d"; done' 2>&1) \
+      || fail "$1: could not check the agent homes: $out"
     [ -z "$out" ] || fail "$1: an agent home is not empty/root-owned/read-only: $(printf '%s' "$out" | head -n 3 | tr '\n' ' ')"
   fi
   # The backend still drops to palabre (not root)
