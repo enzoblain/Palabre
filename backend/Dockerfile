@@ -12,7 +12,7 @@ ARG CLAUDE_CODE_SHA256_X64=356733f185fa988e6bf3aa9a555269fdd167982a2e2a80d3c8a78
 ARG CLAUDE_CODE_SHA256_ARM64=fdd22e6cbb734d580f5664c48df4294eeec850218ff07f186f9af30426396ee1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tzdata ${EXTRA_APT_PACKAGES} \
+    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tini tzdata ${EXTRA_APT_PACKAGES} \
     && rm -rf /var/lib/apt/lists/*
 
 # palabre runs the backend (database, GitHub token, Claude tokens). The agents' `claude` processes run
@@ -102,6 +102,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 
+# tini is PID 1: it reaps the orphans of killed agent runs (uvicorn never wait()s on them) and
+# forwards signals. -s makes it a subreaper too, so it still reaps if Docker's own init is PID 1.
 # A single worker: the orchestrator runs inside the process
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "-s", "--", "docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
