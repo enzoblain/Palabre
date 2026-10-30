@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-30
+
+### Added
+
+- api: add GET /projects/{id}/presence for employee presence (#188)
+- rooms: DMs between employees and members posting in their channels (#189)
+- ui: open projects on the lead conversation with a right-hand Team panel (#191)
+- company: targeted channels at launch and AI channel planner for custom teams (#192)
+- prompts: list rooms and DMs at wakeup, DM rules, stricter lead direction rule (#193)
+
+### Changed
+
+- prompts: derive DM sentence from BOSS_READS_DMS and test rooms_of on a real DB (#196)
+- ui: poll one unread summary endpoint instead of every conversation (#197)
+- unread: address review nits on the unread-summary endpoint (#198)
+
+### Fixed
+
+- rooms: harden DMs (pair uniqueness, admin API, escalate from a DM) (#190)
+
 ## [0.12.0] - 2026-10-30
 
 ### Added
@@ -361,7 +381,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/enzoblain/Palabre/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/enzoblain/Palabre/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/enzoblain/Palabre/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/enzoblain/Palabre/compare/v0.10.1...v0.11.0
