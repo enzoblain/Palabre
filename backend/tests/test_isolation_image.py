@@ -212,7 +212,10 @@ def test_runs_have_a_private_primary_group_and_no_shared_writable_dir():
     assert 'chown -hR palabre:palabre' in script and "chown palabre:work \"$project/$parent\"" in script
     # The per-employee Go caches go back to the backend at every start, like the clones
     gopath = [l for l in script.splitlines() if "toolchains/gopath/employee-*" in l]
-    assert gopath and "take_back" in script.split(gopath[0])[1].split("done")[0]
+    assert gopath and "claim_back" in script.split(gopath[0])[1].split("done")[0]
+    # Without a pool the shared agent gets the clones back through group work, not through the backend
+    assert "share_back()" in script and "shared_account=1" in script
+    assert 'if [ "$shared_account" = 1 ]; then share_back "$1"; else take_back "$1"; fi' in script
     # One rights model for what goes back to palabre: the entrypoint and claim-clone.sh both drop group and others
     take_back = script[script.index("take_back() {") :].split("\n}\n")[0]
     assert "chmod -R u+rwX,go-rwx,ug-s" in take_back and "g+rwX" not in take_back
