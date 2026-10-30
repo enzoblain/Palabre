@@ -5,7 +5,7 @@
 set -eu
 
 if [ "$(id -u)" != "0" ]; then
-  exec "$@"
+  exec tini -s -- "$@"
 fi
 
 DATA=/data
@@ -13,6 +13,15 @@ DATA=/data
 # The next steps run as root on a volume the agents could once write in: never follow a
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
+
+# Gives a clone (or Go cache) back to the backend, private to it, as claim-clone.sh does after a run.
+# Skipped when nothing in it is foreign or open to group/others (a symlink is always 777: ignored).
+take_back() {
+  real_dir "$1" || return 0
+  [ -n "$(find -P "$1" \( ! -user palabre -o ! -group palabre -o \( ! -type l -perm /go+rwx \) \) -print -quit)" ] || return 0
+  chown -hR palabre:palabre "$1"
+  chmod -R u+rwX,go-rwx,ug-s "$1"
+}
 
 mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
 for dir in projects runtime run toolchains claude; do
@@ -25,15 +34,17 @@ chown palabre:palabre "$DATA/claude"
 chmod 700 "$DATA/claude"
 
 # Common group "work", setgid so new files keep it. Agents may only cross /data and
-# /data/projects (no listing of /data, no renaming of a project); they write in the clones
-# of tasks and desks and in the Go cache.
+# /data/projects (no listing of /data, no renaming of a project) and read the toolchains.
+# They write in nothing shared: the clone of a run and its Go cache are handed to the run's
+# account by the backend (palabre-claim-clone, #160).
 chown palabre:work "$DATA" "$DATA/projects" "$DATA/toolchains"
 chmod 2710 "$DATA"
 chmod 2751 "$DATA/projects" "$DATA/toolchains"
+# Go caches: one directory per employee inside, claimed by the backend for each run
 real_dir "$DATA/toolchains/gopath" || rm -f "$DATA/toolchains/gopath"
 mkdir -p "$DATA/toolchains/gopath"
 chown palabre:work "$DATA/toolchains/gopath"
-chmod 2775 "$DATA/toolchains/gopath"
+chmod 2751 "$DATA/toolchains/gopath"
 # The backend alone: runtime holds the MCP tokens of the runs
 chown palabre:palabre "$DATA/runtime"
 chmod 700 "$DATA/runtime"
@@ -49,11 +60,16 @@ if [ ! -e "$DATA/.isolation-v1" ]; then
     chmod -R g+rX,g-w "$DATA/$dir"
     find "$DATA/$dir" -type d -exec chmod g+s {} +
   done
-  # What the agents write in
-  for dir in "$DATA/toolchains/gopath"; do
-    real_dir "$dir" && chmod -R g+rwX "$dir"
-  done
   touch "$DATA/.isolation-v1"
+fi
+
+# The Go cache was one directory every run wrote in and executed from: drop it (go downloads
+# again). Clones were group-writable by every run: they are the backend's until a run claims them.
+if [ ! -e "$DATA/.isolation-v3" ]; then
+  if real_dir "$DATA/toolchains/gopath"; then
+    find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  fi
+  touch "$DATA/.isolation-v3"
 fi
 
 # Sessions written in the shared config dir cannot be trusted or told apart by employee: purge them
@@ -82,10 +98,23 @@ for project in "$DATA"/projects/project-*; do
     real_dir "$project/$parent" || continue
     chown palabre:work "$project/$parent"
     chmod 2755 "$project/$parent"
-    # The clones themselves: group-writable, files included (migration from older volumes)
-    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d ! -perm -g=w -exec chmod -R g+rwX {} +
+    # The clones themselves: back to the backend (a run's account may have left files in them); the next
+    # run claims its clone. Same rights as claim-clone.sh gives back: private to the backend. Only a clone with
+    # something not yet palabre:palabre is walked, so the cost does not grow with the number of finished tasks.
+    # -h: never follow a planted symlink.
+    for clone in "$project/$parent"/*; do
+      take_back "$clone"
+    done
   done
 done
+
+# Per-employee Go caches: same as the clones, back to the backend at every start (a run's
+# account may have left files in them); the next run of the employee claims its cache.
+if real_dir "$DATA/toolchains/gopath"; then
+  for cache in "$DATA"/toolchains/gopath/employee-*; do
+    take_back "$cache"
+  done
+fi
 
 # Secrets: Docker mounts them readable by everyone in /run/secrets. Close that directory
 # and hand the backend its own private copy, so no agent (or child process) can read them.
@@ -99,4 +128,5 @@ if [ -d /run/secrets ]; then
 fi
 
 umask 002
-exec setpriv --reuid=palabre --regid=palabre --init-groups "$@"
+# tini after the drop: PID 1 stays palabre and reaps the orphans of killed agent runs
+exec setpriv --reuid=palabre --regid=palabre --init-groups tini -s -- "$@"

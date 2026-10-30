@@ -86,7 +86,7 @@ def _agent_account(user: str) -> pwd.struct_passwd:
         raise ClaudeRunError(f"Agent user {user!r} does not exist on this machine (AGENT_USER / AGENT_POOL_SIZE)") from None
 
 
-def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None, user: str | None = None) -> dict[str, str]:
+def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None, user: str | None = None, employee_id: int = 0) -> dict[str, str]:
     user = settings.agent_user if user is None else user
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     if config_dir:
@@ -107,7 +107,7 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
     # Toolchains the team installed (install_toolchain) come first in PATH
     env["PATH"] = f"{toolchains.bin_dir()}:{env.get('PATH', os.defpath)}"
-    env |= toolchains.agent_env()
+    env |= toolchains.agent_env(employee_id)
     # Installing a toolchain is an MCP call that takes a while
     env["MCP_TOOL_TIMEOUT"] = "600000"
     # Commits made by the agent are signed with its name
@@ -145,6 +145,29 @@ def _write_mcp_config(headers: dict[str, str], user: str | None = None) -> Path:
         shutil.chown(path, group=user)
     path.write_text(json.dumps(config))
     return path
+
+
+async def _claim(paths: list[Path], user: str) -> None:
+    """Hand the run's clone and Go cache to its account alone (#160): the others, who could
+    plant a hook or a module there for this run to execute, lose their write access.
+    With user "palabre" it is the release: the paths go back to the backend."""
+    for path in paths:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                path.mkdir(mode=0o700)
+                path.chmod(0o700)  # A fresh directory is never open to the work group, even for an instant
+            except FileExistsError:
+                pass  # Not ours to chmod: the claim script takes it over
+        except OSError as exc:  # e.g. still owned by the previous account
+            raise ClaudeRunError(f"Cannot prepare {path} for {user}: {exc}") from exc
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", "/usr/local/bin/palabre-claim-clone", str(path), user,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        _, stderr = await proc.communicate()
+        if proc.returncode:
+            raise ClaudeRunError(f"Cannot hand {path} to {user}: {stderr.decode(errors='replace').strip()}")
 
 
 def _command(cmd: list[str], env: dict[str, str], user: str | None = None) -> list[str]:
@@ -207,6 +230,23 @@ async def run_claude(spec: RunSpec) -> RunResult:
         run_tokens.revoke(token)
 
 
+async def _take_back(owned: list[Path], user: str, dead: bool) -> None:
+    """Gives the clone and Go cache back to the backend before `user` serves another employee: it could
+    otherwise keep writing a hook in a clone it no longer runs in. Fail closed: if the kill or the
+    hand-back failed, the account stays out of the pool (it still owns them)."""
+    # Quarantine first, lifted only once the hand-back succeeded: a cancellation (BaseException)
+    # during the hand-back must leave the account out of the pool too
+    agent_pool.quarantine(user)
+    if not dead:
+        return
+    try:
+        await _claim(owned, "palabre")
+    except Exception:
+        log.exception("Cannot take %s back from %s", owned, user)
+        return
+    agent_pool.unquarantine(user)
+
+
 async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
     mcp_config = _write_mcp_config(spec.mcp_headers | {"Authorization": f"Bearer {token}"}, user)
     run_tokens.attach_config(token, mcp_config)
@@ -228,11 +268,16 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         cmd += ["--resume", spec.resume_session_id]
 
     config_dir = None
+    # The legacy shared user has no private group: its clones stay the backend's
+    pooled = bool(user) and user != settings.agent_user
+    owned = [spec.cwd, toolchains.gopath(spec.employee_id)]
     try:
         try:
             if user:
                 config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id, user)
-            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user)
+            if pooled:
+                await _claim(owned, user)
+            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user, spec.employee_id)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env, user),
                 cwd=spec.cwd,
@@ -255,12 +300,15 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
             raise
     finally:
         mcp_config.unlink(missing_ok=True)
-        if config_dir:
-            # Nothing of the run may still write in its dir while it is collected (a lease's kill
-            # comes too late for that). Not for the shared legacy user: it would kill other runs.
-            if user and user != settings.agent_user:
-                await agent_pool.kill_all(user)
-            await claude_store.collect(spec.employee_id, config_dir, user)
+        # Nothing of the run may still write in its dir or clone while they are collected or handed
+        # back (a lease's kill comes too late for that). Not for the shared legacy user: it would kill other runs.
+        dead = pooled and await agent_pool.kill_all(user)
+        try:
+            if config_dir:
+                await claude_store.collect(spec.employee_id, config_dir, user)
+        finally:
+            if pooled:
+                await _take_back(owned, user, dead)
 
     try:
         data = json.loads(stdout)

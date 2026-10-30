@@ -186,6 +186,9 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
     path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     path.parent.chmod(0o2755)
     reference = repo_dir(project)
+    # Closed before the clone fills it: the work group never sees a writable window (#160)
+    path.mkdir(mode=0o700, exist_ok=True)
+    path.chmod(0o700)
     try:
         await git(
             path.parent, "clone", "--quiet", "--no-hardlinks", "--reference", str(reference), "--dissociate", str(reference),

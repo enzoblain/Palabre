@@ -12,26 +12,29 @@ ARG CLAUDE_CODE_SHA256_X64=356733f185fa988e6bf3aa9a555269fdd167982a2e2a80d3c8a78
 ARG CLAUDE_CODE_SHA256_ARM64=fdd22e6cbb734d580f5664c48df4294eeec850218ff07f186f9af30426396ee1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tzdata ${EXTRA_APT_PACKAGES} \
+    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tini tzdata ${EXTRA_APT_PACKAGES} \
     && rm -rf /var/lib/apt/lists/*
 
 # palabre runs the backend (database, GitHub token, Claude tokens). The agents' `claude` processes run
 # as agent1..agentN (AGENT_POOL_SIZE): a live run holds one of them alone, so it cannot read another
-# run's /proc/<pid>/environ (the lead's MCP token, the Claude account tokens). All share the group
-# "work" for the files they work in, and each has a private group agentN (palabre belongs to it)
-# that guards its MCP config and Claude config dir against the other runs. Their /home/agentN is root's
-# (r-x for the group, nothing for others): a run writes in its own HOME under its run dir, so nothing persists there. "agent" is the legacy single user.
+# run's /proc/<pid>/environ (the lead's MCP token, the Claude account tokens). Each has a private
+# group agentN as its primary one (palabre belongs to it) that guards its MCP config, Claude config dir and
+# the clone it runs in (palabre-claim-clone) against the other runs. They only read the shared
+# files (toolchains) through the group "work". Their /home/agentN (empty skel, no dotfile to inherit)
+# is root's (r-x for the group, nothing for others): a run writes in its own HOME under its run dir,
+# so nothing persists there. "agent" is the legacy single user.
 ARG AGENT_POOL_SIZE=8
-RUN groupadd --gid 1002 work \
+RUN mkdir /etc/skel-empty \
+    && groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
     && useradd --create-home --uid 1001 --gid work agent \
     && chmod 711 /home/palabre \
     && for i in $(seq 1 ${AGENT_POOL_SIZE}); do \
          groupadd --gid $((3000 + i)) "agent$i" \
-         && useradd --create-home --uid $((2000 + i)) --gid work --groups "agent$i" "agent$i" \
+         && useradd --create-home --skel /etc/skel-empty --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i" \
          && usermod --append --groups "agent$i" palabre \
-         && chown root:"agent$i" "/home/agent$i" \
-         && chmod 550 "/home/agent$i"; \
+         && chown -R root:"agent$i" "/home/agent$i" \
+         && chmod -R g-w,o-rwx "/home/agent$i" && chmod 550 "/home/agent$i"; \
        done \
     && mkdir -p /data /srv \
     && chown palabre:palabre /data /srv
@@ -43,7 +46,10 @@ RUN groupadd --gid 1002 work \
 # The umask makes the agents' files writable by the backend.
 # rm-clone deletes a desk or task clone (files the agent made outside the group): root-owned
 # script that only accepts a clone path, so the rule is not a general rm.
+# claim-clone gives a clone to the account about to run in it, as root: same idea, only exact paths
+# and agent accounts (the script checks its arguments; sudo's * would let anything through).
 COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
+COPY --chmod=755 scripts/claim-clone.sh /usr/local/bin/palabre-claim-clone
 RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i"; done)" \
     && printf '%s\n' \
       'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
@@ -51,6 +57,10 @@ RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i
       "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre" \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent

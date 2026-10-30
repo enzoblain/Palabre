@@ -156,6 +156,16 @@ check_secrets() { # check_secrets <label>
       fail "$1: the agent user can list $dir"
     fi
   done
+  # /home/agentN stays empty, root-owned and not writable by its account (nothing persists there)
+  # (the updater pulls the last published image, which predates the empty-home fix: skipped there)
+  # TODO: drop once the first image with the empty home (/etc/skel-empty) is the published OLD
+  if [ "$1" != "after the updater" ]; then
+    # The pool must exist, otherwise the glob below is empty and the check proves nothing
+    dc exec -T backend test -d /home/agent1 || fail "$1: /home/agent1 does not exist in the image"
+    out=$(dc exec -T backend sh -c 'for d in /home/agent[0-9]*; do find "$d" -mindepth 1 || echo "find failed on $d"; find "$d" -maxdepth 0 \( ! -user root -o -perm /022 \) || echo "find failed on $d"; done' 2>&1) \
+      || fail "$1: could not check the agent homes: $out"
+    [ -z "$out" ] || fail "$1: an agent home is not empty/root-owned/read-only: $(printf '%s' "$out" | head -n 3 | tr '\n' ' ')"
+  fi
   # The backend still drops to palabre (not root)
   out=$(dc exec -T backend sh -c 'ps -o user= -p 1')
   [ "$out" = palabre ] || fail "$1: the server runs as '$out', not palabre"
@@ -165,7 +175,17 @@ check_secrets() { # check_secrets <label>
 if [ -n "$OLD" ]; then
   step "Start the published $OLD"
   write_env "$OLD"
-  out=$(dc pull db backend 2>&1) || fail "could not pull $OLD: $(printf '%s' "$out" | tail -n 3)"
+  # Right after a release tag, the images may not be built yet: retry for a few minutes
+  attempts=${SMOKE_PULL_ATTEMPTS:-8}
+  for ((n = 1; n <= attempts; n++)); do
+    if out=$(dc pull db backend 2>&1); then break; fi
+    if [ "$n" -eq "$attempts" ]; then
+      echo "$out"
+      fail "image palabre:$OLD not published on ghcr yet (or palabre-web): the pull failed $attempts times. Last output: $(printf '%s' "$out" | tail -n 3)"
+    fi
+    note "pull of $OLD failed (attempt $n/$attempts), retrying in ${SMOKE_PULL_DELAY:-30}s"
+    sleep "${SMOKE_PULL_DELAY:-30}"
+  done
   if ! docker run --rm --entrypoint grep "ghcr.io/enzoblain/palabre:$OLD" -q palabre-secrets /usr/local/bin/docker-entrypoint.sh; then
     [ -z "${GITHUB_ACTIONS:-}" ] || fail "$OLD predates Docker secrets: the upgrade and updater steps would be skipped"
     note "$OLD predates Docker secrets: the upgrade and updater steps are skipped"
@@ -218,5 +238,52 @@ dc up -d --wait --wait-timeout 120 db backend web || fail "the new version did n
 check_web_headers "fresh start"
 check_api "fresh start"
 check_secrets "fresh start"
+
+# The pool of agent accounts on a real container: no run is going on in the smoke stack, so the
+# script may swap claude for its stub. The exit code is the verdict.
+step "Agent pool isolation (agent1..N)"
+# The output is captured and replayed: a workflow command only counts at the start of a line,
+# and GitHub keeps 10 annotations per step, so on failure the ::error lines are re-emitted
+# bare, most informative first (kill blocks, other FAILs, raw dumps), and the dumps go in groups.
+iso_out=$(mktemp)
+iso_rc=0
+dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh >"$iso_out" 2>&1 || iso_rc=$?
+tr -d '\r' <"$iso_out" | sed 's/^[[:space:]]*\(::\)/\1/' >"$iso_out.clean"
+if [ "$iso_rc" -eq 0 ]; then
+  cat "$iso_out.clean"
+else
+  # The dumps sit between stop-commands markers: the sorted block below is the only place
+  # where the ::error lines are live.
+  token=$(date +%s%N)
+  echo "::stop-commands::$token"
+  echo "::group::check-isolation.sh, full output (exit $iso_rc)"
+  cat "$iso_out.clean"
+  echo "::endgroup::"
+  echo "::group::check-isolation.sh, last 40 lines"
+  tail -n 40 "$iso_out.clean"
+  echo "::endgroup::"
+  echo "::$token::"
+  grep '^FAIL ' "$iso_out.clean" || true
+  # Kill blocks first, then the other FAILs, then the sudo -ll dumps; 8 at most, plus the final fail.
+  { grep -E '^::error::no (live )?agent process' "$iso_out.clean" || true
+    grep '^::error::' "$iso_out.clean" | grep -vE '^::error::(no (live )?agent process|sudo -ll)' || true
+    grep '^::error::sudo -ll' "$iso_out.clean" || true; } | head -n 8
+  nfail=$(grep -c '^FAIL ' "$iso_out.clean" || true)
+fi
+rm -f "$iso_out" "$iso_out.clean"
+[ "$iso_rc" -eq 0 ] || fail "the agent isolation check failed (exit $iso_rc, $nfail FAIL line(s)); details in the annotations above"
+
+# The entrypoint's migration of an old volume, on the image just built. The "ok" lines and the
+# final count stay in the log: a check that did not run must not look like one that passed.
+step "Migration of a volume made before the agent user"
+# 1 entrypoint check + 18 checks + 1 second start; keep in sync with check-migration.sh
+MIG_EXPECTED_OK=20
+mig_rc=0
+mig_out=$(backend/scripts/check-migration.sh "ghcr.io/enzoblain/palabre:$NEW" 2>&1) || mig_rc=$?
+printf '%s\n' "$mig_out"
+[ "$mig_rc" -eq 0 ] || fail "check-migration.sh failed (exit $mig_rc): $(printf '%s' "$mig_out" | { grep '^FAIL ' || true; } | head -n 3 | tr '\n' ';')"
+# Pin the summary line: with the number of checks fixed, a check that silently vanished fails too
+printf '%s\n' "$mig_out" | grep -qxE "check-migration: $MIG_EXPECTED_OK ok, 0 FAIL" \
+  || fail "check-migration.sh summary is not 'check-migration: $MIG_EXPECTED_OK ok, 0 FAIL' (it did not run, or a check was added or removed: update MIG_EXPECTED_OK)"
 
 echo "Compose smoke test passed"

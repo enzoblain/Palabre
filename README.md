@@ -223,6 +223,8 @@ Upgrading from a version before the agent user: nothing to do. The container sta
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
 makes each project's reference clone private to the server, then drops to `palabre`. If
 you run the image without Docker's entrypoint, do that `chown`/`chmod` yourself.
+After dropping root, the entrypoint execs `tini`: PID 1 is tini running as `palabre`, and it
+reaps the orphans of killed agent runs, so `docker run` without Compose needs no `--init`.
 
 ```sh
 docker compose pull && docker compose up -d
@@ -297,7 +299,7 @@ Compose smoke test (needs docker, takes a few minutes):
 .github/scripts/compose-smoke.sh
 ```
 
-It brings up the real `docker-compose.yml` with throwaway secrets (it writes its own `.env`, removed on exit, and refuses to run over yours or a compose override) and checks that: the API answers 401 without or with a wrong token and 200 with the right one; no secret appears in the backend's `env`, `/proc/1/environ` or `docker inspect`; the `agent` user exists and can read neither `/run/secrets` nor `/run/palabre-secrets`; the version under test starts on a volume used by the last published version (data kept, volume migrated); and the `updater` recreates the backend with the secrets still resolved. Without a published version (or one older than Docker secrets), the upgrade and updater steps are skipped with a notice. In CI this is the `Compose smoke test` job, run on pull requests and on pushes to `dev` and `main`; failures show as `::error` annotations.
+It brings up the real `docker-compose.yml` with throwaway secrets (it writes its own `.env`, removed on exit, and refuses to run over yours or a compose override) and checks that: the API answers 401 without or with a wrong token and 200 with the right one; no secret appears in the backend's `env`, `/proc/1/environ` or `docker inspect`; the `agent` user exists and can read neither `/run/secrets` nor `/run/palabre-secrets`; the version under test starts on a volume used by the last published version (data kept, volume migrated); the agent pool is isolated on the real container (`check-isolation.sh` with `CHECK_POOL_ONLY=1`: two simultaneous runs cannot read each other's `/proc/<pid>/environ` or MCP config, `sudo -l` shows exactly the eight rules (the pool users, plus root for the four `palabre-claim-clone` ones), a `setsid` process left by a run is gone when the account is leased again); and the `updater` recreates the backend with the secrets still resolved. Without a published version (or one older than Docker secrets), the upgrade and updater steps are skipped with a notice. In CI this is the `Compose smoke test` job, run on pull requests and on pushes to `dev` and `main`; failures show as `::error` annotations.
 
 `tests/conftest.py` holds the shared fixtures: `FakeSession` (in-memory stand-in for
 `AsyncSession`), object builders (`make_task`, `make_employee`...), `process` (sets the mode's
@@ -396,6 +398,7 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
   empties a desk or task clone (files the agent made outside the shared group, which the
   server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
+  Each live run's clone and Go cache (`/data/toolchains/gopath/employee-<id>`) are handed to its account just before it starts, by `palabre-claim-clone` (root-owned, run through a fourth `sudo` rule that only accepts a clone path and an `agentN` or `palabre` account): owner and group become the account and its private group, so no other run can write a hook, a git config or a Go module there for someone else's run to execute (#160). A task clone is therefore writable by one run at a time: once the run's processes are killed (and only then), the clone and the Go cache go back to `palabre` before the account serves another employee, and the server also takes them back at every start. The script walks the tree with `chown -R -h` / `chmod -R`, which never follow a symlink. If the hand-back fails, the account stays out of the pool until restart. Without a pool (`AGENT_POOL_SIZE=0`, shared `AGENT_USER`) nothing is claimed and the clones stay the backend's, so that legacy mode cannot write in task clones.
   Each live run also gets its own account (`agent1..agentN`, `AGENT_POOL_SIZE`), with a private group the server belongs to: the run's MCP config and Claude config dir are readable by that group only, so another run can read neither the environment nor the config of a live run. Runs beyond the pool size wait for a free account.
   Clones are made with `--no-hardlinks`, so they share no object with the reference (whose
   objects stay private). Desks are recloned at every run and fix themselves. A task clone made
@@ -430,12 +433,14 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 
 ### Checking the isolation
 
-Nobody builds the isolation in CI (it needs a real container), so check an image by hand
-after changing the Dockerfile, the entrypoint or the runner. Two scripts in
-`backend/scripts/`:
+The Compose smoke test in CI runs the agent pool isolation check and
+`check-migration.sh` on the image it builds, and fails on any `FAIL`; the log shows each `ok`
+line and a final count. The task flow check needs a scratch GitHub repository, so it stays
+manual, as does running either script on another image after changing the Dockerfile, the
+entrypoint or the runner. Two scripts in `backend/scripts/`:
 
 ```sh
-# 1. Migration of a volume made before the agent user (needs Docker on the host only)
+# 1. Migration of a volume made before the agent user (needs Docker on the host only; also run by the CI)
 backend/scripts/check-migration.sh <image>
 
 # 2. Agent runs and task flow, in a throwaway container with a scratch GitHub repository
