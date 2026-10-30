@@ -90,33 +90,37 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
     project ? async () => {
       // One call for the whole project; only conversations with something new are fetched
       for (const item of await api.unreadSummary(project.detail.id)) {
-        const id = item.conversation_id;
-        const stored = localStorage.getItem(seenKey(id));
-        const s = (state.current[id] ??= {
-          last: stored === null ? 0 : Number(stored),
-          seen: stored === null ? null : Number(stored),
-          fresh: [],
-        });
-        if (id === activeRef.current) {
-          s.last = Math.max(s.last, item.last_id);
-          markRead(id);
-          continue;
-        }
-        if (s.seen === null) {
-          // First visit ever: start from a clean slate rather than flag the whole history
-          s.last = item.last_id;
-          markRead(id);
-          continue;
-        }
-        if (item.last_employee_id <= s.last) {
-          s.last = Math.max(s.last, item.last_id);
-          continue;
-        }
-        const messages = await api.listMessages(id, s.last);
-        for (const m of messages) {
-          s.last = Math.max(s.last, m.id);
-          // Messages written by the CEO themself (no employee) are never unread
-          if (m.employee_id !== null && m.id > s.seen && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+        try {
+          const id = item.conversation_id;
+          const stored = localStorage.getItem(seenKey(id));
+          const s = (state.current[id] ??= {
+            last: stored === null ? 0 : Number(stored),
+            seen: stored === null ? null : Number(stored),
+            fresh: [],
+          });
+          if (id === activeRef.current) {
+            s.last = Math.max(s.last, item.last_id);
+            markRead(id);
+            continue;
+          }
+          if (s.seen === null) {
+            // First visit ever: start from a clean slate rather than flag the whole history
+            s.last = item.last_id;
+            markRead(id);
+            continue;
+          }
+          if (item.last_employee_message_id <= s.last) {
+            s.last = Math.max(s.last, item.last_id);
+            continue;
+          }
+          const messages = await api.listMessages(id, s.last);
+          for (const m of messages) {
+            s.last = Math.max(s.last, m.id);
+            // Messages written by the CEO themself (no employee) are never unread
+            if (m.employee_id !== null && m.id > s.seen && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+          }
+        } catch {
+          // A failing conversation must not stop the others; it is retried at the next tick
         }
       }
       publish();
