@@ -45,6 +45,9 @@ check "the task clone belongs to the backend, closed to the agents' group (a run
   '[ "$(stat -c %U:%G /data/projects/project-1/worktrees/task-5/file)" = palabre:palabre ]'
 check "nothing in the task clones is open to others" \
   'test -d /data/projects/project-1/worktrees/task-5 && [ -z "$(find /data/projects/project-1/worktrees /data/projects/project-1/desks -mindepth 1 ! -type l -perm /o+rwx)" ]'
+# the worktrees/ and desks/ parents are 2755 on purpose (entrypoint): pool accounts need o+x to reach their clone
+check "the task and desk clone directories themselves are closed to others (o-rwx)" \
+  'd=/data/projects/project-1; test -d "$d/worktrees/task-5" && test -d "$d/desks/employee-2" && [ -z "$(find "$d/worktrees/task-5" "$d/desks/employee-2" -maxdepth 0 -perm /o+rwx)" ]'
 check "the old Go cache is dropped" '[ -z "$(find /data/toolchains/gopath -mindepth 1 -maxdepth 1)" ]'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
