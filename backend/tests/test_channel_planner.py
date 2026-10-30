@@ -189,6 +189,7 @@ def planned(monkeypatch, tmp_path):
 
     async def fake_plan(members, **kw):
         state.calls.append(kw)
+        state.cwd_entries = list(kw["cwd"].iterdir())
         if isinstance(state.plan, BaseException):
             raise state.plan
         return state.plan
@@ -199,7 +200,7 @@ def planned(monkeypatch, tmp_path):
     monkeypatch.setattr(projects, "load_project", fake_load)
     monkeypatch.setattr(projects, "assign_accounts", lambda emps: {e.id: object() for e in emps})
     monkeypatch.setattr(projects, "token_for", lambda a: "tok")
-    monkeypatch.setattr(projects.worktrees, "desk_dir", lambda p, e: tmp_path / e.name)
+    monkeypatch.setattr(projects.worktrees, "project_dir", lambda p: tmp_path / "project")
     monkeypatch.setattr(planner, "plan_channels", fake_plan)
     return state
 
@@ -226,3 +227,11 @@ async def test_plan_custom_channels_falls_back_on_planner_error(planned):
     planned.plan = RuntimeError("boom")
     await projects.plan_custom_channels(1)
     assert {"general", "dev", "quality"} <= rooms_of(planned)
+
+
+async def test_plan_runs_in_an_empty_dir_of_its_own(planned, tmp_path):
+    await projects.plan_custom_channels(1)
+    cwd = planned.calls[0]["cwd"]
+    assert cwd.parent == tmp_path / "project"
+    assert planned.cwd_entries == []
+    assert not cwd.exists()  # Removed afterwards

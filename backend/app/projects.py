@@ -6,9 +6,12 @@ import logging
 import random
 import re
 import secrets
+import shutil
+import tempfile
 import tomllib
 from dataclasses import asdict
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,11 +173,19 @@ async def plan_custom_channels(project_id: int) -> None:
             # Everything the call needs is read now: the rollback below expires the instances
             lead_id, lead_name = lead.id, lead.name
             members = [channel_planner.Member(name=e.name, roles=list(e.roles)) for e in project.employees]
-            cwd = worktrees.desk_dir(project, lead)
+            base = worktrees.project_dir(project)
             token = token_for(assign_accounts(project.employees)[lead_id])
             await s.rollback()  # No transaction open during the model call
-        cwd.mkdir(parents=True, exist_ok=True)
-        plan = await channel_planner.plan_channels(members, lead_id=lead_id, lead_name=lead_name, token=token, cwd=cwd)
+        # An empty directory of its own: the lead's desk would load the repo's CLAUDE.md and hooks,
+        # and the runner claims its cwd for the agent user, which would clash with the lead's runs
+        base.mkdir(parents=True, exist_ok=True)
+        cwd = Path(await asyncio.to_thread(tempfile.mkdtemp, prefix="channel-planner-", dir=base))
+        try:
+            plan = await channel_planner.plan_channels(
+                members, lead_id=lead_id, lead_name=lead_name, token=token, cwd=cwd,
+            )
+        finally:
+            await asyncio.to_thread(shutil.rmtree, cwd, True)
     except Exception:
         log.exception("Cannot plan the channels of project %s, falling back to the catalog", project_id)
     try:
