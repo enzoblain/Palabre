@@ -335,12 +335,12 @@ async def member_conversation_id(s: AsyncSession, project_id: int, me: Employee,
 
 
 async def team_context(s: AsyncSession, project_id: int, room_id: int, conversation_id: int) -> tuple[int, int]:
-    """Where a task lives. Called from direction, it goes to the first team channel: the
+    """Where a task lives. Called from direction or a DM, it goes to the first team channel: the
     people it concerns (reviewers, QA...) are not in direction and cannot be woken there."""
-    if await s.scalar(select(Room.kind).where(Room.id == room_id)) != DIRECTION:
+    if await s.scalar(select(Room.kind).where(Room.id == room_id)) not in (DIRECTION, DM):
         return room_id, conversation_id
     team_room_id = await s.scalar(
-        select(Room.id).where(Room.project_id == project_id, Room.kind != DIRECTION).order_by(Room.id).limit(1)
+        select(Room.id).where(Room.project_id == project_id, Room.kind.notin_((DIRECTION, DM))).order_by(Room.id).limit(1)
     )
     if team_room_id is None:
         raise WorkflowError("There is no team channel to put the task in")

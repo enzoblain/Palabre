@@ -120,6 +120,11 @@ async def test_task_created_from_direction_lives_in_a_team_channel():
     assert await services.team_context(s, 1, 5, 6) == (10, 20)
 
 
+async def test_task_created_from_a_dm_lives_in_a_team_channel():
+    s = FakeServiceSession(scalar=["dm", 10, 20])
+    assert await services.team_context(s, 1, 5, 6) == (10, 20)
+
+
 async def test_task_created_in_a_team_channel_stays_there():
     assert await services.team_context(FakeServiceSession(scalar=["team"]), 1, 5, 6) == (5, 6)
 
