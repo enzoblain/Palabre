@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { DocumentView } from "./components/DocumentView";
@@ -7,7 +7,7 @@ import { Home } from "./components/Home";
 import { MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
-import { type ProjectState, Sidebar } from "./components/Sidebar";
+import { type ProjectState, ProjectMenu, TeamPanel } from "./components/TeamPanel";
 import { go, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -60,8 +60,7 @@ function useProject(projectId: number | null) {
 const UNREAD_POLL_MS = 4000;
 const seenKey = (conversationId: number) => `palabre.seen.${conversationId}`;
 
-/** Unread messages per direction conversation since the CEO's last visit; the open conversation is always read.
- * Team channels get no count: the CEO only follows them, and the live dot is enough there. */
+/** Unread messages per conversation (direction, rooms and DMs) since the CEO's last visit; the open conversation is always read. */
 function useUnread(project: ProjectState | null, activeConversation: number | null) {
   const [unread, setUnread] = useState<Record<number, number>>({});
   // Per conversation: last message id fetched, last id the CEO saw, and ids of unseen messages from others
@@ -87,31 +86,43 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
     markRead(activeConversation);
     publish();
   }, [activeConversation]);
-  const conversations = project
-    ? project.detail.rooms.filter((r) => r.kind === "direction").flatMap((r) => project.conversations[r.id] ?? [])
-    : [];
   usePolling(
     project ? async () => {
-      await Promise.all(conversations.map(async (c) => {
-        const s = (state.current[c.id] ??= {
-          last: 0,
-          seen: localStorage.getItem(seenKey(c.id)) === null ? null : Number(localStorage.getItem(seenKey(c.id))),
-          fresh: [],
-        });
-        const messages = await api.listMessages(c.id, s.last || undefined);
-        for (const m of messages) {
-          s.last = Math.max(s.last, m.id);
-          // Messages written by the CEO themself (no employee) are never unread
-          if (m.employee_id !== null && (s.seen === null || m.id > s.seen) && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+      // One call for the whole project; only conversations with something new are fetched
+      for (const item of await api.unreadSummary(project.detail.id)) {
+        try {
+          const id = item.conversation_id;
+          const stored = localStorage.getItem(seenKey(id));
+          const s = (state.current[id] ??= {
+            last: stored === null ? 0 : Number(stored),
+            seen: stored === null ? null : Number(stored),
+            fresh: [],
+          });
+          if (id === activeRef.current) {
+            s.last = Math.max(s.last, item.last_id);
+            markRead(id);
+            continue;
+          }
+          if (s.seen === null) {
+            // First visit ever: start from a clean slate rather than flag the whole history
+            s.last = item.last_id;
+            markRead(id);
+            continue;
+          }
+          if (item.last_employee_message_id <= s.last) {
+            s.last = Math.max(s.last, item.last_id);
+            continue;
+          }
+          const messages = await api.listMessages(id, s.last);
+          for (const m of messages) {
+            s.last = Math.max(s.last, m.id);
+            // Messages written by the CEO themself (no employee) are never unread
+            if (m.employee_id !== null && m.id > s.seen && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+          }
+        } catch {
+          // A failing conversation must not stop the others; it is retried at the next tick
         }
-        // First visit ever: start from a clean slate rather than flag the whole history
-        if (s.seen === null) {
-          s.fresh = [];
-          s.seen = s.last;
-          localStorage.setItem(seenKey(c.id), String(s.last));
-        }
-        if (c.id === activeRef.current) markRead(c.id);
-      }));
+      }
       publish();
     } : null,
     UNREAD_POLL_MS,
@@ -131,8 +142,9 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
-  // Small screens: the sidebar slides over the page, and closes once a link is followed
+  // Small screens: the team panel is a drawer over the page, and closes once a link is followed
   const [navOpen, setNavOpen] = useState(false);
+  const [presence, setPresence] = useState<Presence[]>([]);
   useEffect(() => setNavOpen(false), [route]);
 
   const reloadProjects = useCallback(() => api.listProjects().then(setProjects).catch(() => {}), []);
@@ -163,6 +175,16 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     projectId === null ? null : async () => {
       const result = await api.teamStatus(projectId);
       setStatuses(result);
+    },
+    STATUS_POLL_MS,
+    [projectId],
+  );
+
+  useEffect(() => setPresence([]), [projectId]);
+  usePolling(
+    projectId === null ? null : async () => {
+      const result = await api.presence(projectId);
+      setPresence(result);
     },
     STATUS_POLL_MS,
     [projectId],
@@ -215,22 +237,34 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     main = <Home hasProjects={projects.length > 0} />;
   }
 
+  const inProject = projectId !== null && route.name !== "settings" && route.name !== "new";
   return (
-    <div className={navOpen ? "shell nav-open" : "shell"}>
-      <header className="mobile-bar">
-        <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Menu">
-          <MenuIcon />
-        </button>
-        <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
-        {pending > 0 && <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>}
-      </header>
-      <Sidebar route={route} projects={projects} project={project} statuses={statuses} bossName={bossName}
-        claudeAccounts={claudeAccounts} pending={pending} unread={unread} />
-      <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+    <div className={`shell${inProject ? "" : " no-panel"}${navOpen ? " nav-open" : ""}`}>
       <main className="main">
+        {inProject ? (
+          <header className="mobile-bar">
+            <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
+            {pending > 0 && <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>}
+            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Open the team panel"
+              aria-expanded={navOpen}>
+              <MenuIcon />
+            </button>
+          </header>
+        ) : (
+          <header className="topbar">
+            <ProjectMenu route={route} projects={projects} project={null} bossName={bossName} />
+          </header>
+        )}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
+      {inProject && (
+        <>
+          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+          <TeamPanel route={route} projects={projects} project={project} presence={presence} bossName={bossName}
+            pending={pending} unread={unread} open={navOpen} onClose={() => setNavOpen(false)} />
+        </>
+      )}
     </div>
   );
 }

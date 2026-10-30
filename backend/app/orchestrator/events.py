@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.company.team import load_catalog
 from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_members
 from app.orchestrator.prompts import reason_for
-from app.services import DIRECTION
+from app.services import DIRECTION, DM
 
 # Events that make the assignee work on the task (task run) rather than talk
 TASK_EVENTS = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
@@ -36,7 +36,7 @@ async def _conversation_id(s: AsyncSession, event: Event, task: Task | None) -> 
         return conversation_id
     if task is not None:
         return task.conversation_id
-    room_q = select(Room.id).where(Room.project_id == event.project_id, Room.kind != DIRECTION)
+    room_q = select(Room.id).where(Room.project_id == event.project_id, Room.kind.notin_((DIRECTION, DM)))
     if room_id := event.payload.get("room_id"):
         room_q = room_q.where(Room.id == room_id)
     return await s.scalar(
@@ -48,13 +48,13 @@ async def _conversation_id(s: AsyncSession, event: Event, task: Task | None) -> 
 
 
 async def _room_of(s: AsyncSession, conversation_id: int | None) -> tuple[int | None, set[int], bool]:
-    """The conversation's room, the ids of its members, and whether it is the direction."""
+    """The conversation's room, the ids of its members, and whether it is closed to outsiders (direction or a DM)."""
     if conversation_id is None:
         return None, set(), False
     room_id = await s.scalar(select(Conversation.room_id).where(Conversation.id == conversation_id))
     members = await s.scalars(select(room_members.c.employee_id).where(room_members.c.room_id == room_id))
     kind = await s.scalar(select(Room.kind).where(Room.id == room_id))
-    return room_id, set(members), kind == DIRECTION
+    return room_id, set(members), kind in (DIRECTION, DM)
 
 
 async def expand_events(s: AsyncSession) -> int:
@@ -74,13 +74,13 @@ async def expand_events(s: AsyncSession) -> int:
         task = await s.get(Task, event.payload["task_id"]) if "task_id" in event.payload else None
         conversation_id = await _conversation_id(s, event, task)
         reason = reason_for(event.type, event.payload)
-        room_id, members, is_direction = await _room_of(s, conversation_id)
+        room_id, members, is_closed = await _room_of(s, conversation_id)
         for employee in await _targets(s, event):
             is_task_run = event.type in TASK_EVENTS and task is not None and task.assignee_id == employee.id
             if not is_task_run and room_id is None:
                 continue  # No conversation to talk in (or it was deleted)
-            if not is_task_run and is_direction and employee.id not in members:
-                continue  # Only the lead sits in the direction channel; nobody is called in
+            if not is_task_run and is_closed and employee.id not in members:
+                continue  # Direction and DMs have fixed members; nobody is called in
             if not is_task_run and employee.id not in members:
                 # Called into a room they are not in (a review, a mention...): they join it
                 await s.execute(insert(room_members).values(room_id=room_id, employee_id=employee.id))

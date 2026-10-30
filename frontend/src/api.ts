@@ -45,8 +45,9 @@ export type Room = {
   id: number;
   project_id: number;
   name: string;
-  // "direction": the only channel where the CEO writes; "team": read-only for the CEO
-  kind: "direction" | "team";
+  // "direction": the only channel where the CEO writes; "team": read-only for the CEO;
+  // "dm": between two employees (name "A·B"), read-only for the CEO
+  kind: "direction" | "team" | "dm";
   objective: string;
   summary: string;
   created_at: string;
@@ -85,6 +86,18 @@ export type EmployeeStatus = {
   conversation_id: number | null;
   task_id: number | null;
   since: string | null;
+};
+
+/** Who is busy right now ("blocked" is not derived by the server yet). */
+export type Presence = {
+  employee_id: number;
+  name: string;
+  roles: string[];
+  state: "working" | "idle";
+  kind: string | null;
+  task_id: number | null;
+  conversation_id: number | null;
+  last_run_at: string | null;
 };
 
 export type Mode = {
@@ -279,6 +292,12 @@ export async function testConnection(conn: Connection): Promise<void> {
 
 // --- Endpoints ---------------------------------------------------------------------
 
+export interface UnreadSummaryItem {
+  conversation_id: number;
+  last_id: number;
+  last_employee_message_id: number;
+}
+
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
   getUsage: () => call<Usage>("/settings/usage"),
@@ -311,6 +330,7 @@ export const api = {
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
   researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
+  presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
   roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
@@ -318,6 +338,7 @@ export const api = {
     call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
+  unreadSummary: (projectId: number) => call<UnreadSummaryItem[]>(`/projects/${projectId}/unread-summary`),
   listMessages: (conversationId: number, sinceId?: number) =>
     call<Message[]>(
       `/conversations/${conversationId}/messages?limit=200${sinceId !== undefined ? `&since_id=${sinceId}` : ""}`,

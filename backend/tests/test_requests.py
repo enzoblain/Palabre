@@ -214,7 +214,8 @@ async def test_migration_turns_what_waited_in_the_inbox_into_requests():
     class Migrating(FakeSession):
         results = iter([[event], [decision], [LEAD]])
 
-        scalar_results = iter([None, 9])  # not asked yet, then the direction conversation
+        # not asked yet, then the direction conversation, then the room kind of the posted message
+        scalar_results = iter([None, 9, "direction"])
 
         async def scalars(self, _query):
             return next(self.results)

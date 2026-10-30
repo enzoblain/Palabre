@@ -2,11 +2,13 @@
 
 from collections import defaultdict
 
+from app import services
 from app.models import Task
 
 # Why an employee is woken up, per event type ({...} = event payload fields)
 REASONS: dict[str, str] = {
     "mention": "You were mentioned in the conversation (message #{message_id}). Read the new messages and answer if it is useful.",
+    "dm_message": "{dm_from} sent you a direct message (message #{message_id}). Read the new messages and answer if it is useful.",
     "task_assigned": "You have been assigned task #{task_id}.",
     "task_unblocked": "Task #{task_id}, assigned to you, is no longer waiting for other tasks.",
     "changes_requested": "{reviewer} requested changes on task #{task_id}. Read the reviews with get_task and address them.",
@@ -45,11 +47,13 @@ REASONS: dict[str, str] = {
 
 
 def reason_for(event_type: str, payload: dict) -> str:
+    if event_type == "mention" and payload.get("dm_from"):
+        event_type = "dm_message"
     template = REASONS.get(event_type, "Event '{_type}': {_payload}. Act according to your position if it concerns you.")
     return template.format_map(defaultdict(lambda: "?", payload, _type=event_type, _payload=payload))
 
 
-OPERATING_RULES = """## How Palabre works
+_OPERATING_RULES = """## How Palabre works
 - You only communicate through the "palabre" MCP tools. Anything you write outside send_message or report_progress is seen by nobody.
 - You are woken up when something concerns you. Do what your position requires, then stop.
 - Mention a colleague with @Name only when you need them: it wakes them up.
@@ -59,7 +63,17 @@ OPERATING_RULES = """## How Palabre works
 - A missing toolchain (Node.js, Go, Python venv) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
 - Your task's code only changes in a task run, in the task's worktree. When you are woken up in a conversation and it is time to work on your task (you were unblocked, someone asks you to start or to fix something), call start_task and stop: you are woken up in the worktree right after. Never cd into a task worktree from your desk, and never push: you have no credentials, submit_for_review does it.
 - Channels: the boss only talks to the lead, in the "direction" channel (they read every other channel but never write in them). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction", or ask_ceo when you need their Validate / Reject / Nuance answer), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
+- DMs and groups: send_message(channel="@Name") opens a DM with a colleague, channel="name" posts in a channel you are a member of. A DM is for an exchange between two people; anything that concerns several people goes in a group (a channel), not in several DMs. Never decide anything in a DM: a decision goes in the team channel (and add_decision), a DM can only prepare it. {boss_dms}
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git clone, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
+
+BOSS_READS_DMS_RULE = "The boss reads the team channels and can also read DMs: write nothing in a DM that you would not say in front of them."
+BOSS_SKIPS_DMS_RULE = "The boss reads the team channels but not DMs."
+
+
+def operating_rules() -> str:
+    """OPERATING_RULES with the DM sentence following services.BOSS_READS_DMS (read at call time)."""
+    return _OPERATING_RULES.format(boss_dms=BOSS_READS_DMS_RULE if services.BOSS_READS_DMS else BOSS_SKIPS_DMS_RULE)
+
 
 RESEARCH_RULES = """## How Palabre works
 - You only communicate through the "palabre" MCP tools. Anything you write outside send_message is seen by nobody.
@@ -144,6 +158,15 @@ def task_rules(task: Task, default_branch: str) -> str:
     return TASK_RULES.format(task_id=task.id, title=task.title, branch=task.branch, default_branch=default_branch)
 
 
-def wake_prompt(reasons: list[str]) -> str:
+def rooms_section(rooms: list[tuple[str, str]]) -> str | None:
+    if not rooms:
+        return None
+    lines = "\n".join(f"- {name}{' (DM)' if kind == 'dm' else ''}" for name, kind in rooms)
+    return f"Your channels and DMs:\n{lines}"
+
+
+def wake_prompt(reasons: list[str], rooms: list[tuple[str, str]] | None = None) -> str:
     lines = "\n".join(f"- {r}" for r in dict.fromkeys(reasons))
-    return f"You are being woken up because:\n{lines}"
+    prompt = f"You are being woken up because:\n{lines}"
+    section = rooms_section(rooms or [])
+    return f"{prompt}\n\n{section}" if section else prompt

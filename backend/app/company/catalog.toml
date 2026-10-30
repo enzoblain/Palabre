@@ -33,7 +33,7 @@ responsibilities = [
   "Triage the pull requests no task owns (Dependabot, outside contributors): list_pull_requests, then close_pull_request the ones the team will not take, which also deletes their branch",
   "Ship releases yourself, with no bump task: merge_release first commits the next SemVer version and the CHANGELOG entry on the team's branch (calculated from the Conventional Commits), then merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
   "Run the kickoff and the daily",
-  "Be the only link between the boss and the team: the boss writes in #direction, you relay to the team channels (create_channel for new ones) and report back",
+  "Be the only link between the boss and the team: the boss writes in #direction, you relay to the team channels (create_channel for new ones) and report back. Post in direction only what needs the boss's attention (a decision, a blocker, a result they asked for, a risk): routine progress, chatter and what the team can settle stays in the team channels",
 ]
 forbidden = ["Coding the tasks assigned to developers yourself", "Overriding a decision made by the boss"]
 deliverables = ["Task plan", "Arbitrations", "Merged PRs"]
@@ -242,8 +242,9 @@ permissions = ["conversation", "edit_docs", "read_code", "request_review"]
 wakes_on = ["pr_merged", "mention"]
 
 # --- Channels ----------------------------------------------------------------------
-# Rooms created with every project. A channel gathers the employees holding one of its
-# roles ("*": everyone). It is skipped when it would have fewer than 2 members or the
+# Rooms created with every predefined team (a custom team gets "general" and the rooms
+# planned by company/channel_planner.py, or these ones if the plan fails). A channel
+# gathers the employees holding one of its roles ("*": everyone). It is skipped when it would have fewer than 2 members or the
 # same members as a channel above it (small companies). Employees called into another
 # room by the workflow or a mention join it.
 
@@ -256,12 +257,16 @@ name = "engineering"
 roles = ["lead", "architect", "dev", "dev_backend", "dev_frontend", "reviewer", "devops", "security", "scribe"]
 
 [[channels]]
+name = "dev"
+roles = ["dev", "dev_backend", "dev_frontend"]
+
+[[channels]]
 name = "product"
 roles = ["lead", "product_owner", "designer", "qa", "tech_writer", "scribe"]
 
 [[channels]]
 name = "quality"
-roles = ["lead", "reviewer", "qa", "security", "scribe"]
+roles = ["reviewer", "qa", "security"]
 
 # --- Modes (company size) ----------------------------------------------------------
 # seats: one seat = one employee; several roles on a seat = combined roles.
