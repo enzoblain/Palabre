@@ -4,17 +4,18 @@
   --sidebar: #f1f1f5;
   --border: #e3e3ea;
   --text: #1d1d24;
-  --muted: #6c6c7a;
+  --muted: #5f5f6d;
   --accent: #4f46e5;
   --accent-soft: #ecebfd;
   --accent-text: #ffffff;
+  --error-text: #ffffff;
   --hover: rgba(0, 0, 0, 0.05);
   --active: rgba(79, 70, 229, 0.12);
   --error: #c62828;
   --success: #2e7d32;
-  --working: #22a559;
-  --waiting: #e0a100;
-  --resting: #a3a3b2;
+  --working: #16783c;
+  --waiting: #9a6f00;
+  --resting: #868696;
   --code-bg: #f0f0f4;
   --mention-me-bg: #fff8c5;
   --mention-me-border: #d4a72c;
@@ -36,13 +37,17 @@
     --border: #2c2c35;
     --text: #e8e8ee;
     --muted: #9090a0;
-    --accent: #7c74ff;
+    --accent: #9d97ff;
+    --accent-text: #101014;
+    --error-text: #101014;
     --accent-soft: #26244a;
     --hover: rgba(255, 255, 255, 0.05);
-    --active: rgba(124, 116, 255, 0.18);
+    --active: rgba(157, 151, 255, 0.18);
     --error: #ff6b6b;
     --success: #5fd07a;
-    --resting: #5c5c6a;
+    --working: #22a559;
+    --waiting: #e0a100;
+    --resting: #7c7c8c;
     --code-bg: #24242c;
     --mention-me-bg: rgba(187, 128, 9, 0.15);
     --mention-me-border: #bb8009;
@@ -366,7 +371,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 .project-list li { display: flex; align-items: center; gap: 10px; min-height: 32px; }
 .project-list-name { flex: 1; }
 .confirm-delete { gap: 8px; font-size: 13px; }
-.btn-danger { background: var(--error); border-color: var(--error); color: #fff; }
+.btn-danger { background: var(--error); border-color: var(--error); color: var(--error-text); }
 .btn-danger:hover:not(:disabled) { background: var(--error); filter: brightness(1.08); }
 
 /* --- Small screens (the app in a phone's browser) --- */
