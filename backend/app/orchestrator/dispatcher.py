@@ -23,9 +23,9 @@ from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
-    OPERATING_RULES,
     RESEARCH_RULES,
     language_rule,
+    operating_rules,
     orientation_rule,
     task_rules,
     version_rule,
@@ -278,7 +278,7 @@ class Orchestrator:
         member = next(m for m in team.employees if m.name == employee.name)
         system_prompt = "\n\n".join(p for p in [
             render_system_prompt(team, member, services.boss_display_name()),
-            RESEARCH_RULES if project.kind == "research" else OPERATING_RULES,
+            RESEARCH_RULES if project.kind == "research" else operating_rules(),
             CHAT_RULES,
             orientation_rule(project.default_branch, await self._is_first_run(s, employee, run_id))
             if project.kind == "company" else None,
