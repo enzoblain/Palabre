@@ -232,6 +232,29 @@ check_secrets "fresh start"
 # The pool of agent accounts on a real container: no run is going on in the smoke stack, so the
 # script may swap claude for its stub. The exit code is the verdict.
 step "Agent pool isolation (agent1..N)"
-dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh || fail "the agent isolation check failed (see the lines above)"
+# The output is captured and replayed: a workflow command only counts at the start of a line,
+# and GitHub keeps 10 annotations per step, so on failure the ::error lines are re-emitted
+# bare, most informative first (FAIL details before the raw dumps), and the tail goes in a group.
+iso_out=$(mktemp)
+iso_rc=0
+dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh >"$iso_out" 2>&1 || iso_rc=$?
+tr -d '\r' <"$iso_out" | sed 's/^[[:space:]]*\(::\)/\1/' >"$iso_out.clean"
+if [ "$iso_rc" -eq 0 ]; then
+  cat "$iso_out.clean"
+else
+  # Neutralised (leading space) so the full log does not use up the annotation budget.
+  echo "::group::check-isolation.sh, full output (exit $iso_rc)"
+  sed 's/^::/ ::/' "$iso_out.clean"
+  echo "::endgroup::"
+  echo "::group::check-isolation.sh, last 40 lines"
+  tail -n 40 "$iso_out.clean" | sed 's/^::/ ::/'
+  echo "::endgroup::"
+  grep '^FAIL ' "$iso_out.clean" || true
+  { grep '^::error::' "$iso_out.clean" | grep -v '^::error::sudo -ll' || true
+    grep '^::error::sudo -ll' "$iso_out.clean" || true; } | head -n 8
+  nfail=$(grep -c '^FAIL ' "$iso_out.clean" || true)
+fi
+rm -f "$iso_out" "$iso_out.clean"
+[ "$iso_rc" -eq 0 ] || fail "the agent isolation check failed (exit $iso_rc, $nfail FAIL line(s)); details in the annotations above"
 
 echo "Compose smoke test passed"
