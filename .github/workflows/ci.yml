@@ -160,8 +160,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { case: admin-token, project: failfast-admin, port: 28710, admin: "", pg: "pg-secret", reason: "ADMIN_TOKEN is blank" }
-          - { case: postgres-password, project: failfast-pg, port: 28711, admin: "admin-secret", pg: "", reason: "POSTGRES_PASSWORD is empty or missing" }
+          - { case: admin-token, project: failfast-admin, port: 28710, admin: "", pg: "pg-0123456789abcdef0123456789abcdef", reason: "ADMIN_TOKEN is blank" }
+          - { case: postgres-password, project: failfast-pg, port: 28711, admin: "admin-0123456789abcdef0123456789abcdef", pg: "", reason: "POSTGRES_PASSWORD is empty or missing" }
+          - { case: admin-token-short, project: failfast-admin-short, port: 28712, admin: "short-admin-secret", pg: "pg-0123456789abcdef0123456789abcdef", reason: "ADMIN_TOKEN is too short" }
+          - { case: postgres-password-short, project: failfast-pg-short, port: 28713, admin: "admin-0123456789abcdef0123456789abcdef", pg: "short-pg-secret", reason: "POSTGRES_PASSWORD is too short" }
     env:
       COMPOSE_PROJECT_NAME: ${{ matrix.project }}
       PALABRE_PORT: ${{ matrix.port }}

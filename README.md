@@ -194,10 +194,10 @@ Four values in `.env` are required:
 
 | Variable | What it is |
 |---|---|
-| `ADMIN_TOKEN` | Protects the API; the apps ask for it. E.g. `openssl rand -hex 32` |
+| `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
-| `POSTGRES_PASSWORD` | Letters, digits, `-` and `_` |
+| `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
 
 The server listens on port `2710` and the web app on port `2810`.
 

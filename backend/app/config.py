@@ -9,6 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets"))
 
+# Brute-force floor for the secrets that guard the API and the database
+MIN_SECRET_LENGTH = 32
+
 
 class Settings(BaseSettings):
     # Secrets (admin_token, github_token, claude_code_oauth_tokens, postgres_password) are
@@ -31,6 +34,10 @@ class Settings(BaseSettings):
     # Default + validate_default: Compose mounts no file for an empty secret, so an absent token
     # must hit the blank check too (an unvalidated "" default would leave the API open)
     admin_token: str = Field("", validate_default=True)
+    # Failed API authentications from one IP within auth_fail_window_seconds before it is
+    # answered 429 (and so even with a valid token) until the window has passed
+    auth_max_failures: int = 10
+    auth_fail_window_seconds: int = 300
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
@@ -95,10 +102,20 @@ class Settings(BaseSettings):
 
     @field_validator("admin_token")
     @classmethod
-    def _admin_token_not_blank(cls, v: str) -> str:
+    def _admin_token_strong(cls, v: str) -> str:
         # Never echo the value: only say what is wrong
         if not v.strip():
             raise ValueError("ADMIN_TOKEN is blank: set it in .env (e.g. openssl rand -hex 32)")
+        if len(v) < MIN_SECRET_LENGTH:
+            raise ValueError(f"ADMIN_TOKEN is too short (minimum {MIN_SECRET_LENGTH} characters): e.g. openssl rand -hex 32")
+        return v
+
+    @field_validator("postgres_password")
+    @classmethod
+    def _postgres_password_strong(cls, v: str | None) -> str | None:
+        # An empty one is reported by the model validator below, with its own message
+        if v and len(v) < MIN_SECRET_LENGTH:
+            raise ValueError(f"POSTGRES_PASSWORD is too short (minimum {MIN_SECRET_LENGTH} characters): e.g. openssl rand -hex 32")
         return v
 
     @model_validator(mode="after")

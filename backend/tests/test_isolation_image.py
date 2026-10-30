@@ -81,12 +81,12 @@ def test_secrets_are_files_not_environment():
 def test_settings_read_secret_files(tmp_path, monkeypatch):
     from app.config import Settings
 
-    (tmp_path / "admin_token").write_text("a-token")
-    (tmp_path / "postgres_password").write_text("p@ss")
+    (tmp_path / "admin_token").write_text("a" * 40)
+    (tmp_path / "postgres_password").write_text("p@" + "s" * 40)
     monkeypatch.delenv("ADMIN_TOKEN", raising=False)
     s = Settings(_secrets_dir=tmp_path, _env_file=None)
-    assert s.admin_token == "a-token"
-    assert s.database_url == "postgresql+asyncpg://palabre:p%40ss@db:5432/palabre"
+    assert s.admin_token == "a" * 40
+    assert s.database_url == "postgresql+asyncpg://palabre:p%40" + "s" * 40 + "@db:5432/palabre"
 
 
 def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
@@ -98,7 +98,7 @@ def test_empty_secrets_fail_fast(tmp_path, monkeypatch):
     (tmp_path / "admin_token").write_text("")
     with pytest.raises(ValidationError):
         config.Settings(_secrets_dir=tmp_path, _env_file=None)
-    (tmp_path / "admin_token").write_text("x")
+    (tmp_path / "admin_token").write_text("x" * 40)
     monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
     with pytest.raises(ValidationError, match="POSTGRES_PASSWORD"):
         config.Settings(_secrets_dir=tmp_path, _env_file=None)
@@ -136,7 +136,7 @@ def test_empty_compose_secret_is_refused_with_its_reason(tmp_path, monkeypatch, 
     monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
     monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
     for name in ("admin_token", "postgres_password"):
-        (tmp_path / name).write_text("" if name == empty else "s3cret")
+        (tmp_path / name).write_text("" if name == empty else "s3cret" * 8)
     with pytest.raises(ValidationError, match=reason) as exc:
         config.Settings(_secrets_dir=tmp_path, _env_file=None)
     assert "s3cret" not in str(exc.value)
@@ -154,7 +154,32 @@ def test_absent_compose_secret_is_refused_with_its_reason(tmp_path, monkeypatch,
     monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
     for name in ("admin_token", "postgres_password"):
         if name != missing:
-            (tmp_path / name).write_text("s3cret")
+            (tmp_path / name).write_text("s3cret" * 8)
     with pytest.raises(ValidationError, match=reason) as exc:
         config.Settings(_secrets_dir=tmp_path, _env_file=None)
     assert "s3cret" not in str(exc.value)
+
+
+@pytest.mark.parametrize("name, env", [("admin_token", "ADMIN_TOKEN"), ("postgres_password", "POSTGRES_PASSWORD")])
+def test_short_secret_blocks_startup_without_leaking_it(tmp_path, monkeypatch, name, env):
+    from pydantic import ValidationError
+
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+    monkeypatch.setattr(config, "SECRETS_DIR", tmp_path)
+    for other in ("admin_token", "postgres_password"):
+        (tmp_path / other).write_text("short-s3cret" if other == name else "o" * 40)
+    with pytest.raises(ValidationError, match=f"{env} is too short") as exc:
+        config.Settings(_secrets_dir=tmp_path, _env_file=None)
+    assert "short-s3cret" not in str(exc.value)
+
+
+def test_32_character_secrets_are_accepted(tmp_path, monkeypatch):
+    from app import config
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    (tmp_path / "admin_token").write_text("a" * 32)
+    (tmp_path / "postgres_password").write_text("b" * 32)
+    assert config.Settings(_secrets_dir=tmp_path, _env_file=None).admin_token == "a" * 32
