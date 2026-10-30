@@ -45,15 +45,15 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 - Problem: `npm run check` is `build`, i.e. `tsc --noEmit` plus `vite build`. No unit, component or API-contract test, no linter, no formatter check. A change of a backend response shape breaks the UI without any failing test. The Tauri shell (`src-tauri`) is not built in CI at all.
 - Where: `frontend/package.json:6-12`, `frontend/src/api.ts`, `.github/workflows/ci.yml` (job `frontend`).
 - Severity: high
-- Fix: add Vitest and Testing Library for `api.ts`, `router.ts` and the main components; add ESLint to `check`. For the contract, generate the TypeScript types from the FastAPI OpenAPI schema, or add a backend test that snapshots `app.openapi()`. Build the Tauri shell on release only.
+- Fix: add Vitest and Testing Library for `api.ts`, `router.ts` and the main components; add ESLint to `check`. For the contract, generate the TypeScript types from the FastAPI OpenAPI schema, or add a backend test that snapshots `app.openapi()`. Build the Tauri shell in CI when `frontend/` or `src-tauri/` change (see also the DevOps audit).
 - Effort: M
 
 ### Q6. CI skips silently instead of failing
 
 - Problem: the backend job tolerates pytest exit code 5 ("no tests collected") and skips tests when `requirements-dev.txt` is missing; the frontend job skips when there is no `check` script. Those guards were meant for the bootstrap of the repository; today a broken path, a bad `testpaths` or a deleted script yields a green check with nothing run. Branch protection counts that as success.
-- Where: `.github/workflows/ci.yml:45-70` (detect steps and the `code -eq 5` branch), `:83-98` (frontend detect).
+- Where: `.github/workflows/ci.yml:43-47` (backend detect step), `:58-63` (exit-5 tolerance), `:79-84` (frontend detect step). See also the DevOps audit.
 - Severity: high
-- Fix: remove the detection steps and the exit-5 tolerance now that both exist; let the jobs fail when something is missing.
+- Fix: remove the detection steps and the exit-5 tolerance now that both exist; let the jobs fail when something is missing. (DevOps audit, finding 10, covers the same fix.)
 - Effort: S
 
 ### Q7. A QA or reviewer comment does not approve, and nothing tells the author what is missing
@@ -66,10 +66,10 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 
 ### Q8. Every rebase restarts a full review/QA cycle
 
-- Problem: `submit_for_review` increments the review round, and `merge_blockers` only reads reviews of the current round (`Review.round == task.review_round`, `app/workflow.py:495-499`). So a dev who only rebases on `dev` (asked for by the watcher when the PR conflicts, `merge_watch.py:103`) wipes the approvals: the reviewer, QA and security must all approve again, each costing a wakeup and a Claude run, and the PR can chase a moving `dev` indefinitely. The cap of "3 review rounds" (`skipped: 3 review rounds`, see `tests/test_rate_limit.py:52`) can be hit just by rebases.
+- Problem: `submit_for_review` increments the review round, and `merge_blockers` only reads reviews of the current round (`Review.round == task.review_round`, `app/workflow.py:495-499`). So a dev who only rebases on `dev` (asked for by the watcher when the PR conflicts, `merge_watch.py:103`) wipes the approvals: the reviewer, QA and security must all approve again, each costing a wakeup and a Claude run, and the PR can chase a moving `dev` indefinitely. The cap of "3 review rounds" (`SkipRun`, see `backend/app/orchestrator/dispatcher.py:367`) can be hit just by rebases.
 - Where: `backend/app/workflow.py:344-406` (`submit_for_review`), `:495-505`, `backend/app/orchestrator/merge_watch.py:34-110`, `backend/app/worktrees.py:119` and `:245` (push with lease).
 - Severity: high
-- Fix: on resubmission, compare the diff against the base (`git range-diff` or `git patch-id` of the task's commits) with the previous submission; if only the base moved, keep the round and the approvals, and carry the verdicts over. Alternative: let the backend rebase clean conflicts itself. Test both paths (same patch-id keeps approvals, changed patch resets them).
+- Fix: on resubmission, compare the diff against the base (`git range-diff` or `git patch-id` of the task's commits) with the previous submission; if only the base moved, keep the round and the approvals, and carry the verdicts over. Alternative: let the backend rebase clean conflicts itself. Test both paths (same patch-id keeps approvals, changed patch resets them). See also the architecture audit (H1).
 - Effort: M
 
 ## Medium
@@ -108,8 +108,8 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 
 ### Q13. The compose smoke test is the only Docker-dependent check, and it is slow and all-or-nothing
 
-- Problem: it needs Docker and published images, takes up to 25 minutes (`timeout-minutes: 25`), runs on every PR, and skips its upgrade/updater steps with a notice when no published version exists, so these can be green while untested. Nobody can run it without Docker, and `test_isolation_image.py` only greps `docker-compose.yml` and the entrypoint as text, so it does not check behaviour. Fork PRs cannot run it (package access).
-- Where: `.github/scripts/compose-smoke.sh`, `.github/workflows/ci.yml:117-135`, `backend/tests/test_isolation_image.py:12,38,68`.
+- Problem: it needs Docker and published images, takes up to 25 minutes (`timeout-minutes: 25`), runs on every PR, and its upgrade/updater steps are skipped with a notice only when run locally without a published version; under `GITHUB_ACTIONS` the script fails instead (`compose-smoke.sh:157`, `:195`). Nobody can run it without Docker, and `test_isolation_image.py` only greps `docker-compose.yml` and the entrypoint as text, so it does not check behaviour. Fork PRs cannot run it (package access).
+- Where: `.github/scripts/compose-smoke.sh`, `.github/workflows/ci.yml:117-136`, `backend/tests/test_isolation_image.py:12,38,68`.
 - Severity: medium
 - Fix: split the script into independent jobs (secrets/isolation vs upgrade vs updater) so one failure points at one area; make skipped steps visible (a `::warning` and a job summary); keep it required only when `docker-compose.yml`, the backend `Dockerfile` or `docker-entrypoint.sh` change (path filter), and run it nightly otherwise.
 - Effort: M
@@ -119,7 +119,7 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 - Problem: CI runs on every push and on pull_request, so each commit pushed to a PR branch runs the whole pipeline twice (concurrency groups differ by `github.ref`, so they do not cancel each other). The Docker builds and pip-audit are repeated too. The README's note on annotations also says GitHub keeps only 10 annotations per step, so a large failure hides failing tests.
 - Where: `.github/workflows/ci.yml:14-24` (`on`, `concurrency`), `README.md` (Tests section).
 - Severity: medium
-- Fix: keep the push trigger (it exists for good reason) but skip the heavy jobs (`docker`, `compose`, `pip-audit`) on pushes of branches that have an open PR, or give both events the same concurrency group keyed on the head SHA. Upload a JUnit XML artifact for the full failure list.
+- Fix: keep the push trigger (it exists for good reason) but skip the heavy jobs (`docker`, `compose`, `pip-audit`) on pushes of branches that have an open PR, or give both events the same concurrency group keyed on the head SHA. Upload a JUnit XML artifact for the full failure list. See also the DevOps audit (finding 3).
 - Effort: S
 
 ## Low
