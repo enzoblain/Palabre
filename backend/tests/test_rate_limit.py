@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models import AgentRun, Base, Conversation, Employee, Event, Project, Room
-from app.orchestrator.dispatcher import Orchestrator, SkipRun
+from app.models import AgentRun, Wakeup, Base, Conversation, Employee, Event, Project, Room
+from app.orchestrator.dispatcher import Orchestrator, Throttled
 
 
 @pytest.fixture
@@ -39,12 +39,12 @@ def add_run(s, error=None, finished=True, ago=timedelta(minutes=5)):
 
 
 async def check(s, orch=None):
-    await (orch or Orchestrator())._check_rate(s, SimpleNamespace(id=1), 1, 999, {"mention"})
+    await (orch or Orchestrator())._check_rate(s, SimpleNamespace(id=1), 1, 1, 999, {"mention"})
 
 
 async def count_seen(s):
     """The run count _check_rate reports when it refuses."""
-    with pytest.raises(SkipRun) as exc:
+    with pytest.raises(Throttled) as exc:
         await check(s)
     return int(str(exc.value).split()[0])
 
@@ -69,7 +69,7 @@ async def test_lifting_the_limit_survives_a_restart(db):
     add_run(db)
     add_run(db)
     await db.flush()
-    with pytest.raises(SkipRun):
+    with pytest.raises(Throttled):
         await check(db)
     await Orchestrator().lift_rate_limit(db, 1, 1)
     event = await db.scalar(select(Event).where(Event.type == "rate_limit_lifted"))
@@ -78,5 +78,41 @@ async def test_lifting_the_limit_survives_a_restart(db):
     add_run(db, ago=timedelta(0))
     add_run(db, ago=timedelta(0))
     await db.flush()
-    with pytest.raises(SkipRun):
+    with pytest.raises(Throttled):
         await check(db)
+
+
+async def test_counter_is_per_employee_across_conversations(db):
+    db.add(Employee(project_id=1, name="Zoe", roles=["dev"], title="Dev", model="m", permissions=[],
+                    traits={}, quirks=[], style={}, mcp_token="z"))  # fmt: skip
+    db.add(Conversation(room_id=1, title="c2"))
+    await db.flush()
+    add_run(db)
+    db.add(AgentRun(employee_id=1, kind="wakeup", conversation_id=2, started_at=datetime.now(UTC), ok=None))
+    db.add(AgentRun(employee_id=2, kind="wakeup", conversation_id=1, started_at=datetime.now(UTC), ok=None))
+    await db.flush()
+    with pytest.raises(Throttled):
+        await check(db)  # employee 1: two runs in two conversations
+    await Orchestrator()._check_rate(db, SimpleNamespace(id=1), 2, 1, 999, {"mention"})  # employee 2: one run
+
+
+async def test_throttled_wakeup_waits_then_runs_when_the_window_frees(db, monkeypatch):
+    add_run(db, ago=timedelta(minutes=50))
+    add_run(db, ago=timedelta(minutes=5))
+    await db.flush()
+    with pytest.raises(Throttled) as exc:
+        await check(db)
+    # The oldest run leaves the hour in ~10 minutes
+    wait = exc.value.until - datetime.now(UTC)
+    assert timedelta(minutes=9) < wait < timedelta(minutes=11)
+
+    w = [Wakeup(employee_id=1, event_type="mention", kind="conversation", conversation_id=1, reason=f"r{i}") for i in range(2)]
+    db.add_all(w)
+    await db.flush()
+    run = AgentRun(employee_id=1, kind="conversation", conversation_id=1)
+    db.add(run)
+    await db.flush()
+    await Orchestrator()._defer(db, run.id, [x.id for x in w], exc.value)
+    await db.refresh(w[0])
+    assert w[0].started_at is None and w[0].finished_at is None  # Not lost
+    assert w[0].not_before.replace(tzinfo=UTC) == exc.value.until
