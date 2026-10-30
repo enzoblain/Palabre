@@ -90,12 +90,20 @@ class _Pool:
 
 
 _pool = _Pool()
+# Accounts that still own a clone or cache: they never go back to the pool until restart
+_quarantined: set[str] = set()
+
+
+def quarantine(user: str) -> None:
+    """Keeps `user` out of the pool when its lease ends (its clone could not be taken back)."""
+    _quarantined.add(user)
 
 
 def reset() -> None:
     """Forgets the leases (tests, settings changes)."""
     global _pool
     _pool = _Pool()
+    _quarantined.clear()
 
 
 @contextlib.asynccontextmanager
@@ -113,7 +121,7 @@ async def lease() -> AsyncIterator[str]:
     finally:
         # A process a run left behind (setsid nohup ...) would keep this uid and read the
         # environment of the next run to get it: the account only goes back once it is empty
-        if await kill_all(user):
+        if await kill_all(user) and user not in _quarantined:
             _pool.release(user)
         else:
             log.error("Agent account %s still may have processes: removed from the pool until restart", user)

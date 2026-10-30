@@ -222,6 +222,19 @@ async def run_claude(spec: RunSpec) -> RunResult:
         run_tokens.revoke(token)
 
 
+async def _take_back(owned: list[Path], user: str, dead: bool) -> None:
+    """Gives the clone and Go cache back to the backend before `user` serves another employee: it could
+    otherwise keep writing a hook in a clone it no longer runs in. Fail closed: if the kill or the
+    hand-back failed, the account stays out of the pool (it still owns them)."""
+    if dead:
+        try:
+            await _claim(owned, "palabre")
+            return
+        except Exception:
+            log.exception("Cannot take %s back from %s", owned, user)
+    agent_pool.quarantine(user)
+
+
 async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
     mcp_config = _write_mcp_config(spec.mcp_headers | {"Authorization": f"Bearer {token}"}, user)
     run_tokens.attach_config(token, mcp_config)
@@ -278,15 +291,12 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         # Nothing of the run may still write in its dir or clone while they are collected or handed
         # back (a lease's kill comes too late for that). Not for the shared legacy user: it would kill other runs.
         dead = pooled and await agent_pool.kill_all(user)
-        if config_dir:
-            await claude_store.collect(spec.employee_id, config_dir, user)
-        if dead:
-            # Back to the backend before the account serves another employee: it could otherwise
-            # keep writing a hook in a clone it no longer runs in. Not released if the kill failed
-            try:
-                await _claim(owned, "palabre")
-            except ClaudeRunError:
-                log.exception("Cannot take %s back from %s", owned, user)
+        try:
+            if config_dir:
+                await claude_store.collect(spec.employee_id, config_dir, user)
+        finally:
+            if pooled:
+                await _take_back(owned, user, dead)
 
     try:
         data = json.loads(stdout)

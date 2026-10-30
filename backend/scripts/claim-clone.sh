@@ -21,4 +21,7 @@ if [ "$2" = palabre ]; then
   /usr/bin/chmod -R u+rwX,go-rwx,ug-s "$1"
 else
   /usr/bin/chmod -R u+rwX,g+rwX,o-rwx,ug-s "$1"
+  # Setgid directories: what the backend creates in the clone during the run (git fetch on submit)
+  # stays in the account's group, so the run can still write it. Nothing of the account lives here yet.
+  /usr/bin/find -P "$1" -type d -exec /usr/bin/chmod g+s {} +
 fi

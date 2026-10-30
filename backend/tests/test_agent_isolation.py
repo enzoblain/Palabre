@@ -1,7 +1,7 @@
 """Runs under AGENT_USER (#104): sudo with an explicit environment, no secret in argv."""
 
-import contextlib
 import asyncio
+import contextlib
 import json
 import os
 import shutil
@@ -680,6 +680,71 @@ async def test_clone_is_not_released_if_the_account_cannot_be_killed(as_agent, p
     _fake_proc(monkeypatch, events)
     await runner.run_claude(replace(spec(tmp_path), employee_id=7))
     assert "claim:palabre" not in events
+
+
+async def test_account_stays_out_of_the_pool_if_the_clone_cannot_be_taken_back(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+
+    async def claim(paths, user):
+        if user == "palabre":
+            raise runner.ClaudeRunError("boom")
+
+    quarantined = []
+    monkeypatch.setattr(runner, "_claim", claim)
+    monkeypatch.setattr(runner.agent_pool, "quarantine", quarantined.append)
+    _fake_proc(monkeypatch, events)
+    await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert quarantined == ["agent3"]
+
+
+async def test_clone_is_taken_back_even_if_collecting_the_session_fails(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+
+    async def claim(paths, user):
+        events.append(f"claim:{user}")
+
+    async def collect(*a):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    monkeypatch.setattr(runner.claude_store, "prepare_run_dir", lambda *a: tmp_path)
+    monkeypatch.setattr(runner.claude_store, "collect", collect)
+    _fake_proc(monkeypatch, events)
+    with pytest.raises(OSError):
+        await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert events[-1] == "claim:palabre"
+
+
+async def test_unkillable_account_is_quarantined(as_agent, pooled, monkeypatch, tmp_path):
+    events, kill_ok = pooled
+    kill_ok[0] = False
+    quarantined = []
+
+    async def claim(paths, user):
+        pass
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    monkeypatch.setattr(runner.agent_pool, "quarantine", quarantined.append)
+    _fake_proc(monkeypatch, events)
+    await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert quarantined == ["agent3"]
+
+
+async def test_lease_does_not_release_a_quarantined_account(monkeypatch):
+    from app import agent_pool
+
+    agent_pool.reset()
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 1)
+
+    async def kill_all(user):
+        return True
+
+    monkeypatch.setattr(agent_pool, "kill_all", kill_all)
+    async with agent_pool.lease() as user:
+        agent_pool.quarantine(user)
+    assert user not in agent_pool._pool.free
+    agent_pool.reset()
 
 
 async def test_clone_is_released_when_the_run_times_out(as_agent, pooled, monkeypatch, tmp_path):
