@@ -2,7 +2,7 @@
 # Checks the agent isolation inside the built image. Run as root in the container:
 #   docker exec -u root [-e CHECK_GITHUB_REPO=owner/scratch-repo] <container> /srv/scripts/check-isolation.sh
 # Prints one line per guarantee and exits non-zero if any is broken (or skipped).
-# CHECK_POOL_ONLY=1 skips the GitHub flow and runs the checks of the agent1..N pool only (no GitHub repository needed): that is
+# CHECK_POOL_ONLY=1 skips the GitHub flow and runs the checks that need no GitHub repository (the agent1..N pool, the legacy shared-account upload-pack): that is
 # what the Compose smoke test runs in CI.
 #
 # THROWAWAY CONTAINER ONLY. For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
@@ -302,5 +302,7 @@ run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is repo
 }
 [ "${CHECK_POOL_ONLY:-}" = 1 ] || run_as_palabre check_isolation_flow.py || fail=1
 run_as_palabre check_isolation_pool.py || fail=1
+# Outside the pool-only gate on purpose: the legacy shared-account mode must stay covered by the CI smoke
+run_as_palabre check_isolation_legacy.py || fail=1
 
 exit $fail
