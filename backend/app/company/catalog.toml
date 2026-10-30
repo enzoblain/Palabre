@@ -126,7 +126,7 @@ wakes_on = ["task_assigned", "changes_requested", "mention"]
 
 [roles.reviewer]
 title = "Reviewer"
-model = "opus"
+model = "sonnet"
 mission = "No PR reaches main without a serious review."
 responsibilities = [
   "Read every diff in full",
