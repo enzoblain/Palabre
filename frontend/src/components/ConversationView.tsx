@@ -174,7 +174,7 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
 
   return (
     <div className="composer">
-      <textarea ref={inputRef} rows={1} value={draft} placeholder={placeholder}
+      <textarea ref={inputRef} rows={1} enterKeyHint={isTouchInput() ? "enter" : "send"} value={draft} placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           // On touch screens Enter inserts a newline; the send button sends
