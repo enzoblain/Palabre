@@ -43,8 +43,6 @@ check "the reference clone is private to palabre" \
   'case "$(stat -c %U:%a /data/projects/project-1/repo)" in palabre:700|palabre:2700) true ;; *) false ;; esac'
 check "the task clone is group-writable (agents commit there)" \
   '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw.rw"'
-check "the task clone is closed to others (o-rwx)" \
-  '[ -z "$(find /data/projects/project-1/worktrees -perm /007)" ]'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'

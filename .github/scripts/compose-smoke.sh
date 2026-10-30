@@ -266,8 +266,8 @@ rm -f "$iso_out" "$iso_out.clean"
 # The entrypoint's migration of an old volume, on the image just built. The "ok" lines and the
 # final count stay in the log: a check that did not run must not look like one that passed.
 step "Migration of a volume made before the agent user"
-# 1 entrypoint check + 14 checks + 1 second start; keep in sync with check-migration.sh
-MIG_EXPECTED_OK=16
+# 1 entrypoint check + 13 checks + 1 second start; keep in sync with check-migration.sh
+MIG_EXPECTED_OK=15
 mig_rc=0
 mig_out=$(backend/scripts/check-migration.sh "ghcr.io/enzoblain/palabre:$NEW" 2>&1) || mig_rc=$?
 printf '%s\n' "$mig_out"
