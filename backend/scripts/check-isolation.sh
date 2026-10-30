@@ -38,6 +38,10 @@ for repo in "$DATA"/projects/project-*/repo; do
   denied "agent cannot write in $repo" as_agent touch "$repo/x"
 done
 check "agent can cross /data/run" as_agent test -x "$DATA/run"
+if ! as_agent test -x "$DATA/run" 2>/dev/null; then
+  # The CI annotation must say why: who the agent is, and the owner/mode of every directory on the way
+  echo "::error::agent cannot cross /data/run: expected x for user agent (group work) on / /data /data/run; got: id=$(as_agent id 2>&1 | tr '\n' ' ') path=$(namei -l "$DATA/run" 2>&1 | tr '\n' '~')"
+fi
 denied "agent cannot list /data/run" as_agent ls "$DATA/run"
 
 check "sudo keeps claude in sudo's process group (!use_pty)" sh -c "sudo -l -U palabre | grep -q '!use_pty'"
@@ -125,8 +129,10 @@ case $mode in
     i=0; while [ ! -s "$dir/$peer.mcp" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
     if [ -s "$dir/$peer.mcp" ]; then found=found; else found=missing; fi
     other=$(cat "$dir/$peer.pid" 2>/dev/null); othermcp=$(cat "$dir/$peer.mcp" 2>/dev/null)
+    # A refusal must come from the permissions, not from a file that is not there
+    if [ -e "$othermcp" ]; then mcpthere=yes; else mcpthere=missing; fi
     out="uid=$(id -u)\npeer=$found"
-    out="$out\nenviron=$(denied cat "/proc/$other/environ")\nmcpconfig=$(denied cat "$othermcp")"
+    out="$out\nenviron=$(denied cat "/proc/$other/environ")\nmcpconfig=$(denied cat "$othermcp")\nmcpthere=$mcpthere"
     out="$out\nownenviron=$(if cat "/proc/$$/environ" >/dev/null 2>&1; then echo allowed; else echo denied; fi)"
     out="$out\nownmcp=$(if cat "$mcp" >/dev/null 2>&1; then echo ok; else echo denied; fi)"
     touch "$dir/$me.done"

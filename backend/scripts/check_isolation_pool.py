@@ -23,12 +23,12 @@ RUN_TIMEOUT = 60
 SLEEP = "sleep 4242"  # what a run leaves behind, recognisable among the other sleeps
 
 
-def report(ok: bool, desc: str) -> None:
+def report(ok: bool, desc: str, got: object = None) -> None:
     global failed
     failed |= not ok
     print(f"{'ok  ' if ok else 'FAIL'} {desc}", flush=True)
     if not ok:
-        print(f"::error::{desc}", flush=True)  # the cause shows in the CI annotations
+        print(f"::error::{desc}" + (f": got {got!r}" if got is not None else ""), flush=True)  # the cause shows in the CI annotations
 
 
 def spec(prompt: str, cwd: Path) -> RunSpec:
@@ -67,10 +67,11 @@ async def concurrent_runs(cwd: Path) -> None:
         f"two simultaneous runs have two different pool uids (got {a.get('uid')} and {b.get('uid')})",
     )
     for name, got in (("first run", a), ("second run", b)):
-        report(got.get("peer") == "found", f"the {name} was alive together with the other (else the checks mean nothing)")
-        report(got.get("ownenviron") == "allowed" and got.get("ownmcp") == "ok", f"the {name} reads its own environ and MCP config")
-        report(got.get("environ") == "denied", f"the {name} cannot read the other run's /proc/<pid>/environ")
-        report(got.get("mcpconfig") == "denied", f"the {name} cannot read the other run's MCP config")
+        report(got.get("peer") == "found", f"the {name} was alive together with the other (else the checks mean nothing), expected peer=found", got)
+        report(got.get("mcpthere") == "yes", f"the {name} could see the other run's MCP config file (else 'denied' means 'missing'), expected mcpthere=yes", got)
+        report(got.get("ownenviron") == "allowed" and got.get("ownmcp") == "ok", f"the {name} reads its own environ and MCP config, expected ownenviron=allowed ownmcp=ok", got)
+        report(got.get("environ") == "denied", f"the {name} cannot read the other run's /proc/<pid>/environ, expected environ=denied", got)
+        report(got.get("mcpconfig") == "denied", f"the {name} cannot read the other run's MCP config, expected mcpconfig=denied", got)
 
 
 async def leftover_process(cwd: Path) -> None:
@@ -79,12 +80,12 @@ async def leftover_process(cwd: Path) -> None:
     agent_pool.reset()
     first = await run(f"leave {cwd}", cwd)
     uid = first.get("uid") or ""
-    report(first.get("alive") == "1", "the first run left a setsid process behind (else the check means nothing)")
+    report(first.get("alive") == "1", "the first run left a setsid process behind (else the check means nothing), expected alive=1", first)
     await asyncio.sleep(1)
-    report(not left_behind(uid), f"the process is killed when the account goes back to the pool ({left_behind(uid)})")
+    report(bool(uid) and not left_behind(uid), f"the process is killed when the account goes back to the pool ({left_behind(uid)})")
     second = await run(f"seen {cwd}", cwd)
     report(second.get("uid") == uid, f"the next run gets the same account (uid {uid}, got {second.get('uid')})")
-    report(second.get("alive") == "0", "the run that re-leases the account finds nothing left by the previous one")
+    report(second.get("alive") == "0", "the run that re-leases the account finds nothing left by the previous one, expected alive=0", second)
 
 
 async def main() -> None:
