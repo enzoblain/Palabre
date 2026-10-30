@@ -4,6 +4,7 @@
 #   backend/scripts/check-migration.sh <image>
 # Exits non-zero if the migration leaves something wrong.
 set -u
+# Covers the default projects root (/data/projects) only: an image built with another PROJECTS_DIR is not exercised here.
 
 image=${1:?usage: check-migration.sh <image>}
 volume=palabre-check-migration-$$

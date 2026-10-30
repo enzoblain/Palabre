@@ -406,10 +406,9 @@ def test_upload_pack_command_runs_under_the_account():
 def test_upload_pack_script_refuses_other_paths(tmp_path):
     conf = tmp_path / "conf"
     conf.write_text("/data/projects")
-    env = {**os.environ, "PALABRE_PROJECTS_ROOT_CONF": str(conf)}
-    script = Path(__file__).resolve().parents[1] / "scripts" / "upload-pack.sh"
+    script = _with_conf(tmp_path, "upload-pack.sh", conf)
     for bad in ("/data/projects/project-2/repo", "/data/projects/project-1/worktrees/task-5/../..", "/etc", "relative", "/data/projects/project-1/worktrees/task-5\n/x"):
-        out = subprocess.run(["sh", str(script), bad], env=env, capture_output=True, text=True)
+        out = subprocess.run(["sh", str(script), bad], capture_output=True, text=True)
         assert out.returncode == 2 and "not a task clone path" in out.stderr, bad
 
 
@@ -549,13 +548,21 @@ ROOTED = {
 }
 
 
+def _with_conf(tmp_path, script, conf):
+    """A copy of the root script reading `conf`: the scripts hard-code their conf path (they run as root)."""
+    text = (SCRIPTS / script).read_text()
+    assert "CONF=/etc/palabre/projects-root.conf\n" in text
+    copy = tmp_path / f"patched-{script}"
+    copy.write_text(text.replace("CONF=/etc/palabre/projects-root.conf\n", f"CONF={conf}\n"))
+    return copy
+
+
 def _rooted(tmp_path, script, root, path, conf=None):
     conf = conf or tmp_path / "conf"
     if root is not None:
         conf.write_text(root)
-    env = {**os.environ, "PALABRE_PROJECTS_ROOT_CONF": str(conf)}
     args = [str(path), *ROOTED[script][1]]
-    return subprocess.run(["sh", str(SCRIPTS / script), *args], env=env, capture_output=True, text=True)
+    return subprocess.run(["sh", str(_with_conf(tmp_path, script, conf)), *args], capture_output=True, text=True)
 
 
 @pytest.mark.parametrize("script", ROOTED)

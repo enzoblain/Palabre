@@ -10,6 +10,20 @@ fi
 
 DATA=/data
 
+# The projects root is the one the root scripts and sudo rules were bound to at image build (PROJECTS_DIR).
+# Same validation as palabre-claim-clone; the runtime PROJECTS_DIR must match, otherwise the backend would
+# write clones where neither the sudo rules nor this script apply: refuse to start.
+PROJECTS=$(cat /etc/palabre/projects-root.conf 2>/dev/null) || { echo "no projects root configured" >&2; exit 1; }
+case "$PROJECTS" in
+  /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
+  /*) ;;
+  *) echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
+esac
+if [ "${PROJECTS_DIR:-$PROJECTS}" != "$PROJECTS" ]; then
+  echo "PROJECTS_DIR=$PROJECTS_DIR differs from the projects root of this image ($PROJECTS): rebuild with that PROJECTS_DIR" >&2
+  exit 1
+fi
+
 # The next steps run as root on a volume the agents could once write in: never follow a
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
@@ -45,9 +59,9 @@ claim_back() {
   if [ "$shared_account" = 1 ]; then share_back "$1"; else take_back "$1"; fi
 }
 
-mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
-for dir in projects runtime run toolchains claude; do
-  real_dir "$DATA/$dir" || { echo "$DATA/$dir is not a plain directory" >&2; exit 1; }
+mkdir -p "$PROJECTS" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
+for dir in "$PROJECTS" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"; do
+  real_dir "$dir" || { echo "$dir is not a plain directory" >&2; exit 1; }
 done
 
 # Claude's sessions: the backend's store, one directory per employee. Agents get a
@@ -56,12 +70,12 @@ chown palabre:palabre "$DATA/claude"
 chmod 700 "$DATA/claude"
 
 # Common group "work", setgid so new files keep it. Agents may only cross /data and
-# /data/projects (no listing of /data, no renaming of a project) and read the toolchains.
+# the projects root (no listing of /data, no renaming of a project) and read the toolchains.
 # They write in nothing shared: the clone of a run and its Go cache are handed to the run's
 # account by the backend (palabre-claim-clone, #160).
-chown palabre:work "$DATA" "$DATA/projects" "$DATA/toolchains"
+chown palabre:work "$DATA" "$PROJECTS" "$DATA/toolchains"
 chmod 2710 "$DATA"
-chmod 2751 "$DATA/projects" "$DATA/toolchains"
+chmod 2751 "$PROJECTS" "$DATA/toolchains"
 # Go caches: one directory per employee inside, claimed by the backend for each run
 real_dir "$DATA/toolchains/gopath" || rm -f "$DATA/toolchains/gopath"
 mkdir -p "$DATA/toolchains/gopath"
@@ -76,11 +90,11 @@ chmod 2711 "$DATA/run"
 
 # Migration of a volume made before the isolation: one pass, then a marker
 if [ ! -e "$DATA/.isolation-v1" ]; then
-  for dir in projects toolchains; do
-    real_dir "$DATA/$dir" || continue
-    chgrp -R work "$DATA/$dir"
-    chmod -R g+rX,g-w "$DATA/$dir"
-    find "$DATA/$dir" -type d -exec chmod g+s {} +
+  for dir in "$PROJECTS" "$DATA/toolchains"; do
+    real_dir "$dir" || continue
+    chgrp -R work "$dir"
+    chmod -R g+rX,g-w "$dir"
+    find "$dir" -type d -exec chmod g+s {} +
   done
   touch "$DATA/.isolation-v1"
 fi
@@ -108,7 +122,7 @@ fi
 
 # Per project, at every start (these scale with the size of the repositories). Agents only
 # write inside their own clone: the directories holding the clones stay closed to them.
-for project in "$DATA"/projects/project-*; do
+for project in "$PROJECTS"/project-*; do
   real_dir "$project" || continue
   chmod 2755 "$project"
   # The reference clone holds the GitHub remote config: the backend only

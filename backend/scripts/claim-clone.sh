@@ -6,7 +6,7 @@
 # The projects root is written root-owned at image build (PROJECTS_DIR), never taken from the caller's environment
 # (sudo drops it anyway): a missing or odd root refuses everything.
 set -eu
-CONF="${PALABRE_PROJECTS_ROOT_CONF:-/etc/palabre/projects-root.conf}"
+CONF=/etc/palabre/projects-root.conf
 ROOT=$(cat "$CONF" 2>/dev/null) || { echo "no projects root configured" >&2; exit 2; }
 case "$ROOT" in
   /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad projects root: $ROOT" >&2; exit 2 ;;
