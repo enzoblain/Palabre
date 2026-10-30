@@ -195,7 +195,11 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     async def noop(*_, **__):
         pass
 
+    async def changes_pending(*_):
+        return changes
+
     monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_changes_pending", changes_pending)
     monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
     monkeypatch.setattr(workflow, "announce", noop)
     monkeypatch.setattr(workflow, "post_message", noop)
@@ -237,7 +241,7 @@ def _rebase_task(**over):
     return SimpleNamespace(**base)
 
 
-async def _resubmit(monkeypatch, task, patch_id):
+async def _resubmit(monkeypatch, task, patch_id, changes=False):
     events = []
 
     async def get_task(*_):
@@ -252,7 +256,11 @@ async def _resubmit(monkeypatch, task, patch_id):
     async def noop(*_, **__):
         pass
 
+    async def changes_pending(*_):
+        return changes
+
     monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_changes_pending", changes_pending)
     monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
     monkeypatch.setattr(workflow, "announce", noop)
     monkeypatch.setattr(workflow, "post_message", noop)
@@ -273,7 +281,7 @@ async def test_pure_rebase_keeps_the_round_and_wakes_nobody(monkeypatch):
     events = await _resubmit(monkeypatch, task, "aaa")
     assert events == []
     assert task.review_round == 2
-    assert task.merge_ready_at == "then"
+    assert task.merge_ready_at is None
     assert task.status == TaskStatus.review
 
 
@@ -287,7 +295,56 @@ async def test_changed_content_starts_a_new_round(monkeypatch):
 
 
 async def test_requested_changes_always_start_a_new_round(monkeypatch):
-    task = _rebase_task(status=TaskStatus.changes_requested)
-    events = await _resubmit(monkeypatch, task, "aaa")
+    task = _rebase_task()  # a task run always starts in_progress; the round holds the changes verdict
+    events = await _resubmit(monkeypatch, task, "aaa", changes=True)
     assert task.review_round == 3
     assert "review_requested" in events
+
+
+async def test_patch_id_with_real_git(tmp_path, monkeypatch):
+    import subprocess
+
+    def run(cwd, *a):
+        subprocess.run(["git", "-C", str(cwd), *a], check=True, capture_output=True)
+
+    origin, clone = tmp_path / "origin.git", tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "dev", str(origin)], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin), str(clone)], check=True, capture_output=True)
+    for k, v in (("user.email", "a@b.c"), ("user.name", "t")):
+        run(clone, "config", k, v)
+    run(clone, "checkout", "-q", "-b", "dev")
+    (clone / "a.py").write_text("def f():\n    if ok:\n        grant()\n")
+    (clone / "b.txt").write_text("1\n")
+    run(clone, "add", "."); run(clone, "commit", "-qm", "init"); run(clone, "push", "-q", "origin", "dev")
+
+    def feature(content):
+        run(clone, "checkout", "-q", "-B", "task", "origin/dev")
+        (clone / "a.py").write_text(content)
+        run(clone, "commit", "-qam", "work"); run(clone, "push", "-qf", "origin", "task")
+        run(clone, "fetch", "-q")
+
+    async def real_git(cwd, *args, stdin=None, **_):
+        p = subprocess.run(["git", "-C", str(cwd), *args], input=stdin, capture_output=True, text=True, check=True)
+        return p.stdout
+
+    monkeypatch.setattr(github, "git", real_git)
+    monkeypatch.setattr(workflow, "repo_dir", lambda _: clone)
+    project, task = SimpleNamespace(default_branch="dev"), SimpleNamespace(id=1, branch="task")
+    body = "def f():\n    if ok:\n        grant()\n"
+    feature(body.replace("grant()", "grant()\n        log()"))
+    before = await workflow._patch_id(project, task)
+    assert before
+
+    # The base moves and the branch is rebased on it: same id
+    run(clone, "checkout", "-q", "dev")
+    (clone / "b.txt").write_text("2\n")
+    run(clone, "commit", "-qam", "base moved"); run(clone, "push", "-q", "origin", "dev")
+    run(clone, "checkout", "-q", "task"); run(clone, "rebase", "-q", "dev"); run(clone, "push", "-qf", "origin", "task")
+    run(clone, "fetch", "-q")
+    assert await workflow._patch_id(project, task) == before
+
+    # Indentation only, then a content change: different ids
+    feature(body.replace("grant()", "grant()\n    log()"))
+    assert await workflow._patch_id(project, task) != before
+    feature(body.replace("grant()", "grant()\n        audit()"))
+    assert await workflow._patch_id(project, task) != before

@@ -315,13 +315,30 @@ async def _changed_files(project: Project, task: Task) -> list[str]:
 
 async def _patch_id(project: Project, task: Task) -> str:
     """Content of the pushed branch, independent of its base: a pure rebase keeps the same patch-id.
-    Empty when it cannot be computed (then nothing is kept)."""
+    --verbatim keeps whitespace, which is semantics in Python or YAML. Empty when it cannot be
+    computed (then a new round starts)."""
     repo = repo_dir(project)
-    diff = await github.git(
-        repo, "diff", "--no-ext-diff", "--binary", f"origin/{project.default_branch}...origin/{task.branch}"
-    )
-    out = await github.git(repo, "patch-id", "--stable", stdin=diff) if diff else ""
+    try:
+        diff = await github.git(
+            repo, "diff", "--no-ext-diff", "--binary", f"origin/{project.default_branch}...origin/{task.branch}"
+        )
+        out = await github.git(repo, "patch-id", "--verbatim", stdin=diff) if diff else ""
+    except github.GitHubError as e:
+        log.warning("patch-id of task %s failed: %s", task.id, e)
+        return ""
     return out.split()[0] if out.split() else ""
+
+
+async def _changes_pending(s: AsyncSession, task: Task) -> bool:
+    """A reviewer's latest verdict of the current round is 'changes'."""
+    reviews = await s.scalars(
+        select(Review).where(Review.task_id == task.id, Review.round == task.review_round).order_by(Review.id)
+    )
+    latest: dict[int, Verdict] = {}
+    for r in reviews:
+        if r.verdict != Verdict.comment:
+            latest[r.reviewer_id] = r.verdict
+    return Verdict.changes in latest.values()
 
 
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
@@ -415,11 +432,13 @@ async def submit_for_review(
     # approvals stay and the merge just waits for the CI on the new head
     pure_rebase = (
         bool(patch_id) and patch_id == task.reviewed_patch_id and task.review_round > 0
-        and task.status != TaskStatus.changes_requested
+        and not await _changes_pending(s, task)
     )
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
     if pure_rebase:
+        # Like a normal submission: merge_watch follows the CI of the new head only while this is unset
+        task.merge_ready_at = task.lead_reminded_at = None
         task.sensitive = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
         await announce(s, task, f"PR rebased by {author.name}, content unchanged: approvals kept (round {task.review_round})")
         wake_lead(task, f"PR rebased by {author.name}, approvals kept")
