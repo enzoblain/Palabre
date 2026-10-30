@@ -84,13 +84,28 @@ for user in $(printf '%s' "$pool" | tr ',' ' '); do
   denied "palabre cannot run anything else as $user" as_palabre sudo -n -u "$user" /bin/true
 done
 
-# The kill rule stops a whole process group of the agent, children included
+# The kill rule stops a whole process group of the agent, children included. Same command as the backend
+# (runner.py / agent_pool.kill_all): sudo -n -u agent /usr/bin/kill -KILL -- -PGID, sent by palabre.
+# Live agent processes: a zombie (state Z) is a dead process nobody reaped yet, not something still running
+agent_sleeps() { ps -u agent -o pid=,stat=,comm= | awk '$3 == "sleep" && $2 !~ /^Z/ {print $1}'; }
 as_agent setsid sh -c 'sleep 600 & sleep 600' &
 sleep 1
-pgid=$(pgrep -u agent -x sleep | head -n 1 | xargs -I{} ps -o pgid= -p {} | tr -d ' ')
-as_palabre sudo -n -u agent /usr/bin/kill -KILL -- "-$pgid"
-sleep 1
-denied "no agent process is left after the group kill" pgrep -u agent -x sleep
+sleep_pid=$(agent_sleeps | head -n 1)
+pgid=$(ps -o pgid= -p "${sleep_pid:-0}" 2>/dev/null | tr -d ' ')
+before=$(ps -o pid,pgid,sid,stat,user,args -u agent 2>&1 | tr '\n' '~')
+check "the agent sleeps were started" test -n "$sleep_pid"
+check "the agent group to kill exists" test -n "$pgid"
+as_palabre sudo -n -u agent /usr/bin/kill -KILL -- "-${pgid:-0}"
+kill_rc=$?
+# SIGKILL is immediate, but the reaping is not: wait up to 3 s, and still require zero live process at the end
+for _ in 1 2 3 4 5 6; do [ -z "$(agent_sleeps)" ] && break; sleep 0.5; done
+after=$(ps -o pid,pgid,sid,stat,user,args -u agent 2>&1 | tr '\n' '~')
+if [ -z "$(agent_sleeps)" ]; then echo "ok   no agent process is left after the group kill"
+else
+  echo "FAIL no agent process is left after the group kill"
+  echo "::error::no agent process is left after the group kill: target pgid=$pgid kill_rc=$kill_rc; before: $before; after: $after"
+  fail=1
+fi
 
 # Agent runs through the real runner, with a stub instead of claude: it reports what the
 # agent can see and do from inside the run (stdout is claude's JSON result)
