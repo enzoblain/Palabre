@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-30
+
+### Fixed
+
+- a11y: raise theme color contrast to WCAG AA (#142)
+- ux: let Enter insert a newline on touch screens (#141)
+- docker: run the backend under tini to reap zombie processes (#144)
+- security: hand each run's clone and Go cache to its account alone (#136)
+- security: create pool user homes without /etc/skel (#148)
+
 ## [0.11.0] - 2026-10-30
 
 ### Added
@@ -327,7 +337,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/enzoblain/Palabre/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/enzoblain/Palabre/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/enzoblain/Palabre/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/enzoblain/Palabre/compare/v0.9.0...v0.10.0
