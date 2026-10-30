@@ -211,6 +211,20 @@ denied "agent2 cannot plant a hook in agent1's clone" as_pool_sh agent2 touch "$
 denied "agent2 cannot overwrite agent1's hook" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/hooks/pre-commit'"
 denied "agent2 cannot write the git config of agent1's clone" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/config'"
 denied "agent2 cannot write in agent1's Go cache" as_pool_sh agent2 touch "$gocache/y"
+# Reassignment (#160): the run ends, the clone goes back to palabre, then to another account
+for target in "$claim_root" "$gocache"; do
+  check "palabre can take $target back" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" palabre
+done
+denied "agent1 cannot write a hook once the clone is released" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-merge"
+denied "agent1 cannot write the git config once the clone is released" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent1 cannot write in the Go cache once released" as_pool_sh agent1 touch "$gocache/z"
+for target in "$claim_root" "$gocache"; do
+  check "palabre can claim $target for agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" agent2
+done
+check "agent2 can write a hook in its claimed clone" as_pool_sh agent2 touch "$claim_root/.git/hooks/post-commit"
+denied "agent1 cannot write a hook in the clone now claimed by agent2" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-rewrite"
+denied "agent1 cannot write the git config of agent2's clone" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent1 cannot write in agent2's Go cache" as_pool_sh agent1 touch "$gocache/w"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines

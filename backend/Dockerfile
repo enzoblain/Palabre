@@ -57,6 +57,8 @@ RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre" \
+      "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre" \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent

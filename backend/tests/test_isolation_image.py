@@ -32,6 +32,9 @@ def test_single_narrow_sudo_rule():
         # Hands a clone to an agent account (#160): the script checks both arguments
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*",
+        # And takes it back once the run's processes are dead
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre",
     ]
     assert 'users="agent$(for i in' in DOCKERFILE
     assert "AGENT_USER=agent" in DOCKERFILE
@@ -211,6 +214,7 @@ CLAIM = BACKEND / "scripts" / "claim-clone.sh"
     ["/data/projects/project-1/desks/employee-1"],  # no account
     ["/data/projects/project-1/desks/employee-1", "root"],
     ["/data/projects/project-1/desks/employee-1", "agent1x"],
+    ["/data/projects/project-1/desks/employee-1", "agent"],  # the legacy user's group is shared
     ["/data/projects/project-1/repo", "agent1"],
     ["/data/projects/project-1/worktrees/task-1/../../repo", "agent1"],
     ["/data/projects/project-1/worktrees/task-1\n/etc", "agent1"],

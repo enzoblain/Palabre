@@ -1,5 +1,6 @@
 """Runs under AGENT_USER (#104): sudo with an explicit environment, no secret in argv."""
 
+import contextlib
 import asyncio
 import json
 import os
@@ -621,14 +622,28 @@ def test_pool_with_a_user_but_no_group_is_shrunk(monkeypatch):
     agent_pool.reset()
 
 
-async def test_run_claims_its_clone_and_go_cache_before_starting(as_agent, monkeypatch, tmp_path):
-    claims = as_agent
-    order = []
+@pytest.fixture
+def pooled(monkeypatch):
+    """A run on pool account agent3; records the kill and the release order."""
+    events = []
 
-    async def claim(paths, user):
-        order.append("claim")
-        claims.append((paths, user))
+    @contextlib.asynccontextmanager
+    async def lease():
+        yield "agent3"
 
+    async def kill_all(user):
+        events.append("kill")
+        return kill_ok[0]
+
+    kill_ok = [True]
+    monkeypatch.setattr(runner.shutil, "chown", lambda *a, **k: None)  # agent3 does not exist here
+    monkeypatch.setattr(runner.claude_store, "prepare_run_dir", lambda *a: None)
+    monkeypatch.setattr(runner.agent_pool, "lease", lease)
+    monkeypatch.setattr(runner.agent_pool, "kill_all", kill_all)
+    return events, kill_ok
+
+
+def _fake_proc(monkeypatch, events):
     class Proc:
         returncode = 0
 
@@ -636,15 +651,66 @@ async def test_run_claims_its_clone_and_go_cache_before_starting(as_agent, monke
             return b'{"session_id": "s", "result": "ok"}', b""
 
     async def fake_exec(*argv, **kw):
-        order.append("run")
+        events.append("run")
         return Proc()
 
-    monkeypatch.setattr(runner, "_claim", claim)
     monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+
+
+async def test_run_claims_its_clone_then_releases_it_after_the_kill(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+
+    async def claim(paths, user):
+        events.append(f"claim:{user}")
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    _fake_proc(monkeypatch, events)
     await runner.run_claude(replace(spec(tmp_path), employee_id=7))
-    assert order == ["claim", "run"]
-    paths, user = claims[0]
-    assert user == "root" and paths == [tmp_path, settings.toolchains_dir / "gopath" / "employee-7"]
+    assert events == ["claim:agent3", "run", "kill", "claim:palabre"]
+
+
+async def test_clone_is_not_released_if_the_account_cannot_be_killed(as_agent, pooled, monkeypatch, tmp_path):
+    events, kill_ok = pooled
+    kill_ok[0] = False
+
+    async def claim(paths, user):
+        events.append(f"claim:{user}")
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    _fake_proc(monkeypatch, events)
+    await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert "claim:palabre" not in events
+
+
+async def test_clone_is_released_when_the_run_times_out(as_agent, pooled, monkeypatch, tmp_path):
+    events, _ = pooled
+    paths_seen = []
+
+    async def claim(paths, user):
+        events.append(f"claim:{user}")
+        paths_seen.append(paths)
+
+    class Proc:
+        async def communicate(self):
+            raise TimeoutError
+
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*argv, **kw):
+        return Proc()
+
+    async def terminate(proc, user=None):
+        events.append("terminate")
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    monkeypatch.setattr(runner, "_terminate", terminate)
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(runner.asyncio, "wait_for", lambda coro, t: coro)
+    with pytest.raises(runner.ClaudeRunError):
+        await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert events[-2:] == ["kill", "claim:palabre"]
+    assert paths_seen[0] == [tmp_path, settings.toolchains_dir / "gopath" / "employee-7"]
 
 
 def test_go_cache_is_per_employee(as_agent):

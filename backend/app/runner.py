@@ -149,7 +149,8 @@ def _write_mcp_config(headers: dict[str, str], user: str | None = None) -> Path:
 
 async def _claim(paths: list[Path], user: str) -> None:
     """Hand the run's clone and Go cache to its account alone (#160): the others, who could
-    plant a hook or a module there for this run to execute, lose their write access."""
+    plant a hook or a module there for this run to execute, lose their write access.
+    With user "palabre" it is the release: the paths go back to the backend."""
     for path in paths:
         path.mkdir(mode=0o770, parents=True, exist_ok=True)
         proc = await asyncio.create_subprocess_exec(
@@ -242,12 +243,15 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         cmd += ["--resume", spec.resume_session_id]
 
     config_dir = None
+    # The legacy shared user has no private group: its clones stay the backend's
+    pooled = bool(user) and user != settings.agent_user
+    owned = [spec.cwd, toolchains.gopath(spec.employee_id)]
     try:
         try:
             if user:
                 config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id, user)
-            if user:
-                await _claim([spec.cwd, toolchains.gopath(spec.employee_id)], user)
+            if pooled:
+                await _claim(owned, user)
             env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user, spec.employee_id)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env, user),
@@ -271,12 +275,18 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
             raise
     finally:
         mcp_config.unlink(missing_ok=True)
+        # Nothing of the run may still write in its dir or clone while they are collected or handed
+        # back (a lease's kill comes too late for that). Not for the shared legacy user: it would kill other runs.
+        dead = pooled and await agent_pool.kill_all(user)
         if config_dir:
-            # Nothing of the run may still write in its dir while it is collected (a lease's kill
-            # comes too late for that). Not for the shared legacy user: it would kill other runs.
-            if user and user != settings.agent_user:
-                await agent_pool.kill_all(user)
             await claude_store.collect(spec.employee_id, config_dir, user)
+        if dead:
+            # Back to the backend before the account serves another employee: it could otherwise
+            # keep writing a hook in a clone it no longer runs in. Not released if the kill failed
+            try:
+                await _claim(owned, "palabre")
+            except ClaudeRunError:
+                log.exception("Cannot take %s back from %s", owned, user)
 
     try:
         data = json.loads(stdout)
