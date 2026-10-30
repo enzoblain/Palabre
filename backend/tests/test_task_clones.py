@@ -5,6 +5,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,9 +22,9 @@ def _run(*args, cwd):
 
 
 @pytest.fixture
-def setup(tmp_path, monkeypatch):
+def setup(safe_tmp, monkeypatch):
     monkeypatch.undo()  # drops the autouse subprocess guard: real git on local repos
-    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "projects_dir", safe_tmp / "projects")
     project = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="main")
     reference = worktrees.repo_dir(project)
     reference.mkdir(parents=True)
@@ -413,18 +414,18 @@ def test_upload_pack_script_refuses_other_paths(tmp_path):
 
 
 @pytest.fixture
-def agent_pool_env(setup, monkeypatch, tmp_path):
+def agent_pool_env(setup, monkeypatch, safe_tmp):
     """The push as the pool does it: the clone owned by `agent1` (faked), sudo replaced by a shim
     that drops `-n -u <user>` and runs a stand-in for the root script."""
     project, reference, calls = setup
-    bin_dir = tmp_path / "bin"
+    bin_dir = safe_tmp / "bin"
     bin_dir.mkdir()
-    log = tmp_path / "sudo.log"
+    log = safe_tmp / "sudo.log"
     (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
     # The real root script, its projects root pointed at the test's tmp dir, so its git command line is exercised
     real = (Path(__file__).parent.parent / "scripts" / "upload-pack.sh").read_text()
-    conf = tmp_path / "projects-root.conf"
-    conf.write_text(f"{tmp_path}/projects")
+    conf = safe_tmp / "projects-root.conf"
+    conf.write_text(f"{safe_tmp}/projects")
     # The git environment is scrubbed on the way, so the default conf path is swapped rather than the variable set
     (bin_dir / "palabre-upload-pack").write_text(real.replace("/etc/palabre/projects-root.conf", str(conf)))
     for f in bin_dir.iterdir():
@@ -548,21 +549,29 @@ ROOTED = {
 }
 
 
-def _with_conf(tmp_path, script, conf):
+@pytest.fixture
+def safe_tmp():
+    """A temp dir under /tmp: the scripts refuse a root with a "." and pytest's basetemp may contain one."""
+    path = Path(tempfile.mkdtemp(prefix="palabre-rooted-", dir="/tmp"))
+    yield path
+    shutil.rmtree(path, ignore_errors=True)
+
+
+def _with_conf(safe_tmp, script, conf):
     """A copy of the root script reading `conf`: the scripts hard-code their conf path (they run as root)."""
     text = (SCRIPTS / script).read_text()
     assert "CONF=/etc/palabre/projects-root.conf\n" in text
-    copy = tmp_path / f"patched-{script}"
+    copy = safe_tmp / f"patched-{script}"
     copy.write_text(text.replace("CONF=/etc/palabre/projects-root.conf\n", f"CONF={conf}\n"))
     return copy
 
 
-def _rooted(tmp_path, script, root, path, conf=None):
-    conf = conf or tmp_path / "conf"
+def _rooted(safe_tmp, script, root, path, conf=None):
+    conf = conf or safe_tmp / "conf"
     if root is not None:
         conf.write_text(root)
     args = [str(path), *ROOTED[script][1]]
-    return subprocess.run(["sh", str(_with_conf(tmp_path, script, conf)), *args], capture_output=True, text=True)
+    return subprocess.run(["sh", str(_with_conf(safe_tmp, script, conf)), *args], capture_output=True, text=True)
 
 
 @pytest.mark.parametrize("script", ROOTED)
@@ -570,46 +579,46 @@ def test_scripts_have_no_hardcoded_projects_root(script):
     assert "/data/projects" not in (SCRIPTS / script).read_text()
 
 
-def test_rm_clone_root_comes_from_config(tmp_path):
-    root = tmp_path / "projs"
+def test_rm_clone_root_comes_from_config(safe_tmp):
+    root = safe_tmp / "projs"
     clone = root / "project-1" / "worktrees" / "task-2"
     clone.mkdir(parents=True)
     (clone / "f").write_text("x")
-    done = _rooted(tmp_path, "rm-clone.sh", str(root), clone)
+    done = _rooted(safe_tmp, "rm-clone.sh", str(root), clone)
     assert done.returncode == 0, done.stderr
     assert clone.is_dir() and not any(clone.iterdir())
 
 
 @pytest.mark.parametrize("script", ROOTED)
-def test_script_accepts_a_clone_under_the_configured_root(tmp_path, script):
-    root = tmp_path / "projs"
+def test_script_accepts_a_clone_under_the_configured_root(safe_tmp, script):
+    root = safe_tmp / "projs"
     clone = root / "project-1" / "worktrees" / "task-2"
     clone.mkdir(parents=True)
-    done = _rooted(tmp_path, script, str(root), clone)
+    done = _rooted(safe_tmp, script, str(root), clone)
     # Past the path guards: upload-pack then fails on the missing .git, claim-clone on the missing account
     assert "not a task clone path" not in done.stderr and "not a clone path" not in done.stderr
     assert "projects root" not in done.stderr
 
 
 @pytest.mark.parametrize("script", ROOTED)
-def test_script_refuses_outside_the_root(tmp_path, script):
-    root = tmp_path / "projs"
-    other = tmp_path / "other" / "project-1" / "worktrees" / "task-2"
+def test_script_refuses_outside_the_root(safe_tmp, script):
+    root = safe_tmp / "projs"
+    other = safe_tmp / "other" / "project-1" / "worktrees" / "task-2"
     other.mkdir(parents=True)
     (other / "f").write_text("x")
-    done = _rooted(tmp_path, script, str(root), other)
+    done = _rooted(safe_tmp, script, str(root), other)
     assert done.returncode == 2 and (other / "f").exists()
 
 
 @pytest.mark.parametrize("script", ROOTED)
-def test_script_fails_closed_on_bad_root(tmp_path, script):
-    clone = tmp_path / "projs" / "project-1" / "worktrees" / "task-2"
+def test_script_fails_closed_on_bad_root(safe_tmp, script):
+    clone = safe_tmp / "projs" / "project-1" / "worktrees" / "task-2"
     clone.mkdir(parents=True)
     (clone / "f").write_text("x")
-    for root in ("", "/", "relative", f"{tmp_path}/projs/", f"{tmp_path}/pro.js"):
-        done = _rooted(tmp_path, script, root, clone)
+    for root in ("", "/", "relative", f"{safe_tmp}/projs/", f"{safe_tmp}/pro.js"):
+        done = _rooted(safe_tmp, script, root, clone)
         assert done.returncode == 2 and "projects root" in done.stderr, root
     assert (clone / "f").exists()
     # No config file at all
-    done = _rooted(tmp_path, script, None, clone, conf=tmp_path / "missing")
+    done = _rooted(safe_tmp, script, None, clone, conf=safe_tmp / "missing")
     assert done.returncode == 2 and "no projects root" in done.stderr
