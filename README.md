@@ -64,6 +64,8 @@ head SHA with the result (green, or the failing checks) and a "Palabre" line is 
 team's first channel. Green means `merge_release`, then `publish_version`: once production's CI is green, the wakeup says which version to publish ("publish vX.Y.Z").
 No release depends on the lead remembering it: when the team's branch holds commits production lacks, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default), the lead is woken (`release_pending`, once per head SHA, stored in `Project.release_reminded_sha`) with the pending changes and the computed version.
 
+A resubmission whose content is unchanged (the reviewed commit replayed with `git merge-tree` on the base the branch now sits on gives exactly the new tree, i.e. a pure rebase) keeps the review round and its approvals, unless a reviewer's latest verdict of the round asks for changes or the task newly becomes sensitive; the merge still waits for the CI of the new head. Any content change starts a new round and drops every approval.
+
 A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
 branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
 the CI is red on an otherwise approved task, the task goes back to its dev (`changes_requested`)

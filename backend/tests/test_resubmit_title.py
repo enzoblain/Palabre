@@ -21,7 +21,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.changes_requested, branch="task/7", worktree_path="/tmp/w",
         pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
 
     async def get_task(*_):
@@ -64,7 +64,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
     opened = {}
 
@@ -122,7 +122,7 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
     head = {"branch": "task/7"}  # the worktree's real branch
     fail = {"push": True}
@@ -178,7 +178,7 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
     gits = []
 
@@ -195,7 +195,11 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     async def noop(*_, **__):
         pass
 
+    async def changes_pending(*_):
+        return False
+
     monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_changes_pending", changes_pending)
     monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
     monkeypatch.setattr(workflow, "announce", noop)
     monkeypatch.setattr(workflow, "post_message", noop)
@@ -224,3 +228,173 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     })
     blockers = await workflow.merge_blockers(Sess(), SimpleNamespace(mode=None), task)
     assert "security has not approved this sensitive PR" in blockers
+
+
+def _rebase_task(**over):
+    base = dict(
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=2,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at="then", lead_reminded_at=None,
+        reviewed_head="aaa",
+    )
+    base.update(over)
+    return SimpleNamespace(**base)
+
+
+async def _resubmit(monkeypatch, task, head, changes=False, pure=True):
+    events = []
+
+    async def get_task(*_):
+        return task
+
+    async def commits_ahead(*_):
+        return 1
+
+    async def git(*args, **__):
+        return ""
+
+    async def noop(*_, **__):
+        pass
+
+    async def changes_pending(*_):
+        return changes
+
+    async def pushed_head(*_):
+        return head
+
+    async def is_pure_rebase(*_):
+        return pure
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_changes_pending", changes_pending)
+    monkeypatch.setattr(workflow, "_pushed_head", pushed_head)
+    monkeypatch.setattr(workflow, "_is_pure_rebase", is_pure_rebase)
+    monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "post_message", noop)
+    monkeypatch.setattr(workflow, "emit_event", lambda *a, **k: events.append(a[2]))
+    monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": True, "security_gate": False})
+    monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", noop)
+    monkeypatch.setattr(github, "set_pull_request_title", noop)
+    monkeypatch.setattr(github, "comment_pull_request", noop)
+    await workflow.submit_for_review(
+        FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
+    )
+    return events
+
+
+async def test_pure_rebase_keeps_the_round_and_wakes_nobody(monkeypatch):
+    task = _rebase_task()
+    events = await _resubmit(monkeypatch, task, "aaa")
+    assert events == []
+    assert task.review_round == 2
+    assert task.merge_ready_at is None
+    assert task.status == TaskStatus.review
+
+
+async def test_changed_content_starts_a_new_round(monkeypatch):
+    task = _rebase_task()
+    events = await _resubmit(monkeypatch, task, "bbb", pure=False)
+    assert events == ["review_requested", "pr_ready"]
+    assert task.review_round == 3
+    assert task.merge_ready_at is None
+    assert task.reviewed_head == "bbb"
+
+
+async def test_requested_changes_always_start_a_new_round(monkeypatch):
+    task = _rebase_task()  # a task run always starts in_progress; the round holds the changes verdict
+    events = await _resubmit(monkeypatch, task, "aaa", changes=True)
+    assert task.review_round == 3
+    assert "review_requested" in events
+
+
+async def test_new_sensitive_gate_starts_a_new_round(monkeypatch):
+    task = _rebase_task()
+    monkeypatch.setattr(workflow, "touches_sensitive_paths", lambda _: True)
+    events = await _resubmit(monkeypatch, task, "aaa")
+    assert task.review_round == 3 and task.sensitive is True
+    assert "review_requested" in events
+
+
+async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
+    import subprocess
+
+    def run(cwd, *a):
+        return subprocess.run(["git", "-C", str(cwd), *a], check=True, capture_output=True, text=True).stdout
+
+    origin, clone = tmp_path / "origin.git", tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "dev", str(origin)], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin), str(clone)], check=True, capture_output=True)
+    run(clone, "config", "user.email", "a@b.c")
+    run(clone, "config", "user.name", "t")
+    run(clone, "checkout", "-q", "-b", "dev")
+    ctx = "    if not is_admin(user):\n        raise Forbidden\n    load()\n"
+    original = f"def admin_view():\n{ctx}\n\ndef public_view():\n{ctx}\n"
+    (clone / "a.py").write_text(original)
+    (clone / "b.txt").write_text("1\n")
+    run(clone, "add", ".")
+    run(clone, "commit", "-qm", "init")
+    run(clone, "push", "-q", "origin", "dev")
+
+    def feature(content, base="origin/dev"):
+        run(clone, "checkout", "-q", "-B", "task", base)
+        (clone / "a.py").write_text(content)
+        run(clone, "commit", "-qam", "work")
+        run(clone, "push", "-qf", "origin", "task")
+        run(clone, "fetch", "-q")
+
+    async def real_git(cwd, *args, stdin=None, **_):
+        p = subprocess.run(["git", "-C", str(cwd), *args], input=stdin, capture_output=True, text=True)
+        if p.returncode:
+            raise github.GitHubError(p.stderr)
+        return p.stdout
+
+    monkeypatch.setattr(github, "git", real_git)
+    monkeypatch.setattr(workflow, "repo_dir", lambda _: clone)
+    project = SimpleNamespace(default_branch="dev")
+    task = SimpleNamespace(id=1, branch="task", reviewed_head=None)
+
+    async def check():
+        head = await workflow._pushed_head(project, task)
+        return await workflow._is_pure_rebase(project, task, head)
+
+    # The reviewed hunk lands in admin_view, after its guard
+    first = original.replace("load()\n\n\ndef public", "load()\n    audit()\n\n\ndef public", 1)
+    feature(first)
+    task.reviewed_head = await workflow._pushed_head(project, task)
+    await workflow._keep_reviewed_head(project, task, task.reviewed_head)
+    assert await check()  # the very same commit
+
+    # The base moves (same file, elsewhere, and another file) and the branch is rebased: kept
+    run(clone, "checkout", "-q", "dev")
+    (clone / "b.txt").write_text("2\n")
+    (clone / "a.py").write_text(original + "# footer\n")
+    run(clone, "commit", "-qam", "base moved")
+    run(clone, "push", "-q", "origin", "dev")
+    run(clone, "checkout", "-q", "task")
+    run(clone, "rebase", "-q", "dev")
+    run(clone, "push", "-qf", "origin", "task")
+    run(clone, "fetch", "-q")
+    assert await check()
+
+    # The reviewed commit is gone after the force-push, only the ref keeps it
+    run(clone, "reflog", "expire", "--expire=now", "--all")
+    run(clone, "gc", "-q", "--prune=now")
+    assert await check()
+
+    # The same hunk moved into public_view (identical context): a patch-id would not see it
+    moved = (clone / "a.py").read_text().replace("    audit()\n", "")
+    moved = moved.replace("load()\n\n# footer", "load()\n    audit()\n\n# footer")
+    feature(moved, base="dev")
+    assert not await check()
+
+    # Indentation only, and a content change
+    feature((clone / "a.py").read_text().replace("    audit()", "        audit()"), base="dev")
+    assert not await check()
+    feature((clone / "a.py").read_text().replace("audit()", "evil()"), base="dev")
+    assert not await check()
+
+    # Unknown reviewed commit: fail closed
+    task.reviewed_head = "0" * 40
+    assert not await check()

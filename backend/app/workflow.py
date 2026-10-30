@@ -313,6 +313,53 @@ async def _changed_files(project: Project, task: Task) -> list[str]:
     return out.split("\0")
 
 
+async def _pushed_head(project: Project, task: Task) -> str:
+    """SHA of the pushed task branch in the reference clone; empty when it cannot be read."""
+    try:
+        return (await github.git(repo_dir(project), "rev-parse", f"origin/{task.branch}")).strip()
+    except github.GitHubError as e:
+        log.warning("head of task %s unreadable: %s", task.id, e)
+        return ""
+
+
+async def _is_pure_rebase(project: Project, task: Task, head: str) -> bool:
+    """Replaying the reviewed commit onto the base the branch now sits on gives exactly the new tree.
+    Exact, unlike a patch-id, which ignores where a hunk applies. Any failure (conflict, reviewed
+    commit gone) is False: a new round starts."""
+    reviewed = task.reviewed_head
+    if not reviewed or not head:
+        return False
+    repo = repo_dir(project)
+    try:
+        base = (await github.git(repo, "merge-base", f"origin/{project.default_branch}", head)).strip()
+        replayed = (await github.git(repo, "merge-tree", "--write-tree", base, reviewed)).split("\n")[0].strip()
+        tree = (await github.git(repo, "rev-parse", f"{head}^{{tree}}")).strip()
+    except github.GitHubError as e:
+        log.warning("rebase check of task %s failed: %s", task.id, e)
+        return False
+    return bool(replayed) and replayed == tree
+
+
+async def _keep_reviewed_head(project: Project, task: Task, head: str) -> None:
+    """A ref keeps the reviewed commit from being garbage collected after a force-push."""
+    try:
+        await github.git(repo_dir(project), "update-ref", f"refs/palabre/reviewed/{task.id}", head)
+    except github.GitHubError as e:
+        log.warning("cannot keep reviewed head of task %s: %s", task.id, e)
+
+
+async def _changes_pending(s: AsyncSession, task: Task) -> bool:
+    """A reviewer's latest verdict of the current round is 'changes'."""
+    reviews = await s.scalars(
+        select(Review).where(Review.task_id == task.id, Review.round == task.review_round).order_by(Review.id)
+    )
+    latest: dict[int, Verdict] = {}
+    for r in reviews:
+        if r.verdict != Verdict.comment:
+            latest[r.reviewer_id] = r.verdict
+    return Verdict.changes in latest.values()
+
+
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
     """Wake the assignee up on their task (from a conversation): the work itself only
     happens in a task run, in the task's worktree."""
@@ -399,12 +446,33 @@ async def submit_for_review(
         await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
+    head = await _pushed_head(project, task)
+    # The gate is derived from the changed files; the author's flag can only add it, never remove it
+    sensitive_now = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
+    # Same content as the reviewed round, nobody asked for changes and no new gate: only the base
+    # moved, so the approvals stay and the merge just waits for the CI on the new head
+    pure_rebase = (
+        task.review_round > 0
+        and task.reviewed_head is not None
+        and sensitive_now == task.sensitive
+        and not await _changes_pending(s, task)
+        and await _is_pure_rebase(project, task, head)
+    )
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
+    if pure_rebase:
+        # Like a normal submission: merge_watch follows the CI of the new head only while this is unset
+        task.merge_ready_at = task.lead_reminded_at = None
+        await announce(s, task, f"PR rebased by {author.name}, content unchanged: approvals kept (round {task.review_round})")
+        wake_lead(task, f"PR rebased by {author.name}, approvals kept")
+        await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
+        return task
+    task.reviewed_head = head or None
+    if head:
+        await _keep_reviewed_head(project, task, head)
     task.review_round += 1
     task.merge_ready_at = task.lead_reminded_at = None
-    # The gate is derived from the changed files; the author's flag can only add it, never remove it
-    task.sensitive = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
+    task.sensitive = sensitive_now
     process = mode_process(project.mode)
     payload = {"task_id": task.id, "pr_url": task.pr_url}
     emit_event(s, project_id, "review_requested", payload, role="reviewer")
