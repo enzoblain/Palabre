@@ -177,7 +177,8 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
       <textarea ref={inputRef} rows={1} value={draft} placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+          // On touch screens Enter inserts a newline; the send button sends
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !isTouchInput()) {
             e.preventDefault();
             send();
           }
@@ -187,6 +188,11 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
       </button>
     </div>
   );
+}
+
+/** True when the primary input is a touch screen (media query, not the user agent). */
+function isTouchInput(): boolean {
+  return window.matchMedia?.("(pointer: coarse)").matches ?? false;
 }
 
 /** Restarts the anti-loop window of the conversation, for the CEO who cannot write in a read-only channel. */
