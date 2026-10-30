@@ -403,10 +403,13 @@ def test_upload_pack_command_runs_under_the_account():
     assert words == ["sudo", "-n", "-u", "agent2", github.UPLOAD_PACK_SCRIPT]
 
 
-def test_upload_pack_script_refuses_other_paths():
+def test_upload_pack_script_refuses_other_paths(tmp_path):
+    conf = tmp_path / "conf"
+    conf.write_text("/data/projects")
+    env = {**os.environ, "PALABRE_PROJECTS_ROOT_CONF": str(conf)}
     script = Path(__file__).resolve().parents[1] / "scripts" / "upload-pack.sh"
     for bad in ("/data/projects/project-2/repo", "/data/projects/project-1/worktrees/task-5/../..", "/etc", "relative", "/data/projects/project-1/worktrees/task-5\n/x"):
-        out = subprocess.run(["sh", str(script), bad], capture_output=True, text=True)
+        out = subprocess.run(["sh", str(script), bad], env=env, capture_output=True, text=True)
         assert out.returncode == 2 and "not a task clone path" in out.stderr, bad
 
 
@@ -419,9 +422,12 @@ def agent_pool_env(setup, monkeypatch, tmp_path):
     bin_dir.mkdir()
     log = tmp_path / "sudo.log"
     (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
-    # The real root script, with the path prefix swapped for the test's tmp dir, so its git command line is exercised
+    # The real root script, its projects root pointed at the test's tmp dir, so its git command line is exercised
     real = (Path(__file__).parent.parent / "scripts" / "upload-pack.sh").read_text()
-    (bin_dir / "palabre-upload-pack").write_text(real.replace("^/data/projects/", f"^{tmp_path}/projects/"))
+    conf = tmp_path / "projects-root.conf"
+    conf.write_text(f"{tmp_path}/projects")
+    # The git environment is scrubbed on the way, so the default conf path is swapped rather than the variable set
+    (bin_dir / "palabre-upload-pack").write_text(real.replace("/etc/palabre/projects-root.conf", str(conf)))
     for f in bin_dir.iterdir():
         f.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
@@ -509,8 +515,10 @@ def test_push_refuses_a_malformed_object(agent_pool_env):
         asyncio.run(worktrees.push_task_branch(project, task))
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
 
+
 def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
     root = tmp_path / "projects" / "project-3"
     (root / "repo").mkdir(parents=True)
     (root / "repo" / "a.txt").write_text("x")
@@ -526,48 +534,75 @@ def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, 
 
 def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
     (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
     asyncio.run(worktrees.remove_project_files(4))
     assert not (tmp_path / "projects" / "project-4").exists()
 
 
-def _rm_clone(tmp_path, root, path):
-    conf = tmp_path / "conf"
-    conf.write_text(root)
-    script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
-    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(conf)}
-    return subprocess.run(["sh", str(script), str(path)], env=env, capture_output=True, text=True)
+SCRIPTS = Path(__file__).parent.parent / "scripts"
+# script, a clone path shape it accepts under the root
+ROOTED = {
+    "rm-clone.sh": ("project-1/worktrees/task-2", []),
+    "upload-pack.sh": ("project-1/worktrees/task-2", []),
+    "claim-clone.sh": ("project-1/worktrees/task-2", ["palabre"]),
+}
+
+
+def _rooted(tmp_path, script, root, path, conf=None):
+    conf = conf or tmp_path / "conf"
+    if root is not None:
+        conf.write_text(root)
+    env = {**os.environ, "PALABRE_PROJECTS_ROOT_CONF": str(conf)}
+    args = [str(path), *ROOTED[script][1]]
+    return subprocess.run(["sh", str(SCRIPTS / script), *args], env=env, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_scripts_have_no_hardcoded_projects_root(script):
+    assert "/data/projects" not in (SCRIPTS / script).read_text()
 
 
 def test_rm_clone_root_comes_from_config(tmp_path):
-    script = (Path(__file__).parent.parent / "scripts" / "rm-clone.sh").read_text()
-    assert "/data/projects" not in script
     root = tmp_path / "projs"
     clone = root / "project-1" / "worktrees" / "task-2"
     clone.mkdir(parents=True)
     (clone / "f").write_text("x")
-    done = _rm_clone(tmp_path, str(root), clone)
+    done = _rooted(tmp_path, "rm-clone.sh", str(root), clone)
     assert done.returncode == 0, done.stderr
     assert clone.is_dir() and not any(clone.iterdir())
 
 
-def test_rm_clone_refuses_outside_the_root(tmp_path):
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_accepts_a_clone_under_the_configured_root(tmp_path, script):
+    root = tmp_path / "projs"
+    clone = root / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    done = _rooted(tmp_path, script, str(root), clone)
+    # Past the path guards: upload-pack then fails on the missing .git, claim-clone on the missing account
+    assert "not a task clone path" not in done.stderr and "not a clone path" not in done.stderr
+    assert "projects root" not in done.stderr
+
+
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_refuses_outside_the_root(tmp_path, script):
     root = tmp_path / "projs"
     other = tmp_path / "other" / "project-1" / "worktrees" / "task-2"
     other.mkdir(parents=True)
     (other / "f").write_text("x")
-    done = _rm_clone(tmp_path, str(root), other)
+    done = _rooted(tmp_path, script, str(root), other)
     assert done.returncode == 2 and (other / "f").exists()
 
 
-def test_rm_clone_fails_closed_on_bad_root(tmp_path):
+@pytest.mark.parametrize("script", ROOTED)
+def test_script_fails_closed_on_bad_root(tmp_path, script):
     clone = tmp_path / "projs" / "project-1" / "worktrees" / "task-2"
     clone.mkdir(parents=True)
     (clone / "f").write_text("x")
-    for root in ("", "/", "relative", f"{tmp_path}/projs/"):
-        assert _rm_clone(tmp_path, root, clone).returncode == 2
+    for root in ("", "/", "relative", f"{tmp_path}/projs/", f"{tmp_path}/pro.js"):
+        done = _rooted(tmp_path, script, root, clone)
+        assert done.returncode == 2 and "projects root" in done.stderr, root
     assert (clone / "f").exists()
     # No config file at all
-    script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
-    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(tmp_path / "missing")}
-    assert subprocess.run(["sh", str(script), str(clone)], env=env, capture_output=True).returncode == 2
+    done = _rooted(tmp_path, script, None, clone, conf=tmp_path / "missing")
+    assert done.returncode == 2 and "no projects root" in done.stderr

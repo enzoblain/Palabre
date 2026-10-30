@@ -12,6 +12,9 @@
 set -u
 
 DATA=/data
+# The projects root the image was built with: the same file the root-owned scripts read
+PROJECTS=$(cat /etc/palabre/projects-root.conf 2>/dev/null)
+case "$PROJECTS" in /?*) ;; *) echo "::error::no projects root in /etc/palabre/projects-root.conf"; exit 1 ;; esac
 fail=0
 # The agent has no group of its own (useradd --gid work): --regid=agent would fail before running the command
 as_agent() { setpriv --reuid=agent --regid=work --init-groups "$@"; }
@@ -37,7 +40,7 @@ else
 fi
 denied "agent cannot list runtime/" as_agent ls "$DATA/runtime"
 denied "agent cannot read the backend's home" as_agent ls /home/palabre
-for repo in "$DATA"/projects/project-*/repo; do
+for repo in "$PROJECTS"/project-*/repo; do
   [ -d "$repo" ] || continue
   denied "agent cannot read $repo" as_agent test -r "$repo/config"
   denied "agent cannot write in $repo" as_agent touch "$repo/x"
@@ -75,9 +78,9 @@ expect "sudo -l shows exactly 9 rules for palabre" "$(printf '%s\n' "$rules" | g
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
 expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' '/usr/local/bin/palabre-upload-pack /data/projects/*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
+    "/usr/local/bin/palabre-rm-clone $PROJECTS/*" '/usr/local/bin/palabre-rm-clone /data/run/claude-*' "/usr/local/bin/palabre-upload-pack $PROJECTS/*" \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* agent*" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* palabre" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
 # The only rules running as root are the four claim-clone ones
