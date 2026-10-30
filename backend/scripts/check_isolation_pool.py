@@ -40,12 +40,15 @@ def spec(prompt: str, cwd: Path, employee_id: int) -> RunSpec:
     )  # fmt: skip
 
 
-async def run(prompt: str, cwd: Path, employee_id: int = 0) -> dict[str, str]:
+async def run(prompt: str, cwd: Path, employee_id: int) -> dict[str, str]:
     """One run, parsed; a stuck run (e.g. an account lost from a pool of 1) is a FAIL, not a hang."""
     try:
         return parse((await asyncio.wait_for(runner.run_claude(spec(prompt, cwd, employee_id)), RUN_TIMEOUT)).text)
     except TimeoutError:
         report(False, f"the run '{prompt.split()[0]}' finished within {RUN_TIMEOUT}s")
+        return {}
+    except Exception as exc:  # e.g. a refused claim: say why instead of crashing
+        report(False, f"the run '{prompt.split()[0]}' did not fail to start", str(exc))
         return {}
 
 
@@ -86,12 +89,12 @@ async def leftover_process(cwd: Path) -> None:
     """A process a run leaves behind (setsid) is gone when the account is leased again."""
     settings.agent_pool_size = 1  # every run gets agent1 again
     agent_pool.reset()
-    first = await run(f"leave {cwd}", cwd)
+    first = await run(f"leave {cwd}", cwd, 3)
     uid = first.get("uid") or ""
     report(first.get("alive") == "1", "the first run left a setsid process behind (else the check means nothing), expected alive=1", first)
     await asyncio.sleep(1)
     report(bool(uid) and not left_behind(uid), f"the process is killed when the account goes back to the pool ({left_behind(uid)})")
-    second = await run(f"seen {cwd}", cwd)
+    second = await run(f"seen {cwd}", cwd, 3)
     report(second.get("uid") == uid, f"the next run gets the same account (uid {uid}, got {second.get('uid')})")
     report(second.get("alive") == "0", "the run that re-leases the account finds nothing left by the previous one, expected alive=0", second)
 
@@ -116,7 +119,7 @@ async def main() -> None:
         settings.agent_pool_size = runtime_pool
         agent_pool.reset()
         await worktrees.remove_project_files(PROJECT_ID)
-        for employee_id in range(3):  # the Go caches the runs claimed
+        for employee_id in range(1, 4):  # the Go caches the runs claimed
             shutil.rmtree(toolchains.gopath(employee_id), ignore_errors=True)
 
 

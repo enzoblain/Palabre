@@ -152,9 +152,12 @@ async def _claim(paths: list[Path], user: str) -> None:
     plant a hook or a module there for this run to execute, lose their write access.
     With user "palabre" it is the release: the paths go back to the backend."""
     for path in paths:
-        path.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if not any(path.iterdir()):
-            path.chmod(0o700)  # A fresh directory is never open to the work group, even for an instant
+        try:
+            path.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if not any(path.iterdir()):
+                path.chmod(0o700)  # A fresh directory is never open to the work group, even for an instant
+        except OSError as exc:  # e.g. still owned by the previous account
+            raise ClaudeRunError(f"Cannot prepare {path} for {user}: {exc}") from exc
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "/usr/local/bin/palabre-claim-clone", str(path), user,
             stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
