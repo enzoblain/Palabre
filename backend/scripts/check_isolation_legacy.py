@@ -1,7 +1,9 @@
 """Legacy shared-account mode (agent_pool_size 0) inside the real image: run by check-isolation.sh as the palabre user (#194).
 
-The clone is built by the real worktrees._clone_from_reference (palabre:palabre, root closed to 0700), then read the way
-push_task_branch reads it: through the sudo rule, as the shared `agent`. Needs no GitHub access.
+The clone is built by the real worktrees._clone_from_reference (owned by palabre, shared with the agent through the group
+`work`: group-writable setgid directories, mode 2770, see worktrees._share_with_group), then read the way push_task_branch reads
+it: through the sudo rule, as the shared `agent`. The negative control closes the objects to group and other.
+Needs no GitHub access.
 Prints `ok   ...` / `FAIL ...` lines; exit code 1 on any FAIL.
 """
 
