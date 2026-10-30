@@ -86,29 +86,39 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
     markRead(activeConversation);
     publish();
   }, [activeConversation]);
-  const conversations = project ? project.detail.rooms.flatMap((r) => project.conversations[r.id] ?? []) : [];
   usePolling(
     project ? async () => {
-      await Promise.all(conversations.map(async (c) => {
-        const s = (state.current[c.id] ??= {
-          last: 0,
-          seen: localStorage.getItem(seenKey(c.id)) === null ? null : Number(localStorage.getItem(seenKey(c.id))),
+      // One call for the whole project; only conversations with something new are fetched
+      for (const item of await api.unreadSummary(project.detail.id)) {
+        const id = item.conversation_id;
+        const stored = localStorage.getItem(seenKey(id));
+        const s = (state.current[id] ??= {
+          last: stored === null ? 0 : Number(stored),
+          seen: stored === null ? null : Number(stored),
           fresh: [],
         });
-        const messages = await api.listMessages(c.id, s.last || undefined);
+        if (id === activeRef.current) {
+          s.last = Math.max(s.last, item.last_id);
+          markRead(id);
+          continue;
+        }
+        if (s.seen === null) {
+          // First visit ever: start from a clean slate rather than flag the whole history
+          s.last = item.last_id;
+          markRead(id);
+          continue;
+        }
+        if (item.last_employee_id <= s.last) {
+          s.last = Math.max(s.last, item.last_id);
+          continue;
+        }
+        const messages = await api.listMessages(id, s.last);
         for (const m of messages) {
           s.last = Math.max(s.last, m.id);
           // Messages written by the CEO themself (no employee) are never unread
-          if (m.employee_id !== null && (s.seen === null || m.id > s.seen) && !s.fresh.includes(m.id)) s.fresh.push(m.id);
+          if (m.employee_id !== null && m.id > s.seen && !s.fresh.includes(m.id)) s.fresh.push(m.id);
         }
-        // First visit ever: start from a clean slate rather than flag the whole history
-        if (s.seen === null) {
-          s.fresh = [];
-          s.seen = s.last;
-          localStorage.setItem(seenKey(c.id), String(s.last));
-        }
-        if (c.id === activeRef.current) markRead(c.id);
-      }));
+      }
       publish();
     } : null,
     UNREAD_POLL_MS,

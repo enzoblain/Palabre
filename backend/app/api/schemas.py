@@ -226,6 +226,13 @@ class ConversationOut(ORM):
     created_at: datetime
 
 
+class UnreadSummaryItem(BaseModel):
+    conversation_id: int
+    last_id: int
+    # Latest message written by an employee (the only ones that count as unread); 0 if none
+    last_employee_id: int
+
+
 class MessageIn(BaseModel):
     content: str = Field(min_length=1)
 
