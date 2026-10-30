@@ -194,6 +194,17 @@ async def test_only_the_lead_is_woken_in_the_direction_channel(team):
     assert s.joined == []  # nobody is called into direction
 
 
+async def test_nobody_is_called_into_a_dm(team):
+    s = FakeEventSession(
+        [event("escalation", {"conversation_id": CONVERSATION_ID}, employee_id=team.lead.id),
+         event("mention", {"conversation_id": CONVERSATION_ID, "message_id": 9}, employee_id=team.dev.id)],
+        everyone(team), members=[team.dev.id, team.qa.id], room_kind="dm",
+    )  # fmt: skip
+    await expand_events(s)
+    assert woken(s) == {"Léa"}  # the member only; the lead is not added to the DM
+    assert s.joined == []
+
+
 async def test_event_without_target_and_unlisted_type_wakes_nobody(team):
     s = FakeEventSession([event("boss_message", {"conversation_id": CONVERSATION_ID})], everyone(team))
     await expand_events(s)

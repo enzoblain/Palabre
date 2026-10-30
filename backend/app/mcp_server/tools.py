@@ -46,16 +46,21 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
     """Post a message in the current conversation, signed with your name: a short chat
     message, like you would send a colleague (a long or report-like one is refused).
     Mention colleagues with @Name to get their attention.
-    channel: only the lead may name another channel (e.g. "direction") to relay there."""
+    channel: a channel you are a member of, or "@Name" for a direct message (the other
+    person is woken up without an @). Only the lead may post in "direction"."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
         me = await s.get(Employee, c.employee_id)
         conversation_id = c.conversation_id
         if channel is not None:
-            if "create_channel" not in c.tools:  # held by the lead only
-                raise services.WorkflowError("Only the lead can post in another channel")
-            conversation_id = await services.channel_conversation_id(s, c.project_id, channel)
+            if "create_channel" in c.tools:  # held by the lead only
+                if channel.strip().startswith("@"):
+                    conversation_id = await services.get_or_create_dm(s, c.project_id, me, channel)
+                else:
+                    conversation_id = await services.channel_conversation_id(s, c.project_id, channel)
+            else:
+                conversation_id = await services.member_conversation_id(s, c.project_id, me, channel)
         msg = await services.post_message(s, c.project_id, conversation_id, content, me)
     return {"id": msg.id}
 
