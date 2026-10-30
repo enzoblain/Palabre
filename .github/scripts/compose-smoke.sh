@@ -165,7 +165,17 @@ check_secrets() { # check_secrets <label>
 if [ -n "$OLD" ]; then
   step "Start the published $OLD"
   write_env "$OLD"
-  out=$(dc pull db backend 2>&1) || fail "could not pull $OLD: $(printf '%s' "$out" | tail -n 3)"
+  # Right after a release tag, the images may not be built yet: retry for a few minutes
+  attempts=${SMOKE_PULL_ATTEMPTS:-8}
+  for ((n = 1; n <= attempts; n++)); do
+    if out=$(dc pull db backend 2>&1); then break; fi
+    if [ "$n" -eq "$attempts" ]; then
+      echo "$out"
+      fail "image palabre:$OLD not published on ghcr yet (or palabre-web): the pull failed $attempts times. Last output: $(printf '%s' "$out" | tail -n 3)"
+    fi
+    note "pull of $OLD failed (attempt $n/$attempts), retrying in ${SMOKE_PULL_DELAY:-30}s"
+    sleep "${SMOKE_PULL_DELAY:-30}"
+  done
   if ! docker run --rm --entrypoint grep "ghcr.io/enzoblain/palabre:$OLD" -q palabre-secrets /usr/local/bin/docker-entrypoint.sh; then
     [ -z "${GITHUB_ACTIONS:-}" ] || fail "$OLD predates Docker secrets: the upgrade and updater steps would be skipped"
     note "$OLD predates Docker secrets: the upgrade and updater steps are skipped"
