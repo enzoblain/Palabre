@@ -222,6 +222,19 @@ async def test_no_session_or_zero_means_nothing_to_reset(db, monkeypatch):
     assert await db.get(AgentSession, (malik.id, "task:1")) is not None
 
 
+async def test_only_task_runs_resume_their_session(db):
+    malik, _ = await seed(db)
+    db.add_all([
+        AgentSession(employee_id=malik.id, scope="task:1", claude_session_id="t", runs=2),
+        AgentSession(employee_id=malik.id, scope="conversation:1", claude_session_id="c", runs=2),
+    ])  # fmt: skip
+    await db.flush()
+    resume = Orchestrator._session_to_resume
+    assert await resume(db, malik, "task", "task:1") == "t"
+    assert await resume(db, malik, "conversation", "conversation:1") is None
+    assert await resume(db, malik, "task", "task:2") is None
+
+
 async def test_default_is_five():
     assert type(settings).model_fields["context_reset_every_runs"].default == 5
 
