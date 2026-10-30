@@ -587,6 +587,8 @@ def test_script_accepts_a_clone_under_the_configured_root(tmp_path, script):
     clone.mkdir(parents=True)
     done = _rooted(tmp_path, script, str(root), clone)
     # Past the path guards: upload-pack then fails on the missing .git, claim-clone on the missing account
+    if script == "rm-clone.sh":
+        assert done.returncode == 0, done.stderr
     assert "not a task clone path" not in done.stderr and "not a clone path" not in done.stderr
     assert "projects root" not in done.stderr
 

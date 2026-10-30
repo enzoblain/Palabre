@@ -11,20 +11,23 @@ fi
 DATA=/data
 
 # The projects root is the one the root scripts and sudo rules were bound to at image build (PROJECTS_DIR).
-# Same validation as palabre-claim-clone; the runtime PROJECTS_DIR must match, otherwise the backend would
+# Stricter than palabre-claim-clone: it is chowned and chmodded as root below, so it must be a subdirectory
+# of /data that is not one of the directories managed here. An explicitly empty PROJECTS_DIR is refused too. the runtime PROJECTS_DIR must match, otherwise the backend would
 # write clones where neither the sudo rules nor this script apply: refuse to start.
 PROJECTS=$(cat /etc/palabre/projects-root.conf 2>/dev/null) || { echo "no projects root configured" >&2; exit 1; }
 case "$PROJECTS" in
-  /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
-  /*) ;;
+  /*[!A-Za-z0-9/_-]*|*/|/|""|*//*) echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
+  /data/run|/data/run/*|/data/runtime|/data/runtime/*|/data/claude|/data/claude/*|/data/toolchains|/data/toolchains/*)
+    echo "projects root $PROJECTS overlaps a directory managed by this entrypoint" >&2; exit 1 ;;
+  /data/?*) ;;
   *) echo "bad projects root: $PROJECTS" >&2; exit 1 ;;
 esac
-if [ "${PROJECTS_DIR:-$PROJECTS}" != "$PROJECTS" ]; then
+if [ "${PROJECTS_DIR-$PROJECTS}" != "$PROJECTS" ]; then
   echo "PROJECTS_DIR=$PROJECTS_DIR differs from the projects root of this image ($PROJECTS): rebuild with that PROJECTS_DIR" >&2
   exit 1
 fi
 
-# The next steps run as root on a volume the agents could once write in: never follow a
+# The next steps run as root (_entrypoint_guard in the tests runs everything above this marker) on a volume the agents could once write in: never follow a
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
