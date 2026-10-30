@@ -574,9 +574,41 @@ def test_pool_shrinks_to_the_accounts_that_exist(monkeypatch, caplog):
             raise KeyError(name)
 
     monkeypatch.setattr(agent_pool.pwd, "getpwnam", getpwnam)
+    monkeypatch.setattr(agent_pool.grp, "getgrnam", getpwnam)
     monkeypatch.setattr(settings, "agent_user", "agent")
     monkeypatch.setattr(settings, "agent_pool_size", 4)
     agent_pool.check()
     assert settings.agent_pool_size == 2
     assert "agent3 does not exist" in caplog.text
+    agent_pool.reset()
+
+
+def test_pool_without_any_account_refuses_to_start(monkeypatch):
+    from app import agent_pool
+
+    def missing(name):
+        raise KeyError(name)
+
+    monkeypatch.setattr(agent_pool.pwd, "getpwnam", missing)
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 8)
+    with pytest.raises(RuntimeError, match="shared uid"):
+        agent_pool.check()
+    assert settings.agent_pool_size == 8  # not silently turned into "no pool"
+
+
+def test_pool_with_a_user_but_no_group_is_shrunk(monkeypatch):
+    from app import agent_pool
+
+    monkeypatch.setattr(agent_pool.pwd, "getpwnam", lambda name: None)
+
+    def group(name):
+        if name != "agent1":
+            raise KeyError(name)
+
+    monkeypatch.setattr(agent_pool.grp, "getgrnam", group)
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 3)
+    agent_pool.check()
+    assert settings.agent_pool_size == 1
     agent_pool.reset()

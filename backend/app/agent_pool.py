@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import grp
 import pwd
 from collections import deque
 from collections.abc import AsyncIterator
@@ -23,18 +24,26 @@ def users() -> list[str]:
 def check() -> None:
     """At startup: shrinks the pool to the accounts that exist, with a clear error for the first missing one.
 
-    Pool users are numbered, so the pool is the run of accounts present from agent1 on."""
+    Pool users are numbered, so the pool is the run of accounts present from agent1 on. An account
+    needs its user and its private group (the run dir is chowned to it). With no usable account at all
+    it raises: falling back to the shared AGENT_USER would undo the isolation of the pool."""
     if not settings.agent_user or settings.agent_pool_size <= 0:
         return
     for size in range(settings.agent_pool_size):
         name = f"{settings.agent_user}{size + 1}"
         try:
             pwd.getpwnam(name)
+            grp.getgrnam(name)
         except KeyError:
             log.error(
-                "Agent account %s does not exist (AGENT_POOL_SIZE=%d): the pool is reduced to %d account(s)",
+                "Agent account %s (user and group) does not exist (AGENT_POOL_SIZE=%d): the pool is reduced to %d account(s)",
                 name, settings.agent_pool_size, size,
             )  # fmt: skip
+            if size == 0:
+                raise RuntimeError(
+                    f"AGENT_POOL_SIZE={settings.agent_pool_size} but account {name} is missing: "
+                    "refusing to run agents on a shared uid (build the image with the pool, or set AGENT_POOL_SIZE=0)"
+                ) from None
             settings.agent_pool_size = size
             reset()
             return
