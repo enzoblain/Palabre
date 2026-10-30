@@ -232,6 +232,15 @@ async def push_task_branch(project: Project, task: Task) -> None:
     push itself runs from the reference, whose config the backend owns, so the token never
     meets agent-written config. The lease is checked against the reference's origin/<branch>."""
     ref = f"refs/heads/{task.branch}"
+    # upload-pack follows alternates: a clone pointing at another project's object store could
+    # leak its objects. Fail closed rather than deleting the file silently.
+    info = Path(task.worktree_path) / ".git" / "objects" / "info"
+    for name in ("alternates", "http-alternates"):
+        if await asyncio.to_thread(os.path.lexists, info / name):
+            raise GitHubError(
+                f"Refusing to push: the clone has objects/info/{name}, which could pull in objects "
+                "from another repository. Remove that file and submit again."
+            )
     async with _repo_locks[project.id]:
         reference = repo_dir(project)
         # trust= is inert for the local transport (the upload-pack command carries its own safe.directory)

@@ -188,6 +188,21 @@ def test_token_never_runs_in_an_agent_clone(setup):
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)  # pushed from a temporary ref
 
 
+@pytest.mark.parametrize("name", ["alternates", "http-alternates"])
+def test_push_refuses_a_clone_with_alternates(setup, name):
+    project, reference, calls = setup
+    task = SimpleNamespace(id=5, branch="task/5")
+    _, path = asyncio.run(worktrees.prepare_worktree(project, task))
+    task.worktree_path = str(path)
+    _run("commit", "-q", "--allow-empty", "-m", "work", cwd=path)
+    (path / ".git" / "objects" / "info" / name).write_text("/data/projects/project-9/repo/.git/objects\n")
+    calls.clear()
+    with pytest.raises(github.GitHubError, match=name):
+        asyncio.run(worktrees.push_task_branch(project, task))
+    assert calls == []  # Nothing ran, in particular no fetch from the clone
+    assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
+
+
 def test_clone_config_cannot_replace_upload_pack(setup):
     project, reference, _ = setup
     task = SimpleNamespace(id=5, branch="task/5")
