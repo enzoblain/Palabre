@@ -38,11 +38,10 @@ def check_not_direction(room: Room) -> None:
 @router.get("/projects/{project_id}/rooms", response_model=list[RoomOut])
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
-    return list(
-        await s.scalars(
-            select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
-        )
-    )
+    q = select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
+    if not services.BOSS_READS_DMS:
+        q = q.where(Room.kind != services.DM)
+    return list(await s.scalars(q))
 
 
 @router.post("/projects/{project_id}/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)

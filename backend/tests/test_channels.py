@@ -122,3 +122,65 @@ async def test_task_created_from_direction_lives_in_a_team_channel():
 
 async def test_task_created_in_a_team_channel_stays_there():
     assert await services.team_context(FakeServiceSession(scalar=["team"]), 1, 5, 6) == (5, 6)
+
+
+# --- DMs and members writing in their channels ----------------------------------------
+
+
+async def test_dm_is_created_on_the_fly_named_after_the_pair():
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    s = FakeServiceSession(scalar=[maya, None, 77])
+    assert await services.get_or_create_dm(s, 1, me, "@maya") == 77
+    (room,) = [o for o in s.added if isinstance(o, Room)]
+    assert room.kind == "dm" and room.name == "·".join(e.name for e in sorted((me, maya), key=lambda e: e.id))
+    assert {m.name for m in room.members} == {"Malik", "Maya"}
+
+
+async def test_dm_is_unique_per_pair_whoever_writes_first():
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    first = FakeServiceSession(scalar=[maya, None, 77])
+    await services.get_or_create_dm(first, 1, me, "@Maya")
+    (room,) = [o for o in first.added if isinstance(o, Room)]
+    second = FakeServiceSession(scalar=[me, room, 77])
+    assert await services.get_or_create_dm(second, 1, maya, "@Malik") == 77
+    assert not [o for o in second.added if isinstance(o, Room)]
+
+
+async def test_dm_with_the_boss_or_oneself_is_refused():
+    me = make_employee("Malik", "dev_backend")
+    with pytest.raises(services.WorkflowError, match="boss"):
+        await services.get_or_create_dm(FakeServiceSession(), 1, me, f"@{services.boss_display_name()}")
+    with pytest.raises(services.WorkflowError, match="yourself"):
+        await services.get_or_create_dm(FakeServiceSession(), 1, me, "@malik")
+
+
+async def test_dm_with_an_unknown_employee_is_refused():
+    with pytest.raises(services.WorkflowError, match="No employee"):
+        await services.get_or_create_dm(FakeServiceSession(scalar=[None]), 1, make_employee("Malik"), "@Zoe")
+
+
+async def test_member_posts_in_their_channel_not_in_others_nor_direction():
+    me = make_employee("Malik", "dev_backend")
+    assert await services.member_conversation_id(FakeServiceSession(scalar=[12, 3]), 1, me, "backend") == 12
+    with pytest.raises(services.WorkflowError, match="not a member"):
+        await services.member_conversation_id(FakeServiceSession(scalar=[12, None]), 1, me, "backend")
+    with pytest.raises(services.WorkflowError, match="direction"):
+        await services.member_conversation_id(FakeServiceSession(), 1, me, "#Direction")
+
+
+async def test_dm_message_wakes_the_other_member_only(monkeypatch):
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    events = []
+    monkeypatch.setattr(services, "emit_event", lambda _s, _p, type, payload=None, *, employee_id=None, role=None: events.append((type, employee_id)))
+
+    class Session(FakeServiceSession):
+        async def flush(self):
+            for obj in self.added:
+                obj.id = 5
+
+        async def refresh(self, _obj):
+            pass
+
+    s = Session(scalar=["dm"], scalars=[[maya.id]])
+    await services.post_message(s, 1, 9, "salut", me)
+    assert events == [("mention", maya.id)]
