@@ -264,6 +264,21 @@ denied "the other project's commit did not reach the scratch repo" as_palabre gi
 rm -rf "$scratch" "$scratch2"
 denied "palabre cannot upload-pack a path that is not a task clone" as_palabre sudo -n -u agent1 /usr/local/bin/palabre-upload-pack "$victim"
 rm -rf "$DATA/projects/project-99996"
+# Legacy shared account (agent_pool_size <= 0): the clone stays owned by palabre, group work (what the shared account
+# reads through), and the push fetch runs as plain `agent`, not as a pool account. CHECK_POOL_ONLY does not skip this.
+shared=$DATA/projects/project-99995/worktrees/task-1
+mkdir -p "$shared" && chown palabre:palabre "$DATA/projects/project-99995" "$DATA/projects/project-99995/worktrees"
+as_palabre git init -q "$shared"
+as_palabre git -C "$shared" -c user.name=t -c user.email=t@t commit -q --allow-empty -m shared
+shared_sha=$(as_palabre git -C "$shared" rev-parse HEAD)
+as_palabre git -C "$shared" update-ref refs/heads/task/1 "$shared_sha"
+chgrp -R work "$shared" && chmod -R g+rX,g-w,o-rwx "$shared" && chmod g+x "$shared"
+UP_SHARED="sudo -n -u agent /usr/local/bin/palabre-upload-pack"
+scratch3=$(mktemp -d) && chown palabre:palabre "$scratch3" && as_palabre git init -q "$scratch3"
+check "the upload-pack as the shared agent serves a palabre-owned clone (group work)" \
+  as_palabre git -C "$scratch3" fetch -q --no-tags --upload-pack="$UP_SHARED" "$shared" refs/heads/task/1:refs/heads/task/1
+check "the shared clone's commit reached the scratch repo" as_palabre git -C "$scratch3" cat-file -e "$shared_sha"
+rm -rf "$scratch3" "$DATA/projects/project-99995"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
