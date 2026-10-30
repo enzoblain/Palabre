@@ -419,7 +419,7 @@ async def prepare_release(project: Project) -> dict:
     if not files:
         return result  # Already up to date: no empty commit
     for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
-        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) != version:
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) not in (version, None):
             raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
     try:
         result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
@@ -493,6 +493,12 @@ def _package_name(cargo_toml: str | None) -> str:
     return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
 
 
+def _compose_version(text: str) -> str | None:
+    """The image version a docker-compose.yml defaults to (`${PALABRE_VERSION:-X.Y.Z}`), None if it has none."""
+    found = sorted(set(re.findall(r"\$\{PALABRE_VERSION:-([^}]*)\}", text)))
+    return " and ".join(found) if found else None
+
+
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
     "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
@@ -502,6 +508,7 @@ VERSION_FILES = {
     "frontend/src-tauri/Cargo.lock": lambda text, package: str(
         next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
     ),
+    "docker-compose.yml": lambda text, _package: _compose_version(text),
 }  # fmt: skip
 
 
@@ -532,7 +539,7 @@ async def publish_version(project: Project, version: str) -> str:
             found = read(text, package)
         except ValueError:  # includes malformed JSON and TOML
             found = "unreadable"
-        if found != version:
+        if found is not None and found != version:
             mismatches.append(f"{path} says {found}")
     if mismatches:
         raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")

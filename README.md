@@ -221,6 +221,19 @@ Or let Palabre update itself: with `COMPOSE_PROFILES=autoupdate` in `.env`, an `
 container checks for a new version every 5 minutes and restarts the server and web app
 when one is out. Running agents get 60 seconds to stop cleanly.
 
+Automatic updates are a security trade-off. The `updater` mounts `/var/run/docker.sock`, which
+is root on the host, and it only finds new images under a moving tag, so you also set
+`PALABRE_VERSION=latest`: a compromised image or registry account would then run on your
+machine without anyone choosing it. Leave it off (the default) unless you accept that; by
+default every image is pinned (Palabre by version; `postgres`, `docker`, and the Python, Node and nginx bases by digest)
+and you update on purpose with the command above.
+
+Claude Code is installed in the image at the version pinned in `backend/Dockerfile`, after its
+SHA-256 is checked against the pinned value (taken from Anthropic's release manifest, which is
+fetched from the same host as the binary: it protects against drift and corruption, not against
+a compromise of that host at the time of the bump). Anthropic does not publish an independent signature we check here.
+To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
+
 ## Use the apps
 
 **Desktop app**: download it from the [latest release](https://github.com/enzoblain/Palabre/releases/latest).
@@ -317,7 +330,7 @@ All optional, in `.env`:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `PALABRE_VERSION` | `latest` | Pins a version, e.g. `0.1.7` |
+| `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |

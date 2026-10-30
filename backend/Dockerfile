@@ -1,10 +1,15 @@
-FROM python:3.12-slim-bookworm
+# Base image pinned by digest (tag kept for readers); bump both together
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
 
 # Extra system packages the agents need to build and test your projects
 # (e.g. "nodejs npm" or "golang"). git and Python are always there.
 ARG EXTRA_APT_PACKAGES=""
-# Claude Code version: "stable", "latest" or an exact version
-ARG CLAUDE_CODE_VERSION=stable
+# Claude Code: an exact version and the SHA-256 of its binary for each architecture, from
+# https://downloads.claude.ai/claude-code-releases/<version>/manifest.json. To bump: change the
+# three values together (a version without matching checksums fails the build).
+ARG CLAUDE_CODE_VERSION=2.1.308
+ARG CLAUDE_CODE_SHA256_X64=356733f185fa988e6bf3aa9a555269fdd167982a2e2a80d3c8a78037bb92ad58
+ARG CLAUDE_CODE_SHA256_ARM64=fdd22e6cbb734d580f5664c48df4294eeec850218ff07f186f9af30426396ee1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tzdata ${EXTRA_APT_PACKAGES} \
@@ -51,9 +56,22 @@ ENV HOME=/home/palabre \
     AGENT_USER=agent \
     PYTHONUNBUFFERED=1
 
-# Native installer: no Node.js needed
-RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_CODE_VERSION} \
-    && claude --version
+# Native binary (no Node.js needed), downloaded from the official bucket and checked against the
+# pinned checksum before it runs; install.sh is not used because it follows "latest"
+RUN set -eu; \
+    case "$(uname -m)" in \
+      x86_64) platform=linux-x64; sha=${CLAUDE_CODE_SHA256_X64} ;; \
+      aarch64) platform=linux-arm64; sha=${CLAUDE_CODE_SHA256_ARM64} ;; \
+      *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /tmp/claude "https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}/${platform}/claude"; \
+    echo "${sha}  /tmp/claude" | sha256sum -c -; \
+    chmod +x /tmp/claude; \
+    /tmp/claude install "${CLAUDE_CODE_VERSION}"; \
+    rm -f /tmp/claude; \
+    installed=$(sha256sum "$(readlink -f "$(command -v claude)")" | cut -d" " -f1); \
+    [ "$installed" = "${sha}" ] || { echo "The installed claude is not the checked binary" >&2; exit 1; }; \
+    claude --version
 # The agent runs the binary but cannot change it
 RUN chmod -R go+rX /home/palabre/.local
 

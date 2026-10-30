@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrading
+
+- Images are now pinned: `docker-compose.yml` defaults `PALABRE_VERSION` to the release it ships with instead of `latest`, and `postgres`, `docker` and the base images are pinned by digest. If you use `COMPOSE_PROFILES=autoupdate` without `PALABRE_VERSION` in your `.env`, set `PALABRE_VERSION=latest` to keep getting updates, knowing that the updater holds the Docker socket (root on the host) and runs whatever is published.
+- Claude Code is installed at the version and checksum pinned in `backend/Dockerfile`. A `CLAUDE_CODE_VERSION` set in your `.env` is no longer read: edit the `ARG`s in the Dockerfile instead.
+
 ## [0.10.1] - 2026-10-29
 
 ### Fixed
