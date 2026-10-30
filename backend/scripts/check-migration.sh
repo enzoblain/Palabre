@@ -53,20 +53,20 @@ check "the agent cannot read the claude store" '! setpriv --reuid=agent --regid=
 check "the agent cannot write in a task clone it has not claimed" \
   '! setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "agent1 cannot write in a task clone it has not claimed" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \
   '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
 check "a pool account (agent1) cannot read the claude store" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/claude'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups ls /data/claude'
 check "a pool account (agent1) cannot read the reference" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/projects/project-1/repo'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups ls /data/projects/project-1/repo'
 check "a pool account (agent1) cannot write in its task clone before claiming it (the backend hands it over per run)" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
 # Positive controls: setpriv itself works, so the denied checks above cannot pass vacuously
 check "setpriv runs as the legacy agent (positive control)" \
   '[ "$(setpriv --reuid=agent --regid=work --init-groups id -u)" = 1001 ]'
 check "setpriv runs as a pool account, agent1 (positive control)" \
-  '[ "$(setpriv --reuid=agent1 --regid=work --init-groups id -u)" = 2001 ]'
+  '[ "$(setpriv --reuid=agent1 --regid=agent1 --init-groups id -u)" = 2001 ]'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
