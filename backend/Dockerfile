@@ -102,8 +102,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 
-# tini is PID 1: it reaps the orphans of killed agent runs (uvicorn never wait()s on them) and
-# forwards signals. -s makes it a subreaper too, so it still reaps if Docker's own init is PID 1.
 # A single worker: the orchestrator runs inside the process
-ENTRYPOINT ["tini", "-s", "--", "docker-entrypoint.sh"]
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

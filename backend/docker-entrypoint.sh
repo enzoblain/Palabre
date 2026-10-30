@@ -5,7 +5,7 @@
 set -eu
 
 if [ "$(id -u)" != "0" ]; then
-  exec "$@"
+  exec tini -s -- "$@"
 fi
 
 DATA=/data
@@ -99,4 +99,5 @@ if [ -d /run/secrets ]; then
 fi
 
 umask 002
-exec setpriv --reuid=palabre --regid=palabre --init-groups "$@"
+# tini after the drop: PID 1 stays palabre and reaps the orphans of killed agent runs
+exec setpriv --reuid=palabre --regid=palabre --init-groups tini -s -- "$@"
