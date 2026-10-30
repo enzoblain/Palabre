@@ -439,7 +439,7 @@ class Orchestrator:
             await s.commit()
             self._throttled_at[(employee_id, conversation_id)] = datetime.now(UTC)
         # A slot frees up when the run that makes us exceed the limit leaves the hour
-        if not started:  # limit 0: nothing ever runs, look again in an hour
+        if not started or limit <= 0:  # limit 0: nothing ever runs, look again in an hour
             raise Throttled("chatter is disabled", datetime.now(UTC) + timedelta(hours=1))
         frees = started[runs - limit]
         frees = frees if frees.tzinfo else frees.replace(tzinfo=UTC)
