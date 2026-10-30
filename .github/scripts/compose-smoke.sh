@@ -234,7 +234,7 @@ check_secrets "fresh start"
 step "Agent pool isolation (agent1..N)"
 # The output is captured and replayed: a workflow command only counts at the start of a line,
 # and GitHub keeps 10 annotations per step, so on failure the ::error lines are re-emitted
-# bare, most informative first (FAIL details before the raw dumps), and the tail goes in a group.
+# bare, most informative first (kill blocks, other FAILs, raw dumps), and the dumps go in groups.
 iso_out=$(mktemp)
 iso_rc=0
 dc exec -T -u root -e CHECK_POOL_ONLY=1 backend /srv/scripts/check-isolation.sh >"$iso_out" 2>&1 || iso_rc=$?
@@ -242,15 +242,21 @@ tr -d '\r' <"$iso_out" | sed 's/^[[:space:]]*\(::\)/\1/' >"$iso_out.clean"
 if [ "$iso_rc" -eq 0 ]; then
   cat "$iso_out.clean"
 else
-  # Neutralised (leading space) so the full log does not use up the annotation budget.
+  # The dumps sit between stop-commands markers: the sorted block below is the only place
+  # where the ::error lines are live.
+  token=$(date +%s%N)
+  echo "::stop-commands::$token"
   echo "::group::check-isolation.sh, full output (exit $iso_rc)"
-  sed 's/^::/ ::/' "$iso_out.clean"
+  cat "$iso_out.clean"
   echo "::endgroup::"
   echo "::group::check-isolation.sh, last 40 lines"
-  tail -n 40 "$iso_out.clean" | sed 's/^::/ ::/'
+  tail -n 40 "$iso_out.clean"
   echo "::endgroup::"
+  echo "::$token::"
   grep '^FAIL ' "$iso_out.clean" || true
-  { grep '^::error::' "$iso_out.clean" | grep -v '^::error::sudo -ll' || true
+  # Kill blocks first, then the other FAILs, then the sudo -ll dumps; 8 at most, plus the final fail.
+  { grep -E '^::error::no (live )?agent process' "$iso_out.clean" || true
+    grep '^::error::' "$iso_out.clean" | grep -vE '^::error::(no (live )?agent process|sudo -ll)' || true
     grep '^::error::sudo -ll' "$iso_out.clean" || true; } | head -n 8
   nfail=$(grep -c '^FAIL ' "$iso_out.clean" || true)
 fi
