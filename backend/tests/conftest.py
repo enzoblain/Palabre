@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 
 # Settings() requires it at import time
-os.environ.setdefault("ADMIN_TOKEN", "test-token")
+os.environ.setdefault("ADMIN_TOKEN", "test-token-" + "x" * 32)
 
 from app import github, workflow  # noqa: E402
 from app.models import TaskStatus, Verdict  # noqa: E402

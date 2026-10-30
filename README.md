@@ -194,10 +194,10 @@ Four values in `.env` are required:
 
 | Variable | What it is |
 |---|---|
-| `ADMIN_TOKEN` | Protects the API; the apps ask for it. E.g. `openssl rand -hex 32` |
+| `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
-| `POSTGRES_PASSWORD` | Letters, digits, `-` and `_` |
+| `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
 
 The server listens on port `2710` and the web app on port `2810`.
 
@@ -211,6 +211,13 @@ those listed in [Configuration](#configuration): the container no longer gets th
 `IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
 `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
 else changes; Postgres keeps its current password.
+
+Upgrading from a version that accepted short secrets: `ADMIN_TOKEN` and `POSTGRES_PASSWORD` must now
+have at least 32 characters, or the backend refuses to start. Generate new values with
+`openssl rand -hex 32`. For `ADMIN_TOKEN`, edit `.env` and run `docker compose up -d`. For
+`POSTGRES_PASSWORD`, change it in Postgres first, because the database image only reads it when it
+creates an empty volume: `docker compose exec db psql -U palabre -c "ALTER USER palabre WITH PASSWORD '<new>'"`,
+then put the same value in `.env` and run `docker compose up -d`.
 
 Upgrading from a version before the agent user: nothing to do. The container starts as
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
