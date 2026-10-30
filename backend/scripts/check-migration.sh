@@ -41,22 +41,32 @@ check "the volume belongs to group work, closed to others" '[ "$(stat -c %G:%a /
 # setgid (2700) is fine: the migration's find sets it on every directory, the mode stays closed to others
 check "the reference clone is private to palabre" \
   'case "$(stat -c %U:%a /data/projects/project-1/repo)" in palabre:700|palabre:2700) true ;; *) false ;; esac'
-check "the task clone is group-writable (agents commit there)" \
-  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw.rw"'
+check "the task clone belongs to the backend, closed to the agents' group (a run claims it)" \
+  '[ "$(stat -c %U:%G /data/projects/project-1/worktrees/task-5/file)" = palabre:palabre ]'
+check "nothing in the task clones is open to others" \
+  'test -d /data/projects/project-1/worktrees/task-5 && [ -z "$(find /data/projects/project-1/worktrees /data/projects/project-1/desks -mindepth 1 -perm /o+rwx)" ]'
+check "the old Go cache is dropped" '[ -z "$(find /data/toolchains/gopath -mindepth 1 -maxdepth 1)" ]'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
 check "the agent cannot read the claude store" '! setpriv --reuid=agent --regid=work --init-groups ls /data/claude'
-check "the agent can write in its task clone" \
-  'setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
+check "the agent cannot write in a task clone it has not claimed" \
+  '! setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
+check "agent1 cannot write in a task clone it has not claimed" \
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \
   '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
 check "a pool account (agent1) cannot read the claude store" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/claude'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups ls /data/claude'
 check "a pool account (agent1) cannot read the reference" \
-  '! setpriv --reuid=agent1 --regid=work --init-groups ls /data/projects/project-1/repo'
-check "a pool account (agent1) can write in its task clone" \
-  'setpriv --reuid=agent1 --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups ls /data/projects/project-1/repo'
+check "a pool account (agent1) cannot write in its task clone before claiming it (the backend hands it over per run)" \
+  '! setpriv --reuid=agent1 --regid=agent1 --init-groups touch /data/projects/project-1/worktrees/task-5/new1'
+# Positive controls: setpriv itself works, so the denied checks above cannot pass vacuously
+check "setpriv runs as the legacy agent (positive control)" \
+  '[ "$(setpriv --reuid=agent --regid=work --init-groups id -u)" = 1001 ]'
+check "setpriv runs as a pool account, agent1 (positive control)" \
+  '[ "$(setpriv --reuid=agent1 --regid=agent1 --init-groups id -u)" = 2001 ]'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \

@@ -71,13 +71,18 @@ expect() { # description, got, expected
   if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
 }
 cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
-expect "sudo -l shows exactly 4 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 4
+expect "sudo -l shows exactly 8 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 8
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
-expect "every rule runs as the pool users only ($pool)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s' "$pool" | norm)"
+expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*'; do
+    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' \
+    '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
+    '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
+# The only rules running as root are the four claim-clone ones
+expect "the root rules are the 4 claim-clone ones only" "$(printf '%s\n' "$rules" | grep '^root|' | cut -d'|' -f3 | grep -c '^/usr/local/bin/palabre-claim-clone ')" 4
+expect "no other rule runs as root" "$(printf '%s\n' "$rules" | grep -c '^root|')" 4
 expect "SETENV is on the claude rule only" "$(printf '%s\n' "$rules" | grep '|1|' | cut -d'|' -f3 | tr '\n' ' ')" "/home/palabre/.local/bin/claude "
 for user in $(printf '%s' "$pool" | tr ',' ' '); do
   [ "$user" = agent ] && continue
@@ -193,6 +198,45 @@ case $mode in
 esac
 STUB
 chmod 755 "$CLAUDE"
+
+# A claimed clone and Go cache belong to one account alone (#160): through the real sudo rule, as the backend does
+as_pool_sh() { u=$1; shift; setpriv --reuid="$u" --regid="$u" --init-groups "$@"; }
+claim_root=$DATA/projects/project-99997/worktrees/task-1
+gocache=$DATA/toolchains/gopath/employee-99997
+mkdir -p "$claim_root" "$gocache"
+chown palabre:palabre "$DATA/projects/project-99997" "$DATA/projects/project-99997/worktrees" "$claim_root" "$gocache"
+as_palabre git init -q "$claim_root"
+for target in "$claim_root" "$gocache"; do
+  check "palabre can claim $target for agent1" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" agent1
+done
+check "agent1 can write a hook in its claimed clone" as_pool_sh agent1 touch "$claim_root/.git/hooks/pre-commit"
+check "agent1 can write the git config of its claimed clone" as_pool_sh agent1 sh -c "echo >> '$claim_root/.git/config'"
+check "agent1 can write in its claimed Go cache" as_pool_sh agent1 touch "$gocache/x"
+denied "agent2 cannot plant a hook in agent1's clone" as_pool_sh agent2 touch "$claim_root/.git/hooks/post-commit"
+denied "agent2 cannot overwrite agent1's hook" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/hooks/pre-commit'"
+denied "agent2 cannot write the git config of agent1's clone" as_pool_sh agent2 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent2 cannot write in agent1's Go cache" as_pool_sh agent2 touch "$gocache/y"
+# Reassignment (#160): the run ends, the clone goes back to palabre, then to another account
+for target in "$claim_root" "$gocache"; do
+  check "palabre can take $target back" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" palabre
+done
+denied "agent1 cannot write a hook once the clone is released" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-merge"
+denied "agent1 cannot write the git config once the clone is released" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent1 cannot write in the Go cache once released" as_pool_sh agent1 touch "$gocache/z"
+for target in "$claim_root" "$gocache"; do
+  check "palabre can claim $target for agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$target" agent2
+done
+check "agent2 can write a hook in its claimed clone" as_pool_sh agent2 touch "$claim_root/.git/hooks/post-commit"
+denied "agent1 cannot write a hook in the clone now claimed by agent2" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-rewrite"
+denied "agent1 cannot write the git config of agent2's clone" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
+denied "agent1 cannot write in agent2's Go cache" as_pool_sh agent1 touch "$gocache/w"
+# A claim refuses a tree with a file of another account, or a hard link (#160)
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" palabre
+touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
+denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
+denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
   err=$(mktemp) || { echo "FAIL cannot create a temp file for $1"; echo "::error::cannot create a temp file for $1"; return 1; }
