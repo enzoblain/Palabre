@@ -126,10 +126,13 @@ async def lease() -> AsyncIterator[str]:
     finally:
         # A process a run left behind (setsid nohup ...) would keep this uid and read the
         # environment of the next run to get it: the account only goes back once it is empty
-        if await kill_all(user) and user not in _quarantined:
-            _pool.release(user)
-        else:
+        empty = await kill_all(user)  # Always run, quarantined or not
+        if not empty:
             log.error("Agent account %s still may have processes: removed from the pool until restart", user)
+        elif user in _quarantined:
+            log.error("Agent account %s is quarantined, not returned to the pool", user)
+        else:
+            _pool.release(user)
 
 
 async def kill_all(user: str) -> bool:

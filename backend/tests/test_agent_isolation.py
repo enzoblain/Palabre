@@ -819,3 +819,28 @@ def test_go_cache_is_per_employee(as_agent):
     a = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 1)
     b = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 2)
     assert a["GOPATH"] != b["GOPATH"] and a["GOMODCACHE"].startswith(a["GOPATH"])
+
+
+async def test_claim_never_chmods_an_existing_directory(monkeypatch, tmp_path):
+    chmods = []
+    monkeypatch.setattr(Path, "chmod", lambda self, mode: chmods.append((self.name, mode)))
+
+    class Proc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_exec(*a, **k):
+        return Proc()
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    # A claim, then a release, on a directory that exists: the claim script takes it over, no chmod here
+    await runner._claim([existing], "agent1")
+    await runner._claim([existing], "palabre")
+    assert chmods == []
+    # A directory just created is closed to the work group from the start
+    await runner._claim([tmp_path / "fresh"], "agent1")
+    assert chmods == [("fresh", 0o700)]
