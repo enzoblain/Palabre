@@ -579,7 +579,7 @@ def test_pool_shrinks_to_the_accounts_that_exist(monkeypatch, caplog):
     monkeypatch.setattr(settings, "agent_pool_size", 4)
     agent_pool.check()
     assert settings.agent_pool_size == 2
-    assert "agent3 does not exist" in caplog.text
+    assert "agent3 (user and group) does not exist" in caplog.text
     agent_pool.reset()
 
 
