@@ -4,7 +4,7 @@ import re
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.models import (
     AppSetting,
@@ -163,6 +163,28 @@ async def post_message(
 ) -> Message:
     """Post a message (author None = the boss) and wake up everyone @mentioned.
     With a request_kind, the message asks the boss something (see ask_boss)."""
+    mentioned = {m.lower() for m in MENTION_RE.findall(content)}
+    room_kind = await s.scalar(
+        select(Room.kind).join(Conversation, Conversation.room_id == Room.id).where(Conversation.id == conversation_id)
+    )
+    if room_kind == DM and mentioned:
+        # A DM has two members: an @ to anyone else would never reach them
+        outsiders = await s.scalars(
+            select(Employee.name).where(
+                Employee.project_id == project_id,
+                func.lower(Employee.name).in_(mentioned),
+                Employee.id.notin_(
+                    select(room_members.c.employee_id)
+                    .join(Conversation, Conversation.room_id == room_members.c.room_id)
+                    .where(Conversation.id == conversation_id)
+                ),
+            )
+        )
+        if names := list(outsiders):
+            raise WorkflowError(
+                f"{', '.join('@' + n for n in names)} is not in this direct message and would not be woken up: "
+                "post in a channel they are a member of, or DM them directly"
+            )
     msg = Message(
         conversation_id=conversation_id,
         employee_id=author.id if author else None,
@@ -175,13 +197,9 @@ async def post_message(
     s.add(msg)
     await s.flush()
 
-    mentioned = {m.lower() for m in MENTION_RE.findall(content)}
-    room_kind = await s.scalar(
-        select(Room.kind).join(Conversation, Conversation.room_id == Room.id).where(Conversation.id == conversation_id)
-    )
     if room_kind == DM and author is not None:
         # A DM wakes the other member without an @ (same event, same per-employee throttle)
-        payload = {"conversation_id": conversation_id, "message_id": msg.id}
+        payload = {"conversation_id": conversation_id, "message_id": msg.id, "dm_from": author.name}
         others = await s.scalars(
             select(Employee.id)
             .join(room_members, room_members.c.employee_id == Employee.id)
@@ -301,10 +319,21 @@ async def get_or_create_dm(s: AsyncSession, project_id: int, me: Employee, other
     if other is None:
         raise WorkflowError(f"No employee named {other_name}")
     first, second = sorted((me, other), key=lambda e: e.id)
-    name = f"{first.name}·{second.name}"
-    room = await s.scalar(select(Room).where(Room.project_id == project_id, Room.kind == DM, Room.name == name))
+    # Two first messages at once would both find no room: the pair's lock serializes them.
+    # It is only released at commit: nothing slow may run between here and the commit
+    await s.execute(select(func.pg_advisory_xact_lock(first.id, second.id)))
+    # Found by its two members, not by name: a rename must not lose the DM
+    a, b = aliased(room_members), aliased(room_members)
+    room = await s.scalar(
+        select(Room)
+        .join(a, a.c.room_id == Room.id)
+        .join(b, b.c.room_id == Room.id)
+        .where(Room.project_id == project_id, Room.kind == DM, a.c.employee_id == first.id, b.c.employee_id == second.id)
+        .order_by(Room.id)
+        .limit(1)
+    )
     if room is None:
-        room = Room(project_id=project_id, name=name, kind=DM, members=[first, second])
+        room = Room(project_id=project_id, name=f"{first.name}·{second.name}", kind=DM, members=[first, second])
         s.add(room)
         await s.flush()
         s.add(Conversation(room_id=room.id, title="DM"))
@@ -379,7 +408,7 @@ async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -
     conversation_id = await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
-        .where(Room.project_id == project_id, named)
+        .where(Room.project_id == project_id, Room.kind != DM, named)  # a DM is never a channel to post in
         .order_by(Conversation.id.desc())  # the active one is the latest
         .limit(1)
     )
@@ -490,6 +519,10 @@ async def write_notes(s: AsyncSession, employee_id: int, content: str, append: b
 async def escalate(
     s: AsyncSession, project_id: int, conversation_id: int, author: Employee, to: str, reason: str
 ) -> Message:
+    room_id = await s.scalar(select(Conversation.room_id).where(Conversation.id == conversation_id))
+    if await s.scalar(select(Room.kind).where(Room.id == room_id)) == DM:
+        # The lead is not in a DM (nor called into one): escalate in a team channel
+        _, conversation_id = await team_context(s, project_id, room_id, conversation_id)
     if to == "boss":
         # An interactive request in direction; where there is none, a plain message in the room
         if msg := await ask_boss(s, project_id, author, reason, "escalation"):

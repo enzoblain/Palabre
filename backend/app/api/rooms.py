@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import github, projects, services
+from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import (
     DecisionOut,
@@ -24,7 +25,7 @@ router = APIRouter(tags=["rooms"])
 
 async def load_room(s, room_id: int) -> Room:
     room = await s.scalar(select(Room).where(Room.id == room_id).options(selectinload(Room.members)))
-    if room is None:
+    if room is None or (room.kind == services.DM and not services.BOSS_READS_DMS):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -33,6 +34,12 @@ def check_not_direction(room: Room) -> None:
     """The direction channel is fixed: the boss and the lead, for as long as the project lives."""
     if room.kind == services.DIRECTION:
         raise HTTPException(status.HTTP_409_CONFLICT, "The direction channel cannot be changed this way")
+
+
+def check_not_dm(room: Room) -> None:
+    """A DM is exactly its two employees, named after them: no admin edit."""
+    if room.kind == services.DM:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A direct message cannot be changed this way")
 
 
 @router.get("/projects/{project_id}/rooms", response_model=list[RoomOut])
@@ -76,6 +83,7 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
     """Changing the objective wakes up the positions that react to it."""
     room = await load_room(s, room_id)
     changes = body.model_dump(exclude_none=True)
+    check_not_dm(room)
     if "name" in changes:
         check_not_direction(room)
     for field, value in changes.items():
@@ -88,7 +96,7 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
 
 @router.delete("/rooms/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room(room_id: int, s: SessionDep):
-    room = await get_or_404(s, Room, room_id)
+    room = await load_room(s, room_id)
     check_not_direction(room)
     await s.delete(room)
     await s.commit()
@@ -98,6 +106,7 @@ async def delete_room(room_id: int, s: SessionDep):
 async def add_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
     check_not_direction(room)
+    check_not_dm(room)
     employee = await get_or_404(s, Employee, employee_id)
     if employee.project_id != room.project_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "This employee belongs to another project")
@@ -111,6 +120,7 @@ async def add_member(room_id: int, employee_id: int, s: SessionDep):
 async def remove_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
     check_not_direction(room)
+    check_not_dm(room)
     room.members = [m for m in room.members if m.id != employee_id]
     await s.commit()
     return await load_room(s, room_id)
@@ -152,7 +162,7 @@ async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
 
 @router.post("/rooms/{room_id}/questions", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)
 async def add_question(room_id: int, body: QuestionIn, s: SessionDep):
-    await get_or_404(s, Room, room_id)
+    await get_visible_room(s, room_id)
     question = OpenQuestion(room_id=room_id, question=body.question, asked_by=services.boss_display_name())
     s.add(question)
     await s.commit()
