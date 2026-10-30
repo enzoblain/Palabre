@@ -314,6 +314,27 @@ async def get_or_create_dm(s: AsyncSession, project_id: int, me: Employee, other
     )
 
 
+async def rooms_of(s: AsyncSession, employee: Employee) -> list[tuple[str, str]]:
+    """(name, kind) of the rooms an employee is a member of; a DM is named after the other person."""
+    rooms = (
+        await s.scalars(
+            select(Room)
+            .join(room_members, room_members.c.room_id == Room.id)
+            .where(Room.project_id == employee.project_id, room_members.c.employee_id == employee.id)
+            .options(selectinload(Room.members))  # lazy loads fail in an async session
+            .order_by(Room.id)
+        )
+    ).all()
+    out = []
+    for r in rooms:
+        if r.kind == DM:
+            other = next((m.name for m in r.members if m.id != employee.id), r.name)
+            out.append((f"@{other}", DM))
+        else:
+            out.append((f"#{r.name}", r.kind))
+    return out
+
+
 async def member_conversation_id(s: AsyncSession, project_id: int, me: Employee, name: str) -> int:
     """The conversation an employee may post in for `name`: "@Name" is a DM, otherwise a channel
     they are a member of (direction is the lead's only)."""

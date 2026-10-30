@@ -287,6 +287,7 @@ class Orchestrator:
         ] if p)  # fmt: skip
         oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
+        rooms = await services.rooms_of(s, employee) if project.kind == "company" else []
 
         if first.kind == "task":
             task = await s.get(Task, first.task_id)
@@ -299,7 +300,7 @@ class Orchestrator:
             spec = RunSpec(
                 author_name=employee.name,
                 system_prompt=system_prompt + "\n\n" + task_rules(task, project.default_branch),
-                prompt=wake_prompt([w.reason for w in wakeups]),
+                prompt=wake_prompt([w.reason for w in wakeups], rooms),
                 cwd=path,
                 employee_id=employee.id,
                 mcp_headers={"X-Palabre-Task": str(task.id)},
@@ -316,7 +317,7 @@ class Orchestrator:
             spec = RunSpec(
                 author_name=employee.name,
                 system_prompt=system_prompt,
-                prompt=wake_prompt([w.reason for w in wakeups]),
+                prompt=wake_prompt([w.reason for w in wakeups], rooms),
                 # Their own desk: same directory every time (claude sessions are tied to it)
                 cwd=await self._desk(project, employee),
                 employee_id=employee.id,
