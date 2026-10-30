@@ -8,10 +8,12 @@ set -u
 image=${1:?usage: check-migration.sh <image>}
 volume=palabre-check-migration-$$
 fail=0
+nok=0
+nfail=0
 trap 'docker volume rm -f "$volume" >/dev/null 2>&1' EXIT
 root() { docker run --rm --user root --entrypoint sh -v "$volume:/data" "$image" -c "$1"; }
 check() { # description, then a root shell command that must succeed on the volume
-  if root "$2" >/dev/null 2>&1; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
+  if root "$2" >/dev/null 2>&1; then echo "ok   $1"; nok=$((nok + 1)); else echo "FAIL $1"; fail=1; nfail=$((nfail + 1)); fi
 }
 
 # A volume as the previous versions left it: everything belongs to palabre (uid 1000), 0755
@@ -31,14 +33,16 @@ root '
 
 # The image's own entrypoint, as docker compose runs it, then a command as the backend
 docker run --rm -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && test -f /data/.isolation-v1' >/dev/null 2>&1 \
-  && echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written" \
-  || { echo "FAIL the entrypoint fails on the old volume"; fail=1; }
+  && { echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written"; nok=$((nok + 1)); } \
+  || { echo "FAIL the entrypoint fails on the old volume"; fail=1; nfail=$((nfail + 1)); }
 
 check "the marker .isolation-v1 exists" 'test -f /data/.isolation-v1'
 check "the volume belongs to group work, closed to others" '[ "$(stat -c %G:%a /data)" = "work:2710" ]'
-check "the reference clone is private to palabre" '[ "$(stat -c %U:%a /data/projects/project-1/repo)" = "palabre:700" ]'
+# setgid (2700) is fine: the migration's find sets it on every directory, the mode stays closed to others
+check "the reference clone is private to palabre" \
+  'case "$(stat -c %U:%a /data/projects/project-1/repo)" in palabre:700|palabre:2700) true ;; *) false ;; esac'
 check "the task clone is group-writable (agents commit there)" \
-  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw-rw"'
+  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw.rw"'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
@@ -50,5 +54,7 @@ check "the agent cannot read the reference" \
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
-  && echo "ok   a second start succeeds" || { echo "FAIL a second start fails"; fail=1; }
+  && { echo "ok   a second start succeeds"; nok=$((nok + 1)); } \
+  || { echo "FAIL a second start fails"; fail=1; nfail=$((nfail + 1)); }
+echo "check-migration: $nok ok, $nfail FAIL"
 exit $fail

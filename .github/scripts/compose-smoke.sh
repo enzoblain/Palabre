@@ -263,4 +263,12 @@ fi
 rm -f "$iso_out" "$iso_out.clean"
 [ "$iso_rc" -eq 0 ] || fail "the agent isolation check failed (exit $iso_rc, $nfail FAIL line(s)); details in the annotations above"
 
+# The entrypoint's migration of an old volume, on the image just built. The "ok" lines and the
+# final count stay in the log: a check that did not run must not look like one that passed.
+step "Migration of a volume made before the agent user"
+mig_out=$(backend/scripts/check-migration.sh "ghcr.io/enzoblain/palabre:$NEW" 2>&1) || mig_rc=$?
+printf '%s\n' "$mig_out"
+[ "${mig_rc:-0}" -eq 0 ] || fail "check-migration.sh failed (exit ${mig_rc:-0}): $(printf '%s' "$mig_out" | grep '^FAIL ' | head -n 3 | tr '\n' ';')"
+printf '%s\n' "$mig_out" | grep -q '^ok   ' || fail "check-migration.sh printed no ok line: it did not run"
+
 echo "Compose smoke test passed"

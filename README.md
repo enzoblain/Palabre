@@ -432,12 +432,14 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 
 ### Checking the isolation
 
-Nobody builds the isolation in CI (it needs a real container), so check an image by hand
-after changing the Dockerfile, the entrypoint or the runner. Two scripts in
-`backend/scripts/`:
+The Compose smoke test in CI runs the agent pool isolation check and
+`check-migration.sh` on the image it builds, and fails on any `FAIL`; the log shows each `ok`
+line and a final count. The task flow check needs a scratch GitHub repository, so it stays
+manual, as does running either script on another image after changing the Dockerfile, the
+entrypoint or the runner. Two scripts in `backend/scripts/`:
 
 ```sh
-# 1. Migration of a volume made before the agent user (needs Docker on the host only)
+# 1. Migration of a volume made before the agent user (needs Docker on the host only; also run by the CI)
 backend/scripts/check-migration.sh <image>
 
 # 2. Agent runs and task flow, in a throwaway container with a scratch GitHub repository
