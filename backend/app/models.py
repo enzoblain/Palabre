@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -167,6 +168,14 @@ class Room(Base):
 
     project: Mapped[Project] = relationship(back_populates="rooms")
     members: Mapped[list[Employee]] = relationship(secondary=room_members, order_by="Employee.id")
+
+    # One DM per pair (the name is the pair): two simultaneous first messages cannot both create it
+    __table_args__ = (
+        Index(
+            "uq_rooms_dm_name", "project_id", "name", unique=True,
+            postgresql_where=text("kind = 'dm'"), sqlite_where=text("kind = 'dm'"),
+        ),
+    )  # fmt: skip
 
 
 class Decision(Base):

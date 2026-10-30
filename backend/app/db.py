@@ -40,5 +40,11 @@ def upgrade_schema(conn: Connection) -> None:
                     conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    # Create_all skips indexes of existing tables: add the DM uniqueness one (idempotent)
+    from app.models import Room
+
+    for index in Room.__table__.indexes:
+        if index.name == "uq_rooms_dm_name":
+            index.create(conn, checkfirst=True)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")

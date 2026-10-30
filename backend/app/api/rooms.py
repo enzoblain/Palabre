@@ -68,7 +68,10 @@ async def create_room(project_id: int, body: RoomIn, s: SessionDep):
 
 @router.get("/rooms/{room_id}", response_model=RoomOut)
 async def get_room(room_id: int, s: SessionDep):
-    return await load_room(s, room_id)
+    room = await load_room(s, room_id)
+    if room.kind == services.DM and not services.BOSS_READS_DMS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
+    return room
 
 
 @router.patch("/rooms/{room_id}", response_model=RoomOut)

@@ -3,6 +3,7 @@
 import re
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -181,7 +182,7 @@ async def post_message(
     )
     if room_kind == DM and author is not None:
         # A DM wakes the other member without an @ (same event, same per-employee throttle)
-        payload = {"conversation_id": conversation_id, "message_id": msg.id}
+        payload = {"conversation_id": conversation_id, "message_id": msg.id, "dm": True, "from": author.name}
         others = await s.scalars(
             select(Employee.id)
             .join(room_members, room_members.c.employee_id == Employee.id)
@@ -302,13 +303,21 @@ async def get_or_create_dm(s: AsyncSession, project_id: int, me: Employee, other
         raise WorkflowError(f"No employee named {other_name}")
     first, second = sorted((me, other), key=lambda e: e.id)
     name = f"{first.name}·{second.name}"
-    room = await s.scalar(select(Room).where(Room.project_id == project_id, Room.kind == DM, Room.name == name))
+    find = select(Room).where(Room.project_id == project_id, Room.kind == DM, Room.name == name)
+    room = await s.scalar(find)
     if room is None:
-        room = Room(project_id=project_id, name=name, kind=DM, members=[first, second])
-        s.add(room)
-        await s.flush()
-        s.add(Conversation(room_id=room.id, title="DM"))
-        await s.flush()
+        try:
+            # A savepoint: losing the race to the unique index must not undo the caller's work
+            async with s.begin_nested():
+                room = Room(project_id=project_id, name=name, kind=DM, members=[first, second])
+                s.add(room)
+                await s.flush()
+                s.add(Conversation(room_id=room.id, title="DM"))
+                await s.flush()
+        except IntegrityError:
+            room = await s.scalar(find)  # the other request created it first
+            if room is None:
+                raise
     return await s.scalar(
         select(Conversation.id).where(Conversation.room_id == room.id).order_by(Conversation.id.desc()).limit(1)
     )

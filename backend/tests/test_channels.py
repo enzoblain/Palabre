@@ -1,5 +1,6 @@
 """Channels: the boss writes in direction only, and only the lead is woken by them."""
 
+import contextlib
 from types import SimpleNamespace
 
 import pytest
@@ -86,6 +87,9 @@ class FakeServiceSession:
 
     def add(self, obj):
         self.added.append(obj)
+
+    def begin_nested(self):
+        return contextlib.nullcontext()
 
     async def flush(self):
         for obj in self.added:

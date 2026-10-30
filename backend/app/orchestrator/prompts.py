@@ -7,6 +7,7 @@ from app.models import Task
 # Why an employee is woken up, per event type ({...} = event payload fields)
 REASONS: dict[str, str] = {
     "mention": "You were mentioned in the conversation (message #{message_id}). Read the new messages and answer if it is useful.",
+    "dm": "{from} sent you a direct message (message #{message_id}). Read it and answer if it is useful.",
     "task_assigned": "You have been assigned task #{task_id}.",
     "task_unblocked": "Task #{task_id}, assigned to you, is no longer waiting for other tasks.",
     "changes_requested": "{reviewer} requested changes on task #{task_id}. Read the reviews with get_task and address them.",
@@ -45,6 +46,8 @@ REASONS: dict[str, str] = {
 
 
 def reason_for(event_type: str, payload: dict) -> str:
+    if event_type == "mention" and payload.get("dm"):
+        event_type = "dm"  # a DM wakes through the mention event, but is not a mention
     template = REASONS.get(event_type, "Event '{_type}': {_payload}. Act according to your position if it concerns you.")
     return template.format_map(defaultdict(lambda: "?", payload, _type=event_type, _payload=payload))
 
