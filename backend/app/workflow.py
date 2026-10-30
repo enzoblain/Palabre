@@ -14,6 +14,7 @@ from app import github
 from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
+from app.sensitive_paths import touches_sensitive_paths
 from app.services import WorkflowError, emit_event, post_message, post_system_message
 from app.worktrees import (
     final_branch_name,
@@ -302,6 +303,13 @@ async def _commits_ahead(project: Project, task: Task) -> int:
     return int((await github.git(task.worktree_path, "rev-list", "--count", f"{base}..HEAD")).strip())
 
 
+async def _changed_files(project: Project, task: Task) -> list[str]:
+    out = await github.git(
+        task.worktree_path, "diff", "--no-ext-diff", "--name-only", f"origin/{project.default_branch}...HEAD"
+    )
+    return out.splitlines()
+
+
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
     """Wake the assignee up on their task (from a conversation): the work itself only
     happens in a task run, in the task's worktree."""
@@ -361,6 +369,7 @@ async def submit_for_review(
         await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
+    changed_files = await _changed_files(project, task)
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
@@ -391,7 +400,8 @@ async def submit_for_review(
     task.submitted_at = datetime.now(UTC)
     task.review_round += 1
     task.merge_ready_at = task.lead_reminded_at = None
-    task.sensitive = task.sensitive or sensitive
+    # The gate is derived from the changed files; the author's flag can only add it, never remove it
+    task.sensitive = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
     process = mode_process(project.mode)
     payload = {"task_id": task.id, "pr_url": task.pr_url}
     emit_event(s, project_id, "review_requested", payload, role="reviewer")
