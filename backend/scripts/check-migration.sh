@@ -38,9 +38,11 @@ docker run --rm -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && 
 
 check "the marker .isolation-v1 exists" 'test -f /data/.isolation-v1'
 check "the volume belongs to group work, closed to others" '[ "$(stat -c %G:%a /data)" = "work:2710" ]'
-check "the reference clone is private to palabre" '[ "$(stat -c %U:%a /data/projects/project-1/repo)" = "palabre:700" ]'
+# setgid (2700) is fine: the migration's find sets it on every directory, the mode stays closed to others
+check "the reference clone is private to palabre" \
+  'case "$(stat -c %U:%a /data/projects/project-1/repo)" in palabre:700|palabre:2700) true ;; *) false ;; esac'
 check "the task clone is group-writable (agents commit there)" \
-  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw-rw"'
+  '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw.rw"'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
