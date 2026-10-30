@@ -225,6 +225,12 @@ check "agent2 can write a hook in its claimed clone" as_pool_sh agent2 touch "$c
 denied "agent1 cannot write a hook in the clone now claimed by agent2" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-rewrite"
 denied "agent1 cannot write the git config of agent2's clone" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
 denied "agent1 cannot write in agent2's Go cache" as_pool_sh agent1 touch "$gocache/w"
+# A claim refuses a tree with a file of another account, or a hard link (#160)
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" palabre
+touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
+denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
+denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines

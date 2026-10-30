@@ -14,6 +14,12 @@ printf '%s\n' "$1" | grep -Eq '^/data/projects/project-[0-9]+/(desks/employee|wo
 printf '%s\n' "$2" | grep -Eq '^(agent[0-9]+|palabre)$' || { echo "not a pool account: $2" >&2; exit 2; }
 [ -d "$1" ] && [ ! -L "$1" ] || { echo "not a directory: $1" >&2; exit 2; }
 group=$(id -gn "$2")
+if [ "$2" != palabre ]; then
+  # Refuse a tree holding something of another account (a leftover of a run that was not handed back)
+  # or a hard-linked non-directory (it could alias a file outside the clone): the chown would hand it over.
+  odd=$(/usr/bin/find -P "$1" \( ! -user palabre ! -user "$2" \) -print -quit -o ! -type d -links +1 -print -quit)
+  [ -z "$odd" ] || { echo "refusing to claim: unexpected owner or hard link in the tree" >&2; exit 3; }
+fi
 # -R walks with fts (openat): no symlink is followed, whatever the clone's previous owner swaps meanwhile.
 # The tree is only ever one of palabre or of an account whose processes are all dead.
 /usr/bin/chown -R -h "$2:$group" "$1"
