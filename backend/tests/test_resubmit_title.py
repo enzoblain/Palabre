@@ -10,7 +10,7 @@ from app.models import TaskStatus
 
 class FakeSession:
     async def get(self, model, pk):
-        return SimpleNamespace(repo_url="https://github.com/acme/app", default_branch="dev", mode=None)
+        return SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev", mode=None)
 
     async def commit(self):
         pass
@@ -110,7 +110,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     )
     assert task.branch == "fix/7-handle-x"
     assert ("/tmp/w", "branch", "-m", "task/7", "fix/7-handle-x") in gits
-    assert gits[-1] == ("push", "fix/7-handle-x")
+    assert ("push", "fix/7-handle-x") in gits
     assert opened["head"] == "fix/7-handle-x"
     assert opened["title"] == "fix(api): handle x"
     assert task.pr_title == "fix(api): handle x (#3)"
@@ -171,3 +171,56 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     await workflow.submit_for_review(FakeSession(), 1, 7, author, "sum", False, title="feat(api): handle y")
     assert task.branch == "feat/7-handle-y"
     assert head["branch"] == "feat/7-handle-y"
+
+
+async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
+    events = []
+    task = SimpleNamespace(
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+    )
+    gits = []
+
+    async def get_task(*_):
+        return task
+
+    async def commits_ahead(*_):
+        return 1
+
+    async def git(*args, **__):
+        gits.append(args)
+        return "README.md\0backend/app/runner.py\0" if "--name-only" in args else ""
+
+    async def noop(*_, **__):
+        pass
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "post_message", noop)
+    monkeypatch.setattr(workflow, "emit_event", lambda *a, **k: events.append(a[2]))
+    monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": True})
+    monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", noop)
+    monkeypatch.setattr(github, "set_pull_request_title", noop)
+    monkeypatch.setattr(github, "comment_pull_request", noop)
+
+    await workflow.submit_for_review(
+        FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
+    )
+    assert task.sensitive is True
+    assert "sensitive_pr" in events
+    diff = next(g for g in gits if "--name-only" in g)
+    assert "--no-renames" in diff and "-z" in diff and diff[-1] == "origin/dev...origin/task/7"
+
+    # Without security's approval the merge stays blocked
+    class Sess:
+        async def scalars(self, *_):
+            return []
+
+    monkeypatch.setattr(workflow, "mode_process", lambda _: {
+        "qa_gate": False, "security_gate": True, "required_approvals": 0, "ci_required": False, "docs_required": False,
+    })
+    blockers = await workflow.merge_blockers(Sess(), SimpleNamespace(mode=None), task)
+    assert "security has not approved this sensitive PR" in blockers
