@@ -223,6 +223,8 @@ Upgrading from a version before the agent user: nothing to do. The container sta
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
 makes each project's reference clone private to the server, then drops to `palabre`. If
 you run the image without Docker's entrypoint, do that `chown`/`chmod` yourself.
+After dropping root, the entrypoint execs `tini`: PID 1 is tini running as `palabre`, and it
+reaps the orphans of killed agent runs, so `docker run` without Compose needs no `--init`.
 
 ```sh
 docker compose pull && docker compose up -d

@@ -183,3 +183,10 @@ def test_32_character_secrets_are_accepted(tmp_path, monkeypatch):
     (tmp_path / "admin_token").write_text("a" * 32)
     (tmp_path / "postgres_password").write_text("b" * 32)
     assert config.Settings(_secrets_dir=tmp_path, _env_file=None).admin_token == "a" * 32
+
+
+def test_tini_runs_after_the_privilege_drop():
+    script = ENTRYPOINT.read_text()
+    assert "--init-groups tini -s -- " in script
+    assert 'exec tini -s -- "$@"' in script
+    assert 'ENTRYPOINT ["docker-entrypoint.sh"]' in (BACKEND / "Dockerfile").read_text()
