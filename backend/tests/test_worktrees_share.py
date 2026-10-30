@@ -62,3 +62,42 @@ async def test_clone_from_reference_wiring(monkeypatch, tmp_path, pool, called):
     project = type("P", (), {"repo_url": "u"})()
     await worktrees._clone_from_reference(project, tmp_path / "clones" / "c")
     assert bool(seen) is called
+
+
+def _failing_scandir(monkeypatch, bad):
+    real = os.scandir
+
+    def scandir(p):
+        if str(p) == str(bad):
+            raise PermissionError(13, "denied", str(p))
+        return real(p)
+
+    monkeypatch.setattr(os, "scandir", scandir)
+
+
+def test_share_with_group_unreadable_dir_is_oserror(monkeypatch, tmp_path):
+    monkeypatch.setattr(worktrees, "SHARED_GROUP", grp.getgrgid(os.getgid()).gr_name)
+    (tmp_path / "sub").mkdir()
+    _failing_scandir(monkeypatch, tmp_path / "sub")
+    with pytest.raises(OSError):
+        worktrees._share_with_group(tmp_path)
+
+
+async def test_clone_from_reference_removes_clone_on_share_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", 0)
+    monkeypatch.setattr(worktrees, "SHARED_GROUP", grp.getgrgid(os.getgid()).gr_name)
+    monkeypatch.setattr(worktrees, "repo_dir", lambda p: tmp_path / "ref")
+
+    async def noop(*a, **k):
+        return ""
+
+    monkeypatch.setattr(worktrees, "git", noop)
+    monkeypatch.setattr(worktrees, "_pull_from_reference", noop)
+    clone = tmp_path / "clones" / "c"
+    (clone / "sub").mkdir(parents=True)
+    _failing_scandir(monkeypatch, clone / "sub")
+    project = type("P", (), {"repo_url": "u"})()
+    with pytest.raises(OSError):
+        await worktrees._clone_from_reference(project, clone)
+    assert not clone.exists()
