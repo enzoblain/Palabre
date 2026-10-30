@@ -14,6 +14,15 @@ DATA=/data
 # symlink they may have planted (chmod/chown follow one given on the command line)
 real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
+# Gives a clone (or Go cache) back to the backend, private to it, as claim-clone.sh does after a run.
+# Skipped when nothing in it is foreign or open to group/others (a symlink is always 777: ignored).
+take_back() {
+  real_dir "$1" || return 0
+  [ -n "$(find -P "$1" \( ! -user palabre -o ! -group palabre -o \( ! -type l -perm /go+rwx \) \) -print -quit)" ] || return 0
+  chown -hR palabre:palabre "$1"
+  chmod -R u+rwX,go-rwx,ug-s "$1"
+}
+
 mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
 for dir in projects runtime run toolchains claude; do
   real_dir "$DATA/$dir" || { echo "$DATA/$dir is not a plain directory" >&2; exit 1; }
@@ -89,18 +98,22 @@ for project in "$DATA"/projects/project-*; do
     real_dir "$project/$parent" || continue
     chown palabre:work "$project/$parent"
     chmod 2755 "$project/$parent"
-    # The clones themselves: back to the backend at every start (a run's account may have left
-    # files in them); the next run claims its clone. -h: never follow a planted symlink.
-    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d -exec chown -hR palabre:palabre {} +
-    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d -exec chmod -R u+rwX,g+rwX,go-s,o-rwx {} +
+    # The clones themselves: back to the backend (a run's account may have left files in them); the next
+    # run claims its clone. Same rights as claim-clone.sh gives back: private to the backend. Only a clone with
+    # something not yet palabre:palabre is walked, so the cost does not grow with the number of finished tasks.
+    # -h: never follow a planted symlink.
+    for clone in "$project/$parent"/*; do
+      take_back "$clone"
+    done
   done
 done
 
 # Per-employee Go caches: same as the clones, back to the backend at every start (a run's
 # account may have left files in them); the next run of the employee claims its cache.
 if real_dir "$DATA/toolchains/gopath"; then
-  find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -type d -name 'employee-*' -exec chown -hR palabre:palabre {} +
-  find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -type d -name 'employee-*' -exec chmod -R u+rwX,g+rwX,go-s,o-rwx {} +
+  for cache in "$DATA"/toolchains/gopath/employee-*; do
+    take_back "$cache"
+  done
 fi
 
 # Secrets: Docker mounts them readable by everyone in /run/secrets. Close that directory
