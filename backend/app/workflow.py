@@ -313,6 +313,17 @@ async def _changed_files(project: Project, task: Task) -> list[str]:
     return out.split("\0")
 
 
+async def _patch_id(project: Project, task: Task) -> str:
+    """Content of the pushed branch, independent of its base: a pure rebase keeps the same patch-id.
+    Empty when it cannot be computed (then nothing is kept)."""
+    repo = repo_dir(project)
+    diff = await github.git(
+        repo, "diff", "--no-ext-diff", "--binary", f"origin/{project.default_branch}...origin/{task.branch}"
+    )
+    out = await github.git(repo, "patch-id", "--stable", stdin=diff) if diff else ""
+    return out.split()[0] if out.split() else ""
+
+
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
     """Wake the assignee up on their task (from a conversation): the work itself only
     happens in a task run, in the task's worktree."""
@@ -399,8 +410,22 @@ async def submit_for_review(
         await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
+    patch_id = await _patch_id(project, task)
+    # Same content as the reviewed round and nobody asked for changes: only the base moved, so the
+    # approvals stay and the merge just waits for the CI on the new head
+    pure_rebase = (
+        bool(patch_id) and patch_id == task.reviewed_patch_id and task.review_round > 0
+        and task.status != TaskStatus.changes_requested
+    )
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
+    if pure_rebase:
+        task.sensitive = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
+        await announce(s, task, f"PR rebased by {author.name}, content unchanged: approvals kept (round {task.review_round})")
+        wake_lead(task, f"PR rebased by {author.name}, approvals kept")
+        await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
+        return task
+    task.reviewed_patch_id = patch_id or None
     task.review_round += 1
     task.merge_ready_at = task.lead_reminded_at = None
     # The gate is derived from the changed files; the author's flag can only add it, never remove it

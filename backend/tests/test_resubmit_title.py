@@ -21,7 +21,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.changes_requested, branch="task/7", worktree_path="/tmp/w",
         pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_patch_id=None,
     )
 
     async def get_task(*_):
@@ -64,7 +64,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_patch_id=None,
     )
     opened = {}
 
@@ -122,7 +122,7 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_patch_id=None,
     )
     head = {"branch": "task/7"}  # the worktree's real branch
     fail = {"push": True}
@@ -178,7 +178,7 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=1,
-        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_patch_id=None,
     )
     gits = []
 
@@ -224,3 +224,70 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     })
     blockers = await workflow.merge_blockers(Sess(), SimpleNamespace(mode=None), task)
     assert "security has not approved this sensitive PR" in blockers
+
+
+def _rebase_task(**over):
+    base = dict(
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        pr_number=12, pr_url="u", pr_title="old", acceptance_criteria=[], description="", review_round=2,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at="then", lead_reminded_at=None,
+        reviewed_patch_id="aaa",
+    )
+    base.update(over)
+    return SimpleNamespace(**base)
+
+
+async def _resubmit(monkeypatch, task, patch_id):
+    events = []
+
+    async def get_task(*_):
+        return task
+
+    async def commits_ahead(*_):
+        return 1
+
+    async def git(*args, **__):
+        return f"{patch_id} commit\n" if "patch-id" in args else "diff"
+
+    async def noop(*_, **__):
+        pass
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "post_message", noop)
+    monkeypatch.setattr(workflow, "emit_event", lambda *a, **k: events.append(a[2]))
+    monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": True, "security_gate": False})
+    monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", noop)
+    monkeypatch.setattr(github, "set_pull_request_title", noop)
+    monkeypatch.setattr(github, "comment_pull_request", noop)
+    await workflow.submit_for_review(
+        FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
+    )
+    return events
+
+
+async def test_pure_rebase_keeps_the_round_and_wakes_nobody(monkeypatch):
+    task = _rebase_task()
+    events = await _resubmit(monkeypatch, task, "aaa")
+    assert events == []
+    assert task.review_round == 2
+    assert task.merge_ready_at == "then"
+    assert task.status == TaskStatus.review
+
+
+async def test_changed_content_starts_a_new_round(monkeypatch):
+    task = _rebase_task()
+    events = await _resubmit(monkeypatch, task, "bbb")
+    assert events == ["review_requested", "pr_ready"]
+    assert task.review_round == 3
+    assert task.merge_ready_at is None
+    assert task.reviewed_patch_id == "bbb"
+
+
+async def test_requested_changes_always_start_a_new_round(monkeypatch):
+    task = _rebase_task(status=TaskStatus.changes_requested)
+    events = await _resubmit(monkeypatch, task, "aaa")
+    assert task.review_round == 3
+    assert "review_requested" in events

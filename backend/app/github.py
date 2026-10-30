@@ -93,7 +93,7 @@ def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
 
 async def git(
     cwd: str | Path, *args: str, repo_url: str | None = None, allow_file: bool = False,
-    trust: str | Path | None = None,
+    trust: str | Path | None = None, stdin: str | None = None,
 ) -> str:
     """allow_file: let this one call use the local `file` transport (a clone or a fetch between
     the reference and an agent clone); every other call stays https only. repo_url (the token) is
@@ -109,11 +109,12 @@ async def git(
         config += ["-c", "protocol.file.allow=always"]
     proc = await asyncio.create_subprocess_exec(
         "git", "-C", str(cwd), *SAFE_GIT_CONFIG, *config, *args,
+        stdin=asyncio.subprocess.PIPE if stdin is not None else None,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=_git_env(repo_url if network else None, allow_file),
     )  # fmt: skip
-    stdout, stderr = await proc.communicate()
+    stdout, stderr = await (proc.communicate() if stdin is None else proc.communicate(stdin.encode()))
     if proc.returncode != 0:
         raise GitHubError(f"git {args[0]} failed: {stderr.decode(errors='replace')[-1000:]}")
     return stdout.decode(errors="replace")
