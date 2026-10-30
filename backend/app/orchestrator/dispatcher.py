@@ -464,6 +464,8 @@ class Orchestrator:
             del self._throttled_at[key]
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
+        if scope.startswith("conversation:"):  # Never resumed: nothing worth storing
+            return
         session = await s.get(AgentSession, (employee_id, scope))
         if session is None:
             s.add(AgentSession(employee_id=employee_id, scope=scope, claude_session_id=session_id))

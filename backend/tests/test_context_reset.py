@@ -201,14 +201,14 @@ async def test_a_worn_session_is_not_resumed_but_the_others_are(db, monkeypatch)
     monkeypatch.setattr(settings, "context_reset_every_runs", 5)
     malik, _ = await seed(db)
     db.add_all([
-        AgentSession(employee_id=malik.id, scope="conversation:1", claude_session_id="a", runs=5),
-        AgentSession(employee_id=malik.id, scope="conversation:2", claude_session_id="b", runs=4),
+        AgentSession(employee_id=malik.id, scope="task:1", claude_session_id="a", runs=5),
+        AgentSession(employee_id=malik.id, scope="task:2", claude_session_id="b", runs=4),
     ])  # fmt: skip
     await db.flush()
-    assert await context_reset.reset_session_if_worn(db, malik, "conversation:1")
-    assert not await context_reset.reset_session_if_worn(db, malik, "conversation:2")
-    assert await db.get(AgentSession, (malik.id, "conversation:1")) is None
-    assert (await db.get(AgentSession, (malik.id, "conversation:2"))).claude_session_id == "b"
+    assert await context_reset.reset_session_if_worn(db, malik, "task:1")
+    assert not await context_reset.reset_session_if_worn(db, malik, "task:2")
+    assert await db.get(AgentSession, (malik.id, "task:1")) is None
+    assert (await db.get(AgentSession, (malik.id, "task:2"))).claude_session_id == "b"
 
 
 async def test_no_session_or_zero_means_nothing_to_reset(db, monkeypatch):
@@ -233,6 +233,14 @@ async def test_only_task_runs_resume_their_session(db):
     assert await resume(db, malik, "task", "task:1") == "t"
     assert await resume(db, malik, "conversation", "conversation:1") is None
     assert await resume(db, malik, "task", "task:2") is None
+
+
+async def test_conversation_scopes_store_no_session(db, monkeypatch):
+    monkeypatch.setattr(settings, "context_reset_every_runs", 1)
+    malik, _ = await seed(db)
+    await Orchestrator()._save_session(db, malik.id, "conversation:1", "a", resumed=False)
+    assert await db.get(AgentSession, (malik.id, "conversation:1")) is None
+    assert not await context_reset.reset_session_if_worn(db, malik, "conversation:1")
 
 
 async def test_default_is_five():

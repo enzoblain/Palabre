@@ -49,7 +49,7 @@ async def reset_session_if_worn(s: AsyncSession, employee: Employee, scope: str)
     """Forget one session (conversation or task) once it served the threshold of runs; the employee's
     other sessions are kept. Called while preparing a run, so a run in progress is never cut."""
     every = settings.context_reset_every_runs
-    if every <= 0:
+    if every <= 0 or scope.startswith("conversation:"):  # Conversations are not resumed: no session to wear out
         return False
     session = await s.get(AgentSession, (employee.id, scope))
     if session is None or session.runs < every:
