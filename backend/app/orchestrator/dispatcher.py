@@ -328,12 +328,17 @@ class Orchestrator:
 
         await reset_context_if_due(s, employee)  # Before the lookup: no session left to resume
         await reset_session_if_worn(s, employee, scope)
-        spec.resume_session_id = await s.scalar(
-            select(AgentSession.claude_session_id).where(
-                AgentSession.employee_id == employee.id, AgentSession.scope == scope
-            )
-        )
+        spec.resume_session_id = await self._session_to_resume(s, employee, first.kind, scope)
         return spec, scope
+
+    @staticmethod
+    async def _session_to_resume(s: AsyncSession, employee: Employee, kind: str, scope: str) -> str | None:
+        """Only task runs resume: a conversation wakeup comes after the cache TTL, so resuming rewrites the whole history."""
+        if kind != "task":
+            return None
+        return await s.scalar(
+            select(AgentSession.claude_session_id).where(AgentSession.employee_id == employee.id, AgentSession.scope == scope)
+        )
 
     async def _desk(self, project: Project, employee: Employee):
         if project.kind == "research":  # No repository: a plain drafts folder
