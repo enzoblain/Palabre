@@ -3,6 +3,7 @@
 import re
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -35,7 +36,8 @@ BOSS_ALIASES = {"boss", "ceo"}
 SYSTEM_AUTHOR = "Palabre"
 DIRECTION = "direction"
 DM = "dm"
-# The one switch for the boss reading employees' DMs (read-only; pending the boss's answer)
+# The one switch for the boss reading employees' DMs (read-only; pending the boss's answer).
+# Off, the DMs are hidden everywhere the API serves them: the room list, the room and its messages.
 BOSS_READS_DMS = True
 
 
@@ -181,7 +183,7 @@ async def post_message(
     )
     if room_kind == DM and author is not None:
         # A DM wakes the other member without an @ (same event, same per-employee throttle)
-        payload = {"conversation_id": conversation_id, "message_id": msg.id}
+        payload = {"conversation_id": conversation_id, "message_id": msg.id, "dm_from": author.name}
         others = await s.scalars(
             select(Employee.id)
             .join(room_members, room_members.c.employee_id == Employee.id)
@@ -301,17 +303,41 @@ async def get_or_create_dm(s: AsyncSession, project_id: int, me: Employee, other
     if other is None:
         raise WorkflowError(f"No employee named {other_name}")
     first, second = sorted((me, other), key=lambda e: e.id)
-    name = f"{first.name}·{second.name}"
-    room = await s.scalar(select(Room).where(Room.project_id == project_id, Room.kind == DM, Room.name == name))
+    room = await _find_dm(s, project_id, first.id, second.id)
     if room is None:
-        room = Room(project_id=project_id, name=name, kind=DM, members=[first, second])
-        s.add(room)
-        await s.flush()
-        s.add(Conversation(room_id=room.id, title="DM"))
-        await s.flush()
+        room = Room(
+            project_id=project_id, name=f"{first.name}·{second.name}", kind=DM, dm_key=f"{first.id}:{second.id}",
+            members=[first, second],
+        )
+        try:
+            async with s.begin_nested():  # a savepoint: a lost race must not roll back the caller's session
+                s.add(room)
+                await s.flush()
+        except IntegrityError:
+            # The other first message won the unique index: use its room
+            room = await _find_dm(s, project_id, first.id, second.id)
+        else:
+            s.add(Conversation(room_id=room.id, title="DM"))
+            await s.flush()
     return await s.scalar(
         select(Conversation.id).where(Conversation.room_id == room.id).order_by(Conversation.id.desc()).limit(1)
     )
+
+
+async def _find_dm(s: AsyncSession, project_id: int, first_id: int, second_id: int) -> Room | None:
+    """The DM of a pair, found by its two members: a renamed room or employee must not lose it."""
+    in_room = lambda employee_id: Room.id.in_(  # noqa: E731
+        select(room_members.c.room_id).where(room_members.c.employee_id == employee_id)
+    )
+    room = await s.scalar(
+        select(Room)
+        .where(Room.project_id == project_id, Room.kind == DM, in_room(first_id), in_room(second_id))
+        .order_by(Room.id)
+        .limit(1)
+    )
+    if room is not None and room.dm_key is None:
+        room.dm_key = f"{first_id}:{second_id}"  # a DM created before the key existed
+    return room
 
 
 async def member_conversation_id(s: AsyncSession, project_id: int, me: Employee, name: str) -> int:
@@ -358,7 +384,7 @@ async def channel_conversation_id(s: AsyncSession, project_id: int, name: str) -
     conversation_id = await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
-        .where(Room.project_id == project_id, named)
+        .where(Room.project_id == project_id, Room.kind != DM, named)  # a DM is reached by "@Name" only
         .order_by(Conversation.id.desc())  # the active one is the latest
         .limit(1)
     )
@@ -464,6 +490,21 @@ async def write_notes(s: AsyncSession, employee_id: int, content: str, append: b
     note.content = f"{note.content.rstrip()}\n{content}".strip() if append else content
     await s.commit()
     return note.content
+
+
+async def escalation_conversation_id(s: AsyncSession, project_id: int, conversation_id: int, author: Employee) -> int:
+    """Where an escalation is written. From a DM nobody else reads and nobody could answer in, it
+    goes to the team channel (to direction for the lead), so it leaves a visible trace."""
+    room_id, kind = (
+        await s.execute(
+            select(Room.id, Room.kind).join(Conversation, Conversation.room_id == Room.id).where(Conversation.id == conversation_id)
+        )
+    ).one()
+    if kind != DM:
+        return conversation_id
+    if "lead" in author.roles and (direction_id := await direction_conversation_id(s, project_id)):
+        return direction_id
+    return (await team_context(s, project_id, room_id, conversation_id))[1]
 
 
 async def escalate(

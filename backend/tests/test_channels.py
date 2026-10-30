@@ -4,9 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from app import services
-from app.api import conversations
+from app.api import conversations, rooms
 from app.api.schemas import MessageIn
 from app.models import Conversation, Event, Project, Room
 
@@ -94,6 +95,27 @@ class FakeServiceSession:
 
     async def commit(self):
         pass
+
+    def begin_nested(self):
+        return _Savepoint(self)
+
+    async def execute(self, _query):
+        return SimpleNamespace(one=lambda: self.execute_row)
+
+
+class _Savepoint:
+    """The savepoint of `begin_nested`: re-raises, like the real one after rolling back."""
+
+    def __init__(self, session):
+        self.session = session
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if exc_type is not None:
+            self.session.rolled_back = True
+        return False
 
 
 def _staff():
@@ -189,3 +211,117 @@ async def test_dm_message_wakes_the_other_member_only(monkeypatch):
     s = Session(scalar=["dm"], scalars=[[maya.id]])
     await services.post_message(s, 1, 9, "salut", me)
     assert events == [("mention", maya.id)]
+
+
+async def test_dm_is_found_through_its_members_whatever_its_name():
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    renamed = Room(id=60, name="renamed", kind="dm", dm_key=None)
+    s = FakeServiceSession(scalar=[maya, renamed, 77])
+    assert await services.get_or_create_dm(s, 1, me, "@Maya") == 77
+    assert not [o for o in s.added if isinstance(o, Room)]
+    assert renamed.dm_key == ":".join(str(i) for i in sorted((me.id, maya.id)))
+
+
+async def test_concurrent_first_messages_create_one_dm():
+    me, maya = make_employee("Malik", "dev_backend"), make_employee("Maya", "architect")
+    winner = Room(id=61, name="x", kind="dm", dm_key="k")
+
+    class Racing(FakeServiceSession):
+        async def flush(self):
+            raise IntegrityError("insert", {}, Exception("duplicate dm_key"))
+
+    s = Racing(scalar=[maya, None, winner, 88])
+    assert await services.get_or_create_dm(s, 1, me, "@Maya") == 88
+    assert s.rolled_back
+
+
+def test_dm_key_is_unique_per_project():
+    (index,) = [i for i in Room.__table__.indexes if i.name == "ix_rooms_dm_key"]
+    assert index.unique and [c.name for c in index.columns] == ["project_id", "dm_key"]
+
+
+async def test_a_dm_is_not_a_channel_to_post_in():
+    # The channel lookup excludes DM rooms: nothing found, whoever asks
+    with pytest.raises(services.WorkflowError, match="No channel"):
+        await services.channel_conversation_id(FakeServiceSession(scalar=[None]), 1, "Malik·Maya")
+    query = []
+
+    class Spy(FakeServiceSession):
+        async def scalar(self, q):
+            query.append(str(q.compile(compile_kwargs={"literal_binds": True})))
+            return 5
+
+    await services.channel_conversation_id(Spy(), 1, "backend")
+    assert "rooms.kind != 'dm'" in query[0]
+
+
+async def test_escalation_from_a_dm_goes_to_the_team_channel():
+    dev = make_employee("Malik", "dev_backend")
+    s = FakeServiceSession(scalar=["dm", 10, 20])
+    s.execute_row = (5, "dm")
+    assert await services.escalation_conversation_id(s, 1, 6, dev) == 20
+
+
+async def test_lead_escalation_from_a_dm_goes_to_direction():
+    lead = make_employee("Louise", "lead")
+    s = FakeServiceSession(scalar=[9])
+    s.execute_row = (5, "dm")
+    assert await services.escalation_conversation_id(s, 1, 6, lead) == 9
+
+
+async def test_escalation_outside_a_dm_stays_put():
+    s = FakeServiceSession()
+    s.execute_row = (5, "team")
+    assert await services.escalation_conversation_id(s, 1, 6, make_employee("Malik")) == 6
+
+
+@pytest.mark.parametrize("call", ["patch_name", "add_member", "remove_member"])
+async def test_admin_cannot_edit_a_dm(monkeypatch, call):
+    dm = Room(id=3, project_id=1, name="Malik·Maya", kind="dm", members=[])
+
+    async def load_room(_s, _id):
+        return dm
+
+    monkeypatch.setattr(rooms, "load_room", load_room)
+    with pytest.raises(HTTPException) as exc:
+        if call == "patch_name":
+            await rooms.update_room(3, rooms.RoomPatch(name="x"), None)
+        elif call == "add_member":
+            await rooms.add_member(3, 4, None)
+        else:
+            await rooms.remove_member(3, 4, None)
+    assert exc.value.status_code == 409
+
+
+async def test_boss_reads_dms_switch_hides_the_room_and_its_messages(monkeypatch):
+    dm = Room(id=3, project_id=1, name="Malik·Maya", kind="dm", members=[])
+
+    async def load_room(_s, _id):
+        return dm
+
+    monkeypatch.setattr(rooms, "load_room", load_room)
+    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
+    with pytest.raises(HTTPException) as exc:
+        await rooms.get_room(3, None)
+    assert exc.value.status_code == 404
+
+    class S(FakeApiSession):
+        async def get(self, model, _id):
+            return SimpleNamespace(id=1, room_id=3)
+
+        async def scalar(self, _query):
+            return "dm"
+
+    with pytest.raises(HTTPException) as exc:
+        await conversations.list_messages(1, S("dm"), None, 100)
+    assert exc.value.status_code == 404
+    monkeypatch.setattr(services, "BOSS_READS_DMS", True)
+    assert await rooms.get_room(3, None) is dm
+
+
+def test_dm_wakeup_prompt_says_it_is_a_dm():
+    from app.orchestrator.prompts import reason_for
+
+    text = reason_for("mention", {"message_id": 4, "dm_from": "Maya"})
+    assert "direct message" in text and "Maya" in text and "mentioned" not in text
+    assert "mentioned" in reason_for("mention", {"message_id": 4})

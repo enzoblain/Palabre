@@ -47,7 +47,8 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
     message, like you would send a colleague (a long or report-like one is refused).
     Mention colleagues with @Name to get their attention.
     channel: a channel you are a member of, or "@Name" for a direct message (the other
-    person is woken up without an @). Only the lead may post in "direction"."""
+    person is woken up without an @, and a third person mentioned there is not). Only the
+    lead may post in "direction"."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
@@ -139,7 +140,8 @@ async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lea
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, reason)
         me = await s.get(Employee, c.employee_id)
-        msg = await services.escalate(s, c.project_id, c.conversation_id, me, to, reason)
+        conversation_id = await services.escalation_conversation_id(s, c.project_id, c.conversation_id, me)
+        msg = await services.escalate(s, c.project_id, conversation_id, me, to, reason)
     return {"message_id": msg.id}
 
 

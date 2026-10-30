@@ -44,7 +44,9 @@ async def list_messages(
     limit: int = Query(100, ge=1, le=500),
 ):
     """Messages in chronological order; poll with since_id = last id seen."""
-    await get_or_404(s, Conversation, conversation_id)
+    conversation = await get_or_404(s, Conversation, conversation_id)
+    if not services.BOSS_READS_DMS and await s.scalar(select(Room.kind).where(Room.id == conversation.room_id)) == services.DM:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Conversation {conversation_id} not found")
     return await services.get_messages(s, conversation_id, since_id, limit)
 
 

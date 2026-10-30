@@ -35,6 +35,12 @@ def check_not_direction(room: Room) -> None:
         raise HTTPException(status.HTTP_409_CONFLICT, "The direction channel cannot be changed this way")
 
 
+def check_not_dm(room: Room) -> None:
+    """A DM is exactly its two employees: its members and name are not edited."""
+    if room.kind == services.DM:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A direct message cannot be changed this way")
+
+
 @router.get("/projects/{project_id}/rooms", response_model=list[RoomOut])
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
@@ -68,7 +74,10 @@ async def create_room(project_id: int, body: RoomIn, s: SessionDep):
 
 @router.get("/rooms/{room_id}", response_model=RoomOut)
 async def get_room(room_id: int, s: SessionDep):
-    return await load_room(s, room_id)
+    room = await load_room(s, room_id)
+    if room.kind == services.DM and not services.BOSS_READS_DMS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
+    return room
 
 
 @router.patch("/rooms/{room_id}", response_model=RoomOut)
@@ -78,6 +87,7 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
     changes = body.model_dump(exclude_none=True)
     if "name" in changes:
         check_not_direction(room)
+        check_not_dm(room)
     for field, value in changes.items():
         setattr(room, field, value)
     if "objective" in changes:
@@ -98,6 +108,7 @@ async def delete_room(room_id: int, s: SessionDep):
 async def add_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
     check_not_direction(room)
+    check_not_dm(room)
     employee = await get_or_404(s, Employee, employee_id)
     if employee.project_id != room.project_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "This employee belongs to another project")
@@ -111,6 +122,7 @@ async def add_member(room_id: int, employee_id: int, s: SessionDep):
 async def remove_member(room_id: int, employee_id: int, s: SessionDep):
     room = await load_room(s, room_id)
     check_not_direction(room)
+    check_not_dm(room)
     room.members = [m for m in room.members if m.id != employee_id]
     await s.commit()
     return await load_room(s, room_id)

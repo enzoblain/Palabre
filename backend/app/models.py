@@ -159,6 +159,8 @@ class Room(Base):
     # "team": the team's channels, which the boss reads but cannot write in;
     # "dm": exactly 2 employees, named after them, one per pair
     kind: Mapped[str] = mapped_column(String(20), default="team", server_default="team")
+    # "<lower id>:<higher id>" of a DM's pair: the unique index stops two concurrent first messages
+    dm_key: Mapped[str | None] = mapped_column(String(50))
     # Shared document: objective and summary (decisions, questions and tasks are rows)
     objective: Mapped[str] = mapped_column(Text, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -167,6 +169,8 @@ class Room(Base):
 
     project: Mapped[Project] = relationship(back_populates="rooms")
     members: Mapped[list[Employee]] = relationship(secondary=room_members, order_by="Employee.id")
+
+    __table_args__ = (Index("ix_rooms_dm_key", "project_id", "dm_key", unique=True),)
 
 
 class Decision(Base):

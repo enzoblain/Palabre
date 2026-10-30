@@ -43,8 +43,12 @@ REASONS: dict[str, str] = {
     "conversation_idle": "The conversation has gone quiet. Update the room document (summary, open questions) with what was said and decided.",
 }
 
+DM_REASON = "{dm_from} sent you a direct message (message #{message_id}). It is private between the two of you: read it and answer in the same DM with send_message(channel=\"@{dm_from}\") if it is useful."
+
 
 def reason_for(event_type: str, payload: dict) -> str:
+    if event_type == "mention" and payload.get("dm_from"):
+        return DM_REASON.format_map(defaultdict(lambda: "?", payload))
     template = REASONS.get(event_type, "Event '{_type}': {_payload}. Act according to your position if it concerns you.")
     return template.format_map(defaultdict(lambda: "?", payload, _type=event_type, _payload=payload))
 
