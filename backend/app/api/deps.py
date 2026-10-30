@@ -1,7 +1,9 @@
 """Shared FastAPI dependencies: authentication and lookups."""
 
+import asyncio
 import logging
 import secrets
+import socket
 import time
 from typing import Annotated, TypeVar
 
@@ -21,7 +23,7 @@ ModelT = TypeVar("ModelT", bound=Base)
 
 
 # Failed authentications per client IP (monotonic timestamps), in memory: a restart resets it.
-# Behind the frontend's nginx every browser shares the proxy's IP, hence one bucket.
+# Behind the frontend's nginx the client is read from X-Real-IP, but only when the request comes from that proxy.
 _failures: dict[str, list[float]] = {}
 # Past this many tracked IPs, expired entries are swept (many source addresses must not grow it forever)
 _SWEEP_ABOVE = 1024
@@ -36,8 +38,38 @@ def _recent_failures(ip: str, now: float) -> list[float]:
     return recent
 
 
+_PROXY_TTL = 30.0
+_proxy_cache: tuple[float, set[str]] = (float("-inf"), set())
+
+
+async def _trusted_proxy_ips() -> set[str]:
+    """Addresses of the trusted proxy hosts, resolved again every few seconds (a container's IP changes on restart)."""
+    global _proxy_cache
+    now = time.monotonic()
+    if now - _proxy_cache[0] < _PROXY_TTL:
+        return _proxy_cache[1]
+    ips: set[str] = set()
+    loop = asyncio.get_running_loop()
+    for host in settings.trusted_proxy_hosts:
+        try:
+            ips.update(info[4][0] for info in await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM))
+        except OSError:
+            pass
+    _proxy_cache = (now, ips)
+    return ips
+
+
+async def client_ip(request: Request) -> str:
+    """The caller's IP; X-Real-IP (set by nginx to its $remote_addr) counts only from a trusted proxy, never from a direct caller."""
+    peer = request.client.host if request.client else "unknown"
+    real = request.headers.get("x-real-ip", "").strip()
+    if real and peer in await _trusted_proxy_ips():
+        return real
+    return peer
+
+
 async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
-    ip = request.client.host if request.client else "unknown"
+    ip = await client_ip(request)
     now = time.monotonic()
     recent = _recent_failures(ip, now)
     if len(recent) >= settings.auth_max_failures:

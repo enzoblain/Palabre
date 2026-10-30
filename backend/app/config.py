@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # answered 429 (and so even with a valid token) until the window has passed
     auth_max_failures: int = 10
     auth_fail_window_seconds: int = 300
+    # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
+    trusted_proxy_hosts: list[str] = ["web"]
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.

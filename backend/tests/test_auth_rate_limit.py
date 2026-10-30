@@ -62,3 +62,18 @@ async def test_expired_entries_are_swept(client, monkeypatch):
         deps._failures[f"10.0.0.{i}"] = [0.0]
     await client.get("/ping")
     assert list(deps._failures) == ["1.1.1.1"]
+
+
+async def test_x_real_ip_only_trusted_from_the_proxy(client, monkeypatch):
+    monkeypatch.setattr(deps, "_proxy_cache", (float("inf"), {"1.1.1.1"}))
+    for i in range(3):
+        await client.get("/ping", headers={"X-Real-IP": f"9.9.9.{i}"})
+    # Each browser behind the proxy has its own bucket: nobody is locked out yet
+    good = {"Authorization": f"Bearer {settings.admin_token}", "X-Real-IP": "8.8.8.8"}
+    assert (await client.get("/ping", headers=good)).status_code == 200
+    # A direct caller (not the proxy) cannot pick its bucket with a forged header
+    monkeypatch.setattr(deps, "_proxy_cache", (float("inf"), set()))
+    deps._failures.clear()
+    for i in range(3):
+        await client.get("/ping", headers={"X-Real-IP": f"9.9.9.{i}"})
+    assert (await client.get("/ping", headers={"X-Real-IP": "7.7.7.7", "Authorization": f"Bearer {settings.admin_token}"})).status_code == 429
