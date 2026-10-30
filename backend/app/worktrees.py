@@ -200,14 +200,23 @@ def _share_with_group(path: Path) -> None:
     """Group work, group-writable, setgid directories (2770): same rights as the entrypoint's
     share_back, so the shared agent can write in the clone and serve it to the upload-pack.
     Symlinks are left alone (never followed)."""
-    gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    try:
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    except KeyError as e:
+        raise OSError(f"group {SHARED_GROUP!r} does not exist") from e
     for root, dirs, files in os.walk(path):
         for name in (*dirs, *files):
             entry = os.path.join(root, name)
             os.chown(entry, -1, gid, follow_symlinks=False)
             if not os.path.islink(entry):
                 mode = os.lstat(entry).st_mode
-                os.chmod(entry, stat.S_IMODE(mode) | 0o070 | (stat.S_ISGID if os.path.isdir(entry) else 0))
+                # Like g+rwX: group x only on directories and on files already executable
+                add = 0o060
+                if stat.S_ISDIR(mode):
+                    add |= 0o010 | stat.S_ISGID
+                elif mode & 0o111:
+                    add |= 0o010
+                os.chmod(entry, stat.S_IMODE(mode) | add)
     os.chown(path, -1, gid)
     os.chmod(path, 0o2770 | stat.S_IMODE(os.lstat(path).st_mode))
 

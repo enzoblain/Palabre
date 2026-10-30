@@ -24,6 +24,9 @@ def test_share_with_group_sets_group_and_setgid(monkeypatch, tmp_path):
     (clone / "sub").mkdir(parents=True)
     clone.chmod(0o700)
     (clone / "sub" / "f").write_text("x")
+    (clone / "sub" / "f").chmod(0o600)
+    (clone / "sub" / "x").write_text("x")
+    (clone / "sub" / "x").chmod(0o700)
     (clone / "link").symlink_to("sub")
     worktrees._share_with_group(clone)
     for d in (clone, clone / "sub"):
@@ -33,3 +36,29 @@ def test_share_with_group_sets_group_and_setgid(monkeypatch, tmp_path):
     f = clone / "sub" / "f"
     assert f.stat().st_mode & 0o060 == 0o060
     assert f.stat().st_gid == gid
+    assert not f.stat().st_mode & 0o010
+    assert (clone / "sub" / "x").stat().st_mode & 0o070 == 0o070
+
+
+def test_share_with_group_missing_group_is_oserror(monkeypatch, tmp_path):
+    monkeypatch.setattr(worktrees, "SHARED_GROUP", "no-such-group-xyz")
+    with pytest.raises(OSError):
+        worktrees._share_with_group(tmp_path)
+
+
+@pytest.mark.parametrize(("pool", "called"), [(0, True), (2, False)])
+async def test_clone_from_reference_wiring(monkeypatch, tmp_path, pool, called):
+    monkeypatch.setattr(settings, "agent_user", "agent")
+    monkeypatch.setattr(settings, "agent_pool_size", pool)
+    monkeypatch.setattr(worktrees, "repo_dir", lambda p: tmp_path / "ref")
+
+    async def noop(*a, **k):
+        return ""
+
+    seen = []
+    monkeypatch.setattr(worktrees, "git", noop)
+    monkeypatch.setattr(worktrees, "_pull_from_reference", noop)
+    monkeypatch.setattr(worktrees, "_share_with_group", seen.append)
+    project = type("P", (), {"repo_url": "u"})()
+    await worktrees._clone_from_reference(project, tmp_path / "clones" / "c")
+    assert bool(seen) is called
