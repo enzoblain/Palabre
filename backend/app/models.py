@@ -266,9 +266,9 @@ class Task(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Incremented on each submission; only reviews of the current round count
     review_round: Mapped[int] = mapped_column(default=0)
-    # git patch-id of the diff the current round was submitted with: a resubmission with the same
-    # patch-id is a pure rebase and keeps the round and its approvals
-    reviewed_patch_id: Mapped[str | None] = mapped_column(String(64))
+    # Head SHA the current round was submitted with: a resubmission whose tree is that commit replayed
+    # on the new base is a pure rebase and keeps the round and its approvals
+    reviewed_head: Mapped[str | None] = mapped_column(String(64))
     # When the lead was told every merge rule is met, and when it was reminded (once); reset on submission
     merge_ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lead_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
