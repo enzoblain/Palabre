@@ -24,6 +24,7 @@ def test_single_narrow_sudo_rule():
         "palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
         "palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
         "palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
+        "palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
     ]
     assert "AGENT_USER=agent" in DOCKERFILE
 

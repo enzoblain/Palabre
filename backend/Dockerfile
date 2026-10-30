@@ -32,6 +32,7 @@ RUN printf '%s\n' \
       'palabre ALL=(agent) NOPASSWD:SETENV: /home/palabre/.local/bin/claude' \
       'palabre ALL=(agent) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*' \
       'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*' \
+      'palabre ALL=(agent) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*' \
       > /etc/sudoers.d/palabre-agent \
     && chmod 440 /etc/sudoers.d/palabre-agent \
     && visudo -cf /etc/sudoers.d/palabre-agent
@@ -45,7 +46,7 @@ USER palabre
 # Claude sessions (needed for --resume) live in the /data volume
 ENV HOME=/home/palabre \
     PATH=/home/palabre/.local/bin:$PATH \
-    CLAUDE_CONFIG_DIR=/data/claude \
+    CLAUDE_STORE_DIR=/data/claude \
     DISABLE_AUTOUPDATER=1 \
     AGENT_USER=agent \
     PYTHONUNBUFFERED=1

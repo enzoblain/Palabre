@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import settings
-from app import toolchains
+from app import claude_store, toolchains
 from app.credits import UsageLimit, parse_usage_limit
 from app.mcp_server import run_tokens
 from app.mcp_server.server import SERVER_NAME
@@ -86,8 +86,11 @@ def _agent_account() -> pwd.struct_passwd:
         raise ClaudeRunError(f"AGENT_USER {settings.agent_user!r} does not exist on this machine") from None
 
 
-def _env(author_name: str, oauth_token: str | None, cwd: Path) -> dict[str, str]:
+def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None) -> dict[str, str]:
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
+    if config_dir:
+        # The run's own throwaway config dir, never the backend's store of sessions
+        env["CLAUDE_CONFIG_DIR"] = str(config_dir)
     if settings.agent_user:
         account = _agent_account()
         for key in BACKEND_OWN:
@@ -210,9 +213,12 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
     if spec.resume_session_id:
         cmd += ["--resume", spec.resume_session_id]
 
+    config_dir = None
     try:
         try:
-            env = _env(spec.author_name, spec.oauth_token, spec.cwd)
+            if settings.agent_user:
+                config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id)
+            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env),
                 cwd=spec.cwd,
@@ -235,6 +241,8 @@ async def _run_claude(spec: RunSpec, token: str) -> RunResult:
             raise
     finally:
         mcp_config.unlink(missing_ok=True)
+        if config_dir:
+            await claude_store.collect(spec.employee_id, config_dir)
 
     try:
         data = json.loads(stdout)

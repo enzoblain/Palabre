@@ -19,13 +19,17 @@ for dir in projects runtime run toolchains claude; do
   real_dir "$DATA/$dir" || { echo "$DATA/$dir is not a plain directory" >&2; exit 1; }
 done
 
+# Claude's sessions: the backend's store, one directory per employee. Agents get a
+# throwaway config dir per run (in $DATA/run) and never see this one.
+chown palabre:palabre "$DATA/claude"
+chmod 700 "$DATA/claude"
+
 # Common group "work", setgid so new files keep it. Agents may only cross /data and
 # /data/projects (no listing of /data, no renaming of a project); they write in the clones
-# of tasks and desks, in Claude's sessions and in the Go cache.
-chown palabre:work "$DATA" "$DATA/projects" "$DATA/toolchains" "$DATA/claude"
+# of tasks and desks and in the Go cache.
+chown palabre:work "$DATA" "$DATA/projects" "$DATA/toolchains"
 chmod 2710 "$DATA"
 chmod 2751 "$DATA/projects" "$DATA/toolchains"
-chmod 2775 "$DATA/claude"
 real_dir "$DATA/toolchains/gopath" || rm -f "$DATA/toolchains/gopath"
 mkdir -p "$DATA/toolchains/gopath"
 chown palabre:work "$DATA/toolchains/gopath"
@@ -39,17 +43,29 @@ chmod 2711 "$DATA/run"
 
 # Migration of a volume made before the isolation: one pass, then a marker
 if [ ! -e "$DATA/.isolation-v1" ]; then
-  for dir in projects toolchains claude; do
+  for dir in projects toolchains; do
     real_dir "$DATA/$dir" || continue
     chgrp -R work "$DATA/$dir"
     chmod -R g+rX,g-w "$DATA/$dir"
     find "$DATA/$dir" -type d -exec chmod g+s {} +
   done
   # What the agents write in
-  for dir in "$DATA/claude" "$DATA/toolchains/gopath"; do
+  for dir in "$DATA/toolchains/gopath"; do
     real_dir "$dir" && chmod -R g+rwX "$dir"
   done
   touch "$DATA/.isolation-v1"
+fi
+
+# Sessions written in the shared config dir cannot be trusted or told apart by employee: purge them
+# (agents start a new session on their next run) and make everything left the backend's.
+if [ ! -e "$DATA/.isolation-v2" ]; then
+  if real_dir "$DATA/claude"; then
+    # Everything: the directory was group-writable, so even an employee-* directory could be planted
+    find -P "$DATA/claude" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    chown -R palabre:palabre "$DATA/claude"
+    chmod -R go-rwx "$DATA/claude"
+  fi
+  touch "$DATA/.isolation-v2"
 fi
 
 # Per project, at every start (these scale with the size of the repositories). Agents only
