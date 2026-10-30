@@ -11,13 +11,15 @@ SENSITIVE_NAMES = {
     # Container, entrypoint, privileges, secrets
     "dockerfile", "entrypoint.sh", "docker-entrypoint.sh", "sudoers", ".env",
     # Settings and agent runner
-    "config.py", "runner.py", "auth.py",
+    "config.py", "runner.py", "auth.py", "deps.py", "github.py", "worktrees.py", "docker-compose.yml", "docker-compose.yaml",
 }
 # Directory prefixes (relative to the repository root)
-SENSITIVE_DIRS = ("backend/app/mcp_server/", "mcp_server/", "sudoers.d/", ".github/workflows/")
+# Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
+SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/workflows/")
 
 
 def is_sensitive_path(path: str) -> bool:
+    """Whether a repository-relative path is on the list (case-insensitive)."""
     p = PurePosixPath(path.strip().lower().removeprefix("./"))
     name = p.name
     if name in SENSITIVE_NAMES or name.startswith("dockerfile.") or name.endswith(".dockerfile"):

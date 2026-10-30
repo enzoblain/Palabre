@@ -304,10 +304,13 @@ async def _commits_ahead(project: Project, task: Task) -> int:
 
 
 async def _changed_files(project: Project, task: Task) -> list[str]:
+    """Files of the pushed branch (not the agent's HEAD), read in the reference clone the backend owns.
+    No rename detection, so both sides of a move are listed; -z keeps non-ASCII paths unquoted."""
     out = await github.git(
-        task.worktree_path, "diff", "--no-ext-diff", "--name-only", f"origin/{project.default_branch}...HEAD"
-    )
-    return out.splitlines()
+        repo_dir(project), "diff", "--no-ext-diff", "--no-renames", "--name-only", "-z",
+        f"origin/{project.default_branch}...origin/{task.branch}",
+    )  # fmt: skip
+    return out.split("\0")
 
 
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
@@ -369,12 +372,12 @@ async def submit_for_review(
         await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting")
-    changed_files = await _changed_files(project, task)
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
     await push_task_branch(project, task)
+    changed_files = await _changed_files(project, task)
     if task.pr_number is None:
         criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(

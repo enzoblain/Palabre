@@ -342,6 +342,11 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 
 ## Security
 
+- Security review is not self-declared: in the modes with a security gate, a pull request
+  that changes a path listed in `backend/app/sensitive_paths.py` (dependency manifests and
+  lockfiles, Dockerfiles, entrypoints, sudoers, `runner.py`, `config.py`, `mcp_server/`,
+  scripts, secrets and CI files) needs security's approval, whatever the author flags. The
+  files come from the pushed branch; the author's flag can only add the gate.
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.

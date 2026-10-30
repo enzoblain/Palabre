@@ -23,3 +23,12 @@ def test_not_sensitive(path):
 def test_any_path_is_enough():
     assert touches_sensitive_paths(["README.md", "backend/app/runner.py"])
     assert not touches_sensitive_paths(["README.md", ""])
+
+
+def test_moved_file_lists_both_sides():
+    assert touches_sensitive_paths(["backend/app/tools.py", "backend/app/mcp_server/tools.py"])
+
+
+def test_scripts_and_non_ascii():
+    assert is_sensitive_path("backend/scripts/rm-clone.sh")
+    assert not is_sensitive_path("backend/é.py")
