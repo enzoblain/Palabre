@@ -7,10 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Upgrading
+## [0.11.0] - 2026-10-30
 
-- Images are now pinned: `docker-compose.yml` defaults `PALABRE_VERSION` to the release it ships with instead of `latest`, and `postgres`, `docker` and the base images are pinned by digest. If you use `COMPOSE_PROFILES=autoupdate` without `PALABRE_VERSION` in your `.env`, set `PALABRE_VERSION=latest` to keep getting updates, knowing that the updater holds the Docker socket (root on the host) and runs whatever is published.
-- Claude Code is installed at the version and checksum pinned in `backend/Dockerfile`. A `CLAUDE_CODE_VERSION` set in your `.env` is no longer read: edit the `ARG`s in the Dockerfile instead.
+### Added
+
+- web: serve security headers from one nginx snippet and check them in the Compose smoke test (#127)
+
+### Fixed
+
+- nginx: add CSP and security headers to the web frontend (#126)
+- release: recompute the CHANGELOG entry on every merge_release (#125)
+- workflow: derive the security gate from the changed files (#123)
+- security: isolate Claude sessions per employee with a throwaway config dir per run (#124)
+- orchestrator: keep throttled mentions queued instead of dropping them (#129)
+- orchestrator: guard limit <= 0 in _check_rate (#132)
+- workflow: keep approvals when a resubmission is a pure rebase (#131)
+- security: run each live agent under its own system user (#130)
+- **Breaking:** config: require 32+ character secrets and throttle failed API auth (#134)
+- security: harden the agent pool (kill before collect, TMPDIR, startup check, read-only homes) (#137)
+- auth: one lockout bucket per client behind nginx (#138)
 
 ## [0.10.1] - 2026-10-29
 
@@ -312,7 +327,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/enzoblain/Palabre/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/enzoblain/Palabre/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/enzoblain/Palabre/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/enzoblain/Palabre/compare/v0.8.0...v0.9.0
