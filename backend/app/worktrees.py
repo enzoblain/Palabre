@@ -1,6 +1,7 @@
 """Local clone of each project's repository (the reference), and one clone per task and per desk."""
 
 import asyncio
+import grp
 import logging
 import os
 import pwd
@@ -16,6 +17,8 @@ from app.github import BRANCH_PATTERN, UPLOAD_PACK_SCRIPT, GitHubError, git, rep
 from app.models import Employee, Project, Task
 
 log = logging.getLogger(__name__)
+
+SHARED_GROUP = "work"  # The agent group, as in docker-entrypoint.sh
 
 # One git operation at a time on a project's main clone (clone, fetch, and every clone made from it)
 _repo_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -187,6 +190,28 @@ def desk_dir(project: Project, employee: Employee) -> Path:
     return project_dir(project) / "desks" / f"employee-{employee.id}"
 
 
+def _shares_clones() -> bool:
+    """Shared agent account (no pool): nothing claims a clone per run, so it is opened to the
+    agent group. With a pool the clone stays 0700 and `_claim` hands it to the run's account."""
+    return bool(settings.agent_user) and settings.agent_pool_size <= 0
+
+
+def _share_with_group(path: Path) -> None:
+    """Group work, group-writable, setgid directories (2770): same rights as the entrypoint's
+    share_back, so the shared agent can write in the clone and serve it to the upload-pack.
+    Symlinks are left alone (never followed)."""
+    gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    for root, dirs, files in os.walk(path):
+        for name in (*dirs, *files):
+            entry = os.path.join(root, name)
+            os.chown(entry, -1, gid, follow_symlinks=False)
+            if not os.path.islink(entry):
+                mode = os.lstat(entry).st_mode
+                os.chmod(entry, stat.S_IMODE(mode) | 0o070 | (stat.S_ISGID if os.path.isdir(entry) else 0))
+    os.chown(path, -1, gid)
+    os.chmod(path, 0o2770 | stat.S_IMODE(os.lstat(path).st_mode))
+
+
 async def _clone_from_reference(project: Project, path: Path) -> None:
     """An independent clone of the project: objects borrowed from the reference then copied
     (--dissociate), so the agent never writes to the reference. Objects are copied, never
@@ -209,7 +234,9 @@ async def _clone_from_reference(project: Project, path: Path) -> None:
         )  # fmt: skip
         await git(path, "remote", "set-url", "origin", project.repo_url)
         await _pull_from_reference(project, path)
-    except GitHubError:
+        if _shares_clones():
+            await asyncio.to_thread(_share_with_group, path)
+    except (GitHubError, OSError):
         await asyncio.to_thread(shutil.rmtree, path, ignore_errors=True)  # Never leave a half clone
         raise
 
