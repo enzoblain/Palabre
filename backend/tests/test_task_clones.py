@@ -306,6 +306,7 @@ def test_desk_with_foreign_directory_is_recloned_through_the_agent(setup, monkey
         return SimpleNamespace(returncode=0, communicate=lambda: asyncio.sleep(0, (b"", b"")))
 
     monkeypatch.setattr(worktrees.settings, "agent_user", "agent")
+    monkeypatch.setattr(worktrees, "_share_with_group", lambda path: None)  # No work group on CI
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
     asyncio.run(worktrees.prepare_desk(project, employee))
     assert calls[0][:5] == ("sudo", "-n", "-u", "agent", "/usr/local/bin/palabre-rm-clone")
