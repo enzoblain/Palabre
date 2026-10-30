@@ -12,6 +12,8 @@
 set -u
 
 DATA=/data
+# The projects root the image was built with: the sudo rules are bound to it
+PROJECTS=$(cat /etc/palabre/projects-dir.conf 2>/dev/null)
 fail=0
 # The agent has no group of its own (useradd --gid work): --regid=agent would fail before running the command
 as_agent() { setpriv --reuid=agent --regid=work --init-groups "$@"; }
@@ -74,10 +76,11 @@ cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
 expect "sudo -l shows exactly 9 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 9
 norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
 expect "every rule runs as the pool users or root ($pool,root)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s,root' "$pool" | norm)"
+check "the projects root is configured (absolute path)" test "${PROJECTS#/}" != "$PROJECTS"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
-    '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*' '/usr/local/bin/palabre-upload-pack /data/projects/*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* agent*' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
-    '/usr/local/bin/palabre-claim-clone /data/projects/* palabre' '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
+    "/usr/local/bin/palabre-rm-clone $PROJECTS/*" '/usr/local/bin/palabre-rm-clone /data/run/claude-*' "/usr/local/bin/palabre-upload-pack $PROJECTS/*" \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* agent*" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*' \
+    "/usr/local/bin/palabre-claim-clone $PROJECTS/* palabre" '/usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre'; do
   expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
 # The only rules running as root are the four claim-clone ones

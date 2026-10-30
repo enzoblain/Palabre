@@ -24,6 +24,7 @@ def _run(*args, cwd):
 def setup(tmp_path, monkeypatch):
     monkeypatch.undo()  # drops the autouse subprocess guard: real git on local repos
     monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
     project = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="main")
     reference = worktrees.repo_dir(project)
     reference.mkdir(parents=True)
@@ -403,11 +404,46 @@ def test_upload_pack_command_runs_under_the_account():
     assert words == ["sudo", "-n", "-u", "agent2", github.UPLOAD_PACK_SCRIPT]
 
 
-def test_upload_pack_script_refuses_other_paths():
+def _script(tmp_path, name, root, *args):
+    conf = tmp_path / "conf"
+    conf.write_text(root)
+    script = Path(__file__).resolve().parents[1] / "scripts" / name
+    env = {**os.environ, "PALABRE_PROJECTS_CONF": str(conf)}
+    return subprocess.run(["sh", str(script), *map(str, args)], env=env, capture_output=True, text=True)
+
+
+def test_upload_pack_script_refuses_other_paths(tmp_path):
     script = Path(__file__).resolve().parents[1] / "scripts" / "upload-pack.sh"
+    assert "/data/projects" not in script.read_text()
     for bad in ("/data/projects/project-2/repo", "/data/projects/project-1/worktrees/task-5/../..", "/etc", "relative", "/data/projects/project-1/worktrees/task-5\n/x"):
-        out = subprocess.run(["sh", str(script), bad], capture_output=True, text=True)
+        out = _script(tmp_path, "upload-pack.sh", "/data/projects", bad)
         assert out.returncode == 2 and "not a task clone path" in out.stderr, bad
+
+
+def test_upload_pack_and_claim_clone_follow_the_configured_root(tmp_path):
+    clone = tmp_path / "projs" / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    other = tmp_path / "other" / "project-1" / "worktrees" / "task-2"
+    other.mkdir(parents=True)
+    # Past the path guard (a bare directory is no git dir, so the script then fails differently)
+    assert "not a task clone path" not in _script(tmp_path, "upload-pack.sh", f"{tmp_path}/projs", clone).stderr
+    assert "not a clone path" not in _script(tmp_path, "claim-clone.sh", f"{tmp_path}/projs", clone, "palabre").stderr
+    for name, extra in (("upload-pack.sh", ()), ("claim-clone.sh", ("palabre",))):
+        done = _script(tmp_path, name, f"{tmp_path}/projs", other, *extra)
+        assert done.returncode == 2 and "clone path" in done.stderr, name
+
+
+def test_upload_pack_and_claim_clone_fail_closed_on_bad_root(tmp_path):
+    clone = tmp_path / "projs" / "project-1" / "worktrees" / "task-2"
+    clone.mkdir(parents=True)
+    for name, extra in (("upload-pack.sh", ()), ("claim-clone.sh", ("palabre",))):
+        for root in ("", "/", "relative", f"{tmp_path}/projs/", f"{tmp_path}/pro.js"):
+            done = _script(tmp_path, name, root, clone, *extra)
+            assert done.returncode == 2 and "projects root" in done.stderr, (name, root)
+        script = Path(__file__).resolve().parents[1] / "scripts" / name
+        env = {**os.environ, "PALABRE_PROJECTS_CONF": str(tmp_path / "missing")}
+        assert subprocess.run(["sh", str(script), str(clone), *extra], env=env, capture_output=True).returncode == 2
+    assert "/data/projects" not in (Path(__file__).resolve().parents[1] / "scripts" / "claim-clone.sh").read_text()
 
 
 @pytest.fixture
@@ -419,9 +455,11 @@ def agent_pool_env(setup, monkeypatch, tmp_path):
     bin_dir.mkdir()
     log = tmp_path / "sudo.log"
     (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
-    # The real root script, with the path prefix swapped for the test's tmp dir, so its git command line is exercised
+    # The real root script, its projects root pointed at the test's tmp dir, so its git command line is exercised
+    (tmp_path / "projects.conf").write_text(f"{tmp_path}/projects")
     real = (Path(__file__).parent.parent / "scripts" / "upload-pack.sh").read_text()
-    (bin_dir / "palabre-upload-pack").write_text(real.replace("^/data/projects/", f"^{tmp_path}/projects/"))
+    # The backend's git environment is scrubbed, so the conf path is baked into this copy
+    (bin_dir / "palabre-upload-pack").write_text(real.replace("/etc/palabre/projects-dir.conf", str(tmp_path / "projects.conf")))
     for f in bin_dir.iterdir():
         f.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
@@ -509,8 +547,10 @@ def test_push_refuses_a_malformed_object(agent_pool_env):
         asyncio.run(worktrees.push_task_branch(project, task))
     assert "refs/heads/task/5" not in _run("for-each-ref", cwd=reference)
 
+
 def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
     root = tmp_path / "projects" / "project-3"
     (root / "repo").mkdir(parents=True)
     (root / "repo" / "a.txt").write_text("x")
@@ -526,6 +566,7 @@ def test_remove_project_files_logs_what_it_cannot_delete(tmp_path, monkeypatch, 
 
 def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
     (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
     asyncio.run(worktrees.remove_project_files(4))
     assert not (tmp_path / "projects" / "project-4").exists()
@@ -535,7 +576,7 @@ def _rm_clone(tmp_path, root, path):
     conf = tmp_path / "conf"
     conf.write_text(root)
     script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
-    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(conf)}
+    env = {**os.environ, "PALABRE_PROJECTS_CONF": str(conf)}
     return subprocess.run(["sh", str(script), str(path)], env=env, capture_output=True, text=True)
 
 
@@ -569,5 +610,5 @@ def test_rm_clone_fails_closed_on_bad_root(tmp_path):
     assert (clone / "f").exists()
     # No config file at all
     script = Path(__file__).parent.parent / "scripts" / "rm-clone.sh"
-    env = {**os.environ, "PALABRE_RM_CLONE_CONF": str(tmp_path / "missing")}
+    env = {**os.environ, "PALABRE_PROJECTS_CONF": str(tmp_path / "missing")}
     assert subprocess.run(["sh", str(script), str(clone)], env=env, capture_output=True).returncode == 2

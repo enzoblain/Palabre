@@ -34,12 +34,12 @@ def test_single_narrow_sudo_rule():
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone ${PROJECTS_DIR}/*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
         # Serves a task clone to the push fetch as its owner (#193)
-        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack /data/projects/*",
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack ${PROJECTS_DIR}/*",
         # Hands a clone to an agent account (#160): the script checks both arguments
-        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone ${PROJECTS_DIR}/* agent*",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*",
         # And takes it back once the run's processes are dead
-        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* palabre",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone ${PROJECTS_DIR}/* palabre",
         "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* palabre",
     ]
     assert 'users="agent$(for i in' in DOCKERFILE
