@@ -22,6 +22,7 @@ from app.company.team import kind_of_mode, load_catalog, render_system_prompt
 from app.models import Employee, Project
 from app.orchestrator.dispatcher import orchestrator
 from app.worktrees import remove_project_files
+from app import services
 from app.services import boss_display_name
 
 router = APIRouter(tags=["projects"])
@@ -32,6 +33,14 @@ async def _project(s, project_id: int) -> Project:
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Project {project_id} not found")
     return project
+
+
+def _detail(project: Project) -> ProjectDetail:
+    """The project's payload; DMs are left out of its rooms unless BOSS_READS_DMS (same rule as list_rooms)."""
+    detail = ProjectDetail.model_validate(project)
+    if not services.BOSS_READS_DMS:
+        detail.rooms = [r for r in detail.rooms if r.kind != services.DM]
+    return detail
 
 
 @router.get("/projects", response_model=list[ProjectOut])
@@ -60,7 +69,7 @@ async def create_project(body: ProjectIn, s: SessionDep):
     project = await projects.create_project(s, **body.model_dump())
     if body.employees and kind == "company":
         projects.plan_custom_channels_later(project.id)
-    return await _project(s, project.id)
+    return _detail(await _project(s, project.id))
 
 
 def _check_team(employees: list[MemberIn], kind: str) -> None:
@@ -89,7 +98,7 @@ def _check_accounts(accounts) -> None:
 
 @router.get("/projects/{project_id}", response_model=ProjectDetail)
 async def get_project(project_id: int, s: SessionDep):
-    return await _project(s, project_id)
+    return _detail(await _project(s, project_id))
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -111,7 +120,7 @@ async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     project = await _project(s, project_id)
     if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown {project.kind} mode: {body.mode}")
-    return await projects.change_mode(s, project, body.mode)
+    return _detail(await projects.change_mode(s, project, body.mode))
 
 
 
@@ -122,8 +131,8 @@ async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
     if project.kind != "company":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A research project has no repository")
     if body.branch == project.default_branch:
-        return project
-    return await projects.change_branch(s, project, body.branch)
+        return _detail(project)
+    return _detail(await projects.change_branch(s, project, body.branch))
 
 
 # --- Employees ---------------------------------------------------------------------

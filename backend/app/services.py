@@ -319,7 +319,8 @@ async def get_or_create_dm(s: AsyncSession, project_id: int, me: Employee, other
     if other is None:
         raise WorkflowError(f"No employee named {other_name}")
     first, second = sorted((me, other), key=lambda e: e.id)
-    # Two first messages at once would both find no room: the pair's lock (held until commit) serializes them
+    # Two first messages at once would both find no room: the pair's lock serializes them.
+    # It is only released at commit: nothing slow may run between here and the commit
     await s.execute(select(func.pg_advisory_xact_lock(first.id, second.id)))
     # Found by its two members, not by name: a rename must not lose the DM
     a, b = aliased(room_members), aliased(room_members)

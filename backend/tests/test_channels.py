@@ -291,3 +291,22 @@ async def test_boss_reads_dms_is_the_one_switch(monkeypatch):
         with pytest.raises(HTTPException) as exc:
             await call
         assert exc.value.status_code == 404
+
+
+def test_project_detail_hides_dms_unless_boss_reads_them(monkeypatch):
+    from datetime import datetime
+
+    from app.api import projects as projects_api
+    from app.models import Project
+
+    now = datetime(2026, 1, 1)
+    project = Project(id=1, name="p", kind="company", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
+    project.employees = []
+    project.rooms = [
+        Room(id=1, project_id=1, name="general", kind="channel", objective="", summary="", created_at=now, members=[]),
+        Room(id=2, project_id=1, name="a·b", kind="dm", objective="", summary="", created_at=now, members=[]),
+    ]
+    monkeypatch.setattr(services, "BOSS_READS_DMS", True)
+    assert [r.id for r in projects_api._detail(project).rooms] == [1, 2]
+    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
+    assert [r.id for r in projects_api._detail(project).rooms] == [1]
