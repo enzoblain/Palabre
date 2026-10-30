@@ -25,15 +25,17 @@ chown palabre:palabre "$DATA/claude"
 chmod 700 "$DATA/claude"
 
 # Common group "work", setgid so new files keep it. Agents may only cross /data and
-# /data/projects (no listing of /data, no renaming of a project); they write in the clones
-# of tasks and desks and in the Go cache.
+# /data/projects (no listing of /data, no renaming of a project) and read the toolchains.
+# They write in nothing shared: the clone of a run and its Go cache are handed to the run's
+# account by the backend (palabre-claim-clone, #160).
 chown palabre:work "$DATA" "$DATA/projects" "$DATA/toolchains"
 chmod 2710 "$DATA"
 chmod 2751 "$DATA/projects" "$DATA/toolchains"
+# Go caches: one directory per employee inside, claimed by the backend for each run
 real_dir "$DATA/toolchains/gopath" || rm -f "$DATA/toolchains/gopath"
 mkdir -p "$DATA/toolchains/gopath"
 chown palabre:work "$DATA/toolchains/gopath"
-chmod 2775 "$DATA/toolchains/gopath"
+chmod 2751 "$DATA/toolchains/gopath"
 # The backend alone: runtime holds the MCP tokens of the runs
 chown palabre:palabre "$DATA/runtime"
 chmod 700 "$DATA/runtime"
@@ -49,11 +51,16 @@ if [ ! -e "$DATA/.isolation-v1" ]; then
     chmod -R g+rX,g-w "$DATA/$dir"
     find "$DATA/$dir" -type d -exec chmod g+s {} +
   done
-  # What the agents write in
-  for dir in "$DATA/toolchains/gopath"; do
-    real_dir "$dir" && chmod -R g+rwX "$dir"
-  done
   touch "$DATA/.isolation-v1"
+fi
+
+# The Go cache was one directory every run wrote in and executed from: drop it (go downloads
+# again). Clones were group-writable by every run: they are the backend's until a run claims them.
+if [ ! -e "$DATA/.isolation-v3" ]; then
+  if real_dir "$DATA/toolchains/gopath"; then
+    find -P "$DATA/toolchains/gopath" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  fi
+  touch "$DATA/.isolation-v3"
 fi
 
 # Sessions written in the shared config dir cannot be trusted or told apart by employee: purge them
@@ -82,8 +89,10 @@ for project in "$DATA"/projects/project-*; do
     real_dir "$project/$parent" || continue
     chown palabre:work "$project/$parent"
     chmod 2755 "$project/$parent"
-    # The clones themselves: group-writable, files included (migration from older volumes)
-    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d ! -perm -g=w -exec chmod -R g+rwX {} +
+    # The clones themselves: back to the backend at every start (a run's account may have left
+    # files in them); the next run claims its clone. -h: never follow a planted symlink.
+    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d -exec chown -hR palabre:palabre {} +
+    find -P "$project/$parent" -mindepth 1 -maxdepth 1 -type d -exec chmod -R u+rwX,g+rwX,go-s,o-rwx {} +
   done
 done
 

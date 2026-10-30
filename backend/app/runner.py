@@ -86,7 +86,7 @@ def _agent_account(user: str) -> pwd.struct_passwd:
         raise ClaudeRunError(f"Agent user {user!r} does not exist on this machine (AGENT_USER / AGENT_POOL_SIZE)") from None
 
 
-def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None, user: str | None = None) -> dict[str, str]:
+def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None, user: str | None = None, employee_id: int = 0) -> dict[str, str]:
     user = settings.agent_user if user is None else user
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     if config_dir:
@@ -107,7 +107,7 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
     # Toolchains the team installed (install_toolchain) come first in PATH
     env["PATH"] = f"{toolchains.bin_dir()}:{env.get('PATH', os.defpath)}"
-    env |= toolchains.agent_env()
+    env |= toolchains.agent_env(employee_id)
     # Installing a toolchain is an MCP call that takes a while
     env["MCP_TOOL_TIMEOUT"] = "600000"
     # Commits made by the agent are signed with its name
@@ -145,6 +145,20 @@ def _write_mcp_config(headers: dict[str, str], user: str | None = None) -> Path:
         shutil.chown(path, group=user)
     path.write_text(json.dumps(config))
     return path
+
+
+async def _claim(paths: list[Path], user: str) -> None:
+    """Hand the run's clone and Go cache to its account alone (#160): the others, who could
+    plant a hook or a module there for this run to execute, lose their write access."""
+    for path in paths:
+        path.mkdir(mode=0o770, parents=True, exist_ok=True)
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", "/usr/local/bin/palabre-claim-clone", str(path), user,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        _, stderr = await proc.communicate()
+        if proc.returncode:
+            raise ClaudeRunError(f"Cannot hand {path} to {user}: {stderr.decode(errors='replace').strip()}")
 
 
 def _command(cmd: list[str], env: dict[str, str], user: str | None = None) -> list[str]:
@@ -232,7 +246,9 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         try:
             if user:
                 config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id, user)
-            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user)
+            if user:
+                await _claim([spec.cwd, toolchains.gopath(spec.employee_id)], user)
+            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user, spec.employee_id)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env, user),
                 cwd=spec.cwd,

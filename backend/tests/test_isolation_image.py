@@ -15,7 +15,7 @@ ENTRYPOINT = BACKEND / "docker-entrypoint.sh"
 def test_agent_user_and_shared_group():
     assert "useradd --create-home --uid 1001 --gid work agent" in DOCKERFILE
     # One account per live run, each with a private group the backend also belongs to
-    assert 'useradd --create-home --uid $((2000 + i)) --gid work --groups "agent$i" "agent$i"' in DOCKERFILE
+    assert 'useradd --create-home --uid $((2000 + i)) --gid "agent$i" --groups work "agent$i"' in DOCKERFILE
     assert 'usermod --append --groups "agent$i" palabre' in DOCKERFILE
     assert "AGENT_POOL_SIZE=${AGENT_POOL_SIZE}" in DOCKERFILE
     assert "useradd --create-home --uid 1000 --groups work palabre" in DOCKERFILE
@@ -29,6 +29,9 @@ def test_single_narrow_sudo_rule():
         "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
+        # Hands a clone to an agent account (#160): the script checks both arguments
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*",
+        "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/toolchains/gopath/* agent*",
     ]
     assert 'users="agent$(for i in' in DOCKERFILE
     assert "AGENT_USER=agent" in DOCKERFILE
@@ -190,3 +193,30 @@ def test_tini_runs_after_the_privilege_drop():
     assert "--init-groups tini -s -- " in script
     assert 'exec tini -s -- "$@"' in script
     assert 'ENTRYPOINT ["docker-entrypoint.sh"]' in (BACKEND / "Dockerfile").read_text()
+
+
+def test_runs_have_a_private_primary_group_and_no_shared_writable_dir():
+    # A clone is group-writable for its run's private group only (#160)
+    assert "--gid \"agent$i\" --groups work" in DOCKERFILE
+    script = ENTRYPOINT.read_text()
+    assert "2775" not in script and "chmod -R g+rwX \"$dir\"" not in script
+    assert 'chown -hR palabre:palabre' in script and "chown palabre:work \"$project/$parent\"" in script
+
+
+CLAIM = BACKEND / "scripts" / "claim-clone.sh"
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+@pytest.mark.parametrize("args", [
+    ["/data/projects/project-1/desks/employee-1"],  # no account
+    ["/data/projects/project-1/desks/employee-1", "root"],
+    ["/data/projects/project-1/desks/employee-1", "agent1x"],
+    ["/data/projects/project-1/repo", "agent1"],
+    ["/data/projects/project-1/worktrees/task-1/../../repo", "agent1"],
+    ["/data/projects/project-1/worktrees/task-1\n/etc", "agent1"],
+    ["/data/toolchains/gopath/employee-1/pkg", "agent1"],
+    ["/etc", "agent1"],
+])
+def test_claim_clone_refuses_anything_but_a_clone_and_an_agent(args):
+    result = subprocess.run(["sh", str(CLAIM), *args], capture_output=True, text=True)
+    assert result.returncode == 2, result.stderr

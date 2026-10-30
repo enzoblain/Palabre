@@ -28,6 +28,13 @@ def as_agent(monkeypatch, tmp_path):
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKENS", TOKEN + "|other")
     monkeypatch.setenv("PATH", "/home/palabre/.local/bin:/usr/bin")
     monkeypatch.setenv("HOME", "/home/palabre")
+    claims = []
+
+    async def claim(paths, user):
+        claims.append((paths, user))
+
+    monkeypatch.setattr(runner, "_claim", claim)  # needs root and the image's sudo rule
+    return claims
 
 
 def spec(tmp_path):
@@ -612,3 +619,35 @@ def test_pool_with_a_user_but_no_group_is_shrunk(monkeypatch):
     agent_pool.check()
     assert settings.agent_pool_size == 1
     agent_pool.reset()
+
+
+async def test_run_claims_its_clone_and_go_cache_before_starting(as_agent, monkeypatch, tmp_path):
+    claims = as_agent
+    order = []
+
+    async def claim(paths, user):
+        order.append("claim")
+        claims.append((paths, user))
+
+    class Proc:
+        returncode = 0
+
+        async def communicate(self):
+            return b'{"session_id": "s", "result": "ok"}', b""
+
+    async def fake_exec(*argv, **kw):
+        order.append("run")
+        return Proc()
+
+    monkeypatch.setattr(runner, "_claim", claim)
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    await runner.run_claude(replace(spec(tmp_path), employee_id=7))
+    assert order == ["claim", "run"]
+    paths, user = claims[0]
+    assert user == "root" and paths == [tmp_path, settings.toolchains_dir / "gopath" / "employee-7"]
+
+
+def test_go_cache_is_per_employee(as_agent):
+    a = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 1)
+    b = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 2)
+    assert a["GOPATH"] != b["GOPATH"] and a["GOMODCACHE"].startswith(a["GOPATH"])

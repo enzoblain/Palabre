@@ -38,12 +38,16 @@ def bin_dir() -> Path:
     return settings.toolchains_dir / "bin"
 
 
-def agent_env() -> dict[str, str]:
+def gopath(employee_id: int) -> Path:
+    """The employee's own Go cache: its code is executed by the runs, so no other employee writes in it."""
+    return settings.toolchains_dir / "gopath" / f"employee-{employee_id}"
+
+
+def agent_env(employee_id: int) -> dict[str, str]:
     """Variables the agents' commands need to use the installed toolchains."""
-    root = settings.toolchains_dir
     return {
-        "GOPATH": str(root / "gopath"),
-        "GOMODCACHE": str(root / "gopath" / "pkg" / "mod"),
+        "GOPATH": str(gopath(employee_id)),
+        "GOMODCACHE": str(gopath(employee_id) / "pkg" / "mod"),
         # No C compiler in the image: pure Go builds
         "CGO_ENABLED": "0",
     }
