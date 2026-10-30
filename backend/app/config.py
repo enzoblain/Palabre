@@ -9,6 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SECRETS_DIR = Path(os.environ.get("PALABRE_SECRETS_DIR", "/run/palabre-secrets"))
 
+# Brute-force floor for the secrets that guard the API and the database
+MIN_SECRET_LENGTH = 32
+
 
 class Settings(BaseSettings):
     # Secrets (admin_token, github_token, claude_code_oauth_tokens, postgres_password) are
@@ -31,6 +34,12 @@ class Settings(BaseSettings):
     # Default + validate_default: Compose mounts no file for an empty secret, so an absent token
     # must hit the blank check too (an unvalidated "" default would leave the API open)
     admin_token: str = Field("", validate_default=True)
+    # Failed API authentications from one IP within auth_fail_window_seconds before it is
+    # answered 429 (and so even with a valid token) until the window has passed
+    auth_max_failures: int = 10
+    auth_fail_window_seconds: int = 300
+    # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
+    trusted_proxy_hosts: list[str] = ["web"]
     # Origins allowed to call the API from a browser (the desktop app's dev server)
     cors_origins: list[str] = ["*"]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
@@ -41,6 +50,11 @@ class Settings(BaseSettings):
     # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
     # Empty = same user as the backend (desktop app, local dev without sudo).
     agent_user: str = ""
+    # Number of per-run accounts `<agent_user>1..N` (0 = every run shares agent_user). A run takes
+    # a free one for its whole life, so no two live runs share a uid (see "Security" in the README).
+    agent_pool_size: int = 0
+    # The backend's private store of Claude sessions, one directory per employee (default: CLAUDE_CONFIG_DIR)
+    claude_store_dir: Path | None = None
     # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)
     agent_run_dir: Path = Path("/data/run")
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
@@ -70,7 +84,7 @@ class Settings(BaseSettings):
     # Runs one Claude session (conversation or task) serves before the next one starts on a new session,
     # as a resumed session gets costlier at each run; 0 = never. The employee's other sessions are kept
     context_reset_every_runs: int = 5
-    # Agent runs per conversation per hour before the boss is asked to step in
+    # Chatter runs per employee per hour (all conversations); past it, their wakeups wait for the window to free
     max_runs_per_conversation_hour: int = 40
     # Local time of the daily stand-up ("HH:MM"), empty to disable
     daily_time: str = "09:30"
@@ -90,10 +104,20 @@ class Settings(BaseSettings):
 
     @field_validator("admin_token")
     @classmethod
-    def _admin_token_not_blank(cls, v: str) -> str:
+    def _admin_token_strong(cls, v: str) -> str:
         # Never echo the value: only say what is wrong
         if not v.strip():
             raise ValueError("ADMIN_TOKEN is blank: set it in .env (e.g. openssl rand -hex 32)")
+        if len(v) < MIN_SECRET_LENGTH:
+            raise ValueError(f"ADMIN_TOKEN is too short (minimum {MIN_SECRET_LENGTH} characters): e.g. openssl rand -hex 32")
+        return v
+
+    @field_validator("postgres_password")
+    @classmethod
+    def _postgres_password_strong(cls, v: str | None) -> str | None:
+        # An empty one is reported by the model validator below, with its own message
+        if v and len(v) < MIN_SECRET_LENGTH:
+            raise ValueError(f"POSTGRES_PASSWORD is too short (minimum {MIN_SECRET_LENGTH} characters): e.g. openssl rand -hex 32")
         return v
 
     @model_validator(mode="after")

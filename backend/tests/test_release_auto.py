@@ -151,10 +151,40 @@ async def test_prepare_release_commits_files_and_changelog_in_one_commit(gh):
     assert result["committed"] and result["version"] == "0.7.0" and result["sha"] == "new1"
 
 
-async def test_prepare_release_does_nothing_when_already_bumped(gh):
-    gh.files |= bumped("0.7.0")
+async def test_prepare_release_does_nothing_when_files_are_up_to_date(gh):
+    await projects.prepare_release(PROJECT)
+    gh.files |= gh.pushed[2]
+    gh.pushed = None
     result = await projects.prepare_release(PROJECT)
     assert gh.pushed is None and not result["committed"] and result["version"] == "0.7.0"
+
+
+async def test_prepare_release_adds_a_commit_merged_after_the_bump(gh):
+    await projects.prepare_release(PROJECT)
+    gh.files |= gh.pushed[2]
+    gh.commits = [*gh.commits, "fix(d): late fix", "chore(release): 0.7.0"]
+    result = await projects.prepare_release(PROJECT)
+    files = gh.pushed[2]
+    assert result["committed"] and result["version"] == "0.7.0"
+    assert "- d: late fix" in files["CHANGELOG.md"] and files["CHANGELOG.md"].count("## [0.7.0]") == 1
+    assert set(files) == {"CHANGELOG.md"}  # The version files already hold 0.7.0
+
+
+async def test_prepare_release_follows_a_higher_bump_level(gh):
+    gh.commits = ["fix: a"]
+    await projects.prepare_release(PROJECT)
+    gh.files |= gh.pushed[2]
+    assert "## [0.6.2]" in gh.files["CHANGELOG.md"]
+    gh.commits = ["fix: a", "feat(e): late feature"]
+    result = await projects.prepare_release(PROJECT)
+    files = gh.pushed[2]
+    assert result["version"] == "0.7.0" and json.loads(files["frontend/package.json"])["version"] == "0.7.0"
+    assert "## [0.7.0]" in files["CHANGELOG.md"] and "0.6.2" not in files["CHANGELOG.md"]
+
+
+def test_entry_date_reads_the_date_of_a_version():
+    assert release.entry_date(CHANGELOG, "0.6.1") == "2026-10-29"
+    assert release.entry_date(CHANGELOG, "0.9.9") is None
 
 
 async def test_prepare_release_refuses_when_nothing_deserves_a_release(gh):
@@ -170,7 +200,8 @@ async def test_merge_release_commits_the_bump_then_waits_for_the_new_ci(gh):
 
 
 async def test_merge_release_goes_on_once_the_bump_is_there(gh, monkeypatch):
-    gh.files |= bumped("0.7.0")
+    await projects.prepare_release(PROJECT)
+    gh.files |= gh.pushed[2]
     gh.pr, gh.ci = {"number": 7, "html_url": "u", "head": {"sha": "new1"}}, None
     merged = []
 
@@ -358,3 +389,10 @@ async def test_commit_release_refuses_a_symlinked_target(tmp_path, monkeypatch):
 def test_update_changelog_keeps_every_section_without_a_tag():
     out = release.update_changelog(CHANGELOG, "0.1.0", None, release.changelog_entry("0.1.0", "2026-11-01", ["feat: a"]))
     assert "## [0.6.1]" in out
+
+
+def test_set_version_bumps_the_compose_image_default():
+    text = "image: a:${PALABRE_VERSION:-0.6.1}\nimage: b:${PALABRE_VERSION:-0.6.1}\nx: ${OTHER:-0.6.1}\n"
+    out = release.set_version("docker-compose.yml", text, "0.7.0")
+    assert out == "image: a:${PALABRE_VERSION:-0.7.0}\nimage: b:${PALABRE_VERSION:-0.7.0}\nx: ${OTHER:-0.6.1}\n"
+    assert projects.VERSION_FILES["docker-compose.yml"](out, "") == "0.7.0"

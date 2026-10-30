@@ -77,6 +77,12 @@ def changelog_entry(version: str, date: str, commits: list[str]) -> str:
     return f"## [{version}] - {date}\n\n{changelog_body(commits)}\n"
 
 
+def entry_date(text: str, version: str) -> str | None:
+    """The date of the `## [version] - date` entry already in the changelog, if any."""
+    match = re.search(rf"(?m)^## \[{re.escape(version)}\] - (\S+)$", text)
+    return match[1] if match else None
+
+
 def update_changelog(text: str, version: str, previous: str | None, entry: str) -> str:
     """Replace the content of [Unreleased] by `entry` (the changelog is generated, nobody edits it by hand),
     drop the entries of versions never released (newer than `previous`: a stale bump) and move the links on."""
@@ -118,6 +124,8 @@ def set_version(path: str, text: str, version: str, package: str = "") -> str:
         return re.sub(r'(\n    "": \{[^}]*?"version": ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     if name == "Cargo.toml":
         return re.sub(r'(?m)^(version = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
+    if name == "docker-compose.yml":  # The pinned image version, so the compose file and its images match
+        return re.sub(r"(\$\{PALABRE_VERSION:-)[^}]*(\})", rf"\g<1>{version}\g<2>", text)
     if name == "Cargo.lock" and package:
         return re.sub(rf'(name = "{re.escape(package)}"\nversion = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     return text

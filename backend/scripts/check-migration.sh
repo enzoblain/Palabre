@@ -23,9 +23,10 @@ root '
   echo x > /data/projects/project-1/worktrees/task-5/file
   echo x > /data/toolchains/bin/node
   echo x > /data/claude/session.json
+  mkdir -p /data/claude/employee-1/projects/p && echo x > /data/claude/employee-1/projects/p/planted.jsonl
   chown -R 1000:1000 /data
   chmod -R 755 /data
-  rm -f /data/.isolation-v1
+  rm -f /data/.isolation-v1 /data/.isolation-v2
 ' || { echo "FAIL cannot prepare the old volume"; exit 1; }
 
 # The image's own entrypoint, as docker compose runs it, then a command as the backend
@@ -39,7 +40,9 @@ check "the reference clone is private to palabre" '[ "$(stat -c %U:%a /data/proj
 check "the task clone is group-writable (agents commit there)" \
   '[ "$(stat -c %G /data/projects/project-1/worktrees/task-5/file)" = work ] && stat -c %A /data/projects/project-1/worktrees/task-5/file | grep -q "^-rw-rw"'
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
-check "claude sessions are group-writable" 'stat -c %A /data/claude/session.json | grep -q "^-rw-rw"'
+check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
+check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
+check "the agent cannot read the claude store" '! setpriv --reuid=agent --regid=agent --init-groups ls /data/claude'
 check "the agent can write in its task clone" \
   'setpriv --reuid=agent --regid=agent --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \

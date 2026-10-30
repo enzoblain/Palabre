@@ -64,6 +64,8 @@ head SHA with the result (green, or the failing checks) and a "Palabre" line is 
 team's first channel. Green means `merge_release`, then `publish_version`: once production's CI is green, the wakeup says which version to publish ("publish vX.Y.Z").
 No release depends on the lead remembering it: when the team's branch holds commits production lacks, no task is open and nothing moved for `RELEASE_WAIT_MINUTES` (5 by default), the lead is woken (`release_pending`, once per head SHA, stored in `Project.release_reminded_sha`) with the pending changes and the computed version.
 
+A resubmission whose content is unchanged (the reviewed commit replayed with `git merge-tree` on the base the branch now sits on gives exactly the new tree, i.e. a pure rebase) keeps the review round and its approvals, unless a reviewer's latest verdict of the round asks for changes or the task newly becomes sensitive; the merge still waits for the CI of the new head. A pure rebase keeps the approvals even if the new base changes the behavior indirectly; the CI on the new head is then the only safeguard. Any content change starts a new round and drops every approval. The `refs/palabre/reviewed/{id}` ref that pins the reviewed commit is deleted when the task is merged or cancelled.
+
 A task stuck in review does not wait for someone to notice: if its PR conflicts with the team's
 branch, if no CI check is reported `CI_MISSING_MINUTES` (10 by default) after the submission, or if
 the CI is red on an otherwise approved task, the task goes back to its dev (`changes_requested`)
@@ -94,11 +96,13 @@ clone. Only branches recorded on tasks are touched, never the default branch, `d
 release PR. To clean the backlog, call `POST /api/tasks/cleanup` (admin token): it is idempotent
 and GitHub errors (404...) are only logged.
 
-Agents that keep pinging each other in a conversation are throttled: past
-`MAX_RUNS_PER_CONVERSATION_HOUR` executed runs within an hour (skipped wakeups do not count),
-chatter wakeups are skipped and the lead is alerted. The boss posting there lifts the limit, or
-call `POST /api/conversations/{id}/lift-rate-limit` (admin token, `204`): earlier runs stop
-counting. The reset is kept in memory, so a backend restart forgets it.
+Agents that keep pinging each other are throttled: past `MAX_RUNS_PER_CONVERSATION_HOUR`
+executed chatter runs of one employee within an hour, across all their conversations (skipped
+wakeups do not count), the lead is alerted. Their chatter wakeups (mentions...) are not lost:
+they stay queued and run grouped in one run once the window frees a slot. The boss posting in a
+conversation lifts the limit there, or call `POST /api/conversations/{id}/lift-rate-limit` (admin
+token, `204`): earlier runs stop counting and held wakeups of that conversation run right away
+(those held in other conversations keep waiting). The reset is kept in memory, so a backend restart forgets it.
 
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts
@@ -128,7 +132,7 @@ Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump t
 a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
 wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
 already exists, or a version that differs from `frontend/package.json`, its lock, `tauri.conf.json`, `Cargo.lock` or
-`Cargo.toml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` (edited directly, no npm or cargo on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It does nothing if the branch already holds the version, and refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
+`Cargo.toml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` (edited directly, no npm or cargo on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It is recomputed on every call (a commit merged after the bump joins the entry, and the version follows the bump level) and commits only if a file changes, never an empty commit. It refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
@@ -190,10 +194,10 @@ Four values in `.env` are required:
 
 | Variable | What it is |
 |---|---|
-| `ADMIN_TOKEN` | Protects the API; the apps ask for it. E.g. `openssl rand -hex 32` |
+| `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
-| `POSTGRES_PASSWORD` | Letters, digits, `-` and `_` |
+| `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
 
 The server listens on port `2710` and the web app on port `2810`.
 
@@ -208,6 +212,13 @@ those listed in [Configuration](#configuration): the container no longer gets th
 `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
 else changes; Postgres keeps its current password.
 
+Upgrading from a version that accepted short secrets: `ADMIN_TOKEN` and `POSTGRES_PASSWORD` must now
+have at least 32 characters, or the backend refuses to start. Generate new values with
+`openssl rand -hex 32`. For `ADMIN_TOKEN`, edit `.env` and run `docker compose up -d`. For
+`POSTGRES_PASSWORD`, change it in Postgres first, because the database image only reads it when it
+creates an empty volume: `docker compose exec db psql -U palabre -c "ALTER USER palabre WITH PASSWORD '<new>'"`,
+then put the same value in `.env` and run `docker compose up -d`.
+
 Upgrading from a version before the agent user: nothing to do. The container starts as
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
 makes each project's reference clone private to the server, then drops to `palabre`. If
@@ -220,6 +231,19 @@ docker compose pull && docker compose up -d
 Or let Palabre update itself: with `COMPOSE_PROFILES=autoupdate` in `.env`, an `updater`
 container checks for a new version every 5 minutes and restarts the server and web app
 when one is out. Running agents get 60 seconds to stop cleanly.
+
+Automatic updates are a security trade-off. The `updater` mounts `/var/run/docker.sock`, which
+is root on the host, and it only finds new images under a moving tag, so you also set
+`PALABRE_VERSION=latest`: a compromised image or registry account would then run on your
+machine without anyone choosing it. Leave it off (the default) unless you accept that; by
+default every image is pinned (Palabre by version; `postgres`, `docker`, and the Python, Node and nginx bases by digest)
+and you update on purpose with the command above.
+
+Claude Code is installed in the image at the version pinned in `backend/Dockerfile`, after its
+SHA-256 is checked against the pinned value (taken from Anthropic's release manifest, which is
+fetched from the same host as the binary: it protects against drift and corruption, not against
+a compromise of that host at the time of the bump). Anthropic does not publish an independent signature we check here.
+To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
 
 ## Use the apps
 
@@ -317,7 +341,7 @@ All optional, in `.env`:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `PALABRE_VERSION` | `latest` | Pins a version, e.g. `0.1.7` |
+| `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
@@ -326,6 +350,7 @@ All optional, in `.env`:
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
 | `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. Build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude session (one conversation or one task, for one employee) serves before the next run on that subject starts a new session instead of resuming it. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
@@ -342,6 +367,11 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 
 ## Security
 
+- Security review is not self-declared: in the modes with a security gate, a pull request
+  that changes a path listed in `backend/app/sensitive_paths.py` (dependency manifests and
+  lockfiles, Dockerfiles, entrypoints, sudoers, `runner.py`, `config.py`, `mcp_server/`,
+  scripts, secrets and CI files) needs security's approval, whatever the author flags. The
+  files come from the pushed branch; the author's flag can only add the gate.
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.
@@ -366,14 +396,22 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   that timed out. A third one runs `palabre-rm-clone`, a root-owned script that, as `agent`, only
   empties a desk or task clone (files the agent made outside the shared group, which the
   server cannot remove itself; the server then removes the empty directory). With `AGENT_USER` empty, none of this applies.
+  Each live run also gets its own account (`agent1..agentN`, `AGENT_POOL_SIZE`), with a private group the server belongs to: the run's MCP config and Claude config dir are readable by that group only, so another run can read neither the environment nor the config of a live run. Runs beyond the pool size wait for a free account.
   Clones are made with `--no-hardlinks`, so they share no object with the reference (whose
   objects stay private). Desks are recloned at every run and fix themselves. A task clone made
   before this fix still holds hard links: once its work is pushed, delete
   `/data/projects/<id>/worktrees/task-<n>` (as the server user) and it is recreated on the
   agent's next start.
+  Claude's sessions are not shared: `/data/claude` (`CLAUDE_STORE_DIR`) is the server's own store (mode 700), with one
+  directory per employee. Each run gets a throwaway `CLAUDE_CONFIG_DIR` in `/data/run` holding
+  only the session it resumes, and the server copies back the sessions it wrote (regular files
+  only) and deletes the directory. A `settings.json` or hook an agent writes there dies with
+  the run and never reaches another employee's. Sessions of a volume made before this change
+  are purged at the first start (agents begin a new session).
   Known limit: all agents share the one `agent` user, so a run can still read another run's
-  process (its token, its MCP config path). The isolation is between agents and the server,
-  not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
+  process (its token, its MCP config path, its `CLAUDE_CONFIG_DIR`): while a run is live, another
+  run can write into its session, which is then collected into that employee's store.
+  The isolation is between agents and the server, not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
   To check an image, see [Checking the isolation](#checking-the-isolation).
   Agents still share the container's network, so keep Postgres' password strong.
 - Each run gets its own random MCP token, held in server memory: it is revoked when the

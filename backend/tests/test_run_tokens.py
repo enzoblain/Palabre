@@ -147,7 +147,7 @@ async def test_matching_headers_reach_the_database_lookup(monkeypatch):
 async def test_run_claude_records_the_scope_of_the_headers(monkeypatch, tmp_path, headers, scope):
     seen = {}
 
-    async def fake_run(spec, token):
+    async def fake_run(spec, token, user=""):
         seen["scope"] = run_tokens.scope_of(token)
         seen["token"] = token
 
@@ -162,7 +162,7 @@ async def test_run_claude_records_the_scope_of_the_headers(monkeypatch, tmp_path
 
 
 async def test_non_numeric_scope_header_is_logged(monkeypatch, tmp_path, caplog):
-    async def fake_run(spec, token):
+    async def fake_run(spec, token, user=""):
         assert run_tokens.scope_of(token) == (None, None)
 
     monkeypatch.setattr(runner, "_run_claude", fake_run)

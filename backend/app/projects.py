@@ -388,20 +388,21 @@ async def release_plan(project: Project) -> dict | None:
 async def prepare_release(project: Project) -> dict:
     """Commit the version bump and the CHANGELOG entry on the team's branch only (one commit,
     `chore(release): X.Y.Z`, made and pushed by the backend from its clone), computed from the
-    commits since the last tag. Nothing is committed when the branch already holds that version."""
+    commits since the last tag. Recomputed on every call (a commit merged after a previous bump still
+    lands in the entry, and the version follows the bump level); nothing is committed when no file changes."""
     plan = await release_plan(project)
     if plan is None:
         raise NothingToRelease(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
     version, tip = plan["version"], plan["tip"]
     repo = github.repo_slug(project.repo_url)
-    changes = release.changelog_entry(version, datetime.now(UTC).date().isoformat(), plan["commits"])
-    result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": changes}
+    result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": ""}
     texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
     if all(texts[path] is None for path in VERSION_FILES):
         raise WorkflowError("No version file found in the repository: nothing to bump")
     package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
-    if all(texts[path] is None or VERSION_FILES[path](texts[path], package) == version for path in VERSION_FILES):
-        return result  # Already bumped
+    # Keep the date of an entry already written for this version, so a later day alone does not change it
+    date = release.entry_date(texts["CHANGELOG.md"] or "", version) or datetime.now(UTC).date().isoformat()
+    changes = result["changes"] = release.changelog_entry(version, date, plan["commits"])
     files = {}
     for path, text in texts.items():
         if text is None or path == "CHANGELOG.md":
@@ -410,13 +411,15 @@ async def prepare_release(project: Project) -> dict:
             files[path] = new
     if texts["CHANGELOG.md"] is not None:
         try:
-            files["CHANGELOG.md"] = release.update_changelog(texts["CHANGELOG.md"], version, plan["previous"], changes)
+            updated = release.update_changelog(texts["CHANGELOG.md"], version, plan["previous"], changes)
         except ValueError as exc:
             raise WorkflowError(str(exc)) from exc
+        if updated != texts["CHANGELOG.md"]:
+            files["CHANGELOG.md"] = updated
     if not files:
-        raise WorkflowError("No version file found to bump")
+        return result  # Already up to date: no empty commit
     for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
-        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) != version:
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) not in (version, None):
             raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
     try:
         result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
@@ -490,6 +493,12 @@ def _package_name(cargo_toml: str | None) -> str:
     return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
 
 
+def _compose_version(text: str) -> str | None:
+    """The image version a docker-compose.yml defaults to (`${PALABRE_VERSION:-X.Y.Z}`), None if it has none."""
+    found = sorted(set(re.findall(r"\$\{PALABRE_VERSION:-([^}]*)\}", text)))
+    return " and ".join(found) if found else None
+
+
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
     "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
@@ -499,6 +508,7 @@ VERSION_FILES = {
     "frontend/src-tauri/Cargo.lock": lambda text, package: str(
         next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
     ),
+    "docker-compose.yml": lambda text, _package: _compose_version(text),
 }  # fmt: skip
 
 
@@ -529,7 +539,7 @@ async def publish_version(project: Project, version: str) -> str:
             found = read(text, package)
         except ValueError:  # includes malformed JSON and TOML
             found = "unreadable"
-        if found != version:
+        if found is not None and found != version:
             mismatches.append(f"{path} says {found}")
     if mismatches:
         raise WorkflowError(f"Version {version} does not match {production}: {'; '.join(mismatches)}")

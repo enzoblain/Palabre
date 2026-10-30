@@ -1,5 +1,5 @@
 #!/bin/sh
-# Empties one desk or task clone as the agent user (#130): files the agent created outside the
+# Empties one desk or task clone (or one run's throwaway Claude config dir) as the agent user (#130): files the agent created outside the
 # shared group cannot be removed by the backend. The clone's own directory is left to the
 # backend, which owns the directory holding it. Installed root-owned, run through a sudo rule.
 # Only the exact shape of a clone path is accepted, so the rule is not a general rm.
@@ -9,7 +9,7 @@ set -eu
 case "$1" in
   *[!A-Za-z0-9/_-]*) echo "not a clone path: $1" >&2; exit 2 ;;
 esac
-printf '%s\n' "$1" | grep -Eq '^/data/projects/project-[0-9]+/(desks/employee|worktrees/task)-[0-9]+$' \
+printf '%s\n' "$1" | grep -Eq '^/data/projects/project-[0-9]+/(desks/employee|worktrees/task)-[0-9]+$|^/data/run/claude-[0-9a-f]+$' \
   || { echo "not a clone path: $1" >&2; exit 2; }
 [ -d "$1" ] && [ ! -L "$1" ] || { echo "not a directory: $1" >&2; exit 2; }
 # -P: never follow symlinks

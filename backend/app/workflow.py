@@ -14,6 +14,7 @@ from app import github
 from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
+from app.sensitive_paths import touches_sensitive_paths
 from app.services import WorkflowError, emit_event, post_message, post_system_message
 from app.worktrees import (
     final_branch_name,
@@ -302,6 +303,63 @@ async def _commits_ahead(project: Project, task: Task) -> int:
     return int((await github.git(task.worktree_path, "rev-list", "--count", f"{base}..HEAD")).strip())
 
 
+async def _changed_files(project: Project, task: Task) -> list[str]:
+    """Files of the pushed branch (not the agent's HEAD), read in the reference clone the backend owns.
+    No rename detection, so both sides of a move are listed; -z keeps non-ASCII paths unquoted."""
+    out = await github.git(
+        repo_dir(project), "diff", "--no-ext-diff", "--no-renames", "--name-only", "-z",
+        f"origin/{project.default_branch}...origin/{task.branch}",
+    )  # fmt: skip
+    return out.split("\0")
+
+
+async def _pushed_head(project: Project, task: Task) -> str:
+    """SHA of the pushed task branch in the reference clone; empty when it cannot be read."""
+    try:
+        return (await github.git(repo_dir(project), "rev-parse", f"origin/{task.branch}")).strip()
+    except github.GitHubError as e:
+        log.warning("head of task %s unreadable: %s", task.id, e)
+        return ""
+
+
+async def _is_pure_rebase(project: Project, task: Task, head: str) -> bool:
+    """Replaying the reviewed commit onto the base the branch now sits on gives exactly the new tree.
+    Exact, unlike a patch-id, which ignores where a hunk applies. Any failure (conflict, reviewed
+    commit gone) is False: a new round starts."""
+    reviewed = task.reviewed_head
+    if not reviewed or not head:
+        return False
+    repo = repo_dir(project)
+    try:
+        base = (await github.git(repo, "merge-base", f"origin/{project.default_branch}", head)).strip()
+        replayed = (await github.git(repo, "merge-tree", "--write-tree", base, reviewed)).split("\n")[0].strip()
+        tree = (await github.git(repo, "rev-parse", f"{head}^{{tree}}")).strip()
+    except github.GitHubError as e:
+        log.warning("rebase check of task %s failed: %s", task.id, e)
+        return False
+    return bool(replayed) and replayed == tree
+
+
+async def _keep_reviewed_head(project: Project, task: Task, head: str) -> None:
+    """A ref keeps the reviewed commit from being garbage collected after a force-push."""
+    try:
+        await github.git(repo_dir(project), "update-ref", f"refs/palabre/reviewed/{task.id}", head)
+    except github.GitHubError as e:
+        log.warning("cannot keep reviewed head of task %s: %s", task.id, e)
+
+
+async def _changes_pending(s: AsyncSession, task: Task) -> bool:
+    """A reviewer's latest verdict of the current round is 'changes'."""
+    reviews = await s.scalars(
+        select(Review).where(Review.task_id == task.id, Review.round == task.review_round).order_by(Review.id)
+    )
+    latest: dict[int, Verdict] = {}
+    for r in reviews:
+        if r.verdict != Verdict.comment:
+            latest[r.reviewer_id] = r.verdict
+    return Verdict.changes in latest.values()
+
+
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
     """Wake the assignee up on their task (from a conversation): the work itself only
     happens in a task run, in the task's worktree."""
@@ -366,6 +424,7 @@ async def submit_for_review(
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
     await push_task_branch(project, task)
+    changed_files = await _changed_files(project, task)
     if task.pr_number is None:
         criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(
@@ -387,11 +446,33 @@ async def submit_for_review(
         await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
+    head = await _pushed_head(project, task)
+    # The gate is derived from the changed files; the author's flag can only add it, never remove it
+    sensitive_now = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
+    # Same content as the reviewed round, nobody asked for changes and no new gate: only the base
+    # moved, so the approvals stay and the merge just waits for the CI on the new head
+    pure_rebase = (
+        task.review_round > 0
+        and task.reviewed_head is not None
+        and sensitive_now == task.sensitive
+        and not await _changes_pending(s, task)
+        and await _is_pure_rebase(project, task, head)
+    )
     task.status = TaskStatus.review
     task.submitted_at = datetime.now(UTC)
+    if pure_rebase:
+        # Like a normal submission: merge_watch follows the CI of the new head only while this is unset
+        task.merge_ready_at = task.lead_reminded_at = None
+        await announce(s, task, f"PR rebased by {author.name}, content unchanged: approvals kept (round {task.review_round})")
+        wake_lead(task, f"PR rebased by {author.name}, approvals kept")
+        await post_message(s, project_id, task.conversation_id, f"{message.strip()} {task.pr_url}".strip(), author)
+        return task
+    task.reviewed_head = head or None
+    if head:
+        await _keep_reviewed_head(project, task, head)
     task.review_round += 1
     task.merge_ready_at = task.lead_reminded_at = None
-    task.sensitive = task.sensitive or sensitive
+    task.sensitive = sensitive_now
     process = mode_process(project.mode)
     payload = {"task_id": task.id, "pr_url": task.pr_url}
     emit_event(s, project_id, "review_requested", payload, role="reviewer")
@@ -533,11 +614,20 @@ def is_task_branch(project: Project, branch: str | None) -> bool:
     return github.is_task_branch_name(branch) and branch not in {project.default_branch, github.WORKING_BRANCH}
 
 
+async def _drop_reviewed_head(project: Project, task: Task) -> None:
+    """Release the ref of _keep_reviewed_head so the reference clone stops pinning the objects."""
+    try:
+        await github.git(repo_dir(project), "update-ref", "-d", f"refs/palabre/reviewed/{task.id}")
+    except github.GitHubError as e:
+        log.warning("cannot drop reviewed head of task %s: %s", task.id, e)
+
+
 async def clean_up_task(project: Project, task: Task) -> None:
     """A finished task leaves nothing behind: its PR is closed if still open, its branch is
     deleted on GitHub and locally, and its worktree removed. Idempotent; a GitHub or git
     error is logged and never blocks the caller (the status change is already done)."""
     repo = github.repo_slug(project.repo_url)
+    await _drop_reviewed_head(project, task)
     try:
         if task.pr_number is not None and await github.is_pull_request_open(repo, task.pr_number):
             await github.close_pull_request(repo, task.pr_number)

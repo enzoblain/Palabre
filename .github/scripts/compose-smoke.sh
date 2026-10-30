@@ -95,6 +95,19 @@ check_api() {
   [ "$code" = 200 ] || fail "$1: /api with the right token answered $code (expected 200)"
 }
 
+# The web app's security headers, on the page and on a hashed asset (which has its own location)
+check_web_headers() { # check_web_headers <label>
+  local base="http://127.0.0.1:12810" asset url headers h
+  asset=$(curl -fs "$base/" | grep -oE '/assets/[^"]+\.js' | sed -n 1p) || true
+  [ -n "$asset" ] || fail "$1: no /assets/*.js referenced by the web app's index.html"
+  for url in "$base/" "$base$asset"; do
+    headers=$(curl -fsI "$url" | tr -d '\r' | tr 'A-Z' 'a-z') || fail "$1: $url did not answer"
+    for h in content-security-policy: "frame-ancestors 'none'" x-content-type-options:\ nosniff; do
+      case "$headers" in *"$h"*) ;; *) fail "$1: $url lacks '$h'";; esac
+    done
+  done
+}
+
 check_no_secret_in() { # check_no_secret_in <label> <text>
   local s
   for s in "${SECRETS[@]}"; do
@@ -200,7 +213,9 @@ fi
 step "Fresh start of the version under test"
 write_env "$NEW"
 dc build backend
-dc up -d --wait --wait-timeout 120 db backend || fail "the new version did not become healthy on a fresh volume"
+dc build web
+dc up -d --wait --wait-timeout 120 db backend web || fail "the new version did not become healthy on a fresh volume"
+check_web_headers "fresh start"
 check_api "fresh start"
 check_secrets "fresh start"
 

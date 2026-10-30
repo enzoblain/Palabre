@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
-from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room
+from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room, Wakeup
 from app.orchestrator.dispatcher import orchestrator
 from app.orchestrator.research import start_question
 
@@ -93,6 +93,12 @@ async def _clear_throttle(s: AsyncSession, conversation_id: int) -> None:
             Event.payload["conversation_id"].as_integer() == conversation_id,
         )
         .values(processed_at=datetime.now(UTC))
+    )
+    # Wakeups held back by the throttle can run now
+    await s.execute(
+        update(Wakeup)
+        .where(Wakeup.conversation_id == conversation_id, Wakeup.started_at.is_(None), Wakeup.not_before.is_not(None))
+        .values(not_before=None)
     )
 
 

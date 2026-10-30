@@ -7,6 +7,7 @@ import shutil
 from collections import defaultdict
 from pathlib import Path
 
+from app import agent_pool, claude_store
 from app.config import settings
 from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
@@ -20,19 +21,10 @@ def project_dir(project: Project) -> Path:
     return settings.projects_dir / f"project-{project.id}"
 
 
-def _claude_session_dirs(project_id: int) -> list[Path]:
-    """Claude keeps each working directory's sessions in projects/<path with - for />."""
-    root = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")) / "projects"
-    prefix = re.sub(r"[^A-Za-z0-9]", "-", str(settings.projects_dir / f"project-{project_id}"))
-    if not root.is_dir():
-        return []
-    return [d for d in root.iterdir() if d.name == prefix or d.name.startswith(prefix + "-")]
-
-
 async def remove_project_files(project_id: int) -> None:
     """Everything a project left on disk: clone, task clones, desks, and the agents'
     Claude sessions. The GitHub repository itself is not touched."""
-    targets = [settings.projects_dir / f"project-{project_id}", *_claude_session_dirs(project_id)]
+    targets = [settings.projects_dir / f"project-{project_id}", *claude_store.session_dirs(project_id)]
     async with _repo_locks[project_id]:
         for target in targets:
             await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
@@ -159,16 +151,19 @@ async def _remove_clone(path: Path) -> None:
         shutil.rmtree(path, onexc=lambda _f, _p, exc: errors.append(str(exc)))
 
     await asyncio.to_thread(remove)
-    if path.exists() and settings.agent_user:
+    # Any pool user may have written in the clone over time: each empties what it owns
+    for user in agent_pool.users():
+        if not path.exists():
+            break
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "-n", "-u", settings.agent_user, "/usr/local/bin/palabre-rm-clone", str(path),
+            "sudo", "-n", "-u", user, "/usr/local/bin/palabre-rm-clone", str(path),
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )  # fmt: skip
         _, stderr = await proc.communicate()
         if proc.returncode:
-            errors.append(f"as {settings.agent_user}: {stderr.decode(errors='replace').strip()}")
+            errors.append(f"as {user}: {stderr.decode(errors='replace').strip()}")
         else:
             errors.clear()
             await asyncio.to_thread(remove)

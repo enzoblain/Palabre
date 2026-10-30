@@ -306,3 +306,22 @@ async def test_fix_release_refuses_an_unknown_tag_or_version(gh):
         await projects.fix_release(PROJECT, "1.2.0")
     with pytest.raises(WorkflowError, match="not a version"):
         await projects.fix_release(PROJECT, "latest")
+
+
+COMPOSE = "services:\n  backend:\n    image: ghcr.io/acme/app:${PALABRE_VERSION:-%s}\n  web:\n    image: ghcr.io/acme/app-web:${PALABRE_VERSION:-%s}\n"
+
+
+async def test_publish_version_refuses_a_compose_file_pinned_to_another_version(gh):
+    gh.files = versioned("1.2.0") | {"docker-compose.yml": COMPOSE % ("1.1.9", "1.1.9")}
+    with pytest.raises(WorkflowError, match="docker-compose.yml says 1.1.9"):
+        await projects.publish_version(PROJECT, "1.2.0")
+    gh.files = versioned("1.2.0") | {"docker-compose.yml": COMPOSE % ("1.2.0", "1.1.9")}
+    with pytest.raises(WorkflowError, match="docker-compose.yml"):
+        await projects.publish_version(PROJECT, "1.2.0")
+
+
+async def test_publish_version_accepts_a_matching_or_unversioned_compose_file(gh):
+    gh.files = versioned("1.2.0") | {"docker-compose.yml": COMPOSE % ("1.2.0", "1.2.0")}
+    await projects.publish_version(PROJECT, "1.2.0")
+    gh.files = versioned("1.2.0") | {"docker-compose.yml": "services:\n  a:\n    image: x\n"}
+    await projects.publish_version(PROJECT, "1.2.0")

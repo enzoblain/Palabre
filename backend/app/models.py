@@ -266,6 +266,9 @@ class Task(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Incremented on each submission; only reviews of the current round count
     review_round: Mapped[int] = mapped_column(default=0)
+    # Head SHA the current round was submitted with: a resubmission whose tree is that commit replayed
+    # on the new base is a pure rebase and keeps the round and its approvals
+    reviewed_head: Mapped[str | None] = mapped_column(String(64))
     # When the lead was told every merge rule is met, and when it was reminded (once); reset on submission
     merge_ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lead_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -353,6 +356,8 @@ class Wakeup(Base):
     created_at: Mapped[datetime] = created_at_column()
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Throttled chatter waits in the queue until then instead of being lost
+    not_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AgentSession(Base):
