@@ -2,7 +2,7 @@
 # Checks the agent isolation inside the built image. Run as root in the container:
 #   docker exec -u root [-e CHECK_GITHUB_REPO=owner/scratch-repo] <container> /srv/scripts/check-isolation.sh
 # Prints one line per guarantee and exits non-zero if any is broken (or skipped).
-# CHECK_POOL_ONLY=1 runs the checks of the agent1..N pool only (no GitHub repository needed): that is
+# CHECK_POOL_ONLY=1 skips the GitHub flow and runs the checks of the agent1..N pool only (no GitHub repository needed): that is
 # what the Compose smoke test runs in CI.
 #
 # THROWAWAY CONTAINER ONLY. For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
@@ -17,9 +17,12 @@ as_agent() { setpriv --reuid=agent --regid=agent --init-groups "$@"; }
 as_palabre() { setpriv --reuid=palabre --regid=palabre --init-groups "$@"; }
 check() { # description, then a command that must succeed
   desc=$1; shift
-  if "$@" >/dev/null 2>&1; then echo "ok   $desc"; else echo "FAIL $desc"; fail=1; fi
+  if "$@" >/dev/null 2>&1; then echo "ok   $desc"; else echo "FAIL $desc"; echo "::error::$desc: command failed: $*"; fail=1; fi
 }
-denied() { desc=$1; shift; if "$@" >/dev/null 2>&1; then echo "FAIL $desc"; fail=1; else echo "ok   $desc"; fi; }
+denied() {
+  desc=$1; shift
+  if "$@" >/dev/null 2>&1; then echo "FAIL $desc"; echo "::error::$desc: expected a refusal, but this succeeded: $*"; fail=1; else echo "ok   $desc"; fi
+}
 
 backend_pid=$(pgrep -u palabre -f uvicorn | head -n 1)
 if [ -n "$backend_pid" ]; then
@@ -41,20 +44,39 @@ check "sudo keeps claude in sudo's process group (!use_pty)" sh -c "sudo -l -U p
 denied "palabre cannot run anything else as agent" as_palabre sudo -n -u agent /bin/true
 denied "palabre cannot become root" as_palabre sudo -n -u root /bin/true
 
-# sudo grants palabre exactly four rules, on the agent users and nobody else (root included)
-pool="agent"
-i=1; while [ "$i" -le "${AGENT_POOL_SIZE:-0}" ]; do pool="$pool,agent$i"; i=$((i + 1)); done
-rules=$(sudo -l -U palabre | grep -E '^ *\(' | sed 's/^ *//')
-cmds=$(printf '%s\n' "$rules" | sed 's/^([^)]*) *//; s/\(NOPASSWD\|PASSWD\|SETENV\|NOSETENV\): *//g' | tr ',' '\n' | sed 's/^ *//; s/ *$//' | grep .)
-check "sudo -l shows exactly 4 rules for palabre" test "$(printf '%s\n' "$cmds" | grep -c .)" = 4
-check "every rule runs as the pool users only ($pool)" test "$(printf '%s\n' "$rules" | sed 's/^(\([^)]*\)).*/\1/' | tr -d ' ' | sort -u)" = "$pool"
+# sudo grants palabre exactly four rules, on the agent users and nobody else (root included).
+# `sudo -ll` prints one command per line (the short form wraps long lines and merges rules), and the
+# expected users come from the image itself (getent), not from the runtime AGENT_POOL_SIZE.
+pool=$(getent passwd | cut -d: -f1 | grep -E '^agent[0-9]*$' | sort | tr '\n' ',' | sed 's/,$//')
+raw=$(sudo -ll -U palabre 2>&1)
+# One "runas|setenv|command" line per command
+rules=$(printf '%s\n' "$raw" | awk '
+  /^ *RunAsUsers:/ { sub(/^ *RunAsUsers: */, ""); gsub(/ /, ""); runas = $0; setenv = 0; next }
+  /^ *Options:/ { setenv = ($0 ~ /(^|[ ,])setenv/) ? 1 : 0; next }
+  /^ *Commands:/ { incmd = 1; next }
+  /^Sudoers entry:/ { incmd = 0; next }
+  incmd && NF { sub(/^[ \t]*/, ""); sub(/[ \t]*$/, ""); print runas "|" setenv "|" $0 }')
+fail_with() { # description, got, expected
+  echo "FAIL $1"; fail=1
+  printf '::error::%s: got [%s], expected [%s]\n' "$1" "$2" "$3"
+  printf '::error::sudo -ll -U palabre said: %s\n' "$(printf '%s' "$raw" | tr '\n' '~')"
+}
+expect() { # description, got, expected
+  if [ "$2" = "$3" ]; then echo "ok   $1"; else fail_with "$1" "$2" "$3"; fi
+}
+cmds=$(printf '%s\n' "$rules" | cut -d'|' -f3-)
+expect "sudo -l shows exactly 4 rules for palabre" "$(printf '%s\n' "$rules" | grep -c .)" 4
+norm() { tr ',' '\n' | grep . | sort | tr '\n' ' '; }
+expect "every rule runs as the pool users only ($pool)" "$(printf '%s\n' "$rules" | cut -d'|' -f1 | sort -u | norm)" "$(printf '%s' "$pool" | norm)"
 for cmd in '/home/palabre/.local/bin/claude' '/usr/bin/kill -KILL -- -[0-9]*' \
     '/usr/local/bin/palabre-rm-clone /data/projects/*' '/usr/local/bin/palabre-rm-clone /data/run/claude-*'; do
-  check "sudo -l has the rule: $cmd" test "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" = 1
+  expect "sudo -l has the rule: $cmd" "$(printf '%s\n' "$cmds" | grep -cxF -- "$cmd")" 1
 done
-if [ "${AGENT_POOL_SIZE:-0}" -ge 1 ]; then
-  denied "palabre cannot run anything else as agent1" as_palabre sudo -n -u agent1 /bin/true
-fi
+expect "SETENV is on the claude rule only" "$(printf '%s\n' "$rules" | grep '|1|' | cut -d'|' -f3 | tr '\n' ' ')" "/home/palabre/.local/bin/claude "
+for user in $(printf '%s' "$pool" | tr ',' ' '); do
+  [ "$user" = agent ] && continue
+  denied "palabre cannot run anything else as $user" as_palabre sudo -n -u "$user" /bin/true
+done
 
 # The kill rule stops a whole process group of the agent, children included
 as_agent setsid sh -c 'sleep 600 & sleep 600' &

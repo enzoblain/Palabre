@@ -6,6 +6,8 @@ Needs no GitHub access. Prints `ok   ...` / `FAIL ...` lines; exit code 1 on any
 """
 
 import asyncio
+import pwd
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +19,7 @@ from app.runner import RunSpec
 failed = False
 PROJECT_ID = 99998
 UID_BASE = 2000  # agentN has uid 2000 + N (see the Dockerfile)
+RUN_TIMEOUT = 60
 SLEEP = "sleep 4242"  # what a run leaves behind, recognisable among the other sleeps
 
 
@@ -24,6 +27,8 @@ def report(ok: bool, desc: str) -> None:
     global failed
     failed |= not ok
     print(f"{'ok  ' if ok else 'FAIL'} {desc}", flush=True)
+    if not ok:
+        print(f"::error::{desc}", flush=True)  # the cause shows in the CI annotations
 
 
 def spec(prompt: str, cwd: Path) -> RunSpec:
@@ -31,6 +36,15 @@ def spec(prompt: str, cwd: Path) -> RunSpec:
         author_name="Check Bot", system_prompt="x", prompt=prompt, cwd=cwd, employee_id=0,
         mcp_headers={}, mcp_tools=[], claude_tools=["Read"], model="x", oauth_token="check-token",
     )  # fmt: skip
+
+
+async def run(prompt: str, cwd: Path) -> dict[str, str]:
+    """One run, parsed; a stuck run (e.g. an account lost from a pool of 1) is a FAIL, not a hang."""
+    try:
+        return parse((await asyncio.wait_for(runner.run_claude(spec(prompt, cwd)), RUN_TIMEOUT)).text)
+    except TimeoutError:
+        report(False, f"the run '{prompt.split()[0]}' finished within {RUN_TIMEOUT}s")
+        return {}
 
 
 def parse(text: str) -> dict[str, str]:
@@ -46,10 +60,7 @@ async def concurrent_runs(cwd: Path) -> None:
     """Two live runs at once: each tries to read the other's environment and MCP config."""
     settings.agent_pool_size = 2
     agent_pool.reset()
-    a, b = await asyncio.gather(
-        runner.run_claude(spec(f"pair {cwd} a b", cwd)), runner.run_claude(spec(f"pair {cwd} b a", cwd))
-    )
-    a, b = parse(a.text), parse(b.text)
+    a, b = await asyncio.gather(run(f"pair {cwd} a b", cwd), run(f"pair {cwd} b a", cwd))
     uids = {a.get("uid"), b.get("uid")}
     report(
         len(uids) == 2 and all(u and int(u) > UID_BASE for u in uids),
@@ -66,19 +77,21 @@ async def leftover_process(cwd: Path) -> None:
     """A process a run leaves behind (setsid) is gone when the account is leased again."""
     settings.agent_pool_size = 1  # every run gets agent1 again
     agent_pool.reset()
-    first = parse((await runner.run_claude(spec(f"leave {cwd}", cwd))).text)
+    first = await run(f"leave {cwd}", cwd)
     uid = first.get("uid") or ""
     report(first.get("alive") == "1", "the first run left a setsid process behind (else the check means nothing)")
     await asyncio.sleep(1)
     report(not left_behind(uid), f"the process is killed when the account goes back to the pool ({left_behind(uid)})")
-    second = parse((await runner.run_claude(spec(f"seen {cwd}", cwd))).text)
+    second = await run(f"seen {cwd}", cwd)
     report(second.get("uid") == uid, f"the next run gets the same account (uid {uid}, got {second.get('uid')})")
     report(second.get("alive") == "0", "the run that re-leases the account finds nothing left by the previous one")
 
 
 async def main() -> None:
-    report(settings.agent_pool_size > 0, f"AGENT_POOL_SIZE is set in the image (got {settings.agent_pool_size})")
-    image_pool = settings.agent_pool_size
+    # The accounts the image really has, not the runtime AGENT_POOL_SIZE
+    image_pool = sum(1 for u in pwd.getpwall() if re.fullmatch(r"agent\d+", u.pw_name))
+    report(image_pool > 0, f"the image has agentN accounts (got {image_pool})")
+    runtime_pool = settings.agent_pool_size
     scratch = settings.projects_dir / f"project-{PROJECT_ID}" / "worktrees" / "scratch"
     scratch.mkdir(mode=0o2775, parents=True, exist_ok=True)
     scratch.chmod(0o2775)
@@ -89,7 +102,7 @@ async def main() -> None:
         else:
             report(False, "the image has fewer than two pool accounts")
     finally:
-        settings.agent_pool_size = image_pool
+        settings.agent_pool_size = runtime_pool
         agent_pool.reset()
         await worktrees.remove_project_files(PROJECT_ID)
 
