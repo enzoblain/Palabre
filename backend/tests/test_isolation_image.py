@@ -31,7 +31,7 @@ def test_single_narrow_sudo_rule():
     assert rules == [
         "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude",
         "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*",
-        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*",
+        "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone ${PROJECTS_DIR}/*",
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*",
         # Serves a task clone to the push fetch as its owner (#193)
         "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack /data/projects/*",

@@ -1,6 +1,7 @@
 """Local clone of each project's repository (the reference), and one clone per task and per desk."""
 
 import asyncio
+import logging
 import os
 import pwd
 import re
@@ -14,6 +15,7 @@ from app.config import settings
 from app.github import BRANCH_PATTERN, UPLOAD_PACK_SCRIPT, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
 from app.models import Employee, Project, Task
 
+log = logging.getLogger(__name__)
 
 # One git operation at a time on a project's main clone (clone, fetch, and every clone made from it)
 _repo_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -25,11 +27,19 @@ def project_dir(project: Project) -> Path:
 
 async def remove_project_files(project_id: int) -> None:
     """Everything a project left on disk: clone, task clones, desks, and the agents'
-    Claude sessions. The GitHub repository itself is not touched."""
+    Claude sessions. The GitHub repository itself is not touched. A path that cannot be
+    removed is logged, never raised: the project is deleted anyway."""
+
+    def remove(target: Path) -> None:
+        def failed(_func, path, exc: BaseException) -> None:
+            log.error("Project %s: cannot delete %s: %s", project_id, path, exc)
+
+        if target.exists() or target.is_symlink():
+            shutil.rmtree(target, onexc=failed)
     targets = [settings.projects_dir / f"project-{project_id}", *claude_store.session_dirs(project_id)]
     async with _repo_locks[project_id]:
         for target in targets:
-            await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
+            await asyncio.to_thread(remove, target)
     _repo_locks.pop(project_id, None)
 
 

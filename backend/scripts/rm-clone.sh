@@ -3,13 +3,22 @@
 # shared group cannot be removed by the backend. The clone's own directory is left to the
 # backend, which owns the directory holding it. Installed root-owned, run through a sudo rule.
 # Only the exact shape of a clone path is accepted, so the rule is not a general rm.
+# The projects root is written root-owned at image build (PROJECTS_DIR), never taken from the caller's environment
+# (sudo drops it anyway): a missing or odd root refuses everything.
 set -eu
+CONF="${PALABRE_RM_CLONE_CONF:-/etc/palabre/rm-clone.conf}"
+ROOT=$(cat "$CONF" 2>/dev/null) || { echo "no projects root configured" >&2; exit 2; }
+case "$ROOT" in
+  /*[!A-Za-z0-9/_-]*|*/|/|"") echo "bad projects root: $ROOT" >&2; exit 2 ;;
+  /*) ;;
+  *) echo "bad projects root: $ROOT" >&2; exit 2 ;;
+esac
 [ "$#" -eq 1 ] || { echo "usage: rm-clone <clone path>" >&2; exit 2; }
 # No newline, dot or other odd character: the pattern below then matches the whole argument
 case "$1" in
   *[!A-Za-z0-9/_-]*) echo "not a clone path: $1" >&2; exit 2 ;;
 esac
-printf '%s\n' "$1" | grep -Eq '^/data/projects/project-[0-9]+/(desks/employee|worktrees/task)-[0-9]+$|^/data/run/claude-[0-9a-f]+$' \
+printf '%s\n' "$1" | grep -Eq "^$ROOT/project-[0-9]+/(desks/employee|worktrees/task)-[0-9]+\$|^/data/run/claude-[0-9a-f]+\$" \
   || { echo "not a clone path: $1" >&2; exit 2; }
 [ -d "$1" ] && [ ! -L "$1" ] || { echo "not a directory: $1" >&2; exit 2; }
 # -P: never follow symlinks

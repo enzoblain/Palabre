@@ -24,6 +24,8 @@ RUN apt-get update \
 # is root's (r-x for the group, nothing for others): a run writes in its own HOME under its run dir,
 # so nothing persists there. "agent" is the legacy single user.
 ARG AGENT_POOL_SIZE=8
+# Where projects live: must match PROJECTS_DIR at runtime (rm-clone and its sudo rule are bound to it at build)
+ARG PROJECTS_DIR=/data/projects
 RUN mkdir /etc/skel-empty \
     && groupadd --gid 1002 work \
     && useradd --create-home --uid 1000 --groups work palabre \
@@ -53,12 +55,14 @@ RUN mkdir /etc/skel-empty \
 COPY --chmod=755 scripts/rm-clone.sh /usr/local/bin/palabre-rm-clone
 COPY --chmod=755 scripts/claim-clone.sh /usr/local/bin/palabre-claim-clone
 COPY --chmod=755 scripts/upload-pack.sh /usr/local/bin/palabre-upload-pack
+
+RUN mkdir -p /etc/palabre && printf '%s' "${PROJECTS_DIR}" > /etc/palabre/rm-clone.conf && chmod 644 /etc/palabre/rm-clone.conf
 RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i"; done)" \
     && printf '%s\n' \
       'Defaults:palabre !requiretty, !use_pty, !secure_path, umask=0002, umask_override' \
       "palabre ALL=($users) NOPASSWD:SETENV: /home/palabre/.local/bin/claude" \
       "palabre ALL=($users) NOPASSWD: /usr/bin/kill -KILL -- -[0-9]*" \
-      "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/projects/*" \
+      "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone ${PROJECTS_DIR}/*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-rm-clone /data/run/claude-*" \
       "palabre ALL=($users) NOPASSWD: /usr/local/bin/palabre-upload-pack /data/projects/*" \
       "palabre ALL=(root) NOPASSWD: /usr/local/bin/palabre-claim-clone /data/projects/* agent*" \
