@@ -230,9 +230,9 @@ async def refresh_clone(project: Project, path: Path) -> None:
 
 
 def _clone_indirection(path: Path) -> str | None:
-    """Why the clone's object store cannot be trusted, or None. upload-pack runs as the backend
-    user and follows whatever the agent put in `.git`: alternates, `commondir`, symlinks and
-    gitfiles would all serve another project's objects."""
+    """Why the clone's object store cannot be trusted, or None. Defence in depth behind the
+    per-account upload-pack (#193): alternates, `commondir`, symlinks and gitfiles would
+    otherwise serve another project's objects."""
     git_dir = path / ".git"
     if not stat.S_ISDIR(git_dir.lstat().st_mode):
         return ".git is not a real directory"

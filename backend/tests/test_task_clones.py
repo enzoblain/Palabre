@@ -417,7 +417,9 @@ def agent_pool_env(setup, monkeypatch, tmp_path):
     bin_dir.mkdir()
     log = tmp_path / "sudo.log"
     (bin_dir / "sudo").write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {log}\nshift 3\nexec \"$@\"\n")
-    (bin_dir / "palabre-upload-pack").write_text('#!/bin/sh\nexec git -c "safe.directory=$1/.git" upload-pack "$1"\n')
+    # The real root script, with the path prefix swapped for the test's tmp dir, so its git command line is exercised
+    real = (Path(__file__).parent.parent / "scripts" / "upload-pack.sh").read_text()
+    (bin_dir / "palabre-upload-pack").write_text(real.replace("^/data/projects/", f"^{tmp_path}/projects/"))
     for f in bin_dir.iterdir():
         f.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
