@@ -1,6 +1,7 @@
 """Failed API authentications are throttled per IP."""
 
 import pytest
+import pytest_asyncio
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -8,8 +9,8 @@ from app.api import deps
 from app.config import settings
 
 
-@pytest.fixture
-def client(monkeypatch):
+@pytest_asyncio.fixture
+async def client(monkeypatch):
     monkeypatch.setattr(settings, "auth_max_failures", 3)
     deps._failures.clear()
     app = FastAPI()
@@ -18,7 +19,9 @@ def client(monkeypatch):
     async def ping():
         return {}
 
-    yield AsyncClient(transport=ASGITransport(app=app), base_url="http://t")
+    async with AsyncClient(transport=ASGITransport(app=app, client=("1.1.1.1", 1)), base_url="http://t") as c:
+        c.app = app
+        yield c
     deps._failures.clear()
 
 
@@ -40,3 +43,22 @@ async def test_failures_expire(client, monkeypatch):
     monkeypatch.setattr(settings, "auth_fail_window_seconds", 0)
     good = {"Authorization": f"Bearer {settings.admin_token}"}
     assert (await client.get("/ping", headers=good)).status_code == 200
+
+
+async def test_lockout_is_per_ip_and_logged(client, caplog):
+    for _ in range(3):
+        await client.get("/ping")
+    assert "1.1.1.1 locked out" in caplog.text and "Bearer" not in caplog.text
+    other = AsyncClient(transport=ASGITransport(app=client.app, client=("2.2.2.2", 1)), base_url="http://t")
+    async with other:
+        good = {"Authorization": f"Bearer {settings.admin_token}"}
+        assert (await other.get("/ping", headers=good)).status_code == 200
+
+
+async def test_expired_entries_are_swept(client, monkeypatch):
+    monkeypatch.setattr(deps, "_SWEEP_ABOVE", 2)
+    monkeypatch.setattr(settings, "auth_fail_window_seconds", 0)
+    for i in range(5):
+        deps._failures[f"10.0.0.{i}"] = [0.0]
+    await client.get("/ping")
+    assert list(deps._failures) == ["1.1.1.1"]

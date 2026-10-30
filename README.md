@@ -212,6 +212,13 @@ those listed in [Configuration](#configuration): the container no longer gets th
 `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
 else changes; Postgres keeps its current password.
 
+Upgrading from a version that accepted short secrets: `ADMIN_TOKEN` and `POSTGRES_PASSWORD` must now
+have at least 32 characters, or the backend refuses to start. Generate new values with
+`openssl rand -hex 32`. For `ADMIN_TOKEN`, edit `.env` and run `docker compose up -d`. For
+`POSTGRES_PASSWORD`, change it in Postgres first, because the database image only reads it when it
+creates an empty volume: `docker compose exec db psql -U palabre -c "ALTER USER palabre WITH PASSWORD '<new>'"`,
+then put the same value in `.env` and run `docker compose up -d`.
+
 Upgrading from a version before the agent user: nothing to do. The container starts as
 root, re-owns the existing `/data` volume once (group `work`, marker `/data/.isolation-v1`),
 makes each project's reference clone private to the server, then drops to `palabre`. If
