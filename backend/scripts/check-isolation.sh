@@ -197,7 +197,7 @@ chmod 755 "$CLAUDE"
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
   err=$(mktemp) || { echo "FAIL cannot create a temp file for $1"; echo "::error::cannot create a temp file for $1"; return 1; }
   ( cd /srv && umask 002 && exec setpriv --reuid=palabre --regid=palabre --init-groups \
-      env PATH="/home/palabre/.local/bin:$PATH" HOME=/home/palabre python "/srv/scripts/$1" ) 2>"$err"
+      env PYTHONPATH=/srv PATH="/home/palabre/.local/bin:$PATH" HOME=/home/palabre python "/srv/scripts/$1" ) 2>"$err"
   rc=$?
   cat "$err" >&2
   if [ "$rc" -ne 0 ]; then
