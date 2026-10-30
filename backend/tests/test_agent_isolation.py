@@ -599,6 +599,7 @@ def test_pool_without_any_account_refuses_to_start(monkeypatch):
         raise KeyError(name)
 
     monkeypatch.setattr(agent_pool.pwd, "getpwnam", missing)
+    monkeypatch.setattr(agent_pool.grp, "getgrnam", missing)
     monkeypatch.setattr(settings, "agent_user", "agent")
     monkeypatch.setattr(settings, "agent_pool_size", 8)
     with pytest.raises(RuntimeError, match="shared uid"):
