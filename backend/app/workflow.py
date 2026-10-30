@@ -614,11 +614,20 @@ def is_task_branch(project: Project, branch: str | None) -> bool:
     return github.is_task_branch_name(branch) and branch not in {project.default_branch, github.WORKING_BRANCH}
 
 
+async def _drop_reviewed_head(project: Project, task: Task) -> None:
+    """Release the ref of _keep_reviewed_head so the reference clone stops pinning the objects."""
+    try:
+        await github.git(repo_dir(project), "update-ref", "-d", f"refs/palabre/reviewed/{task.id}")
+    except github.GitHubError as e:
+        log.warning("cannot drop reviewed head of task %s: %s", task.id, e)
+
+
 async def clean_up_task(project: Project, task: Task) -> None:
     """A finished task leaves nothing behind: its PR is closed if still open, its branch is
     deleted on GitHub and locally, and its worktree removed. Idempotent; a GitHub or git
     error is logged and never blocks the caller (the status change is already done)."""
     repo = github.repo_slug(project.repo_url)
+    await _drop_reviewed_head(project, task)
     try:
         if task.pr_number is not None and await github.is_pull_request_open(repo, task.pr_number):
             await github.close_pull_request(repo, task.pr_number)

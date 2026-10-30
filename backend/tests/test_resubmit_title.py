@@ -344,8 +344,8 @@ async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
         run(clone, "push", "-qf", "origin", "task")
         run(clone, "fetch", "-q")
 
-    async def real_git(cwd, *args, stdin=None, **_):
-        p = subprocess.run(["git", "-C", str(cwd), *args], input=stdin, capture_output=True, text=True)
+    async def real_git(cwd, *args, **_):
+        p = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
         if p.returncode:
             raise github.GitHubError(p.stderr)
         return p.stdout
