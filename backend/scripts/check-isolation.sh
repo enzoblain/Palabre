@@ -287,6 +287,29 @@ denied "palabre cannot upload-pack a path that is not a task clone" as_palabre s
 rm -rf "$DATA/projects/project-99996"
 rm -rf "$DATA/projects/project-99997" "$gocache"
 
+# Legacy shared-account mode (no pool): the clone stays palabre:palabre, created in umask 0002, and the upload-pack
+# runs as the shared `agent` (not in palabre's groups), through the same sudo rule. Plain git as agent, no claim
+legacy_root=$DATA/projects/project-99995/worktrees/task-1
+mkdir -p "$DATA/projects/project-99995/worktrees"
+chown palabre:palabre "$DATA/projects/project-99995" "$DATA/projects/project-99995/worktrees"
+( umask 002 && as_palabre git init -q "$legacy_root" \
+    && as_palabre git -C "$legacy_root" -c user.name=t -c user.email=t@t commit -q --allow-empty -m legacy \
+    && as_palabre git -C "$legacy_root" update-ref refs/heads/task/1 HEAD )
+legacy=$(as_palabre git -C "$legacy_root" rev-parse HEAD)
+LEGACY_UP="sudo -n -u agent /usr/local/bin/palabre-upload-pack"
+# sudo drops GIT_PROTOCOL, so the transfer stays in protocol v0 (the script never sees the client's request for v2)
+legacy_scratch=$(mktemp -d) && chown palabre:palabre "$legacy_scratch" && as_palabre git init -q "$legacy_scratch"
+check "agent can read the objects of a palabre:palabre clone made in umask 0002" as_agent test -r "$legacy_root/.git/objects"
+check "the upload-pack as agent serves a palabre:palabre clone (legacy mode)" \
+  as_palabre git -C "$legacy_scratch" fetch -q --no-tags --upload-pack="$LEGACY_UP" "$legacy_root" refs/heads/task/1:refs/heads/task/1
+check "the legacy commit reached the scratch repo" as_palabre git -C "$legacy_scratch" cat-file -e "$legacy"
+# Negative control: with the objects closed to others, the same fetch must fail, so the check above is not vacuous
+chmod -R o-rwx "$legacy_root/.git/objects"
+legacy_scratch2=$(mktemp -d) && chown palabre:palabre "$legacy_scratch2" && as_palabre git init -q "$legacy_scratch2"
+denied "the upload-pack as agent cannot serve a clone whose objects it cannot read" \
+  as_palabre git -C "$legacy_scratch2" fetch -q --no-tags --upload-pack="$LEGACY_UP" "$legacy_root" refs/heads/task/1:refs/heads/task/1
+rm -rf "$legacy_scratch" "$legacy_scratch2" "$DATA/projects/project-99995"
+
 run_as_palabre() { # script; a crash (traceback on stderr, no FAIL line) is reported as a FAIL with its last lines
   err=$(mktemp) || { echo "FAIL cannot create a temp file for $1"; echo "::error::cannot create a temp file for $1"; return 1; }
   ( cd /srv && umask 002 && exec setpriv --reuid=palabre --regid=palabre --init-groups \
