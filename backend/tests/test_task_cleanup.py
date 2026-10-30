@@ -13,7 +13,7 @@ from .conftest import make_project, make_task
 @pytest.fixture
 def gh(monkeypatch):
     """Records GitHub and worktree calls; `open_prs` holds the numbers of open PRs."""
-    state = SimpleNamespace(calls=[], open_prs={42}, fail_delete=None)
+    state = SimpleNamespace(calls=[], open_prs={42}, fail_delete=None, fail_git=False)
 
     async def is_open(_repo, number):
         return number in state.open_prs
@@ -29,6 +29,14 @@ def gh(monkeypatch):
     async def remove_worktree(_project, task):
         state.calls.append(("worktree", task.id))
 
+    async def git(_cwd, *args, **_):
+        state.calls.append(("git", *args))
+        if state.fail_git:
+            raise github.GitHubError("git update-ref failed")
+        return ""
+
+    monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(workflow, "repo_dir", lambda _project: "/ref")
     monkeypatch.setattr(github, "is_pull_request_open", is_open)
     monkeypatch.setattr(github, "close_pull_request", close)
     monkeypatch.setattr(github, "delete_branch", delete)
@@ -39,8 +47,16 @@ def gh(monkeypatch):
 async def test_cancelled_task_loses_its_open_pr_and_branch(gh):
     task = make_task(status=TaskStatus.cancelled, worktree_path="/w")
     await workflow.clean_up_task(make_project(), task)
-    assert gh.calls == [("close", 42), ("delete", "task/1-demo"), ("worktree", task.id)]
+    assert gh.calls == [("git", "update-ref", "-d", f"refs/palabre/reviewed/{task.id}"), ("close", 42), ("delete", "task/1-demo"), ("worktree", task.id)]
     assert task.worktree_path is None
+
+
+async def test_reviewed_ref_is_dropped_and_its_failure_does_not_block(gh):
+    gh.fail_git = True
+    task = make_task(status=TaskStatus.done, worktree_path="/w")
+    await workflow.clean_up_task(make_project(), task)
+    assert ("git", "update-ref", "-d", f"refs/palabre/reviewed/{task.id}") in gh.calls
+    assert ("delete", "task/1-demo") in gh.calls and task.worktree_path is None
 
 
 async def test_merged_task_pr_is_not_closed_again(gh):
