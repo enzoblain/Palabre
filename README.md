@@ -343,6 +343,7 @@ All optional, in `.env`:
 |---|---|---|
 | `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
+| `WEB_SUBNET` / `WEB_IP` | `172.29.0.0/24` / `172.29.0.2` | Fixed network of the stack and the web container's address: the only one whose `X-Forwarded-For` the backend trusts, so failed-login throttling is per real client. Change them if the subnet clashes with yours |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |

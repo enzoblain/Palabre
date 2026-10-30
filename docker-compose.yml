@@ -35,6 +35,9 @@ services:
       MERGE_REMINDER_MINUTES: ${MERGE_REMINDER_MINUTES:-10}
       RELEASE_WAIT_MINUTES: ${RELEASE_WAIT_MINUTES:-5}
       MAX_CONCURRENT_AGENTS: ${MAX_CONCURRENT_AGENTS:-3}
+      # uvicorn trusts X-Forwarded-For only from the web container (fixed address below), never "*":
+      # port 2710 is published directly, so anyone could forge the header there
+      FORWARDED_ALLOW_IPS: ${WEB_IP:-172.29.0.2}
     depends_on:
       db:
         condition: service_healthy
@@ -53,6 +56,9 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      default:
+        ipv4_address: ${WEB_IP:-172.29.0.2}
     ports:
       - "${PALABRE_WEB_PORT:-2810}:80"
 
@@ -104,6 +110,14 @@ secrets:
     environment: CLAUDE_CODE_OAUTH_TOKENS
   postgres_password:
     environment: POSTGRES_PASSWORD
+
+networks:
+  default:
+    # Fixed subnet so the backend can trust the web container's address (FORWARDED_ALLOW_IPS).
+    # If it clashes with a network of yours, change both here and WEB_IP in .env.
+    ipam:
+      config:
+        - subnet: ${WEB_SUBNET:-172.29.0.0/24}
 
 volumes:
   pgdata:

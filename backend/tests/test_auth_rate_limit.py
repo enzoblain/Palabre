@@ -46,6 +46,7 @@ async def test_failures_expire(client, monkeypatch):
 
 
 async def test_lockout_is_per_ip_and_logged(client, caplog):
+    caplog.set_level("WARNING", logger="app.api.deps")
     for _ in range(3):
         await client.get("/ping")
     assert "1.1.1.1 locked out" in caplog.text and "Bearer" not in caplog.text
@@ -62,3 +63,22 @@ async def test_expired_entries_are_swept(client, monkeypatch):
         deps._failures[f"10.0.0.{i}"] = [0.0]
     await client.get("/ping")
     assert list(deps._failures) == ["1.1.1.1"]
+
+
+async def _seen_ip(peer, xff):
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    seen = []
+
+    async def app(scope, receive, send):
+        seen.append(scope["client"][0])
+
+    wrapped = ProxyHeadersMiddleware(app, trusted_hosts="172.29.0.2")
+    scope = {"type": "http", "client": (peer, 1), "headers": [(b"x-forwarded-for", xff.encode())]}
+    await wrapped(scope, None, None)
+    return seen[0]
+
+
+async def test_forwarded_for_only_trusted_from_web_container():
+    assert await _seen_ip("172.29.0.2", "9.9.9.9") == "9.9.9.9"
+    assert await _seen_ip("203.0.113.5", "9.9.9.9") == "203.0.113.5"
