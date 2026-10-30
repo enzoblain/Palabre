@@ -84,8 +84,7 @@ for user in $(printf '%s' "$pool" | tr ',' ' '); do
   denied "palabre cannot run anything else as $user" as_palabre sudo -n -u "$user" /bin/true
 done
 
-# The kill rule stops a whole process group of the agent, children included. Same command as the backend
-# (runner.py / agent_pool.kill_all): sudo -n -u agent /usr/bin/kill -KILL -- -PGID, sent by palabre.
+# Kill path 1, end of a run or timeout (runner.py:172): sudo -n -u agent /usr/bin/kill -KILL -- -PGID, sent by palabre.
 # Live agent processes: a zombie (state Z) is a dead process nobody reaped yet, not something still running
 agent_sleeps() { ps -u agent -o pid=,stat=,comm= | awk '$3 == "sleep" && $2 !~ /^Z/ {print $1}'; }
 as_agent setsid sh -c 'sleep 600 & sleep 600' &
@@ -97,6 +96,7 @@ check "the agent sleeps were started" test -n "$sleep_pid"
 check "the agent group to kill exists" test -n "$pgid"
 as_palabre sudo -n -u agent /usr/bin/kill -KILL -- "-${pgid:-0}"
 kill_rc=$?
+expect "the group kill succeeded" "$kill_rc" 0
 # SIGKILL is immediate, but the reaping is not: wait up to 3 s, and still require zero live process at the end
 for _ in 1 2 3 4 5 6; do [ -z "$(agent_sleeps)" ] && break; sleep 0.5; done
 after=$(ps -o pid,pgid,sid,stat,user,args -u agent 2>&1 | tr '\n' '~')
@@ -104,6 +104,25 @@ if [ -z "$(agent_sleeps)" ]; then echo "ok   no agent process is left after the 
 else
   echo "FAIL no agent process is left after the group kill"
   echo "::error::no agent process is left after the group kill: target pgid=$pgid kill_rc=$kill_rc; before: $before; after: $after"
+  fail=1
+fi
+
+# Kill path 2, release of an account (agent_pool.kill_all, agent_pool.py:125): kill -KILL -- -1 signals every process of
+# the uid, also those in another session (setsid) and so outside any process group the runner knows about.
+as_agent setsid sleep 601 </dev/null >/dev/null 2>&1 &
+sleep 1
+agent_live() { ps -u agent -o pid=,stat=,args= | awk '$2 !~ /^Z/ && $3 == "sleep" && $4 == "601" {print $1}'; }
+check "a setsid process of the agent is running" test -n "$(agent_live)"
+before=$(ps -o pid,pgid,sid,stat,user,args -u agent 2>&1 | tr '\n' '~')
+as_palabre sudo -n -u agent /usr/bin/kill -KILL -- -1
+kill_rc=$?
+expect "the kill_all kill succeeded" "$kill_rc" 0
+for _ in 1 2 3 4 5 6; do [ -z "$(agent_live)" ] && break; sleep 0.5; done
+after=$(ps -o pid,pgid,sid,stat,user,args -u agent 2>&1 | tr '\n' '~')
+if [ -z "$(agent_live)" ] && [ -z "$(ps -u agent -o stat= | grep -v '^Z')" ]; then echo "ok   no live agent process is left after kill -1 (kill_all)"
+else
+  echo "FAIL no live agent process is left after kill -1 (kill_all)"
+  echo "::error::no live agent process is left after kill -1 (kill_all): kill_rc=$kill_rc; before: $before; after: $after"
   fail=1
 fi
 
