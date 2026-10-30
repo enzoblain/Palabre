@@ -13,7 +13,8 @@ set -u
 
 DATA=/data
 fail=0
-as_agent() { setpriv --reuid=agent --regid=agent --init-groups "$@"; }
+# The agent has no group of its own (useradd --gid work): --regid=agent would fail before running the command
+as_agent() { setpriv --reuid=agent --regid=work --init-groups "$@"; }
 as_palabre() { setpriv --reuid=palabre --regid=palabre --init-groups "$@"; }
 check() { # description, then a command that must succeed
   desc=$1; shift
@@ -23,6 +24,10 @@ denied() {
   desc=$1; shift
   if "$@" >/dev/null 2>&1; then echo "FAIL $desc"; echo "::error::$desc: expected a refusal, but this succeeded: $*"; fail=1; else echo "ok   $desc"; fi
 }
+
+# Positive control first: a broken as_agent must fail loudly instead of turning every "denied" into a pass
+[ "$(as_agent id -un 2>/dev/null)" = agent ] && echo "ok   as_agent really runs as agent" \
+  || { echo "FAIL as_agent really runs as agent"; echo "::error::as_agent really runs as agent: expected id -un = agent; got: $(as_agent id 2>&1 | tr '\n' ' ')"; fail=1; }
 
 backend_pid=$(pgrep -u palabre -f uvicorn | head -n 1)
 if [ -n "$backend_pid" ]; then
@@ -37,11 +42,8 @@ for repo in "$DATA"/projects/project-*/repo; do
   denied "agent cannot read $repo" as_agent test -r "$repo/config"
   denied "agent cannot write in $repo" as_agent touch "$repo/x"
 done
+# Not "agent can cross /data/run" alone: a broken as_agent would make every denied below pass for nothing
 check "agent can cross /data/run" as_agent test -x "$DATA/run"
-if ! as_agent test -x "$DATA/run" 2>/dev/null; then
-  # The CI annotation must say why: who the agent is, and the owner/mode of every directory on the way
-  echo "::error::agent cannot cross /data/run: expected x for user agent (group work) on / /data /data/run; got: id=$(as_agent id 2>&1 | tr '\n' ' ') path=$(namei -l "$DATA/run" 2>&1 | tr '\n' '~')"
-fi
 denied "agent cannot list /data/run" as_agent ls "$DATA/run"
 
 check "sudo keeps claude in sudo's process group (!use_pty)" sh -c "sudo -l -U palabre | grep -q '!use_pty'"

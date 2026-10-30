@@ -42,11 +42,11 @@ check "the task clone is group-writable (agents commit there)" \
 check "runtime is the backend's only" '[ "$(stat -c %U:%a /data/runtime)" = "palabre:700" ]'
 check "legacy shared claude sessions are purged" '! test -e /data/claude/session.json && ! test -e /data/claude/projects && ! test -e /data/claude/employee-1'
 check "the claude store is private to palabre" '[ "$(stat -c %U:%a /data/claude)" = "palabre:700" ]'
-check "the agent cannot read the claude store" '! setpriv --reuid=agent --regid=agent --init-groups ls /data/claude'
+check "the agent cannot read the claude store" '! setpriv --reuid=agent --regid=work --init-groups ls /data/claude'
 check "the agent can write in its task clone" \
-  'setpriv --reuid=agent --regid=agent --init-groups touch /data/projects/project-1/worktrees/task-5/new'
+  'setpriv --reuid=agent --regid=work --init-groups touch /data/projects/project-1/worktrees/task-5/new'
 check "the agent cannot read the reference" \
-  '! setpriv --reuid=agent --regid=agent --init-groups ls /data/projects/project-1/repo'
+  '! setpriv --reuid=agent --regid=work --init-groups ls /data/projects/project-1/repo'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
