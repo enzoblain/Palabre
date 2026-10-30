@@ -23,6 +23,28 @@ take_back() {
   chmod -R u+rwX,go-rwx,ug-s "$1"
 }
 
+# Shared account (AGENT_POOL_SIZE<=0): nothing claims a clone per run, so the one agent account reaches
+# them through the group "work" instead. With a pool, clones stay the backend's until a run claims them.
+shared_account=0
+if [ "${AGENT_POOL_SIZE:-0}" -le 0 ] 2>/dev/null && [ -n "${AGENT_USER:-}" ] && [ "${AGENT_USER}" != palabre ]; then
+  shared_account=1
+fi
+
+# Legacy counterpart of take_back: group work, group-writable, setgid dirs, so the shared agent can write in
+# the clone and serve it to palabre-upload-pack. Skipped when already so (a symlink is always 777: ignored).
+share_back() {
+  real_dir "$1" || return 0
+  [ -n "$(find -P "$1" \( ! -group work -o \( -type d ! -perm -g+s \) -o \( ! -type l ! -perm -g+rw \) \) -print -quit)" ] || return 0
+  chgrp -hR work "$1"
+  chmod -R g+rwX "$1"
+  find -P "$1" -type d -exec chmod g+s {} +
+}
+
+# Per-clone hand-back at start: private to the backend with a pool, shared with the agent group without
+claim_back() {
+  if [ "$shared_account" = 1 ]; then share_back "$1"; else take_back "$1"; fi
+}
+
 mkdir -p "$DATA/projects" "$DATA/runtime" "$DATA/run" "$DATA/toolchains" "$DATA/claude"
 for dir in projects runtime run toolchains claude; do
   real_dir "$DATA/$dir" || { echo "$DATA/$dir is not a plain directory" >&2; exit 1; }
@@ -103,7 +125,7 @@ for project in "$DATA"/projects/project-*; do
     # something not yet palabre:palabre is walked, so the cost does not grow with the number of finished tasks.
     # -h: never follow a planted symlink.
     for clone in "$project/$parent"/*; do
-      take_back "$clone"
+      claim_back "$clone"
     done
   done
 done
@@ -112,7 +134,7 @@ done
 # account may have left files in them); the next run of the employee claims its cache.
 if real_dir "$DATA/toolchains/gopath"; then
   for cache in "$DATA"/toolchains/gopath/employee-*; do
-    take_back "$cache"
+    claim_back "$cache"
   done
 fi
 
