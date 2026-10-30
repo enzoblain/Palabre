@@ -47,7 +47,7 @@ async def unread_summary(project_id: int, s: SessionDep):
         .order_by(Conversation.id)
     )
     rows = await s.execute(services.hide_dms(q))
-    return [UnreadSummaryItem(conversation_id=c, last_id=last, last_employee_id=emp) for c, last, emp in rows]
+    return [UnreadSummaryItem(conversation_id=c, last_id=last, last_employee_message_id=emp) for c, last, emp in rows]
 
 
 @router.post("/rooms/{room_id}/conversations", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)

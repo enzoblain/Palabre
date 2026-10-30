@@ -1,6 +1,7 @@
 """The unread summary endpoint, on a real in-memory database."""
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import services
@@ -37,8 +38,8 @@ async def db():
 async def test_summary_lists_the_project_conversations(db):
     out = {i.conversation_id: i for i in await conversations.unread_summary(1, db)}
     assert set(out) == {1, 2, 4}
-    assert (out[1].last_id, out[1].last_employee_id) == (2, 1)  # the boss's message is the latest, not unread
-    assert (out[4].last_id, out[4].last_employee_id) == (0, 0)
+    assert (out[1].last_id, out[1].last_employee_message_id) == (2, 1)  # the boss's message is the latest, not unread
+    assert (out[4].last_id, out[4].last_employee_message_id) == (0, 0)
 
 
 async def test_summary_hides_dms_when_boss_does_not_read_them(db, monkeypatch):
@@ -47,6 +48,6 @@ async def test_summary_hides_dms_when_boss_does_not_read_them(db, monkeypatch):
 
 
 async def test_summary_404_on_unknown_project(db):
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(HTTPException) as exc:
         await conversations.unread_summary(99, db)
     assert exc.value.status_code == 404

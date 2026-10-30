@@ -295,7 +295,7 @@ export async function testConnection(conn: Connection): Promise<void> {
 export interface UnreadSummaryItem {
   conversation_id: number;
   last_id: number;
-  last_employee_id: number;
+  last_employee_message_id: number;
 }
 
 export const api = {

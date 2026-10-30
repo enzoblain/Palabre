@@ -1,8 +1,9 @@
 """Conversation, room document, notes and events. Shared by the MCP server and the API."""
 
 import re
+from typing import TypeVar
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -39,8 +40,14 @@ DM = "dm"
 BOSS_READS_DMS = True
 
 
-def hide_dms(q):
-    """Leaves the DMs out of a query on rooms unless BOSS_READS_DMS (the one rule for every listing)."""
+T = TypeVar("T", bound=tuple)
+
+
+def hide_dms(q: Select[T]) -> Select[T]:
+    """Leaves the DMs out of a query on rooms unless BOSS_READS_DMS (the one rule for every listing).
+
+    The query must have Room in its FROM.
+    """
     return q if BOSS_READS_DMS else q.where(Room.kind != DM)
 
 
