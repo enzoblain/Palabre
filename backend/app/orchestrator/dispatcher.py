@@ -18,7 +18,7 @@ from app.db import SessionLocal
 from app.github import GitHubError
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 from app.models import AgentRun, AgentSession, Employee, Event, Message, Project, Task, TaskStatus, Wakeup
-from app.orchestrator.context_reset import reset_context_if_due, reset_session_if_worn
+from app.orchestrator.context_reset import reset_context_if_due, reset_session_if_worn, resumable
 from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
@@ -328,13 +328,12 @@ class Orchestrator:
 
         await reset_context_if_due(s, employee)  # Before the lookup: no session left to resume
         await reset_session_if_worn(s, employee, scope)
-        spec.resume_session_id = await self._session_to_resume(s, employee, first.kind, scope)
+        spec.resume_session_id = await self._session_to_resume(s, employee, scope)
         return spec, scope
 
     @staticmethod
-    async def _session_to_resume(s: AsyncSession, employee: Employee, kind: str, scope: str) -> str | None:
-        """Only task runs resume: a conversation wakeup comes after the cache TTL, so resuming rewrites the whole history."""
-        if kind != "task":
+    async def _session_to_resume(s: AsyncSession, employee: Employee, scope: str) -> str | None:
+        if not resumable(scope):
             return None
         return await s.scalar(
             select(AgentSession.claude_session_id).where(AgentSession.employee_id == employee.id, AgentSession.scope == scope)
@@ -464,7 +463,7 @@ class Orchestrator:
             del self._throttled_at[key]
 
     async def _save_session(self, s: AsyncSession, employee_id: int, scope: str, session_id: str, resumed: bool) -> None:
-        if scope.startswith("conversation:"):  # Never resumed: nothing worth storing
+        if not resumable(scope):  # Never resumed: nothing worth storing
             return
         session = await s.get(AgentSession, (employee_id, scope))
         if session is None:

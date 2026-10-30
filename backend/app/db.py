@@ -40,3 +40,5 @@ def upgrade_schema(conn: Connection) -> None:
                     conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    # Conversations are never resumed: drop the rows stored before that (idempotent)
+    conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")

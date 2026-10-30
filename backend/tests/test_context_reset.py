@@ -230,9 +230,9 @@ async def test_only_task_runs_resume_their_session(db):
     ])  # fmt: skip
     await db.flush()
     resume = Orchestrator._session_to_resume
-    assert await resume(db, malik, "task", "task:1") == "t"
-    assert await resume(db, malik, "conversation", "conversation:1") is None
-    assert await resume(db, malik, "task", "task:2") is None
+    assert await resume(db, malik, "task:1") == "t"
+    assert await resume(db, malik, "conversation:1") is None
+    assert await resume(db, malik, "task:2") is None
 
 
 async def test_conversation_scopes_store_no_session(db, monkeypatch):
@@ -277,4 +277,18 @@ async def test_upgrade_drops_sessions_once_when_runs_column_is_added():
         await conn.exec_driver_sql("INSERT INTO agent_sessions (employee_id, scope, claude_session_id) VALUES (1, 'task:1', 'new')")
         await conn.run_sync(upgrade_schema)  # a restart
         assert (await conn.exec_driver_sql("SELECT count(*) FROM agent_sessions")).scalar() == 1
+    await engine.dispose()
+
+
+async def test_upgrade_deletes_legacy_conversation_sessions():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.exec_driver_sql(
+            "INSERT INTO agent_sessions (employee_id, scope, claude_session_id) VALUES (1, 'conversation:1', 'c'), (1, 'task:1', 't')"
+        )
+        await conn.run_sync(upgrade_schema)
+        await conn.run_sync(upgrade_schema)  # idempotent
+        rows = (await conn.exec_driver_sql("SELECT scope FROM agent_sessions")).scalars().all()
+        assert rows == ["task:1"]
     await engine.dispose()
