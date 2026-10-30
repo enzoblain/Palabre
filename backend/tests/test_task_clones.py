@@ -308,7 +308,8 @@ def test_upload_pack_trusts_only_the_exact_clone(tmp_path):
     command = github.upload_pack_command("/data/a b")
     words = shlex.split(command)
     assert words[0] == "git" and words[-1] == "upload-pack"
-    assert "safe.directory=/data/a b" in words and "safe.directory=*" not in words
+    assert "safe.directory=/data/a b/.git" in words and "safe.directory=*" not in words
+    assert "safe.directory=/data/a b" not in words
     assert "core.hooksPath=/dev/null" in words and "core.fsmonitor=false" in words
     # And it is a working upload-pack
     repo = tmp_path / "r"

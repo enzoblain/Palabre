@@ -95,8 +95,9 @@ def _git_env(repo_url: str | None, allow_file: bool = False) -> dict[str, str]:
 def upload_pack_command(repo: str | Path) -> str:
     """The `--upload-pack` for fetching from a repository owned by another user. Git clears its
     config environment for a local transport, so the `-c safe.directory` of `git()` never reaches
-    the upload-pack it spawns there: it gets the exact path again, with the same neutralised config."""
-    return shlex.join(["git", *SAFE_GIT_CONFIG, "-c", f"safe.directory={repo}", "upload-pack"])
+    the upload-pack it spawns there: it gets the exact path again, with the same neutralised config.
+    upload-pack checks the ownership of `<repo>/.git`, not of `<repo>`, so that is what is trusted."""
+    return shlex.join(["git", *SAFE_GIT_CONFIG, "-c", f"safe.directory={Path(repo) / '.git'}", "upload-pack"])
 
 
 async def git(

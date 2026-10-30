@@ -237,7 +237,7 @@ async def push_task_branch(project: Project, task: Task) -> None:
         await git(
             reference, "fetch", "--quiet", "--no-tags", f"--upload-pack={upload_pack_command(task.worktree_path)}",
             task.worktree_path, f"+{ref}:{ref}",
-            allow_file=True, trust=task.worktree_path,
+            allow_file=True, trust=Path(task.worktree_path) / ".git",
         )  # fmt: skip
         try:
             await git(
