@@ -371,6 +371,12 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   before this fix still holds hard links: once its work is pushed, delete
   `/data/projects/<id>/worktrees/task-<n>` (as the server user) and it is recreated on the
   agent's next start.
+  Claude's sessions are not shared: `/data/claude` is the server's own store (mode 700), with one
+  directory per employee. Each run gets a throwaway `CLAUDE_CONFIG_DIR` in `/data/run` holding
+  only the session it resumes, and the server copies back the sessions it wrote (regular files
+  only) and deletes the directory. A `settings.json` or hook an agent writes there dies with
+  the run and never reaches another employee's. Sessions of a volume made before this change
+  are purged at the first start (agents begin a new session).
   Known limit: all agents share the one `agent` user, so a run can still read another run's
   process (its token, its MCP config path). The isolation is between agents and the server,
   not between agents. Per-run users or `hidepid` on `/proc` would be the next step.

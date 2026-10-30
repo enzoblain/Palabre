@@ -7,6 +7,7 @@ import shutil
 from collections import defaultdict
 from pathlib import Path
 
+from app import claude_store
 from app.config import settings
 from app.github import BRANCH_PATTERN, GitHubError, git, repo_slug, resolve_branch
 from app.models import Employee, Project, Task
@@ -20,19 +21,10 @@ def project_dir(project: Project) -> Path:
     return settings.projects_dir / f"project-{project.id}"
 
 
-def _claude_session_dirs(project_id: int) -> list[Path]:
-    """Claude keeps each working directory's sessions in projects/<path with - for />."""
-    root = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude")) / "projects"
-    prefix = re.sub(r"[^A-Za-z0-9]", "-", str(settings.projects_dir / f"project-{project_id}"))
-    if not root.is_dir():
-        return []
-    return [d for d in root.iterdir() if d.name == prefix or d.name.startswith(prefix + "-")]
-
-
 async def remove_project_files(project_id: int) -> None:
     """Everything a project left on disk: clone, task clones, desks, and the agents'
     Claude sessions. The GitHub repository itself is not touched."""
-    targets = [settings.projects_dir / f"project-{project_id}", *_claude_session_dirs(project_id)]
+    targets = [settings.projects_dir / f"project-{project_id}", *claude_store.session_dirs(project_id)]
     async with _repo_locks[project_id]:
         for target in targets:
             await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)

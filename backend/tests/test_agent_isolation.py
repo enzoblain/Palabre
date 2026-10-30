@@ -190,3 +190,50 @@ def test_agent_env_lets_git_work_in_a_foreign_owned_clone(as_agent, tmp_path):
     refused = status({k: v for k, v in env.items() if not k.startswith(("GIT_CONFIG_COUNT", "GIT_CONFIG_KEY", "GIT_CONFIG_VALUE"))})
     assert refused.returncode != 0 and "dubious ownership" in refused.stderr
     assert status(env).returncode == 0
+
+
+def test_run_config_dir_is_throwaway_and_sessions_stay_private(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "store"))
+    sid = "11111111-2222-3333-4444-555555555555"
+    for emp in (1, 2):
+        d = claude_store.employee_store(emp) / "projects" / "-data-p"
+        d.mkdir(parents=True)
+        (d / f"{sid}.jsonl").write_text(f"employee {emp}")
+    (claude_store.employee_store(1) / "settings.json").write_text("{}")
+
+    run_dir = claude_store.prepare_run_dir(2, sid)
+    assert run_dir.parent == tmp_path / "run"
+    assert env_dir(run_dir) == str(run_dir)
+    # Only employee 2's session comes in: nothing of employee 1's, no settings
+    assert [p.read_text() for p in run_dir.rglob("*.jsonl")] == ["employee 2"]
+    assert not list(run_dir.rglob("settings.json"))
+
+    # The run plants a hook, a symlink to a secret and a new session
+    (run_dir / "settings.json").write_text('{"hooks": {}}')
+    secret = tmp_path / "secret"
+    secret.write_text("db-password")
+    (run_dir / "projects" / "-data-p" / "leak.jsonl").symlink_to(secret)
+    (run_dir / "projects" / "-data-p" / f"{sid}.jsonl").write_text("employee 2, updated")
+    claude_store.collect_run_dir(2, run_dir)
+
+    store = claude_store.employee_store(2)
+    assert not run_dir.exists()
+    assert (store / "projects" / "-data-p" / f"{sid}.jsonl").read_text() == "employee 2, updated"
+    assert not (store / "settings.json").exists()
+    assert not (store / "projects" / "-data-p" / "leak.jsonl").exists()
+    assert (claude_store.employee_store(1) / "projects" / "-data-p" / f"{sid}.jsonl").read_text() == "employee 1"
+
+
+def env_dir(path):
+    return runner._env("Mehdi", TOKEN, Path("/x"), path)["CLAUDE_CONFIG_DIR"]
+
+
+def test_resume_id_cannot_escape_the_store(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "store"))
+    (tmp_path / "store" / "employee-1" / "projects" / "p").mkdir(parents=True)
+    run_dir = claude_store.prepare_run_dir(1, "../../employee-1")
+    assert not (run_dir / "projects").exists()
