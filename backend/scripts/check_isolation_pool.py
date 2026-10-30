@@ -8,11 +8,13 @@ Needs no GitHub access. Prints `ok   ...` / `FAIL ...` lines; exit code 1 on any
 import asyncio
 import pwd
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-from app import agent_pool, runner, worktrees
+from app import agent_pool, runner, toolchains, worktrees
 from app.config import settings
 from app.runner import RunSpec
 
@@ -31,17 +33,17 @@ def report(ok: bool, desc: str, got: object = None) -> None:
         print(f"::error::{desc}" + (f": got {got!r}" if got is not None else ""), flush=True)  # the cause shows in the CI annotations
 
 
-def spec(prompt: str, cwd: Path) -> RunSpec:
+def spec(prompt: str, cwd: Path, employee_id: int) -> RunSpec:
     return RunSpec(
-        author_name="Check Bot", system_prompt="x", prompt=prompt, cwd=cwd, employee_id=0,
+        author_name="Check Bot", system_prompt="x", prompt=prompt, cwd=cwd, employee_id=employee_id,
         mcp_headers={}, mcp_tools=[], claude_tools=["Read"], model="x", oauth_token="check-token",
     )  # fmt: skip
 
 
-async def run(prompt: str, cwd: Path) -> dict[str, str]:
+async def run(prompt: str, cwd: Path, employee_id: int = 0) -> dict[str, str]:
     """One run, parsed; a stuck run (e.g. an account lost from a pool of 1) is a FAIL, not a hang."""
     try:
-        return parse((await asyncio.wait_for(runner.run_claude(spec(prompt, cwd)), RUN_TIMEOUT)).text)
+        return parse((await asyncio.wait_for(runner.run_claude(spec(prompt, cwd, employee_id)), RUN_TIMEOUT)).text)
     except TimeoutError:
         report(False, f"the run '{prompt.split()[0]}' finished within {RUN_TIMEOUT}s")
         return {}
@@ -56,11 +58,17 @@ def left_behind(uid: str) -> list[str]:
     return out.stdout.split()
 
 
-async def concurrent_runs(cwd: Path) -> None:
-    """Two live runs at once: each tries to read the other's environment and MCP config."""
+async def concurrent_runs(clones: tuple[Path, Path]) -> None:
+    """Two live runs at once, each in its own clone: each tries to read the other's environment and MCP config."""
     settings.agent_pool_size = 2
     agent_pool.reset()
-    a, b = await asyncio.gather(run(f"pair {cwd} a b", cwd), run(f"pair {cwd} b a", cwd))
+    # The runs meet in a directory open to both accounts (a claimed clone is closed to the other one)
+    meeting = Path(tempfile.mkdtemp(prefix="pair-"))
+    meeting.chmod(0o777)
+    try:
+        a, b = await asyncio.gather(run(f"pair {meeting} a b", clones[0], 1), run(f"pair {meeting} b a", clones[1], 2))
+    finally:
+        shutil.rmtree(meeting, ignore_errors=True)
     uids = {a.get("uid"), b.get("uid")}
     report(
         len(uids) == 2 and all(u and int(u) > UID_BASE for u in uids),
@@ -93,19 +101,23 @@ async def main() -> None:
     image_pool = sum(1 for u in pwd.getpwall() if re.fullmatch(r"agent\d+", u.pw_name))
     report(image_pool > 0, f"the image has agentN accounts (got {image_pool})")
     runtime_pool = settings.agent_pool_size
-    scratch = settings.projects_dir / f"project-{PROJECT_ID}" / "worktrees" / "scratch"
-    scratch.mkdir(mode=0o2775, parents=True, exist_ok=True)
-    scratch.chmod(0o2775)
+    # Shaped like task clones: the claim helper accepts nothing else
+    worktrees_dir = settings.projects_dir / f"project-{PROJECT_ID}" / "worktrees"
+    clones = (worktrees_dir / "task-1", worktrees_dir / "task-2")
+    for clone in clones:
+        clone.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
         if image_pool >= 2:
-            await concurrent_runs(scratch)
-            await leftover_process(scratch)
+            await concurrent_runs(clones)
+            await leftover_process(clones[0])
         else:
             report(False, "the image has fewer than two pool accounts")
     finally:
         settings.agent_pool_size = runtime_pool
         agent_pool.reset()
         await worktrees.remove_project_files(PROJECT_ID)
+        for employee_id in range(3):  # the Go caches the runs claimed
+            shutil.rmtree(toolchains.gopath(employee_id), ignore_errors=True)
 
 
 asyncio.run(main())

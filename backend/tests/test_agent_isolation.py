@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -637,6 +638,9 @@ def pooled(monkeypatch):
 
     kill_ok = [True]
     monkeypatch.setattr(runner.shutil, "chown", lambda *a, **k: None)  # agent3 does not exist here
+    monkeypatch.setattr(
+        runner, "_agent_account", lambda user: SimpleNamespace(pw_name=user, pw_dir=f"/home/{user}")
+    )
     monkeypatch.setattr(runner.claude_store, "prepare_run_dir", lambda *a: None)
     monkeypatch.setattr(runner.agent_pool, "lease", lease)
     monkeypatch.setattr(runner.agent_pool, "kill_all", kill_all)
