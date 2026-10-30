@@ -113,29 +113,37 @@ def test_entrypoint_root_guard_fails_closed(tmp_path):
     # Runtime PROJECTS_DIR differing from the image's root: refuse to start
     done = _entrypoint_guard(tmp_path, "/data/srv", "/data/projects")
     assert done.returncode == 1 and "differs" in done.stderr
-    # An explicitly empty PROJECTS_DIR is a mismatch, not "unset"
+    # An explicitly empty PROJECTS_DIR is a mismatch, not "unset", with its own message
     done = _entrypoint_guard(tmp_path, "/data/projects", "")
-    assert done.returncode == 1 and "differs" in done.stderr
+    assert done.returncode == 1 and "set but empty" in done.stderr
     for env_dir in (None, "/data/srv"):
         done = _entrypoint_guard(tmp_path, "/data/srv", env_dir)
         assert done.returncode == 0 and done.stdout.strip() == "ok /data/srv"
 
 
 OVERLAPPING_ROOTS = ("/data", "/data/run", "/data/claude", "/data/runtime", "/data/toolchains", "/data/run/x", "/etc", "/srv/projects")
+DENYLISTED_ROOTS = ("/data/run", "/data/claude", "/data/runtime", "/data/toolchains", "/data/run/x")
 
 
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_entrypoint_refuses_overlapping_roots(tmp_path):
     for root in OVERLAPPING_ROOTS:
         done = _entrypoint_guard(tmp_path, root, None)
-        assert done.returncode == 1 and ("overlaps" in done.stderr or "bad projects root" in done.stderr), root
+        assert done.returncode == 1, root
+        # The managed directories are caught by the denylist, the others by the generic check
+        expected = "overlaps" if root in DENYLISTED_ROOTS else "bad projects root"
+        assert expected in done.stderr, root
 
 
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_dockerfile_refuses_overlapping_roots():
     line = next(l for l in DOCKERFILE.splitlines() if l.startswith("RUN case"))
     case = line[len("RUN "):line.index(" \\")] if line.endswith("\\") else line[len("RUN "):]
     for root in OVERLAPPING_ROOTS + ("/data/",):
         done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", root)], capture_output=True, text=True)
         assert done.returncode == 1, root
+        expected = "overlaps" if root in DENYLISTED_ROOTS else "bad PROJECTS_DIR"
+        assert expected in done.stderr, root
     done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", "/data/projects")], capture_output=True, text=True)
     assert done.returncode == 0
 
