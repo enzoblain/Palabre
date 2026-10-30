@@ -115,7 +115,7 @@ def test_entrypoint_root_guard_fails_closed(tmp_path):
     assert done.returncode == 1 and "differs" in done.stderr
     # An explicitly empty PROJECTS_DIR is a mismatch, not "unset"
     done = _entrypoint_guard(tmp_path, "/data/projects", "")
-    assert done.returncode == 1 and "differs" in done.stderr
+    assert done.returncode == 1 and "set but empty" in done.stderr
     for env_dir in (None, "/data/srv"):
         done = _entrypoint_guard(tmp_path, "/data/srv", env_dir)
         assert done.returncode == 0 and done.stdout.strip() == "ok /data/srv"
@@ -124,18 +124,22 @@ def test_entrypoint_root_guard_fails_closed(tmp_path):
 OVERLAPPING_ROOTS = ("/data", "/data/run", "/data/claude", "/data/runtime", "/data/toolchains", "/data/run/x", "/etc", "/srv/projects")
 
 
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_entrypoint_refuses_overlapping_roots(tmp_path):
     for root in OVERLAPPING_ROOTS:
         done = _entrypoint_guard(tmp_path, root, None)
-        assert done.returncode == 1 and ("overlaps" in done.stderr or "bad projects root" in done.stderr), root
+        expected = "bad projects root" if root in ("/data", "/etc", "/srv/projects") else "overlaps"
+        assert done.returncode == 1 and expected in done.stderr, root
 
 
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_dockerfile_refuses_overlapping_roots():
     line = next(l for l in DOCKERFILE.splitlines() if l.startswith("RUN case"))
     case = line[len("RUN "):line.index(" \\")] if line.endswith("\\") else line[len("RUN "):]
     for root in OVERLAPPING_ROOTS + ("/data/",):
         done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", root)], capture_output=True, text=True)
-        assert done.returncode == 1, root
+        expected = "bad PROJECTS_DIR" if root in ("/data", "/data/", "/etc", "/srv/projects") else "overlaps"
+        assert done.returncode == 1 and expected in done.stderr, root
     done = subprocess.run(["sh", "-c", case.replace("${PROJECTS_DIR}", "/data/projects")], capture_output=True, text=True)
     assert done.returncode == 0
 
