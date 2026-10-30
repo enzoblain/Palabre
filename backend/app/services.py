@@ -321,6 +321,7 @@ async def rooms_of(s: AsyncSession, employee: Employee) -> list[tuple[str, str]]
             select(Room)
             .join(room_members, room_members.c.room_id == Room.id)
             .where(Room.project_id == employee.project_id, room_members.c.employee_id == employee.id)
+            .options(selectinload(Room.members))  # lazy loads fail in an async session
             .order_by(Room.id)
         )
     ).all()
