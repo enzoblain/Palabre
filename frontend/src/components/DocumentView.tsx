@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ApiError, type Decision, api } from "../api";
 import { formatTime, usePolling } from "../util";
 import { Markdown } from "./Markdown";
-import type { ProjectState } from "./Sidebar";
+import type { ProjectState } from "./TeamPanel";
 
 const POLL_MS = 8000;
 

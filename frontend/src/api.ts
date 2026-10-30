@@ -45,8 +45,9 @@ export type Room = {
   id: number;
   project_id: number;
   name: string;
-  // "direction": the only channel where the CEO writes; "team": read-only for the CEO
-  kind: "direction" | "team";
+  // "direction": the only channel where the CEO writes; "team": read-only for the CEO;
+  // "dm": between two employees (name "A·B"), read-only for the CEO
+  kind: "direction" | "team" | "dm";
   objective: string;
   summary: string;
   created_at: string;
@@ -85,6 +86,18 @@ export type EmployeeStatus = {
   conversation_id: number | null;
   task_id: number | null;
   since: string | null;
+};
+
+/** Who is busy right now ("blocked" is not derived by the server yet). */
+export type Presence = {
+  employee_id: number;
+  name: string;
+  roles: string[];
+  state: "working" | "idle";
+  kind: string | null;
+  task_id: number | null;
+  conversation_id: number | null;
+  last_run_at: string | null;
 };
 
 export type Mode = {
@@ -311,6 +324,7 @@ export const api = {
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
   researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
+  presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
   roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),

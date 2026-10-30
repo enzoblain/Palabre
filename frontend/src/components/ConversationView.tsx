@@ -4,6 +4,7 @@ import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
 import { HashIcon, SendIcon } from "./Icons";
 import { Markdown, bossNames, mentionsAny } from "./Markdown";
+import { dmLabel } from "./TeamPanel";
 
 const POLL_MS = 2000;
 const PHASE_POLL_MS = 4000;
@@ -114,12 +115,14 @@ function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: 
 }
 
 /** One message. Memoized: re-parsing every message's Markdown on each render made typing slow. */
-const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, onAnswered }: {
+const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, forYou, onAnswered }: {
   message: Message;
   onAnswered: (m: Message) => void;
   grouped: boolean;
   title: string | undefined;
   selfNames: string[];
+  // Written by the lead in the direction channel: addressed to the CEO
+  forYou: boolean;
 }) {
   const system = m.is_system;
   const boss = m.employee_id === null && !system;
@@ -135,6 +138,7 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
             <strong>{m.author_name}</strong>
             <span className="muted">{system ? "Platform" : boss ? "CEO" : title}</span>
             <time className="muted">{formatTime(m.created_at)}</time>
+            {forYou && <span className="for-you">For you</span>}
           </div>
         )}
         <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>
@@ -326,9 +330,14 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
   return (
     <div className="conversation">
       <header className="conv-head">
-        <HashIcon size={18} />
-        <h1>{room.name}</h1>
-        {conversation.title && <span className="muted">· {conversation.title}</span>}
+        {room.kind !== "dm" && <HashIcon size={18} />}
+        <h1>{room.kind === "dm" ? dmLabel(room) : room.name}</h1>
+        {conversation.title && room.kind !== "dm" && <span className="muted">· {conversation.title}</span>}
+        {room.kind === "team" && (
+          <span className="conv-people muted truncate" title={room.members.map((m) => m.name).join(", ")}>
+            {room.members.map((m) => m.name).join(", ")}
+          </span>
+        )}
         {readOnly
           ? <span className="live-tag muted">● Live · read-only</span>
           : <span className="conv-members muted">{room.members.length} members</span>}
@@ -358,7 +367,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
           const prev = messages[i - 1];
           const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
           const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} onAnswered={onAnswered} />;
+          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} forYou={room.kind === "direction" && m.employee_id !== null && m.employee_id === lead?.id} onAnswered={onAnswered} />;
         })}
       </div>
 
@@ -368,7 +377,7 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
       {error && <p className="error composer-error">{error}</p>}
       {readOnly ? (
         <p className="readonly-note" role="note">
-          Read-only: you are watching, the team is working. To step in, talk to the lead in{" "}
+          <strong>You are observing this discussion.</strong> To step in, talk to the lead in{" "}
           {directionConversation
             ? <a href={`#/p/${project.id}/c/${directionConversation}`}>{direction?.name}</a>
             : direction?.name ?? "Direction"}.
