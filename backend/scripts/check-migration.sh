@@ -8,10 +8,12 @@ set -u
 image=${1:?usage: check-migration.sh <image>}
 volume=palabre-check-migration-$$
 fail=0
+nok=0
+nfail=0
 trap 'docker volume rm -f "$volume" >/dev/null 2>&1' EXIT
 root() { docker run --rm --user root --entrypoint sh -v "$volume:/data" "$image" -c "$1"; }
 check() { # description, then a root shell command that must succeed on the volume
-  if root "$2" >/dev/null 2>&1; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
+  if root "$2" >/dev/null 2>&1; then echo "ok   $1"; nok=$((nok + 1)); else echo "FAIL $1"; fail=1; nfail=$((nfail + 1)); fi
 }
 
 # A volume as the previous versions left it: everything belongs to palabre (uid 1000), 0755
@@ -31,8 +33,8 @@ root '
 
 # The image's own entrypoint, as docker compose runs it, then a command as the backend
 docker run --rm -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && test -f /data/.isolation-v1' >/dev/null 2>&1 \
-  && echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written" \
-  || { echo "FAIL the entrypoint fails on the old volume"; fail=1; }
+  && { echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written"; nok=$((nok + 1)); } \
+  || { echo "FAIL the entrypoint fails on the old volume"; fail=1; nfail=$((nfail + 1)); }
 
 check "the marker .isolation-v1 exists" 'test -f /data/.isolation-v1'
 check "the volume belongs to group work, closed to others" '[ "$(stat -c %G:%a /data)" = "work:2710" ]'
@@ -50,5 +52,7 @@ check "the agent cannot read the reference" \
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
 docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
-  && echo "ok   a second start succeeds" || { echo "FAIL a second start fails"; fail=1; }
+  && { echo "ok   a second start succeeds"; nok=$((nok + 1)); } \
+  || { echo "FAIL a second start fails"; fail=1; nfail=$((nfail + 1)); }
+echo "check-migration: $nok ok, $nfail FAIL"
 exit $fail
