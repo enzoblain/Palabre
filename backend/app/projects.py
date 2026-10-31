@@ -820,6 +820,23 @@ async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer
     return message
 
 
+async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:
+    """The lead withdraws a pending request. The decision it asks about is rejected with the reason;
+    a release request cannot be withdrawn (settle it, or let the boss answer)."""
+    message = await services.withdraw_request(s, project_id, author, request_id, reason, commit=False)
+    decision = None
+    if message.request_decision_id is not None:
+        decision = await s.get(Decision, message.request_decision_id)
+    if message.request_kind == "release" or (decision is not None and decision.pr_number is not None):
+        await s.rollback()
+        raise WorkflowError(f"Request #{request_id} is about a release: it cannot be withdrawn")
+    if decision is not None and decision.status == DecisionStatus.proposed:
+        await s.flush()  # the request is withdrawn before the settling answers the other pending ones
+        await settle_decision(s, decision, RequestAnswer.rejected, reason.strip(), wake_proposer=False)
+    await s.commit()
+    return message
+
+
 async def normalize_repo_urls(s: AsyncSession) -> None:
     """Projects created with an SSH URL (before they were converted at creation) get
     their HTTPS URL, which git can clone with the token."""

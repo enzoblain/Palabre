@@ -3,12 +3,12 @@
 from types import SimpleNamespace
 
 import pytest
-
-from app import github, projects, services
-from app.api.schemas import RequestAnswerIn
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app import github, projects, services
+from app.api.schemas import RequestAnswerIn
+from app.mcp_server.permissions import mcp_tools_for
 from app.models import (
     Base,
     Conversation,
@@ -307,19 +307,53 @@ async def test_merge_replaces_requests_by_a_new_one(tidy_db):
     assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [new.id]
 
 
-async def test_merging_a_decision_request_becomes_a_question(tidy_db):
-    s = tidy_db
-    project, lead, _ = await _direction(s)
+async def _linked_request(s, project, lead, kind="decision", **fields):
     room_id = await s.scalar(select(Room.id).where(Room.kind == "direction"))
-    decision = Decision(room_id=room_id, title="D", proposed_by="Louise")
+    decision = Decision(room_id=room_id, title="D", proposed_by="Louise", **fields)
     s.add(decision)
     await s.flush()
-    linked = await services.ask_boss(s, project.id, lead, "validate D?", "decision", decision.id)
-    other = await _ask(s, project, lead, "b", "decision")
-    new = await services.merge_requests(s, project.id, lead, [linked.id, other.id], "merged")
-    # Answering it must not look like settling a decision it no longer carries
-    assert new.request_kind == "question" and new.request_decision_id is None
-    assert decision.status == DecisionStatus.proposed
+    return decision, await services.ask_boss(s, project.id, lead, "validate D?", kind, decision.id)
+
+
+async def test_merge_refuses_a_decision_request(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, linked = await _linked_request(s, project, lead)
+    other = await _ask(s, project, lead, "b")
+    with pytest.raises(services.WorkflowError, match="decision or a release"):
+        await services.merge_requests(s, project.id, lead, [linked.id, other.id], "merged")
+    assert decision.status == DecisionStatus.proposed and linked.request_status == "pending"
+
+
+async def test_merge_refuses_a_release_request(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    _, release_request = await _linked_request(s, project, lead, "release", pr_number=7)
+    with pytest.raises(services.WorkflowError, match="decision or a release"):
+        await services.merge_requests(s, project.id, lead, [release_request.id], "merged")
+
+
+async def test_withdrawing_a_decision_request_rejects_the_decision(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, linked = await _linked_request(s, project, lead)
+    twin = await services.ask_boss(s, project.id, lead, "again?", "decision", decision.id)
+    done = await projects.withdraw_request(s, project.id, lead, linked.id, "obsolete")
+    assert done.request_status == RequestStatus.withdrawn.value
+    assert decision.status == DecisionStatus.rejected and decision.decided_at is not None
+    # The other request on the same decision is settled with it
+    assert twin.request_status == RequestAnswer.rejected.value and twin.request_comment == "obsolete"
+
+
+async def test_withdrawing_a_release_request_is_refused(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, request = await _linked_request(s, project, lead, "release", pr_number=7)
+    with pytest.raises(services.WorkflowError, match="release"):
+        await projects.withdraw_request(s, project.id, lead, request.id, "nope")
+    await s.refresh(request)
+    await s.refresh(decision)
+    assert request.request_status == "pending" and decision.status == DecisionStatus.proposed
 
 
 async def test_refusals(tidy_db):
@@ -342,8 +376,6 @@ async def test_refusals(tidy_db):
 
 
 def test_only_the_lead_holds_the_tools():
-    from app.mcp_server.permissions import mcp_tools_for
-
     tools = {"list_pending_requests", "withdraw_request", "merge_requests"}
     assert tools <= mcp_tools_for(["manage_channels"], task_run=False)
     assert not tools & mcp_tools_for(["conversation", "request_review"], task_run=True)

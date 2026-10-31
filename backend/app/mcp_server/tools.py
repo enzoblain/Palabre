@@ -108,11 +108,12 @@ async def list_pending_requests(ctx: Context) -> list[dict]:
 async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
     """Withdraw one of your pending requests to the boss that became useless (obsolete, done
     another way). It leaves their open requests and they can no longer answer it. A request
-    already answered is refused. reason: why, in a sentence."""
+    already answered is refused, and so is a release request. If it asks about a decision, the
+    decision is rejected with your reason. reason: why, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
-        msg = await services.withdraw_request(s, c.project_id, me, request_id, reason)
+        msg = await projects.withdraw_request(s, c.project_id, me, request_id, reason)
     return {"id": msg.id, "status": msg.request_status}
 
 
@@ -120,7 +121,7 @@ async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
 async def merge_requests(ctx: Context, request_ids: list[int], content: str) -> dict:
     """Replace several of your pending requests to the boss (duplicates, same topic) by a single
     new one with the given content. The old ones are marked merged and point to it. A request
-    already answered is refused. content: the new request, short and self-contained, with your recommendation."""
+    already answered, or about a decision or a release, is refused. content: the new request, short and self-contained, with your recommendation."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)

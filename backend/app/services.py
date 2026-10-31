@@ -353,31 +353,38 @@ def _close_request(message: Message, status: RequestStatus, comment: str, merged
     message.request_answered_at = datetime.now(UTC)
 
 
-async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:
+async def withdraw_request(
+    s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str, *, commit: bool = True
+) -> Message:
     """The lead drops one of their pending requests (obsolete, done otherwise): the boss no longer sees it as open.
-    A decision linked to the request stays `proposed`: the lead settles it otherwise."""
+    A request linked to a decision or a release is withdrawn through `projects.withdraw_request`, which settles it."""
     reason = reason.strip()
     if not reason:
         raise WorkflowError("A withdrawn request needs a reason")
     (message,) = await _own_pending_requests(s, project_id, author, [request_id])
     _close_request(message, RequestStatus.withdrawn, reason)
-    await s.commit()
+    if commit:
+        await s.commit()
     return message
 
 
 async def merge_requests(
     s: AsyncSession, project_id: int, author: Employee, request_ids: list[int], content: str
 ) -> Message:
-    """Replace several pending requests of the lead by one new request, which the old ones point to."""
+    """Replace several pending requests of the lead by one new request, which the old ones point to.
+    A request linked to a decision or a release is refused: the new one could not settle it."""
     ids = list(dict.fromkeys(request_ids))
     if not ids:
         raise WorkflowError("Name the requests to merge")
     olds = await _own_pending_requests(s, project_id, author, ids)
+    for old in olds:
+        if old.request_decision_id is not None or old.request_kind == "release":
+            raise WorkflowError(
+                f"Request #{old.id} is about a decision or a release: it cannot be merged, "
+                "settle it through the decision flow or withdraw it"
+            )
     kinds = {m.request_kind for m in olds}
-    # A question is the one kind that settles nothing when answered: use it as soon as an old request
-    # carries a side effect (a decision to settle, a release) or the kinds differ, never lose a link silently
-    linked = any(m.request_decision_id is not None for m in olds)
-    kind = kinds.pop() if len(kinds) == 1 and not linked and kinds <= {"question", "escalation"} else "question"
+    kind = kinds.pop() if len(kinds) == 1 else "question"
     new = await ask_boss(s, project_id, author, content, kind)
     if new is None:
         raise WorkflowError("This project has no direction channel to ask the boss in")
