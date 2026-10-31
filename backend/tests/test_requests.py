@@ -405,3 +405,36 @@ def test_only_the_lead_holds_the_tools():
     tools = {"list_pending_requests", "withdraw_request", "merge_requests"}
     assert tools <= mcp_tools_for(["manage_channels"], task_run=False)
     assert not tools & mcp_tools_for(["conversation", "request_review"], task_run=True)
+
+
+def test_request_status_check_rejects_unknown_value():
+    from sqlalchemy import create_engine, insert
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models import Base, Message
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    row = dict(conversation_id=1, author_name="x", content="c", request_kind="decision")
+    with engine.begin() as conn:
+        conn.execute(insert(Message).values(**row, request_status="merged"))
+    with pytest.raises(IntegrityError), engine.begin() as conn:
+        conn.execute(insert(Message).values(**row, request_status="bogus"))
+
+
+def test_upgrade_adds_missing_check_on_existing_postgres_table():
+    from types import SimpleNamespace
+
+    from app import db
+    from app.models import REQUEST_STATUS_CHECK
+
+    ran = []
+    conn = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), exec_driver_sql=ran.append)
+    inspector = SimpleNamespace(get_check_constraints=lambda table: [])
+    orig = db.inspect
+    db.inspect = lambda _conn: inspector
+    try:
+        db._add_missing_checks(conn)
+    finally:
+        db.inspect = orig
+    assert len(ran) == 1 and REQUEST_STATUS_CHECK in ran[0] and "'withdrawn'" in ran[0]

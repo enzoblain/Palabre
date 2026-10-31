@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -62,6 +63,9 @@ class RequestStatus(str, enum.Enum):
     nuanced = "nuanced"
     withdrawn = "withdrawn"
     merged = "merged"
+
+
+REQUEST_STATUS_CHECK = "ck_messages_request_status"
 
 
 class TaskKind(str, enum.Enum):
@@ -224,7 +228,13 @@ class Conversation(Base):
 
 class Message(Base):
     __tablename__ = "messages"
-    __table_args__ = (Index("ix_messages_conversation_id_id", "conversation_id", "id"),)
+    __table_args__ = (
+        Index("ix_messages_conversation_id_id", "conversation_id", "id"),
+        CheckConstraint(
+            "request_status IN (" + ", ".join(f"'{s.value}'" for s in RequestStatus) + ")",
+            name=REQUEST_STATUS_CHECK,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
