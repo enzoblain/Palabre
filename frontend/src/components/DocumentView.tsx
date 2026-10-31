@@ -69,7 +69,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
   const members = doc.room.members;
   const hasSummary = doc.room.summary.trim() !== "";
 
-  const sections: { key: SectionKey; title: string; count: number; badge?: boolean; body: React.ReactNode }[] = [
+  const sections: { key: SectionKey; title: string; count: number; total?: number; badge?: boolean; body: React.ReactNode }[] = [
     {
       key: "proposed", title: research ? t("doc.proposedConclusions") : t("doc.proposedDecisions"), count: proposed.length, badge: true,
       body: proposed.map((d) => (
@@ -89,7 +89,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
       )),
     },
     {
-      key: "questions", title: t("doc.openQuestions"), count: open.length,
+      key: "questions", title: t("doc.openQuestions"), count: open.length, total: doc.questions.length,
       body: (
         <>
           {open.length > 0 && (
@@ -111,10 +111,10 @@ export function DocumentView({ project }: { project: ProjectState }) {
   ];
   if (!research) {
     sections.push({
-      key: "tasks", title: t("doc.whoDoesWhat"), count: doc.tasks.length,
+      key: "tasks", title: t("doc.whoDoesWhat"), count: doc.tasks.filter((task) => task.status !== "cancelled").length,
       body: (
         <ul className="questions">
-          {doc.tasks.map((task) => (
+          {doc.tasks.filter((task) => task.status !== "cancelled").map((task) => (
             <li key={task.id}>
               #{task.id} {task.title} <span className="muted">— {task.assignee ?? t("doc.unassigned")}, {taskStatus(task.status)}</span>
             </li>
@@ -161,7 +161,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
       <header className="doc-head">
         <h1>{project.detail.name}</h1>
         <p className="muted doc-meta">
-          {hasSummary && doc.room.updated_at ? t("doc.summaryMeta", { ago: formatAgo(doc.room.updated_at) }) : t("doc.summaryNever")}
+          {doc.room.updated_at && t("doc.summaryMeta", { ago: formatAgo(doc.room.updated_at) })}
         </p>
       </header>
       {error && <p className="error" role="alert">{error}</p>}
@@ -200,7 +200,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
               </button>
             </h2>
             <div id={bodyId} role="region" aria-labelledby={headId} className="accordion-body" hidden={!isOpen}>
-              {sec.count === 0 ? <p className="muted">{t("doc.nothing")}</p> : sec.body}
+              {(sec.total ?? sec.count) === 0 ? <p className="muted">{t("doc.nothing")}</p> : sec.body}
             </div>
           </section>
         );
