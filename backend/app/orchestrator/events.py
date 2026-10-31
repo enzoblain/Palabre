@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.company.team import load_catalog
+from app.company.catalog import load_catalog
 from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_members
 from app.orchestrator.event_types import TASK_EVENTS
 from app.orchestrator.prompts import reason_for
@@ -16,7 +16,7 @@ BATCH_SIZE = 200
 
 def wakes_on(employee: Employee, event_type: str) -> bool:
     roles = load_catalog()["roles"]
-    return any(event_type in roles[r]["wakes_on"] for r in employee.roles)
+    return any(event_type in roles[r].wakes_on for r in employee.roles)
 
 
 async def _targets(s: AsyncSession, event: Event) -> list[Employee]:

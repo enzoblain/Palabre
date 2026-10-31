@@ -80,7 +80,7 @@ All under `/api/catalog`, typed response models in `schemas.py`, mirrored in `ap
 ## Risks and compatibility
 - Seeded generation: `generate_team(mode, seed)` must stay deterministic for stored teams. A test pins the output of a few known seeds before the split, and B1 keeps the order of keys and the `rng` call sequence so it passes unchanged.
 - Sensitive paths: `sensitive_paths.py` matches by path (`catalog/*/roles/`, `permissions.py`), not by a list of file names, so adding a job file cannot silently skip the security gate.
-- Façades: if `load_catalog()` or `/catalog/roles` keep an old shape for callers, they get a removal date or a ticket in B1 (no open-ended compatibility layer). The `/catalog/roles` path itself stays, with fields added only.
+- No compatibility layer: `team.load_catalog` was removed (callers import `catalog.load_catalog`) and `roles` are typed `Role` models. The `/catalog/roles` path stays, with fields added only.
 - Existing projects store resolved employees, so they are unaffected; `refresh_permissions` keeps working.
 - Uncertainty: whether the "marketplace" wording means sharing entries across installs (import/export). Not covered here; one file per entry would make it a simple copy.
 

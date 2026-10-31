@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from app import services
 from app.api import conversations
 from app.api.schemas import MessageIn
-from app.company.team import load_catalog
+from app.company.catalog import load_catalog
 from app.errors import WorkflowError
 from app.models import Conversation, Event, Project, Room
 from app.orchestrator.prompts import reason_for
@@ -367,4 +367,4 @@ def test_research_report_stays_the_summary_exception() -> None:
 
 def test_scribe_summary_responsibility_targets_the_project() -> None:
     scribe = load_catalog()["roles"]["scribe"]
-    assert any("summary of the project" in item for item in scribe["responsibilities"])
+    assert any("summary of the project" in item for item in scribe.responsibilities)

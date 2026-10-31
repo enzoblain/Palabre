@@ -6,8 +6,8 @@ from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RoleOut, RoleToolsOut
-from app.company.catalog import MAX_TEAM_SIZE, MODELS
-from app.company.team import generate_team, load_catalog, personality_for
+from app.company.catalog import MAX_TEAM_SIZE, MODELS, Role, load_catalog
+from app.company.team import generate_team, personality_for
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
 Kind = Literal["company", "research"]
@@ -15,12 +15,12 @@ Kind = Literal["company", "research"]
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
-def _role_out(role: dict) -> RoleOut:
-    permissions = role["permissions"]
+def _role_out(role: Role) -> RoleOut:
+    permissions = role.permissions
     tools = RoleToolsOut(
         mcp=sorted(mcp_tools_for(permissions, task_run=True)), claude=claude_tools_for(permissions)
     )
-    return RoleOut(**role, tools=tools)
+    return RoleOut(**role.model_dump(exclude_none=True), tools=tools)
 
 
 @router.get("/modes")
@@ -32,7 +32,7 @@ async def list_modes(kind: Kind = "company") -> dict:
 @router.get("/roles")
 async def list_roles(kind: Kind = "company") -> dict[str, RoleOut]:
     """Jobs of a kind, with the MCP and Claude tools their permissions give."""
-    return {k: _role_out(r) for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
+    return {k: _role_out(r) for k, r in load_catalog()["roles"].items() if r.kind == kind}
 
 
 @router.get("/limits")

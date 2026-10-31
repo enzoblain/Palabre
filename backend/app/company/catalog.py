@@ -239,7 +239,7 @@ def _shared_catalog() -> dict:
 
 @cache
 def load_catalog() -> dict:
-    """The whole catalog as a dict, validated: `roles` holds the role files (as dicts), `modes`
+    """The whole catalog as a dict, validated: `roles` holds the role files (as `Role` models), `modes`
     both kinds of modes, `personality` and `research.personality` the pool files. Raises CatalogError at the first invalid file or cross-check."""
     roles = load_roles()
     pools = load_personality_pools()
@@ -252,7 +252,7 @@ def load_catalog() -> dict:
     catalog["personalities"] = {
         kind: {k: p.model_dump() for k, p in by_key.items()} for kind, by_key in presets.items()
     }
-    catalog["roles"] = {k: r.model_dump(exclude_none=True) for k, r in roles.items()}
+    catalog["roles"] = roles
     return catalog
 
 
@@ -260,7 +260,7 @@ def team_permission_error(roles_by_employee: list[list[str]], kind: str) -> str 
     """Why a hand-made team breaks the permission rules, else None: nobody combines merge and
     code, and a company has exactly one carrier of each unique permission."""
     roles = load_catalog()["roles"]
-    held = [{p for k in keys for p in roles[k]["permissions"]} for keys in roles_by_employee]
+    held = [{p for k in keys for p in roles[k].permissions} for keys in roles_by_employee]
     if any(merge_and_code_conflict(h) for h in held):
         return "No employee can hold both the merge and the code permissions"
     if kind == "company":

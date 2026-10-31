@@ -40,12 +40,12 @@ def test_permission_literal_matches_permissions_module():
 
 
 def test_event_literal_covers_every_wakes_on_event():
-    assert {e for r in load_catalog()["roles"].values() for e in r["wakes_on"]} <= set(get_args(event_types.EventType))
+    assert {e for r in load_catalog()["roles"].values() for e in r.wakes_on} <= set(get_args(event_types.EventType))
 
 
 def test_gated_roles_exist_in_the_company_catalog():
     roles = load_catalog()["roles"]
-    assert all(roles[k]["kind"] == "company" for k in GATED_ROLE_KEYS)
+    assert all(roles[k].kind == "company" for k in GATED_ROLE_KEYS)
 
 
 def test_invalid_field_names_the_file(catalog_copy):
@@ -115,12 +115,12 @@ def test_team_constraints():
     assert team_permission_error([["explorer"], ["skeptic"]], "research") is None
 
 
-def test_facade_keeps_the_dict_shape_and_the_role_order():
+def test_roles_are_typed_and_keep_the_file_order():
     roles = load_catalog()["roles"]
     assert list(roles)[:3] == ["lead", "architect", "product_owner"]
-    company_roles = [k for k, r in roles.items() if r["kind"] == "company"]
+    company_roles = [k for k, r in roles.items() if r.kind == "company"]
     assert list(roles)[len(company_roles)] == "explorer"
-    assert {"title", "model", "mission", "permissions", "wakes_on", "kind"} <= set(roles["lead"])
+    assert all(isinstance(role, Role) for role in roles.values())
 
 
 # Hash of the team drawn before the catalog was split: a seeded team must not change
@@ -176,22 +176,22 @@ async def api_client():
 
 
 async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
-    from app.company.team import load_catalog
+    from app.company.catalog import load_catalog
     from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
     response = await api_client.get("/api/catalog/roles", params={"kind": "company"})
 
     assert response.status_code == 200
     roles = response.json()
-    expected = {k: r for k, r in load_catalog()["roles"].items() if r["kind"] == "company"}
+    expected = {k: r for k, r in load_catalog()["roles"].items() if r.kind == "company"}
     assert list(roles) == list(expected)
     for key, role in roles.items():
-        permissions = expected[key]["permissions"]
+        permissions = expected[key].permissions
         assert role["tools"] == {
             "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
             "claude": claude_tools_for(permissions),
         }
-        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key]}
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key].model_dump(exclude_none=True)}
 
 
 async def test_roles_endpoint_filters_by_kind(api_client):
@@ -208,7 +208,7 @@ async def test_limits_endpoint_exposes_models_and_team_size(api_client):
     assert response.json() == {"models": ["haiku", "sonnet", "opus"], "max_agents": 30}
 
 
-def test_personality_pool_files_feed_the_facade():
+def test_personality_pool_files_feed_the_catalog():
     pools = load_personality_pools()
     catalog = load_catalog()
     assert set(pools) == {"company", "research"}
