@@ -280,6 +280,13 @@ To reach it away from home, put the server on a private network such as
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
+**Interface language**: the interface speaks the team language set in the settings (the one
+your agents write in), and the login screen uses the last language seen, else the browser's.
+French and English are translated; the other team languages show the interface in English.
+Texts live in `frontend/src/i18n/` (`en.ts` is the reference, `fr.ts` must have the same keys:
+a missing key fails `npm run check`). Names, titles and rules that come from the server's
+catalog (roles, company sizes, personalities) and the server's error messages are not translated.
+
 **Account quota**: `GET /settings/quota` returns, for each Claude account, what `/usage`
 shows in Claude Code: the 5-hour session, the week (all models) and the week per model,
 each with the percentage used and its reset time. It is read from Claude's OAuth usage

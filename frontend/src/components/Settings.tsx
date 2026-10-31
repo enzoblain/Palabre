@@ -3,6 +3,7 @@ import {
   ApiError, type AccountQuota, type AppSettings, type QuotaWindow, type Project, type ProjectDetail, type Usage, type UsageEntry, type UsagePeriod,
   type UsageTotals, api,   getConnection,
 } from "../api";
+import { locale, translate, useI18n } from "../i18n";
 import { parseDate, spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
@@ -14,6 +15,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
   onProjectsChanged: () => void;
   onDisconnect: () => void;
 }) {
+  const { t, tr } = useI18n();
   const bossName = settings.boss_name;
   const [name, setName] = useState(bossName);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
@@ -23,7 +25,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
     e.preventDefault();
     try {
       onSaved(await api.saveSettings({ boss_name: name }));
-      setStatus({ ok: true, text: "Saved. Your team now knows you by this name." });
+      setStatus({ ok: true, text: t("settings.nameSaved") });
     } catch (err) {
       setStatus({ ok: false, text: err instanceof ApiError ? err.message : String(err) });
     }
@@ -31,18 +33,18 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
 
   return (
     <div className="page">
-      <h1>Settings</h1>
+      <h1>{t("settings.title")}</h1>
       <form className="panel" onSubmit={save}>
-        <h2>You</h2>
-        <p className="muted">You are the CEO of every project. Your team addresses you by this name.</p>
-        {!bossName && <p className="hint">Tell your team what to call you before you start.</p>}
+        <h2>{t("settings.you")}</h2>
+        <p className="muted">{t("settings.youIntro")}</p>
+        {!bossName && <p className="hint">{t("settings.nameHint")}</p>}
         <label>
-          Your name
+          {t("settings.name")}
           <input autoFocus required maxLength={100} value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Your first name" />
+            placeholder={t("settings.namePlaceholder")} />
         </label>
         <div className="row">
-          <button className="btn btn-primary" disabled={!name.trim() || name.trim() === bossName}>Save</button>
+          <button className="btn btn-primary" disabled={!name.trim() || name.trim() === bossName}>{t("common.save")}</button>
           {status && <span className={status.ok ? "success" : "error"}>{status.text}</span>}
         </div>
       </form>
@@ -52,10 +54,10 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       <UsageSection />
       <Projects projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
-        <h2>Server</h2>
-        <p className="muted">Connected to <code>{getConnection()?.server}</code></p>
+        <h2>{t("settings.server")}</h2>
+        <p className="muted">{tr("settings.connectedTo", { server: <code>{getConnection()?.server}</code> })}</p>
         <div className="row">
-          <button className="btn" onClick={onDisconnect}>Disconnect</button>
+          <button className="btn" onClick={onDisconnect}>{t("settings.disconnect")}</button>
         </div>
       </section>
     </div>
@@ -63,6 +65,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
 }
 
 function TeamLanguage({ settings, onSaved }: { settings: AppSettings; onSaved: (settings: AppSettings) => void }) {
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -79,15 +82,15 @@ function TeamLanguage({ settings, onSaved }: { settings: AppSettings; onSaved: (
 
   return (
     <section className="panel">
-      <h2>Team language</h2>
-      <p className="muted">Your agents speak and write in this language: messages, tasks, reviews and documents.</p>
+      <h2>{t("settings.language")}</h2>
+      <p className="muted">{t("settings.languageIntro")}</p>
       <div className="row">
-        <select value={settings.language} onChange={(e) => change(e.target.value)} aria-label="Langue de l’équipe">
+        <select value={settings.language} onChange={(e) => change(e.target.value)} aria-label={t("settings.languageAria")}>
           {Object.entries(settings.languages).map(([key, label]) => (
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
-        {saved && <span className="success">Saved. It applies from their next message.</span>}
+        {saved && <span className="success">{t("settings.languageSaved")}</span>}
         {error && <span className="error">{error}</span>}
       </div>
     </section>
@@ -95,6 +98,7 @@ function TeamLanguage({ settings, onSaved }: { settings: AppSettings; onSaved: (
 }
 
 function ClaudeAccounts({ count, projects }: { count: number; projects: Project[] }) {
+  const { t } = useI18n();
   const [details, setDetails] = useState<ProjectDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -118,11 +122,11 @@ function ClaudeAccounts({ count, projects }: { count: number; projects: Project[
 
   return (
     <section className="panel">
-      <h2>Claude accounts</h2>
+      <h2>{t("settings.accounts")}</h2>
       <p className="muted">
-        {count === 0 && "No account configured: set CLAUDE_CODE_OAUTH_TOKENS in the server's .env."}
-        {count === 1 && "One account: every agent runs on it. Add more in CLAUDE_CODE_OAUTH_TOKENS, separated by |."}
-        {count > 1 && `${count} accounts. Agents are spread evenly over them; pick an account to pin an agent to it.`}
+        {count === 0 && t("settings.accountsNone")}
+        {count === 1 && t("settings.accountsOne")}
+        {count > 1 && t("settings.accountsMany", { count })}
       </p>
       {error && <p className="error">{error}</p>}
       {count > 1 && details?.map((project) => {
@@ -148,6 +152,7 @@ function ClaudeAccounts({ count, projects }: { count: number; projects: Project[
 }
 
 function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () => void }) {
+  const { t, tr } = useI18n();
   const [confirming, setConfirming] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,36 +173,33 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
 
   return (
     <section className="panel">
-      <h2>Projects</h2>
+      <h2>{t("settings.projects")}</h2>
       <p className="muted">
-        The branch is where the team's tasks start from and their PRs are merged: give them a
-        <code>dev</code> branch and merge it into <code>main</code> yourself when a step is ready.
-        A new branch is created on GitHub from the current one.
+        {tr("settings.projectsBranch", { dev: <code>dev</code>, main: <code>main</code> })}
       </p>
       <p className="muted">
-        Deleting a project removes its agents, conversations, tasks, reports and files on the server.
-        A GitHub repository is left as it is.
+        {t("settings.projectsDelete")}
       </p>
       {error && <p className="error">{error}</p>}
-      {projects.length === 0 && <p className="muted">No project.</p>}
+      {projects.length === 0 && <p className="muted">{t("settings.noProject")}</p>}
       <ul className="project-list">
         {projects.map((p) => (
           <li key={p.id}>
             <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
             <span className="truncate project-list-name">
-              {p.name} <span className="muted">· {p.kind === "research" ? "research" : p.mode}</span>
+              {p.name} <span className="muted">· {p.kind === "research" ? t("settings.research") : p.mode}</span>
             </span>
             {p.kind === "company" && confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
             {confirming === p.id ? (
               <span className="row confirm-delete">
-                <span className="error">Delete it and all its data?</span>
-                <button className="btn btn-small" onClick={() => setConfirming(null)} disabled={deleting === p.id}>Cancel</button>
+                <span className="error">{t("settings.confirmDelete")}</span>
+                <button className="btn btn-small" onClick={() => setConfirming(null)} disabled={deleting === p.id}>{t("common.cancel")}</button>
                 <button className="btn btn-small btn-danger" onClick={() => remove(p)} disabled={deleting === p.id}>
-                  {deleting === p.id ? "Deleting…" : "Delete for good"}
+                  {deleting === p.id ? t("settings.deleting") : t("settings.deleteForGood")}
                 </button>
               </span>
             ) : (
-              <button className="btn btn-small" onClick={() => setConfirming(p.id)}>Delete</button>
+              <button className="btn btn-small" onClick={() => setConfirming(p.id)}>{t("common.delete")}</button>
             )}
           </li>
         ))}
@@ -207,6 +209,7 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
 }
 
 function BranchField({ project, onChanged }: { project: Project; onChanged: () => void }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [branch, setBranch] = useState(project.default_branch);
   const [saving, setSaving] = useState(false);
@@ -229,7 +232,7 @@ function BranchField({ project, onChanged }: { project: Project; onChanged: () =
 
   if (!editing) {
     return (
-      <button className="btn btn-small" title="The branch the team works from and merges into"
+      <button className="btn btn-small" title={t("settings.branchTitle")}
         onClick={() => { setBranch(project.default_branch); setEditing(true); }}>
         <code>{project.default_branch}</code>
       </button>
@@ -238,22 +241,18 @@ function BranchField({ project, onChanged }: { project: Project; onChanged: () =
   return (
     <form className="row branch-field" onSubmit={save}>
       <input autoFocus required value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false}
-        autoCapitalize="off" aria-label="Branche" />
-      <button type="button" className="btn btn-small" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
-      <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? "Saving…" : "Save"}</button>
+        autoCapitalize="off" aria-label={t("settings.branchAria")} />
+      <button type="button" className="btn btn-small" onClick={() => setEditing(false)} disabled={saving}>{t("common.cancel")}</button>
+      <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? t("common.saving") : t("common.save")}</button>
       {error && <span className="error">{error}</span>}
     </form>
   );
 }
 
-const PERIODS: { key: UsagePeriod; label: string }[] = [
-  { key: "day", label: "Day" },
-  { key: "week", label: "Week" },
-  { key: "total", label: "Total" },
-];
-const number = new Intl.NumberFormat();
+const PERIODS = ["day", "week", "total"] as const satisfies readonly UsagePeriod[];
 
 function QuotaSection() {
+  const { t, tr } = useI18n();
   const [accounts, setAccounts] = useState<AccountQuota[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -268,24 +267,24 @@ function QuotaSection() {
 
   return (
     <section className="panel">
-      <h2>Account usage</h2>
-      <p className="muted">What <code>/usage</code> shows in Claude Code, for each account.</p>
+      <h2>{t("quota.title")}</h2>
+      <p className="muted">{tr("quota.intro", { usage: <code>/usage</code> })}</p>
       <div className="row">
-        <button className="btn btn-small" onClick={refresh} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
+        <button className="btn btn-small" onClick={refresh} disabled={loading}>{loading ? t("common.refreshing") : t("common.refresh")}</button>
       </div>
       {error && <p className="error" role="alert">{error}</p>}
-      {!accounts && !error && <p className="muted">Loading…</p>}
-      {accounts?.length === 0 && <p className="muted">No Claude account configured.</p>}
+      {!accounts && !error && <p className="muted">{t("common.loading")}</p>}
+      {accounts?.length === 0 && <p className="muted">{t("quota.none")}</p>}
       {accounts?.map((a) => (
         <div key={a.account} className="quota-account">
-          <h3>Account {a.account}</h3>
+          <h3>{t("quota.account", { account: a.account })}</h3>
           {a.error ? (
-            <p className="error" role="alert">Usage unavailable: {a.error}</p>
+            <p className="error" role="alert">{t("quota.unavailable", { error: a.error })}</p>
           ) : (
             <>
-              <QuotaBar label="Session en cours (5 h)" window={a.session} />
-              <QuotaBar label="Semaine en cours (tous modèles)" window={a.week} />
-              {a.models.map((m) => <QuotaBar key={m.model} label={`Semaine en cours (${m.model})`} window={m} />)}
+              <QuotaBar label={t("quota.session")} window={a.session} />
+              <QuotaBar label={t("quota.week")} window={a.week} />
+              {a.models.map((m) => <QuotaBar key={m.model} label={t("quota.weekModel", { model: m.model })} window={m} />)}
             </>
           )}
         </div>
@@ -298,22 +297,26 @@ function resetText(value: string | null): string {
   if (!value) return "";
   const date = parseDate(value);
   const ms = date.getTime() - Date.now();
-  if (ms <= 0) return "resets now";
+  if (ms <= 0) return translate("quota.resetsNow");
   if (ms < 24 * 3600 * 1000) {
     const minutes = Math.round(ms / 60000);
-    return minutes < 60 ? `resets in ${minutes}m` : `resets in ${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+    return minutes < 60
+      ? translate("quota.resetsInMinutes", { minutes })
+      : translate("quota.resetsInHours", { hours: Math.floor(minutes / 60), minutes: String(minutes % 60).padStart(2, "0") });
   }
-  return `resets ${date.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+  const when = date.toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return translate("quota.resetsAt", { date: when });
 }
 
 function QuotaBar({ label, window }: { label: string; window: QuotaWindow | null }) {
+  const { t } = useI18n();
   if (!window) return null;
   const percent = Math.max(0, Math.min(100, Math.round(window.used_percent)));
   return (
     <div className="quota-row">
       <div className="quota-head">
         <span>{label}</span>
-        <span className="muted">{percent}% used{window.resets_at ? ` · ${resetText(window.resets_at)}` : ""}</span>
+        <span className="muted">{t("quota.used", { percent })}{window.resets_at ? ` · ${resetText(window.resets_at)}` : ""}</span>
       </div>
       <div className={`quota-bar${percent >= 90 ? " quota-high" : ""}`} role="progressbar" aria-label={label}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
@@ -324,6 +327,7 @@ function QuotaBar({ label, window }: { label: string; window: QuotaWindow | null
 }
 
 function UsageSection() {
+  const { t } = useI18n();
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<UsagePeriod>("week");
@@ -333,27 +337,27 @@ function UsageSection() {
 
   return (
     <section className="panel">
-      <h2>Usage</h2>
+      <h2>{t("usage.title")}</h2>
       <p className="muted">
-        Runs, tokens and estimated cost reported by Claude. Day is today (UTC), week the last 7 days.
+        {t("usage.intro")}
       </p>
-      <div className="row" role="group" aria-label="Période">
+      <div className="row" role="group" aria-label={t("usage.period")}>
         {PERIODS.map((p) => (
-          <button key={p.key} className={`btn btn-small${p.key === period ? " btn-primary" : ""}`}
-            aria-pressed={p.key === period} onClick={() => setPeriod(p.key)}>{p.label}</button>
+          <button key={p} className={`btn btn-small${p === period ? " btn-primary" : ""}`}
+            aria-pressed={p === period} onClick={() => setPeriod(p)}>{t(`usage.${p}`)}</button>
         ))}
       </div>
       {error && <p className="error">{error}</p>}
-      {!usage && !error && <p className="muted">Loading…</p>}
-      {usage && usage.total.runs === 0 && <p className="muted">No agent run yet: usage will show up here.</p>}
+      {!usage && !error && <p className="muted">{t("common.loading")}</p>}
+      {usage && usage.total.runs === 0 && <p className="muted">{t("usage.empty")}</p>}
       {usage && usage.total.runs > 0 && (
         <>
-          <UsageTable title="By account" what="Account" period={period} entries={usage.accounts}
-            label={(e) => (e.id === null ? "Unknown" : `Account ${e.id}`)} />
-          <UsageTable title="By employee" what="Employee" period={period} entries={usage.employees}
-            label={(e) => e.name ?? `Employee ${e.id}`} />
-          <UsageTable title="By project" what="Project" period={period} entries={usage.projects}
-            label={(e) => e.name ?? `Project ${e.id}`} />
+          <UsageTable title={t("usage.byAccount")} what={t("usage.account")} period={period} entries={usage.accounts}
+            label={(e) => (e.id === null ? t("usage.unknown") : t("account.n", { account: e.id }))} />
+          <UsageTable title={t("usage.byEmployee")} what={t("usage.employee")} period={period} entries={usage.employees}
+            label={(e) => e.name ?? t("usage.employeeN", { id: e.id ?? "" })} />
+          <UsageTable title={t("usage.byProject")} what={t("usage.project")} period={period} entries={usage.projects}
+            label={(e) => e.name ?? t("usage.projectN", { id: e.id ?? "" })} />
           <UsageSummary totals={usage[period]} />
         </>
       )}
@@ -370,8 +374,7 @@ function UsageSummary({ totals }: { totals: UsageTotals }) {
   if (totals.runs_without_tokens === 0 && totals.runs_without_cost === 0) return null;
   return (
     <p className="muted">
-      {totals.runs_without_tokens} of {totals.runs} runs reported no tokens and {totals.runs_without_cost} no cost:
-      they are left out of the sums.
+      {translate("usage.missing", { tokens: totals.runs_without_tokens, runs: totals.runs, cost: totals.runs_without_cost })}
     </p>
   );
 }
@@ -383,20 +386,22 @@ function UsageTable({ title, what, period, entries, label }: {
   entries: UsageEntry[];
   label: (e: UsageEntry) => string;
 }) {
+  const { t } = useI18n();
   const rows = entries.filter((e) => e[period].runs > 0);
+  const number = new Intl.NumberFormat(locale());
   return (
     <div className="usage-block">
       <h3>{title}</h3>
-      {rows.length === 0 ? <p className="muted">No run over this period.</p> : (
+      {rows.length === 0 ? <p className="muted">{t("usage.noRun")}</p> : (
         <table className="usage-table">
           <thead>
             <tr>
               <th scope="col">{what}</th>
-              <th scope="col" className="num">Runs</th>
-              <th scope="col" className="num">Input</th>
-              <th scope="col" className="num">Output</th>
-              <th scope="col" className="num">Cache</th>
-              <th scope="col" className="num">Cost</th>
+              <th scope="col" className="num">{t("usage.runs")}</th>
+              <th scope="col" className="num">{t("usage.input")}</th>
+              <th scope="col" className="num">{t("usage.output")}</th>
+              <th scope="col" className="num">{t("usage.cache")}</th>
+              <th scope="col" className="num">{t("usage.cost")}</th>
             </tr>
           </thead>
           <tbody>
