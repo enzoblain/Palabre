@@ -330,7 +330,7 @@ def test_project_detail_only_lists_direction():
     project = Project(id=1, name="p", kind="company", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
     project.employees = []
     project.rooms = [
-        Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, members=[])
+        Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, updated_at=now, members=[])
         for i, kind in enumerate(("direction", "team", "dm"), 1)
     ]
     assert [r.id for r in projects_api._detail(project).rooms] == [1]
