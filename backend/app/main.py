@@ -14,6 +14,7 @@ from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensur
 from app.api import auth, catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.api.errors import ApiError, api_error, validation_error
+from app.company.catalog import load_catalog
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
@@ -49,6 +50,7 @@ async def lifespan(_: FastAPI):
             "environment and files. Fine for the desktop app or local development, not for a server."
         )
     agent_pool.check()
+    load_catalog()  # an invalid catalog file stops the backend here, with its name
     # TODO: Alembic migrations
     async with engine.begin() as conn:
         await conn.run_sync(upgrade_schema)

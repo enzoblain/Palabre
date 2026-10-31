@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
+from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, load_catalog
 from app.config import settings
-from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.errors import ErrorCode, WorkflowError
 from app.sensitive_paths import touches_sensitive_paths
@@ -590,12 +590,12 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     blockers = [
         f"{r.reviewer.name} requested changes" for r in latest.values() if r.verdict == Verdict.changes
     ]
-    reviewer_approvals = sum("reviewer" in e.roles for e in approvers)
+    reviewer_approvals = sum(REVIEWER_KEY in e.roles for e in approvers)
     if reviewer_approvals < process["required_approvals"]:
         blockers.append(f"{reviewer_approvals}/{process['required_approvals']} reviewer approval(s)")
-    if process["qa_gate"] and not any("qa" in e.roles for e in approvers):
+    if process["qa_gate"] and not any(QA_KEY in e.roles for e in approvers):
         blockers.append("QA has not approved")
-    if process["security_gate"] and task.sensitive and not any("security" in e.roles for e in approvers):
+    if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in e.roles for e in approvers):
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number):

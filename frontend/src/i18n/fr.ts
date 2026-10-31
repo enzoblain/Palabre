@@ -41,6 +41,7 @@ export const fr: Messages = {
   "error.duplicate_employee_name": "Deux employés portent le même nom",
   "error.unknown_roles": "L’équipe utilise des rôles inconnus",
   "error.lead_required": "L’équipe a besoin d’un lead",
+  "error.invalid_team_permissions": "L’équipe enfreint les règles de permissions (merge et code ne se cumulent jamais ; une personne livre les releases et une gère les canaux)",
   "error.invalid_account": "Ce compte Claude n’existe pas",
   "error.research_has_no_repository": "Un projet de recherche n’a pas de dépôt",
   "error.direction_room_immutable": "Le canal direction ne peut pas être modifié ainsi",
