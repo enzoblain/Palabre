@@ -7,7 +7,7 @@ import { Home } from "./components/Home";
 import { MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
-import { type ProjectState, ProjectMenu, TeamPanel } from "./components/TeamPanel";
+import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
 import { go, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -60,8 +60,8 @@ function useProject(projectId: number | null) {
 const UNREAD_POLL_MS = 4000;
 const seenKey = (conversationId: number) => `palabre.seen.${conversationId}`;
 
-/** Unread messages per conversation (direction, rooms and DMs) since the CEO's last visit; the open conversation is always read. */
-function useUnread(project: ProjectState | null, activeConversation: number | null) {
+/** Unread messages in the direction conversation since the CEO's last visit; the open conversation is always read. */
+function useUnread(project: ProjectState | null, directionId: number | null, activeConversation: number | null) {
   const [unread, setUnread] = useState<Record<number, number>>({});
   // Per conversation: last message id fetched, last id the CEO saw, and ids of unseen messages from others
   const state = useRef<Record<number, { last: number; seen: number | null; fresh: number[] }>>({});
@@ -87,9 +87,9 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
     publish();
   }, [activeConversation]);
   usePolling(
-    project ? async () => {
-      // One call for the whole project; only conversations with something new are fetched
-      for (const item of await api.unreadSummary(project.detail.id)) {
+    project && directionId ? async () => {
+      // One call for the whole project; only the direction conversation is followed
+      for (const item of (await api.unreadSummary(project.detail.id)).filter((i) => i.conversation_id === directionId)) {
         try {
           const id = item.conversation_id;
           const stored = localStorage.getItem(seenKey(id));
@@ -126,7 +126,7 @@ function useUnread(project: ProjectState | null, activeConversation: number | nu
       publish();
     } : null,
     UNREAD_POLL_MS,
-    [projectId],
+    [projectId, directionId],
   );
   return unread;
 }
@@ -156,7 +156,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }).catch(() => {});
   }, [reloadProjects]);
 
-  // Requests of the lead still waiting for the CEO, in the direction channel (badge in the sidebar)
+  // Requests of the lead still waiting for the CEO, in the direction channel (badge in the mobile bar)
   const [pending, setPending] = useState(0);
   const direction = project?.detail.rooms.find((r) => r.kind === "direction");
   const directionConversation = direction && project?.conversations[direction.id]?.[0]?.id;
@@ -196,9 +196,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     setExhausted((await api.orchestratorStatus()).exhausted_accounts);
   }, CREDITS_POLL_MS, []);
 
-  const unread = useUnread(project, route.name === "project" ? route.conversationId : null);
+  const unread = useUnread(project, directionConversation || null, route.name === "project" ? route.conversationId : null);
+  const unreadCount = Object.values(unread).reduce((n, c) => n + c, 0);
 
-  // Opening a project lands in the direction channel, where the CEO talks to the lead
+  // Opening a project lands in the conversation with the lead
   const conversationId = route.name === "project" ? route.conversationId : null;
   useEffect(() => {
     if (route.name === "project" && project && conversationId === null) {
@@ -227,7 +228,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        statuses={statuses} bossName={bossName} />;
+        projects={projects} route={route} statuses={statuses} bossName={bossName} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">This conversation does not exist.</p>;
     } else {
@@ -244,8 +245,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
         {inProject ? (
           <header className="mobile-bar">
             <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
-            {pending > 0 && <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>}
-            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Open the team panel"
+            {pending > 0
+              ? <span className="badge-count urgent" aria-label={`${pending} en attente de réponse`}>{pending}</span>
+              : unreadCount > 0 && <span className="badge-count" aria-label={`${unreadCount} nouveaux messages`}>{unreadCount}</span>}
+            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Ouvrir le panneau Équipe"
               aria-expanded={navOpen}>
               <MenuIcon />
             </button>
@@ -255,14 +258,18 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
             <ProjectMenu route={route} projects={projects} project={null} bossName={bossName} />
           </header>
         )}
+        {inProject && route.name === "report" && (
+          <header className="topbar report-bar">
+            <ProjectMenu route={route} projects={projects} project={project} bossName={bossName} />
+          </header>
+        )}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
       {inProject && (
         <>
           <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-          <TeamPanel route={route} projects={projects} project={project} presence={presence} bossName={bossName}
-            pending={pending} unread={unread} open={navOpen} onClose={() => setNavOpen(false)} />
+          <TeamPanel project={project} presence={presence} open={navOpen} onClose={() => setNavOpen(false)} />
         </>
       )}
     </div>

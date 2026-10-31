@@ -25,7 +25,9 @@ class FakeApiSession:
     async def get(self, model, _id):
         return self.objects[model]
 
-    async def scalar(self, _query):
+    async def scalar(self, query):
+        if "projects.kind" in str(query):
+            return self.objects[Project].kind
         return None  # no @mention
 
     async def execute(self, _statement):
@@ -56,7 +58,7 @@ def posted(monkeypatch):
 async def test_boss_cannot_write_in_a_team_channel(posted):
     with pytest.raises(HTTPException) as exc:
         await conversations.post_message(1, MessageIn(content="hello"), FakeApiSession("team"))
-    assert exc.value.status_code == 403
+    assert exc.value.status_code == 404  # the boss does not even see it
     assert posted.messages == [] and posted.events == []
 
 
@@ -217,26 +219,6 @@ async def test_admin_api_cannot_edit_a_dm():
     rooms.check_not_dm(Room(id=9, project_id=1, name="backend", kind="team"))
 
 
-async def test_admin_endpoints_refuse_a_dm():
-    from app.api import rooms
-    from app.api.schemas import RoomPatch
-
-    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
-
-    class S:
-        async def scalar(self, _q):
-            return dm
-
-    for call in (
-        rooms.update_room(8, RoomPatch(name="x"), S()),
-        rooms.add_member(8, 1, S()),
-        rooms.remove_member(8, 1, S()),
-    ):
-        with pytest.raises(HTTPException) as exc:
-            await call
-        assert exc.value.status_code == 409
-
-
 async def test_escalate_from_a_dm_goes_through_a_team_channel(monkeypatch):
     me = make_employee("Malik", "dev_backend")
     lead = make_employee("Louise", "lead")
@@ -271,48 +253,34 @@ def test_dm_wake_prompt_is_not_a_mention():
     assert "mentioned" in reason_for("mention", {"message_id": 4})
 
 
-async def test_boss_reads_dms_is_the_one_switch(monkeypatch):
-    from app.api import conversations, rooms
+class _BossDb:
+    """A session answering the room lookups: the room, then its project's kind."""
 
-    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
+    def __init__(self, room, project_kind="company"):
+        self.room, self.project_kind = room, project_kind
 
-    class S:
-        async def scalar(self, _q):
-            return dm
+    async def scalar(self, q):
+        return self.project_kind if "projects.kind" in str(q) else self.room
 
-        async def get(self, _m, _id):
-            return dm
+    async def get(self, model, _id):
+        from app.models import Conversation
 
-    monkeypatch.setattr(services, "BOSS_READS_DMS", True)
-    assert await rooms.load_room(S(), 8) is dm
-    assert await conversations.get_visible_room(S(), 8) is dm
-    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
-    for call in (rooms.load_room(S(), 8), conversations.get_visible_room(S(), 8)):
-        with pytest.raises(HTTPException) as exc:
-            await call
-        assert exc.value.status_code == 404
+        return Conversation(id=3, room_id=self.room.id) if model is Conversation else self.room
+
+    async def scalars(self, _q):
+        raise AssertionError("must 404 before reading anything")
 
 
-async def test_every_room_route_hides_a_dm_when_boss_does_not_read_dms(monkeypatch):
+@pytest.mark.parametrize("kind", ["team", "dm"])
+async def test_boss_gets_404_on_every_room_route_but_direction(kind):
     from app.api import conversations, rooms, tasks
-    from app.api.schemas import MessageIn, QuestionIn, RoomPatch, TaskIn
-    from app.models import Conversation
+    from app.api.schemas import QuestionIn, RoomPatch, TaskIn
 
-    dm = Room(id=8, project_id=1, name="a·b", kind="dm", members=[])
-    conversation = Conversation(id=3, room_id=8)
-
-    class S:
-        async def scalar(self, _q):
-            return dm
-
-        async def get(self, model, _id):
-            return conversation if model is Conversation else dm
-
-        async def scalars(self, _q):
-            raise AssertionError("must 404 before reading anything")
-
-    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
+    room = Room(id=8, project_id=1, name="a·b", kind=kind, members=[])
+    S = lambda: _BossDb(room)  # noqa: E731
     calls = [
+        rooms.load_room(S(), 8),
+        conversations.get_visible_room(S(), 8),
         rooms.get_room(8, S()),
         rooms.update_room(8, RoomPatch(name="x"), S()),
         rooms.delete_room(8, S()),
@@ -330,6 +298,15 @@ async def test_every_room_route_hides_a_dm_when_boss_does_not_read_dms(monkeypat
         assert exc.value.status_code == 404
 
 
+async def test_boss_sees_direction_and_research_rooms():
+    from app.api import conversations
+
+    direction = Room(id=1, project_id=1, name="direction", kind="direction", members=[])
+    assert await conversations.get_visible_room(_BossDb(direction), 1) is direction
+    team = Room(id=2, project_id=1, name="room", kind="team", members=[])
+    assert await conversations.get_visible_room(_BossDb(team, "research"), 2) is team
+
+
 async def test_lead_cannot_post_in_a_dm_by_its_name():
     class S:
         query = None
@@ -343,7 +320,7 @@ async def test_lead_cannot_post_in_a_dm_by_its_name():
     assert "rooms.kind != 'dm'" in S.query
 
 
-def test_project_detail_hides_dms_unless_boss_reads_them(monkeypatch):
+def test_project_detail_only_lists_direction():
     from datetime import datetime
 
     from app.api import projects as projects_api
@@ -353,10 +330,22 @@ def test_project_detail_hides_dms_unless_boss_reads_them(monkeypatch):
     project = Project(id=1, name="p", kind="company", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
     project.employees = []
     project.rooms = [
-        Room(id=1, project_id=1, name="general", kind="channel", objective="", summary="", created_at=now, members=[]),
-        Room(id=2, project_id=1, name="a·b", kind="dm", objective="", summary="", created_at=now, members=[]),
+        Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, members=[])
+        for i, kind in enumerate(("direction", "team", "dm"), 1)
     ]
-    monkeypatch.setattr(services, "BOSS_READS_DMS", True)
-    assert [r.id for r in projects_api._detail(project).rooms] == [1, 2]
-    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
     assert [r.id for r in projects_api._detail(project).rooms] == [1]
+    project.kind = "research"
+    assert [r.id for r in projects_api._detail(project).rooms] == [1, 2, 3]
+
+
+async def test_boss_cannot_create_a_room_in_a_company():
+    from app.api import rooms as rooms_api
+    from app.api.schemas import RoomIn
+
+    class S(FakeApiSession):
+        async def get(self, model, _id):
+            return self.objects[Project]
+
+    with pytest.raises(HTTPException) as exc:
+        await rooms_api.create_room(3, RoomIn(name="side"), S("direction"))
+    assert exc.value.status_code == 403

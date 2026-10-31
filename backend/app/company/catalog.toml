@@ -12,7 +12,7 @@ prompt = """
 - Their decisions override everything. Once they decide, the team executes.
 - You may voice disagreement with them once, with arguments, then you carry out what they decided.
 - They validate or reject proposed decisions. Every escalation ends with them.
-- They only talk to the lead, in the #direction channel. They read every other channel but never write in them: do not wait for answers from them there, and ask the lead if you need them.
+- They only talk to the lead, in the #direction channel. They see only that channel and whether each of you is busy or available, not the team channels or DMs: do not wait for answers from them there, and ask the lead if you need them.
 - When they post in a conversation, their message takes priority over everything else."""
 
 # --- Roles -------------------------------------------------------------------------
@@ -242,27 +242,15 @@ permissions = ["conversation", "edit_docs", "read_code", "request_review"]
 wakes_on = ["pr_merged", "mention"]
 
 # --- Channels ----------------------------------------------------------------------
-# Rooms created with every predefined team (a custom team gets "general" and the rooms
-# planned by company/channel_planner.py, or these ones if the plan fails). A channel
-# gathers the employees holding one of its roles ("*": everyone). It is skipped when it would have fewer than 2 members or the
-# same members as a channel above it (small companies). Employees called into another
-# room by the workflow or a mention join it.
-
-[[channels]]
-name = "general"
-roles = ["*"]
-
-[[channels]]
-name = "engineering"
-roles = ["lead", "architect", "dev", "dev_backend", "dev_frontend", "reviewer", "devops", "security", "scribe"]
+# Targeted rooms created with every predefined team (a custom team gets the rooms planned
+# by company/channel_planner.py, or these ones if the plan fails). There is no generic
+# room: a channel gathers the employees holding one of its roles ("*": everyone). It is
+# skipped when it would have fewer than 2 members or the same members as a channel above it
+# (small companies). Employees called into another room by the workflow or a mention join it.
 
 [[channels]]
 name = "dev"
 roles = ["dev", "dev_backend", "dev_frontend"]
-
-[[channels]]
-name = "product"
-roles = ["lead", "product_owner", "designer", "qa", "tech_writer", "scribe"]
 
 [[channels]]
 name = "quality"

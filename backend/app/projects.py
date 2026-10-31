@@ -26,7 +26,8 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    Conversation, Decision, DecisionStatus, Employee, Event, Message, Project, RequestAnswer, Room, Task, TaskStatus,
+    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
@@ -36,6 +37,7 @@ from app.worktrees import sync_repo
 log = logging.getLogger(__name__)
 
 _background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
+RESEARCH_ROOM = "research"  # The one room of a research team (no generic channels elsewhere)
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
@@ -102,8 +104,11 @@ async def create_project(
         for member in team.employees
     ]
     s.add(project)
-    # A custom team only gets "general" now: the others come from plan_custom_channels
-    await _open_channels(s, project, bool(employees) and kind == "company")
+    if kind == "research":
+        # The research room holds everyone: the topic is posted there (see _kick_off_research)
+        await _open_rooms(s, project, [(RESEARCH_ROOM, list(project.employees))])
+    elif not employees:
+        await _open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
     await ensure_direction(s, project)
     await s.commit()
     if kind == "research" and topic:
@@ -112,9 +117,11 @@ async def create_project(
 
 
 async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
-    """The topic becomes the objective of the general room and the boss's first message,
+    """The topic becomes the objective of the research room and the boss's first message,
     which starts the research (phase 1)."""
-    room = project.rooms[0]
+    room = next((r for r in project.rooms if r.name == RESEARCH_ROOM), None)
+    if room is None:
+        raise WorkflowError(f"The {RESEARCH_ROOM} room of project {project.id} is missing")
     room.objective = topic
     conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
     message = await services.post_message(s, project.id, conversation_id, topic, None)
@@ -127,12 +134,10 @@ def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]
     return [e for e in employees if "*" in roles or roles & set(e.roles)]
 
 
-async def _open_channels(s: AsyncSession, project: Project, general_only: bool = False) -> None:
-    """Create the catalog's channels the company is big enough for (each with a first
+async def _open_channels(s: AsyncSession, project: Project) -> None:
+    """Create the catalog's targeted channels the company is big enough for (each with a first
     conversation). Channels that already exist are left alone."""
     channels = load_catalog()["channels"]
-    if general_only:
-        channels = [c for c in channels if "*" in c["roles"]]
     await _open_rooms(s, project, [(c["name"], _channel_members(c, project.employees)) for c in channels])
 
 
@@ -223,6 +228,65 @@ async def ensure_all_directions(s: AsyncSession) -> None:
     """Existing companies get their direction channel (their rooms stay team channels)."""
     for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
         await ensure_direction(s, await load_project(s, project_id))
+    await s.commit()
+
+
+# Names of the channels every company used to get. A channel (kind "team") with one of them is
+# generic unless the catalog targets that name. An AI plan or a user can name a channel the same
+# later, so the migration runs once (marker below) and never sees those.
+GENERIC_ROOMS_MARKER = "generic_rooms_dropped"
+_GENERIC_ROOMS = {"general", "equipe", "couts-claude", "engineering", "product"}
+
+
+def _is_generic_room(room: Room, targeted: set[str]) -> bool:
+    return room.kind == "team" and room.name in _GENERIC_ROOMS and room.name not in targeted
+
+
+async def drop_generic_rooms(s: AsyncSession) -> None:
+    """There are no generic channels anymore: delete the old ones with their messages, and give
+    the "general" room of a research project its new name. Their tasks, decisions and open
+    questions move to the project's direction room first (they would cascade with the room).
+    Direction, targeted channels and DMs are never touched. One-shot: a persistent marker stops
+    later runs, so a #product created afterwards survives restarts."""
+    if await s.get(AppSetting, GENERIC_ROOMS_MARKER) is not None:
+        return
+    targeted = {c["name"] for c in load_catalog()["channels"]}
+    for project_id in list(await s.scalars(select(Project.id))):
+        project = await load_project(s, project_id)
+        if project.kind == "research":
+            general = next((r for r in project.rooms if r.name == "general"), None)
+            if general is not None and not any(r.name == RESEARCH_ROOM for r in project.rooms):
+                general.name = RESEARCH_ROOM
+            continue
+        direction = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
+        direction_conversation = None
+        if direction is not None:
+            direction_conversation = await s.scalar(
+                select(Conversation.id).where(Conversation.room_id == direction.id).order_by(Conversation.id).limit(1)
+            )
+        for room in project.rooms:
+            if not _is_generic_room(room, targeted):
+                continue
+            if direction is not None and direction_conversation is not None:
+                await s.execute(update(Task).where(Task.room_id == room.id).values(
+                    room_id=direction.id, conversation_id=direction_conversation))
+                await s.execute(update(Decision).where(Decision.room_id == room.id).values(room_id=direction.id))
+                await s.execute(update(OpenQuestion).where(OpenQuestion.room_id == room.id).values(room_id=direction.id))
+            else:
+                # Nowhere to move them to: keep the room rather than lose them
+                held = [Task.room_id, Decision.room_id, OpenQuestion.room_id]
+                if any([await s.scalar(select(col).where(col == room.id).limit(1)) is not None for col in held]):
+                    log.warning("Keeping generic room %r of project %s: it holds work and there is no direction room",
+                                room.name, project_id)
+                    continue
+            conversations = select(Conversation.id).where(Conversation.room_id == room.id)
+            # Keep the runs: they are the only record of tokens and cost (the FK would cascade them)
+            await s.execute(update(AgentRun).where(AgentRun.conversation_id.in_(conversations)).values(conversation_id=None))
+            await s.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
+            # Wakeups of these conversations cascade too: harmless, the dispatcher is not running yet
+            await s.execute(delete(Conversation).where(Conversation.room_id == room.id))
+            await s.delete(room)
+    s.add(AppSetting(key=GENERIC_ROOMS_MARKER, value="1"))
     await s.commit()
 
 
@@ -334,13 +398,15 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         hired.append(Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)))
 
     channels = {c["name"]: c for c in load_catalog()["channels"]}
-    for i, room in enumerate(project.rooms):
+    for room in project.rooms:
         room.members = [m for m in room.members if m not in remaining]
         if room.kind == services.DIRECTION:
             continue
-        # Newcomers join the general room and the channels of their roles
+        # Newcomers join the research room (everyone) and the channels of their roles
         channel = channels.get(room.name)
-        room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
+        room.members.extend(
+            e for e in hired if room.name == RESEARCH_ROOM or (channel and _channel_members(channel, [e]))
+        )
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
     if project.kind == "research":
         appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur

@@ -3,7 +3,7 @@
 import re
 from typing import TypeVar
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -17,6 +17,7 @@ from app.models import (
     Message,
     Note,
     OpenQuestion,
+    Project,
     Room,
     Task,
     TaskStatus,
@@ -36,19 +37,25 @@ BOSS_ALIASES = {"boss", "ceo"}
 SYSTEM_AUTHOR = "Palabre"
 DIRECTION = "direction"
 DM = "dm"
-# The one switch for the boss reading employees' DMs (read-only; pending the boss's answer)
-BOSS_READS_DMS = True
 
 
 T = TypeVar("T", bound=tuple)
 
 
-def hide_dms(q: Select[T]) -> Select[T]:
-    """Leaves the DMs out of a query on rooms unless BOSS_READS_DMS (the one rule for every listing).
+def boss_rooms(q: Select[T]) -> Select[T]:
+    """Keeps in a query on rooms what the boss sees: the direction channel of a company, every room of a research group.
 
-    The query must have Room in its FROM.
+    The query must have Room in its FROM. Team channels and DMs are the team's own.
     """
-    return q if BOSS_READS_DMS else q.where(Room.kind != DM)
+    research = select(Project.id).where(Project.kind == "research")
+    return q.where(or_(Room.kind == DIRECTION, Room.project_id.in_(research)))
+
+
+async def boss_sees(s: AsyncSession, room: Room) -> bool:
+    """Whether the boss may read this room (same rule as boss_rooms)."""
+    if room.kind == DIRECTION:
+        return True
+    return await s.scalar(select(Project.kind).where(Project.id == room.project_id)) == "research"
 
 
 class WorkflowError(Exception):

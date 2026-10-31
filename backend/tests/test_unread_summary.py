@@ -4,7 +4,6 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app import services
 from app.api import conversations
 from app.models import Base, Conversation, Employee, Message, Project, Room
 
@@ -35,16 +34,11 @@ async def db():
     await engine.dispose()
 
 
-async def test_summary_lists_the_project_conversations(db):
+async def test_summary_only_lists_direction(db):
     out = {i.conversation_id: i for i in await conversations.unread_summary(1, db)}
-    assert set(out) == {1, 2, 4}
+    assert set(out) == {1, 4}
     assert (out[1].last_id, out[1].last_employee_message_id) == (2, 1)  # the boss's message is the latest, not unread
     assert (out[4].last_id, out[4].last_employee_message_id) == (0, 0)
-
-
-async def test_summary_hides_dms_when_boss_does_not_read_them(db, monkeypatch):
-    monkeypatch.setattr(services, "BOSS_READS_DMS", False)
-    assert {i.conversation_id for i in await conversations.unread_summary(1, db)} == {1, 4}
 
 
 async def test_summary_404_on_unknown_project(db):

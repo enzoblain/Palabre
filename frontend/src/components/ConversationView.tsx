@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type ProjectDetail, type RequestAnswer, type ResearchPhase, type Room, api } from "../api";
+import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type RequestAnswer, type ResearchPhase, type Room, api } from "../api";
+import type { Route } from "../router";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
-import { HashIcon, SendIcon } from "./Icons";
+import { SendIcon } from "./Icons";
 import { Markdown, bossNames, mentionsAny } from "./Markdown";
-import { dmLabel } from "./TeamPanel";
+import { ProjectMenu } from "./TeamPanel";
 
 const POLL_MS = 2000;
 const PHASE_POLL_MS = 4000;
@@ -228,20 +229,12 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-/** The first conversation of the direction channel, to link to it from read-only channels. */
-function useDirectionLink(direction: Room | undefined): number | null {
-  const [id, setId] = useState<number | null>(null);
-  useEffect(() => {
-    if (!direction) return;
-    api.listConversations(direction.id).then((c) => setId(c[0]?.id ?? null)).catch(() => {});
-  }, [direction?.id]);
-  return id;
-}
-
-export function ConversationView({ conversation, room, project, statuses, bossName }: {
+export function ConversationView({ conversation, room, project, projects, route, statuses, bossName }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
+  projects: Project[];
+  route: Route;
   statuses: EmployeeStatus[];
   bossName: string;
 }) {
@@ -255,11 +248,6 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
 
   const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
-  const isGeneral = project.rooms.find((r) => r.kind !== "direction")?.id === room.id || room.kind === "direction";
-  // The CEO writes in direction only; the server enforces it for companies, the UI explains it
-  const readOnly = project.kind === "company" && room.kind !== "direction";
-  const direction = project.rooms.find((r) => r.kind === "direction");
-  const directionConversation = useDirectionLink(direction);
   const research = project.kind === "research";
   const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
   usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
@@ -330,17 +318,12 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
   return (
     <div className="conversation">
       <header className="conv-head">
-        {room.kind !== "dm" && <HashIcon size={18} />}
-        <h1>{room.kind === "dm" ? dmLabel(room) : room.name}</h1>
-        {conversation.title && room.kind !== "dm" && <span className="muted">· {conversation.title}</span>}
-        {room.kind === "team" && (
-          <span className="conv-people muted truncate" title={room.members.map((m) => m.name).join(", ")}>
-            {room.members.map((m) => m.name).join(", ")}
-          </span>
-        )}
-        {readOnly
-          ? <span className="live-tag muted">● Live · read-only</span>
-          : <span className="conv-members muted">{room.members.length} members</span>}
+        {/* The boss's conversation carries the project's name; a click on it switches project */}
+        {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
+        <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }}
+          bossName={bossName} asTitle />
+        {conversation.title && room.kind !== "direction" && conversation.title.toLowerCase().replace(/^#/, "") !== "direction" && <span className="muted">· {conversation.title}</span>}
+        <span className="conv-members muted">{room.members.length} membres</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
       {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
@@ -350,16 +333,14 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {empty && (
           <div className="intro">
             <h2>
-              {isGeneral && project.kind === "research"
+              {research
                 ? "Give the group your topic"
-                : isGeneral ? `Tell your team about ${project.name}` : `This is the start of #${room.name}`}
+                : `Tell your team about ${project.name}`}
             </h2>
             <p className="muted">
-              {isGeneral && project.kind === "research"
+              {research
                 ? "Every member of the group reads your message, searches the web and starts the debate."
-                : isGeneral
-                ? `What are you building, for whom, and what matters most? ${lead ? `${lead.name} (${lead.title}) will read it and organize the work.` : ""}`
-                : `Members: ${room.members.map((m) => m.name).join(", ")}.`}
+                : `What are you building, for whom, and what matters most? ${lead ? `${lead.name} (${lead.title}) will read it and organize the work.` : ""}`}
             </p>
           </div>
         )}
@@ -375,21 +356,12 @@ export function ConversationView({ conversation, room, project, statuses, bossNa
         {busyHere.length > 0 && `${busyHere.map((s) => s.name).join(", ")} ${busyHere.length > 1 ? "are" : "is"} thinking…`}
       </div>
       {error && <p className="error composer-error">{error}</p>}
-      {readOnly ? (
-        <p className="readonly-note" role="note">
-          <strong>You are observing this discussion.</strong> To step in, talk to the lead in{" "}
-          {directionConversation
-            ? <a href={`#/p/${project.id}/c/${directionConversation}`}>{direction?.name}</a>
-            : direction?.name ?? "Direction"}.
-        </p>
-      ) : (
-        <Composer key={conversation.id} onSend={send}
-          placeholder={
-            research
-              ? "Ask the group a question, or @mention someone…"
-              : empty && isGeneral ? "Describe the project to your team…" : `Message #${room.name} as ${bossName || "the CEO"}`
-          } />
-      )}
+      <Composer key={conversation.id} onSend={send}
+        placeholder={
+          research
+            ? "Ask the group a question, or @mention someone…"
+            : empty ? "Describe the project to your team…" : `Message ${project.name} as ${bossName || "the CEO"}`
+        } />
     </div>
   );
 }

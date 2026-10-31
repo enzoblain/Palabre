@@ -24,10 +24,19 @@ printf '%s\n' "$2" | grep -Eq '^(agent[0-9]+|palabre)$' || { echo "not a pool ac
 [ -d "$1" ] && [ ! -L "$1" ] || { echo "not a directory: $1" >&2; exit 2; }
 group=$(id -gn "$2")
 if [ "$2" != palabre ]; then
-  # Refuse a tree holding something of another account (a leftover of a run that was not handed back)
-  # or a hard-linked non-directory (it could alias a file outside the clone): the chown would hand it over.
-  odd=$(/usr/bin/find -P "$1" \( ! -user palabre ! -user "$2" \) -print -quit -o ! -type d -links +1 -print -quit)
-  [ -z "$odd" ] || { echo "refusing to claim: unexpected owner or hard link in the tree" >&2; exit 3; }
+  # Refuse a tree holding something of another account (a leftover of a run that was not handed back).
+  odd=$(/usr/bin/find -P "$1" \( ! -user palabre ! -user "$2" \) -print -quit)
+  [ -z "$odd" ] || { echo "refusing to claim: unexpected owner in the tree" >&2; exit 3; }
+  # A hard-linked non-directory could alias a file outside the clone: the chown would hand it over.
+  # Links all inside the tree (npm install makes some, e.g. esbuild) are fine: every entry of such an inode
+  # is in the tree, so its count here equals st_nlink. Those get replaced by copies at the end, as the account; anything else
+  # (a link from outside, or a hard-linked symlink, device, fifo...) is refused. No path is printed, so no
+  # file name can bend the count.
+  nolink=$(/usr/bin/find -P "$1" ! -type d ! -type f -links +1 -print -quit)
+  [ -z "$nolink" ] || { echo "refusing to claim: hard-linked special file in the tree" >&2; exit 3; }
+  external=$(/usr/bin/find -P "$1" -type f -links +1 -printf '%D:%i %n\n' | /usr/bin/sort | /usr/bin/uniq -c \
+    | /usr/bin/awk '$1 != $3 { print "x"; exit }')
+  [ -z "$external" ] || { echo "refusing to claim: hard link to a file outside the tree" >&2; exit 3; }
 fi
 # -R walks with fts (openat): no symlink is followed, whatever the clone's previous owner swaps meanwhile.
 # The tree is only ever one of palabre or of an account whose processes are all dead.
@@ -39,4 +48,23 @@ else
   # Setgid directories: what the backend creates in the clone during the run (git fetch on submit)
   # stays in the account's group, so the run can still write it. Nothing of the account lives here yet.
   /usr/bin/find -P "$1" -type d -exec /usr/bin/chmod g+s {} +
+fi
+if [ "$2" != palabre ]; then
+  # Replace the hard links (all inside the tree, checked above) by copies. Done as the account, never as root: the
+  # tree is writable by its owner, who could swap a name for a symlink while a root copy runs. After the chown above
+  # every file is the account's own, so a race can only hurt that account's files. Copy next to the file then
+  # rename over it (atomic), keeping the permission bits only (no special bits). -execdir works from the file's
+  # own directory (fchdir), -P never reads through a symlink swapped in meanwhile.
+  /usr/bin/setpriv --reuid="$2" --regid="$group" --init-groups /usr/bin/find -P "$1" -type f -links +1 -execdir /bin/sh -c '
+    set -eu
+    for f; do
+      tmp=$(/usr/bin/mktemp ./.claim-copy.XXXXXX)
+      mode=$(/usr/bin/stat -c %a -- "$f")
+      /bin/cp -P -- "$f" "$tmp" && /bin/chmod -- "$(printf %o $((0$mode & 0777)))" "$tmp" \
+        || { /bin/rm -f -- "$tmp"; exit 1; }
+      /bin/mv -f -- "$tmp" "$f"
+    done' sh {} + || { echo "refusing to claim: could not copy a hard-linked file" >&2; exit 3; }
+  # Nothing may stay hard-linked (also catches a link made while we copied)
+  left=$(/usr/bin/find -P "$1" ! -type d -links +1 -print -quit)
+  [ -z "$left" ] || { echo "refusing to claim: hard link in the tree" >&2; exit 3; }
 fi

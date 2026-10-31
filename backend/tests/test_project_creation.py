@@ -101,6 +101,9 @@ async def test_research_project_is_untouched(repo, monkeypatch):
         def add(self, _obj):
             pass
 
+        async def flush(self):
+            pass
+
         async def commit(self):
             pass
 
