@@ -33,7 +33,7 @@ def test_tampered_expiry_is_refused():
     assert not verify_session_token(SECRET, f"9999999999.{signature}", now=1001)
 
 
-@pytest.mark.parametrize("junk", ["", "nodot", ".", "abc.def", "12.", "².x", ".sig", "-5.sig"])
+@pytest.mark.parametrize("junk", ["", "nodot", ".", "abc.def", "12.", "².x", ".sig", "-5.sig", "9" * 5000 + ".sig"])
 def test_malformed_tokens_are_refused(junk):
     assert not verify_session_token(SECRET, junk, now=1)
 
@@ -89,3 +89,7 @@ async def test_invalid_session_counts_as_a_failure(client, monkeypatch):
     for _ in range(2):
         assert (await client.get("/ping", headers=bearer("1.bogus"))).status_code == 401
     assert (await client.get("/ping", headers=bearer("1.bogus"))).status_code == 429
+
+
+async def test_oversized_expiry_is_refused_with_401(client):
+    assert (await client.get("/ping", headers=bearer("9" * 5000 + ".sig"))).status_code == 401

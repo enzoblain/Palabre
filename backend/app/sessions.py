@@ -7,6 +7,8 @@ import time
 
 # Domain separation: the signing key is never the raw ADMIN_TOKEN
 _KEY_LABEL = b"palabre-session-v1"
+# Unix seconds fit in far fewer digits; the cap keeps int() away from huge inputs
+_MAX_EXPIRY_DIGITS = 12
 
 
 def _signing_key(admin_token: str) -> bytes:
@@ -27,7 +29,7 @@ def issue_session_token(admin_token: str, ttl_seconds: int, now: float | None = 
 def verify_session_token(admin_token: str, token: str, now: float | None = None) -> bool:
     """True if the token is well formed, signed with the current ADMIN_TOKEN and not expired."""
     expiry, _, signature = token.partition(".")
-    if not (expiry.isascii() and expiry.isdecimal()) or not signature:
+    if not (expiry.isascii() and expiry.isdecimal()) or len(expiry) > _MAX_EXPIRY_DIGITS or not signature:
         return False
     if not hmac.compare_digest(signature.encode(), _sign(admin_token, int(expiry)).encode()):
         return False
