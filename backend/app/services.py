@@ -364,6 +364,22 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
     return [found[i] for i in ids]
 
 
+async def _refuse_relayed_escalations(s: AsyncSession, project_id: int, messages: list[Message]) -> None:
+    """A member's escalation to the boss is relayed under the lead's name (`ask_boss`): the lead may not
+    close it, `escalate(to="boss")` being the only path that goes around them."""
+    escalations = [m for m in messages if m.request_kind == "escalation"]
+    if not escalations:
+        return
+    members = await s.scalars(select(Employee.name).where(Employee.project_id == project_id))
+    prefixes = tuple(f"{name}: " for name in members if name != escalations[0].author_name)
+    for message in escalations:
+        if message.content.startswith(prefixes):
+            raise WorkflowError(
+                f"Request #{message.id} is an escalation relayed from a team member: "
+                "only the boss can answer it, you cannot withdraw or merge it"
+            )
+
+
 def _close_request(message: Message, status: RequestStatus, comment: str, merged_into: int | None = None) -> None:
     message.request_status = status.value
     message.request_comment = comment or None
@@ -380,6 +396,7 @@ async def withdraw_request(
     if not reason:
         raise WorkflowError("A withdrawn request needs a reason")
     (message,) = await _own_pending_requests(s, project_id, author, [request_id])
+    await _refuse_relayed_escalations(s, project_id, [message])
     _close_request(message, RequestStatus.withdrawn, reason)
     if commit:
         await s.commit()
@@ -398,6 +415,7 @@ async def merge_requests(
     if len(ids) > MAX_MERGED_REQUESTS:
         raise WorkflowError(f"Merge at most {MAX_MERGED_REQUESTS} requests at a time")
     olds = await _own_pending_requests(s, project_id, author, ids)
+    await _refuse_relayed_escalations(s, project_id, olds)
     for old in olds:
         if old.request_decision_id is not None or old.request_kind == "release":
             raise WorkflowError(
