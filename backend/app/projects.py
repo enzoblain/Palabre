@@ -30,7 +30,7 @@ from app.models import (
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
-from app.api.errors import ErrorCode
+from app.errors import ErrorCode
 from app.services import WorkflowError
 from app import worktrees
 from app.worktrees import sync_repo
@@ -430,7 +430,10 @@ async def change_branch(s: AsyncSession, project: Project, branch: str, by: Empl
         raise WorkflowError(f"The team already works on {branch}", code=ErrorCode.BRANCH_ALREADY_USED)
     repo = github.repo_slug(project.repo_url)
     if by is not None and branch == await github.resolve_branch(repo, ""):
-        raise WorkflowError(f"{branch} is the production branch: only the boss can send the team's merges there")
+        raise WorkflowError(
+            f"{branch} is the production branch: only the boss can send the team's merges there",
+            code=ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY,
+        )
     if not await github.branch_exists(repo, branch):
         await github.create_branch(repo, branch, project.default_branch)
     open_prs = await s.scalars(

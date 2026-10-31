@@ -173,3 +173,19 @@ def test_github_error_never_leaks_credentials(monkeypatch):
     assert "ghp_secret123" not in str(err) and basic not in str(err)
     assert "https://***@github.com/o/r" in str(err)
     assert GitHubError("x").code == ErrorCode.GITHUB_ERROR
+
+
+async def test_real_app_production_branch_code(real_client, monkeypatch):
+    from app.api import projects as api_projects
+
+    async def project(_s, _id):
+        return SimpleNamespace(id=1, kind="company", default_branch="dev")
+
+    async def change_branch(*_a, **_k):
+        raise WorkflowError("main is the production branch", code=ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY)
+
+    monkeypatch.setattr(api_projects, "_project", project)
+    monkeypatch.setattr(api_projects.projects, "change_branch", change_branch)
+    r = await real_client.put("/api/projects/1/branch", json={"branch": "main"})
+    assert r.status_code == 409
+    assert r.json() == {"detail": "main is the production branch", "code": "production_branch_boss_only"}

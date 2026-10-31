@@ -8,7 +8,7 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
-from app.api.errors import ErrorCode
+from app.errors import ErrorCode
 from app.models import (
     AppSetting,
     Conversation,

@@ -209,3 +209,13 @@ def test_branch_change_rejects_trailing_newline():
     assert BranchChange(branch="main").branch == "main"
     with pytest.raises(ValidationError):
         BranchChange(branch="main\n")
+
+
+async def test_lead_cannot_move_the_team_to_production(repo):
+    from app.errors import ErrorCode
+    from app.services import WorkflowError
+
+    project = SimpleNamespace(repo_url=URL, default_branch="dev")
+    with pytest.raises(WorkflowError) as e:
+        await projects.change_branch(None, project, "main", by=SimpleNamespace())
+    assert e.value.code == ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY

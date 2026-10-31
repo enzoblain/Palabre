@@ -10,8 +10,8 @@ from urllib.parse import quote
 
 import httpx
 
-from app.api.errors import ErrorCode
 from app.config import settings
+from app.errors import ErrorCode
 
 API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
