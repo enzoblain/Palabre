@@ -63,7 +63,8 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     gits = []
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
-        pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
+        pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=["Un critère en français"],
+        description="Une description en français", review_round=0,
         sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
     opened = {}
@@ -113,6 +114,8 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     assert ("push", "fix/7-handle-x") in gits
     assert opened["head"] == "fix/7-handle-x"
     assert opened["title"] == "fix(api): handle x"
+    assert "français" not in opened["body"]
+    assert opened["body"].startswith("sum")
     assert task.pr_title == "fix(api): handle x (#3)"
     assert "Palabre task #7" in opened["body"]
     assert titles == [(3, "fix(api): handle x (#3)")]
@@ -398,3 +401,4 @@ async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
     # Unknown reviewed commit: fail closed
     task.reviewed_head = "0" * 40
     assert not await check()
+
