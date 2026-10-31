@@ -1,3 +1,6 @@
+import gzip
+import json
+
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -33,13 +36,16 @@ def run_token():
     run_tokens.revoke(token)
 
 
-async def _post(path: str, body: dict | None, token: str, headers: dict[str, str] | None = None) -> httpx.Response:
+async def _send(path: str, token: str, **request_kwargs) -> httpx.Response:
     app = FastAPI()
     app.include_router(anthropic_proxy.router)
+    headers = {"Authorization": f"Bearer {token}"} | request_kwargs.pop("headers", {})
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        return await client.post(
-            f"/anthropic/{path}", json=body, headers={"Authorization": f"Bearer {token}"} | (headers or {})
-        )
+        return await client.post(f"/anthropic/{path}", headers=headers, **request_kwargs)
+
+
+async def _post(path: str, body: dict | None, token: str, headers: dict[str, str] | None = None) -> httpx.Response:
+    return await _send(path, token, json=body, headers=headers or {})
 
 
 async def test_account_token_replaces_the_run_token(upstream, run_token):
@@ -81,12 +87,31 @@ async def test_other_paths_are_refused(upstream, run_token):
 
 
 async def test_non_json_body_is_refused(upstream, run_token):
-    app = FastAPI()
-    app.include_router(anthropic_proxy.router)
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/anthropic/v1/messages", content=b"nope", headers={"Authorization": f"Bearer {run_token}"})
-    assert response.status_code == 400
+    assert (await _send("v1/messages", run_token, content=b"nope")).status_code == 400
     assert upstream == []
+
+
+async def test_encoded_request_body_is_refused(upstream, run_token):
+    response = await _send("v1/messages", run_token, content=b"{}", headers={"content-encoding": "gzip"})
+    assert response.status_code == 415
+    assert upstream == []
+
+
+async def test_oversized_body_is_refused(upstream, run_token, monkeypatch):
+    monkeypatch.setattr(settings, "anthropic_max_body_bytes", 4)
+    assert (await _send("v1/messages", run_token, content=b'{"a": 1}')).status_code == 413
+    assert upstream == []
+
+
+async def test_compressed_upstream_answer_reaches_the_client_decoded(monkeypatch, run_token):
+    payload = {"id": "msg_1"}
+    compressed = gzip.compress(json.dumps(payload).encode())
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, headers={"content-encoding": "gzip"}, content=compressed)
+    )
+    monkeypatch.setattr(anthropic_proxy, "_client", httpx.AsyncClient(base_url=settings.anthropic_api_url, transport=transport))
+    response = await _post("v1/messages", {}, run_token)
+    assert response.json() == payload
 
 
 def test_credential_lives_with_the_run():

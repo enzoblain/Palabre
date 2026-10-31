@@ -71,6 +71,7 @@ async def lifespan(_: FastAPI):
             await orchestrator.stop()
             if proxy:
                 proxy.close()
+    await anthropic_proxy.close_client()
     await engine.dispose()
 
 

@@ -33,6 +33,13 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
+async def close_client() -> None:
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
+
+
 def is_path_allowed(path: str) -> bool:
     return ".." not in path.split("/") and any(path.startswith(prefix) for prefix in settings.anthropic_allowed_paths)
 
@@ -79,7 +86,7 @@ async def _forward(request: Request, path: str, body: bytes, credential: str) ->
         return _refuse(502, "Cannot reach the Anthropic API")
     headers = {k: v for k, v in upstream.headers.items() if k.lower() not in _DROPPED_RESPONSE_HEADERS}
     return StreamingResponse(
-        upstream.aiter_raw(), status_code=upstream.status_code, headers=headers, background=BackgroundTask(upstream.aclose)
+        upstream.aiter_bytes(), status_code=upstream.status_code, headers=headers, background=BackgroundTask(upstream.aclose)
     )
 
 
