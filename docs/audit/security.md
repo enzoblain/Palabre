@@ -5,7 +5,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 ## Fixed since the first audit
 
 - H1. Shared `agent` uid: one uid per run from a pool, per-run tokens and `/proc` isolation. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
-- H2. Shared `/data/claude`: one Claude config directory per run. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
+- H2. Shared `/data/claude`: one Claude config directory per run. Verified by `test_run_config_dir_is_throwaway_and_sessions_stay_private` in `backend/tests/test_agent_isolation.py`, see #162 and #172.
 - M5. `ADMIN_TOKEN` static and never expiring: fixed, the apps log in with it (`POST /api/auth/session`) and keep only a stateless HMAC session token (12 h by default, `SESSION_TTL_SECONDS`) in `sessionStorage`; changing the `ADMIN_TOKEN` revokes every session. The raw token still works for scripts. HttpOnly cookie left out for now.
 - M2. `ADMIN_TOKEN` length and rate limit: fixed, 32 characters minimum (same for `POSTGRES_PASSWORD`), `429` after 10 failures in 5 minutes.
 - M3. Unpinned supply chain: fixed, Claude Code pinned with checksums and images pinned.
