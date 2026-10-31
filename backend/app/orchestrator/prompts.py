@@ -118,6 +118,11 @@ Decisions, questions and escalations the boss will read are written in {language
 LEAD_BOSS_RULE = """## Messages to the boss
 In the direction channel, the boss is not a developer. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them."""
 
+PROJECT_INSTRUCTIONS_RULE = """## Project instructions (CLAUDE.md)
+The repository's CLAUDE.md, read from the reference clone. Follow it as the project's conventions and code map.
+
+{content}"""
+
 LEAD_ROLES = {"lead"}
 
 
@@ -192,6 +197,11 @@ ORIENTATION_RULE = """## Getting oriented
 The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
 
 BRANCH_RULE = "The team works on the branch `{branch}`."
+
+
+def project_instructions_rule(content: str | None) -> str | None:
+    """The project's CLAUDE.md as a prompt section; nothing if the repository has none."""
+    return PROJECT_INSTRUCTIONS_RULE.format(content=content) if content else None
 
 
 def orientation_rule(branch: str, first_run: bool = True) -> str:

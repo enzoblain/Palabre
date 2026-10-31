@@ -25,6 +25,7 @@ from app.orchestrator.prompts import (
     CHAT_RULES,
     RESEARCH_RULES,
     code_standards_rule,
+    project_instructions_rule,
     language_rule,
     lead_boss_rule,
     operating_rules,
@@ -42,11 +43,28 @@ from app.worktrees import desk_dir, prepare_desk, prepare_worktree, repo_dir, sy
 log = logging.getLogger(__name__)
 
 REPO_SYNC_INTERVAL_S = 60
+PROJECT_INSTRUCTIONS_FILE = "CLAUDE.md"
+MAX_PROJECT_INSTRUCTIONS_BYTES = 64 * 1024
 # Wakeups that only come from the team talking to itself: the ones the throttle applies to
 CHATTER_EVENTS = {"mention", "conversation_idle", "daily"}
 
 
-def build_system_prompt(team: Team, member: TeamMember, project: Project, boss_name: str, first_run: bool) -> str:
+def read_project_instructions(project: Project) -> str | None:
+    """CLAUDE.md of the reference clone (never an agent's writable clone), since the runs ignore
+    the project settings. A symlink or an oversized file is skipped: the backend reads it, not the agent."""
+    path = repo_dir(project) / PROJECT_INSTRUCTIONS_FILE
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_PROJECT_INSTRUCTIONS_BYTES:
+            return None
+        return path.read_text(encoding="utf-8").strip() or None
+    except (OSError, UnicodeDecodeError):
+        log.warning("Cannot read %s of project %s", PROJECT_INSTRUCTIONS_FILE, project.id)
+        return None
+
+
+def build_system_prompt(
+    team: Team, member: TeamMember, project: Project, boss_name: str, first_run: bool, project_instructions: str | None = None
+) -> str:
     """Assemble the system prompt of an agent run from its role and project."""
     language = services.team_language()
     return "\n\n".join(p for p in [
@@ -58,6 +76,7 @@ def build_system_prompt(team: Team, member: TeamMember, project: Project, boss_n
         lead_boss_rule(member.roles, language),
         version_rule(member.roles),
         code_standards_rule(member.roles),
+        project_instructions_rule(project_instructions),
     ] if p)  # fmt: skip
 
 
@@ -320,8 +339,9 @@ class Orchestrator:
         )
         team = team_of(project)
         member = next(m for m in team.employees if m.name == employee.name)
+        instructions = await asyncio.to_thread(read_project_instructions, project) if project.kind == "company" else None
         system_prompt = build_system_prompt(
-            team, member, project, services.boss_display_name(), await self._is_first_run(s, employee, run_id)
+            team, member, project, services.boss_display_name(), await self._is_first_run(s, employee, run_id), instructions
         )
         oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
