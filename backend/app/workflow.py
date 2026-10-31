@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
-from app.config import settings
 from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, load_catalog
+from app.config import settings
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.errors import ErrorCode, WorkflowError
 from app.sensitive_paths import touches_sensitive_paths

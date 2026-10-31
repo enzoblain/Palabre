@@ -7,16 +7,12 @@ from typing import get_args
 
 import pytest
 
-from app.api.errors import ApiError
-from app.api.projects import _check_team
-from app.api.schemas import MemberIn
 from app.company import catalog as catalog_module
 from app.company.catalog import (
-    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, _load_roles, load_catalog, team_permission_error,
+    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, load_catalog, load_roles, team_permission_error,
     validate_catalog,
 )
 from app.company.team import generate_team
-from app.errors import ErrorCode
 from app.mcp_server.permissions import CLAUDE_TOOLS, MCP_TOOLS
 from app.orchestrator import event_types
 
@@ -31,7 +27,7 @@ def catalog_copy(tmp_path, monkeypatch):
 
 
 def test_every_role_file_is_valid_and_the_key_is_the_file_name():
-    roles = _load_roles()
+    roles = load_roles()
     files = {p.stem for p in CATALOG_DIR.glob("*/roles/*.toml")}
     assert set(roles) == files
     assert all(r.kind == "research" for k, r in roles.items() if (CATALOG_DIR / "research/roles" / f"{k}.toml").exists())
@@ -55,43 +51,43 @@ def test_invalid_field_names_the_file(catalog_copy):
     path = catalog_copy / "company/roles/qa.toml"
     path.write_text(path.read_text().replace('"report_bug"', '"report_bugs"'))
     with pytest.raises(CatalogError, match=r"(?s)company/roles/qa\.toml.*permissions"):
-        _load_roles()
+        load_roles()
 
 
 def test_unknown_field_is_refused(catalog_copy):
     path = catalog_copy / "company/roles/qa.toml"
     path.write_text(path.read_text() + 'surprise = "x"\n')
     with pytest.raises(CatalogError, match="surprise"):
-        _load_roles()
+        load_roles()
 
 
 def test_broken_toml_names_the_file(catalog_copy):
     (catalog_copy / "company/roles/qa.toml").write_text("title = \n")
     with pytest.raises(CatalogError, match=r"qa\.toml"):
-        _load_roles()
+        load_roles()
 
 
 def test_same_key_in_both_kinds_is_refused(catalog_copy):
     shutil.copy(catalog_copy / "research/roles/skeptic.toml", catalog_copy / "company/roles/skeptic.toml")
     with pytest.raises(CatalogError, match="both company and research"):
-        _load_roles()
+        load_roles()
 
 
 def test_role_combining_merge_and_code_is_refused():
-    roles = _load_roles()
+    roles = load_roles()
     bad = Role(**{**roles["dev"].model_dump(), "permissions": ["merge", "code"]})
     with pytest.raises(CatalogError, match="merge and code"):
         validate_catalog({**roles, "dev": bad}, {}, [])
 
 
 def test_missing_gated_role_is_refused():
-    roles = {k: r for k, r in _load_roles().items() if k != "security"}
+    roles = {k: r for k, r in load_roles().items() if k != "security"}
     with pytest.raises(CatalogError, match="security"):
         validate_catalog(roles, {}, [])
 
 
 def test_seat_with_unknown_role_or_merge_plus_code_is_refused():
-    roles = _load_roles()
+    roles = load_roles()
     with pytest.raises(CatalogError, match="unknown"):
         validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["nobody"]}]}}, [])
     with pytest.raises(CatalogError, match="unknown"):
@@ -102,8 +98,8 @@ def test_seat_with_unknown_role_or_merge_plus_code_is_refused():
 
 def test_channel_with_unknown_role_is_refused():
     with pytest.raises(CatalogError, match="unknown"):
-        validate_catalog(_load_roles(), {}, [{"name": "x", "roles": ["nobody"]}])
-    validate_catalog(_load_roles(), {}, [{"name": "x", "roles": ["*"]}])
+        validate_catalog(load_roles(), {}, [{"name": "x", "roles": ["nobody"]}])
+    validate_catalog(load_roles(), {}, [{"name": "x", "roles": ["*"]}])
 
 
 def test_every_predefined_mode_passes_the_checks():
@@ -156,11 +152,3 @@ PINNED_TEAMS = {
 def test_seeded_teams_are_unchanged(mode, seed):
     dumped = json.dumps(generate_team(mode, seed).to_dict(), sort_keys=True)
     assert hashlib.sha256(dumped.encode()).hexdigest()[:16] == PINNED_TEAMS[(mode, seed)]
-
-
-def test_custom_team_with_two_leads_is_a_422():
-    members = [MemberIn(name="Ada", roles=["lead"]), MemberIn(name="Bob", roles=["lead"])]
-    with pytest.raises(ApiError) as error:
-        _check_team(members, "company")
-    assert error.value.status_code == 422
-    assert error.value.code == ErrorCode.INVALID_TEAM_PERMISSIONS

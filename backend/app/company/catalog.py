@@ -79,7 +79,7 @@ def _load_role(path: Path, kind: str) -> Role:
         raise CatalogError(f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {exc}") from exc
 
 
-def _load_roles() -> dict[str, Role]:
+def load_roles() -> dict[str, Role]:
     """Every role, company then research, each kind ordered by its `order` field."""
     roles: dict[str, Role] = {}
     for kind in KINDS:
@@ -141,7 +141,7 @@ def _shared_catalog() -> dict:
 def load_catalog() -> dict:
     """The whole catalog as a dict, validated: `roles` holds the role files (as dicts), `modes`
     both kinds of modes. Raises CatalogError at the first invalid file or cross-check."""
-    roles = _load_roles()
+    roles = load_roles()
     catalog = _shared_catalog()
     validate_catalog(roles, catalog["modes"], catalog["channels"])
     catalog["roles"] = {k: r.model_dump(exclude_none=True) for k, r in roles.items()}
