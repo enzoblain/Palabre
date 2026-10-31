@@ -241,6 +241,12 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const inProject = projectId !== null && route.name !== "settings" && route.name !== "new";
   return (
     <div className={`shell${inProject ? "" : " no-panel"}${navOpen ? " nav-open" : ""}`}>
+      {inProject && (
+        <>
+          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+          <TeamPanel project={project} presence={presence} open={navOpen} onClose={() => setNavOpen(false)} />
+        </>
+      )}
       <main className="main">
         {inProject ? (
           <header className="mobile-bar">
@@ -255,23 +261,17 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
           </header>
         ) : (
           <header className="topbar">
-            <ProjectMenu route={route} projects={projects} project={null} bossName={bossName} />
+            <ProjectMenu route={route} projects={projects} project={null} />
           </header>
         )}
         {inProject && route.name === "report" && (
           <header className="topbar report-bar">
-            <ProjectMenu route={route} projects={projects} project={project} bossName={bossName} />
+            <ProjectMenu route={route} projects={projects} project={project} />
           </header>
         )}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
-      {inProject && (
-        <>
-          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-          <TeamPanel project={project} presence={presence} open={navOpen} onClose={() => setNavOpen(false)} />
-        </>
-      )}
     </div>
   );
 }
