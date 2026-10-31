@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { locale } from "./i18n";
 
 /** Calls `fn` now, then `ms` after each completion, until the deps change. */
 export function usePolling(fn: (() => Promise<unknown>) | null, ms: number, deps: unknown[]): void {
@@ -33,7 +34,7 @@ export function parseDate(value: string): Date {
 export function formatTime(value: string): string {
   const date = parseDate(value);
   const today = new Date().toDateString() === date.toDateString();
-  return date.toLocaleString(undefined, today ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString(locale(), today ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 const AVATAR_HUES = [12, 32, 145, 175, 200, 230, 262, 290, 320, 350];

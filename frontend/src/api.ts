@@ -1,4 +1,5 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { translate } from "./i18n";
 
 // In the desktop app, requests go through Rust (no CORS / mixed-content limits).
 // In a plain browser (`npm run dev`), the regular fetch is used.
@@ -257,7 +258,7 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
-    throw new ApiError(0, `Cannot reach the server at ${conn.server} (${err instanceof Error ? err.message : String(err)})`);
+    throw new ApiError(0, translate("api.unreachable", { server: conn.server, reason: err instanceof Error ? err.message : String(err) }));
   }
   if (!res.ok) {
     let detail = res.statusText || `HTTP ${res.status}`;
@@ -274,7 +275,7 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
 }
 
 function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-  if (!current) return Promise.reject(new ApiError(401, "Not connected"));
+  if (!current) return Promise.reject(new ApiError(401, translate("api.notConnected")));
   return request<T>(current, path, method, body).catch((err) => {
     if (err instanceof ApiError && err.status === 401) onUnauthorized();
     throw err;
@@ -286,8 +287,8 @@ export async function testConnection(conn: Connection): Promise<void> {
   try {
     await request(conn, "/settings");
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) throw new ApiError(401, "Wrong access token");
-    if (err instanceof ApiError && err.status === 404) throw new ApiError(404, "This is not a Palabre server");
+    if (err instanceof ApiError && err.status === 401) throw new ApiError(401, translate("api.wrongToken"));
+    if (err instanceof ApiError && err.status === 404) throw new ApiError(404, translate("api.notPalabre"));
     throw err;
   }
 }

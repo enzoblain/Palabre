@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, Presence, Project, ProjectDetail } from "../api";
+import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { Avatar } from "./Avatar";
 import { DocumentIcon, GearIcon, PlusIcon } from "./Icons";
@@ -15,6 +16,7 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
   // The button is the page title (the conversation header), so it sits in the heading
   asTitle?: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -58,7 +60,7 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
 
   const button = (
     <button ref={buttonRef} className="project-menu-btn" aria-haspopup="menu" aria-expanded={open}
-      aria-label={`${name}: changer de projet`} onClick={() => setOpen(!open)}>
+      aria-label={t("menu.changeProject", { name })} onClick={() => setOpen(!open)}>
       <span className="project-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
       <span className="truncate">{name}</span>
       <span className="caret" aria-hidden="true">▾</span>
@@ -69,13 +71,13 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
     <div className={`project-menu${asTitle ? " as-title" : ""}`} ref={rootRef} onKeyDown={onKeyDown}>
       {asTitle ? <h1>{button}</h1> : button}
       {open && (
-        <div className="menu" role="menu" aria-label="Projets">
+        <div className="menu" role="menu" aria-label={t("menu.projects")}>
           {project && (
             <a role="menuitem" className="menu-item" href={`#/p/${project.detail.id}/report`} onClick={close}>
-              <DocumentIcon size={15} /> {project.detail.kind === "research" ? "Report" : "Document"}
+              <DocumentIcon size={15} /> {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
             </a>
           )}
-          <div className="section-label" role="presentation">Projects</div>
+          <div className="section-label" role="presentation">{t("menu.projects")}</div>
           {projects.map((p) => (
             <a key={p.id} role="menuitem" className="menu-item" href={`#/p/${p.id}`} onClick={close}
               aria-current={p.id === projectId ? "true" : undefined}>
@@ -83,14 +85,12 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
               <span className="truncate">{p.name}</span>
             </a>
           ))}
-          <a role="menuitem" className="menu-item" href="#/new" onClick={close}><PlusIcon size={15} /> New project</a>
+          <a role="menuitem" className="menu-item" href="#/new" onClick={close}><PlusIcon size={15} /> {t("menu.newProject")}</a>
         </div>
       )}
     </div>
   );
 }
-
-const stateText = (p: Presence | undefined) => (p?.state === "working" ? "Occupé" : "Disponible");
 
 /** The left-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
 export function TeamPanel({ project, presence, open, onClose, noProject }: {
@@ -101,6 +101,8 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+  const stateText = (p: Presence | undefined) => (p?.state === "working" ? t("team.busy") : t("team.available"));
   const [announce, setAnnounce] = useState("");
   const previous = useRef<Map<number, string> | null>(null);
 
@@ -111,7 +113,7 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
     previous.current = now;
     if (!before || before.size === 0) return;
     const changes = presence.filter((p) => before.has(p.employee_id) && before.get(p.employee_id) !== p.state);
-    if (changes.length) setAnnounce(changes.map((p) => `${p.name} est maintenant ${stateText(p).toLowerCase()}`).join(". "));
+    if (changes.length) setAnnounce(changes.map((p) => t(p.state === "working" ? "team.nowBusy" : "team.nowAvailable", { name: p.name })).join(". "));
   }, [presence]);
   useEffect(() => {
     previous.current = null;
@@ -126,18 +128,18 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
   });
 
   return (
-    <aside className={`team-panel${open ? " open" : ""}`} aria-label="Équipe" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <aside className={`team-panel${open ? " open" : ""}`} aria-label={t("team.title")} onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="panel-head">
-        {!noProject && <h2 className="panel-title" id="people-label">Équipe</h2>}
-        <button className="icon-btn panel-close" onClick={onClose} aria-label="Fermer le panneau Équipe">×</button>
+        {!noProject && <h2 className="panel-title" id="people-label">{t("team.title")}</h2>}
+        <button className="icon-btn panel-close" onClick={onClose} aria-label={t("team.close")}>×</button>
       </header>
-      {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">Chargement…</p> : (
+      {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">{t("common.loading")}</p> : (
         <div className="panel-body">
           <ul className="panel-list" aria-labelledby="people-label">
             {people.map((e) => {
               const p = byId.get(e.id);
               const state = stateText(p);
-              const task = p?.state === "working" && p.kind === "task" && p.task_id ? `Tâche #${p.task_id}` : null;
+              const task = p?.state === "working" && p.kind === "task" && p.task_id ? t("team.task", { id: p.task_id }) : null;
               return (
                 <li key={e.id} className="person member">
                   <span className="member-avatar">
@@ -160,7 +162,7 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
       )}
       <footer className="panel-foot">
         <a className="nav-item" href="#/settings" onClick={onClose}>
-          <GearIcon size={15} /> Paramètres
+          <GearIcon size={15} /> {t("team.settings")}
         </a>
       </footer>
     </aside>

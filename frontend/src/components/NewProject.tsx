@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { useI18n } from "../i18n";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
@@ -32,6 +33,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   claudeAccounts: number;
   onCreated: (project: ProjectDetail) => void;
 }) {
+  const { t } = useI18n();
   const [kind, setKind] = useState<ProjectKind>("company");
   const [modes, setModes] = useState<Record<string, Mode> | null>(null);
   const [personality, setPersonality] = useState<Personality | null>(null);
@@ -112,62 +114,58 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
   return (
     <form className="page new-project" onSubmit={submit}>
-      <h1>New project</h1>
+      <h1>{t("new.title")}</h1>
 
       <div className="kinds">
         <button type="button" className={`kind${!research ? " selected" : ""}`} onClick={() => setKind("company")}>
-          <strong>Software company</strong>
-          <span className="muted">A team with roles and a hierarchy builds your app on GitHub.</span>
+          <strong>{t("new.company")}</strong>
+          <span className="muted">{t("new.companyIntro")}</span>
         </button>
         <button type="button" className={`kind${research ? " selected" : ""}`} onClick={() => setKind("research")}>
-          <strong>Research group</strong>
-          <span className="muted">Peers search the web, debate and write a sourced report on your topic.</span>
+          <strong>{t("new.research")}</strong>
+          <span className="muted">{t("new.researchIntro")}</span>
         </button>
       </div>
 
       <section className="panel">
-        <h2>{research ? "Research" : "Project"}</h2>
+        <h2>{research ? t("new.sectionResearch") : t("new.sectionProject")}</h2>
         <label>
-          Name
+          {t("new.name")}
           <input autoFocus required maxLength={200} value={name} onChange={(e) => setName(e.target.value)}
-            placeholder={research ? "Nuclear and climate" : "My product"} />
+            placeholder={research ? t("new.namePlaceholderResearch") : t("new.namePlaceholderProject")} />
         </label>
         {research ? (
           <label>
-            Topic
+            {t("new.topic")}
             <textarea required rows={4} maxLength={10000} value={topic} onChange={(e) => setTopic(e.target.value)}
-              placeholder="What should they investigate? The question, what you want to know, what to focus on…" />
+              placeholder={t("new.topicPlaceholder")} />
           </label>
         ) : (
           <>
             <label>
-              GitHub repository
+              {t("new.repo")}
               <input required value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} spellCheck={false}
                 placeholder="https://github.com/you/your-repo" autoCapitalize="off" />
             </label>
-            {repoUrl && !repoValid && <p className="error">Expected a GitHub URL, like https://github.com/owner/repo</p>}
+            {repoUrl && !repoValid && <p className="error">{t("new.repoInvalid")}</p>}
           </>
         )}
       </section>
 
       <section className="panel">
         <div className="team-head">
-          <h2>Your team</h2>
+          <h2>{t("new.yourTeam")}</h2>
           <div className="segmented" role="tablist">
             <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
-              onClick={() => setCustom(null)}>Random</button>
+              onClick={() => setCustom(null)}>{t("new.random")}</button>
             <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
-              disabled={!roles || !personality} onClick={buildByHand}>Build my own</button>
+              disabled={!roles || !personality} onClick={buildByHand}>{t("new.buildOwn")}</button>
           </div>
         </div>
         <p className="muted">
           {research
-            ? custom
-              ? "Peers of equal standing, each with their own angle. Pick them yourself below."
-              : "Peers of equal standing, each with their own angle on the topic."
-            : custom
-              ? "The company size sets the rules before merging (approvals, QA, CI). Pick the agents yourself below."
-              : "The bigger the company, the more roles, and the stricter the rules before merging."}
+            ? custom ? t("new.introResearchCustom") : t("new.introResearch")
+            : custom ? t("new.introCompanyCustom") : t("new.introCompany")}
         </p>
         <div className="modes">
           {modes && modes[mode] &&
@@ -175,7 +173,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
               <button type="button" key={key} className={`mode${key === mode ? " selected" : ""}`}
                 onClick={() => setMode(key)}>
                 <strong>{m.label}</strong>
-                {!custom && <span className="mode-size">{teamSize(m)} people</span>}
+                {!custom && <span className="mode-size">{t("new.people", { count: teamSize(m) })}</span>}
                 <span className="mode-rule">{m.rules[0]}</span>
               </button>
             ))}
@@ -187,9 +185,9 @@ export function NewProject({ claudeAccounts, onCreated }: {
         ) : (
           <>
         <div className="team-head">
-          <h3>Drawn at random</h3>
+          <h3>{t("new.drawn")}</h3>
           <button type="button" className="btn btn-small" onClick={() => draw(mode)} disabled={!team}>
-            <ShuffleIcon size={14} /> Draw another team
+            <ShuffleIcon size={14} /> {t("new.drawAnother")}
           </button>
         </div>
         {team ? (
@@ -200,7 +198,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
                 <div>
                   <div className="member-name">{member.name} <span className="badge">{member.model}</span></div>
                   <div className="member-title">
-                    {member.title}{research && member.name === rapporteur && " + Rapporteur"}
+                    {member.title}{research && member.name === rapporteur && t("new.alsoRapporteur")}
                   </div>
                   <div className="chips">
                     {traitChips(member, personality).map((chip) => (
@@ -218,13 +216,13 @@ export function NewProject({ claudeAccounts, onCreated }: {
             ))}
           </ul>
         ) : (
-          <p className="muted">Drawing a team…</p>
+          <p className="muted">{t("new.drawing")}</p>
         )}
         {research && team && (
           <label className="narrow">
-            Rapporteur
+            {t("new.rapporteur")}
             <select value={rapporteur ?? ""} onChange={(e) => setRapporteur(e.target.value || null)}>
-              <option value="">Drawn at random</option>
+              <option value="">{t("new.drawn")}</option>
               {team.employees.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
             </select>
           </label>
@@ -232,16 +230,16 @@ export function NewProject({ claudeAccounts, onCreated }: {
           </>
         )}
         {research && custom && custom.length > 0 && !custom.some((m) => m.roles.includes("rapporteur")) && (
-          <p className="muted">Nobody has the Rapporteur role: one of them will be drawn at random to write the report.</p>
+          <p className="muted">{t("new.noRapporteur")}</p>
         )}
         {problems.map((problem) => <p key={problem} className="error">{problem}</p>)}
       </section>
 
       {error && <p className="error">{error}</p>}
       <div className="row actions">
-        <button type="button" className="btn" onClick={() => go("/")}>Cancel</button>
+        <button type="button" className="btn" onClick={() => go("/")}>{t("common.cancel")}</button>
         <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !sourceValid || problems.length > 0}>
-          {busy ? "Creating…" : research ? "Start the research" : "Create project"}
+          {busy ? t("new.creating") : research ? t("new.startResearch") : t("new.create")}
         </button>
       </div>
     </form>
