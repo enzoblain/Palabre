@@ -57,7 +57,8 @@ services:
     depends_on:
       - backend
     ports:
-      - "${PALABRE_WEB_PORT:-2810}:80"
+      # Loopback only by default: set PALABRE_WEB_BIND to expose it (see the README)
+      - "${PALABRE_WEB_BIND:-127.0.0.1}:${PALABRE_WEB_PORT:-2810}:80"
 
   updater:
     # Off by default: COMPOSE_PROFILES=autoupdate in .env turns it on. Every few minutes

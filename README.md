@@ -278,9 +278,10 @@ To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
 Enter your server's address (`http://127.0.0.1:2710` when it runs on the same machine, or the
 HTTPS address of your reverse proxy, see [Remote access](#remote-access)) and the `ADMIN_TOKEN`.
 
-**Phone or any browser**: open `http://<your server>:2810` and enter the `ADMIN_TOKEN`.
-To reach it away from home, put the server on a private network such as
-[Tailscale](https://tailscale.com) rather than exposing it to the internet.
+**Phone or any browser**: open `http://127.0.0.1:2810` on the server itself, or, from another device,
+the HTTPS address of your reverse proxy or the private address of the server (for example on
+[Tailscale](https://tailscale.com), with `PALABRE_WEB_BIND` set to it, see [Remote access](#remote-access)),
+and enter the `ADMIN_TOKEN`. Never expose it on the internet.
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
@@ -326,8 +327,12 @@ palabre.example.com {
 
 Or keep it on a private network such as [Tailscale](https://tailscale.com) and set `PALABRE_BIND`
 to the machine's private address in `.env`. Avoid `PALABRE_BIND=0.0.0.0` unless a firewall limits
-who can reach the port. The web app on port `2810` also passes `/api` on to the server: do not
-expose it without TLS either.
+who can reach the port.
+
+The web app on port `2810` also passes `/api` on to the server, so it is bound to `127.0.0.1` too
+(`PALABRE_WEB_BIND`). Reach it from a phone through the TLS reverse proxy (point it at `127.0.0.1:2810`)
+or a private network. **Warning**: `PALABRE_WEB_BIND=0.0.0.0` sends the `ADMIN_TOKEN` in clear HTTP
+to anyone on the network.
 
 To rotate the `ADMIN_TOKEN` (regularly, or as soon as it may have leaked), generate a new one with
 `openssl rand -hex 32`, replace it in `.env`, run `docker compose up -d`, then enter the new one
@@ -407,6 +412,7 @@ All optional, in `.env`:
 | `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
 | `PALABRE_BIND` | `127.0.0.1` | Host address the server port is published on; `0.0.0.0` exposes it on every interface in clear HTTP |
+| `PALABRE_WEB_BIND` | `127.0.0.1` | Host address the web app port is published on; `0.0.0.0` exposes `/api` on every interface in clear HTTP |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
