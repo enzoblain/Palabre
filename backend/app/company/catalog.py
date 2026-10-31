@@ -70,10 +70,19 @@ def merge_and_code_conflict(permissions: set[str] | list[str]) -> bool:
     return {MERGE, CODE} <= set(permissions)
 
 
+# Set by the loader from the file name and the folder
+RESERVED_ROLE_FIELDS = frozenset({"key", "kind"})
+
+
 def _load_role(path: Path, kind: str) -> Role:
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
+        if reserved := sorted(RESERVED_ROLE_FIELDS & data.keys()):
+            raise CatalogError(
+                f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {', '.join(reserved)} "
+                "come from the file name and folder, not from the file"
+            )
         return Role(key=path.stem, kind=kind, **data)
     except (tomllib.TOMLDecodeError, ValidationError) as exc:
         raise CatalogError(f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {exc}") from exc

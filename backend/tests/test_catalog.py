@@ -152,3 +152,11 @@ PINNED_TEAMS = {
 def test_seeded_teams_are_unchanged(mode, seed):
     dumped = json.dumps(generate_team(mode, seed).to_dict(), sort_keys=True)
     assert hashlib.sha256(dumped.encode()).hexdigest()[:16] == PINNED_TEAMS[(mode, seed)]
+
+
+@pytest.mark.parametrize("field", ["key", "kind"])
+def test_role_file_cannot_set_key_or_kind(catalog_copy, field):
+    path = catalog_copy / "company/roles/qa.toml"
+    path.write_text(f'{field} = "x"\n' + path.read_text())
+    with pytest.raises(CatalogError, match=r"qa\.toml.*" + field):
+        load_roles()

@@ -43,3 +43,7 @@ def test_scripts_and_non_ascii():
 ])
 def test_role_files_and_permissions_are_sensitive_by_path(path):
     assert is_sensitive_path(path)
+
+
+def test_catalog_module_is_sensitive():
+    assert is_sensitive_path("backend/app/company/catalog.py")
