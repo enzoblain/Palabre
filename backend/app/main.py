@@ -17,6 +17,7 @@ from app.api.errors import ApiError, api_error, validation_error
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
+from app.worktrees import remove_stale_desks
 from app.hardening import make_non_dumpable
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
@@ -59,6 +60,7 @@ async def lifespan(_: FastAPI):
         await migrate_inbox(s)
         await normalize_repo_urls(s)
         await backfill_relayed_escalations(s)
+    await remove_stale_desks()
     async with mcp.session_manager.run():
         if settings.orchestrator_enabled:
             await orchestrator.start()
