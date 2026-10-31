@@ -160,3 +160,48 @@ def test_role_file_cannot_set_key_or_kind(catalog_copy, field):
     path.write_text(f'{field} = "x"\n' + path.read_text())
     with pytest.raises(CatalogError, match=r"qa\.toml.*" + field):
         load_roles()
+
+
+@pytest.fixture
+async def api_client():
+    from httpx import ASGITransport, AsyncClient
+
+    from app.config import settings
+    from app.main import app
+
+    headers = {"Authorization": f"Bearer {settings.admin_token}"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t", headers=headers) as client:
+        yield client
+
+
+async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
+    from app.company.team import load_catalog
+    from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
+
+    response = await api_client.get("/api/catalog/roles", params={"kind": "company"})
+
+    assert response.status_code == 200
+    roles = response.json()
+    expected = {k: r for k, r in load_catalog()["roles"].items() if r["kind"] == "company"}
+    assert list(roles) == list(expected)
+    for key, role in roles.items():
+        permissions = expected[key]["permissions"]
+        assert role["tools"] == {
+            "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
+            "claude": claude_tools_for(permissions),
+        }
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key]}
+
+
+async def test_roles_endpoint_filters_by_kind(api_client):
+    roles = (await api_client.get("/api/catalog/roles", params={"kind": "research"})).json()
+
+    assert roles
+    assert {r["kind"] for r in roles.values()} == {"research"}
+
+
+async def test_limits_endpoint_exposes_models_and_team_size(api_client):
+    response = await api_client.get("/api/catalog/limits")
+
+    assert response.status_code == 200
+    assert response.json() == {"models": ["haiku", "sonnet", "opus"], "max_agents": 30}
