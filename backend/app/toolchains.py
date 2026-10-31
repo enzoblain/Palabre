@@ -21,7 +21,7 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 TOOLCHAINS = {
     "node": 'Node.js with npm and npx. Version: "lts" (default), "latest", a major ("20") or exact ("20.11.1")',

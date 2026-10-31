@@ -8,7 +8,8 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
-from app.errors import ErrorCode
+# WorkflowError now lives in app.errors; kept importable from here for one release for external callers
+from app.errors import WorkflowError
 from app.models import (
     AppSetting,
     Conversation,
@@ -59,15 +60,6 @@ async def boss_sees(s: AsyncSession, room: Room) -> bool:
     if room.kind == DIRECTION:
         return True
     return await s.scalar(select(Project.kind).where(Project.id == room.project_id)) == "research"
-
-
-class WorkflowError(Exception):
-    """A rule of the company was not respected; the message is shown to the agent.
-    `code` names it for the API (falls back to the generic `workflow_error`)."""
-
-    def __init__(self, *args: object, code: ErrorCode | None = None):
-        super().__init__(*args)
-        self.code = code or ErrorCode.WORKFLOW_ERROR
 
 
 # Languages the team can work in: key (stored) → name in that language (shown in the UI)
@@ -187,6 +179,7 @@ async def post_message(
     *,
     request_kind: str | None = None,
     request_decision_id: int | None = None,
+    request_author_id: int | None = None,
     commit: bool = True,
 ) -> Message:
     """Post a message (author None = the boss) and wake up everyone @mentioned.
@@ -222,6 +215,7 @@ async def post_message(
         request_kind=request_kind,
         request_status=RequestStatus.pending.value if request_kind else None,
         request_decision_id=request_decision_id,
+        request_author_id=request_author_id,
     )
     s.add(msg)
     await s.flush()
@@ -268,6 +262,7 @@ async def post_system_message(s: AsyncSession, conversation_id: int, content: st
 
 REQUEST_KINDS = {"decision", "release", "escalation", "question"}
 MAX_MERGED_REQUESTS = 50
+DECISION_REQUEST_RATIONALE_MAX_CHARS = 300  # what the boss reads in direction; the full text stays in the room document
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
@@ -302,15 +297,25 @@ async def ask_boss(
     commit: bool = True,
 ) -> Message | None:
     """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    Only the lead speaks in direction: a request from another member is stored under the lead,
+    who owns every request in direction, and starts with the author's name.
     Returns None where there is no direction (research groups): the boss reads the room instead."""
     if kind not in REQUEST_KINDS:
         raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
     conversation_id = await direction_conversation_id(s, project_id)
     if conversation_id is None:
         return None
+    request_author_id = None
+    if "lead" not in author.roles:
+        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id).order_by(Employee.id))
+        lead = next((e for e in employees if "lead" in e.roles), None)
+        if lead is None:
+            raise WorkflowError("This project has no lead to relay the request to the boss")
+        content, request_author_id, author = f"{author.name}: {content}", author.id, lead
     return await post_message(
         s, project_id, conversation_id, content, author,
-        request_kind=kind, request_decision_id=decision_id, commit=commit,
+        request_kind=kind, request_decision_id=decision_id,
+        request_author_id=request_author_id, commit=commit,
     )  # fmt: skip
 
 
@@ -363,6 +368,15 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
     return [found[i] for i in ids]
 
 
+def _refuse_relayed_escalation(message: Message, action: str) -> None:
+    """An escalation relayed for a member goes to the boss whatever the lead thinks: the lead may not close it."""
+    if message.request_kind == "escalation" and message.request_author_id not in (None, message.employee_id):
+        raise WorkflowError(
+            f"Request #{message.id} is a member's escalation relayed to the boss: the lead cannot {action} it, "
+            "only the boss answers it"
+        )
+
+
 def _close_request(message: Message, status: RequestStatus, comment: str, merged_into: int | None = None) -> None:
     message.request_status = status.value
     message.request_comment = comment or None
@@ -379,6 +393,7 @@ async def withdraw_request(
     if not reason:
         raise WorkflowError("A withdrawn request needs a reason")
     (message,) = await _own_pending_requests(s, project_id, author, [request_id])
+    _refuse_relayed_escalation(message, "withdraw")
     _close_request(message, RequestStatus.withdrawn, reason)
     if commit:
         await s.commit()
@@ -398,6 +413,7 @@ async def merge_requests(
         raise WorkflowError(f"Merge at most {MAX_MERGED_REQUESTS} requests at a time")
     olds = await _own_pending_requests(s, project_id, author, ids)
     for old in olds:
+        _refuse_relayed_escalation(old, "merge")
         if old.request_decision_id is not None or old.request_kind == "release":
             raise WorkflowError(
                 f"Request #{old.id} is about a decision or a release: it cannot be merged, "
@@ -605,7 +621,10 @@ async def add_decision(
     s.add(decision)
     await s.flush()
     await s.commit()
-    text = f"Decision to validate: {title}" + (f"\n\n{rationale}" if rationale else "")
+    summary = rationale.strip()
+    if len(summary) > DECISION_REQUEST_RATIONALE_MAX_CHARS:
+        summary = summary[: DECISION_REQUEST_RATIONALE_MAX_CHARS - 1].rstrip() + "…"
+    text = title + (f"\n\n{summary}" if summary else "")
     await ask_boss(s, project_id, author, text, "decision", decision.id)
     return decision
 

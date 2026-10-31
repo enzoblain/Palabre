@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import github, projects
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 PROJECT = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
 

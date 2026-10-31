@@ -33,13 +33,19 @@ def is_task_branch_name(branch: str | None) -> bool:
     return bool(branch) and TASK_BRANCH_RE.fullmatch(branch) is not None
 
 
+HTTP_NOT_FOUND = 404
+HTTP_UNPROCESSABLE = 422
+
+
 class GitHubError(RuntimeError):
     """A git or GitHub operation failed. `code` names it for the API (falls back to `github_error`).
+    `status` is the HTTP status of a failed GitHub API call (None for git or local failures).
     The message ends up in API responses and agent prompts: secrets are scrubbed from it."""
 
-    def __init__(self, message: str = "", code: ErrorCode | None = None):
+    def __init__(self, message: str = "", code: ErrorCode | None = None, status: int | None = None):
         super().__init__(_scrub(message))
         self.code = code or ErrorCode.GITHUB_ERROR
+        self.status = status
 
 
 def _scrub(text: str) -> str:
@@ -165,7 +171,7 @@ async def _api(method: str, path: str, **kwargs) -> dict:
     async with httpx.AsyncClient(base_url=API_URL, headers=headers, timeout=30) as client:
         response = await client.request(method, path, **kwargs)
     if response.status_code >= 400:
-        raise GitHubError(f"GitHub {method} {path}: {response.status_code} {response.text[:500]}")
+        raise GitHubError(f"GitHub {method} {path}: {response.status_code} {response.text[:500]}", status=response.status_code)
     return response.json() if response.content else {}
 
 
@@ -204,7 +210,7 @@ async def branch_exists(repo: str, branch: str) -> bool:
     try:
         await _api("GET", f"/repos/{repo}/branches/{quote(branch, safe='')}")
     except GitHubError as exc:
-        if " 404 " not in str(exc):
+        if exc.status != HTTP_NOT_FOUND:
             raise
         return False
     return True
@@ -244,7 +250,7 @@ async def delete_branch(repo: str, branch: str) -> None:
     try:
         await _api("DELETE", f"/repos/{repo}/git/refs/heads/{branch}")
     except GitHubError as exc:
-        if " 422 " not in str(exc) and " 404 " not in str(exc):
+        if exc.status not in (HTTP_NOT_FOUND, HTTP_UNPROCESSABLE):
             raise
 
 
@@ -281,7 +287,7 @@ async def is_pull_request_open(repo: str, number: int) -> bool:
     try:
         return (await _api("GET", f"/repos/{repo}/pulls/{number}"))["state"] == "open"
     except GitHubError as exc:
-        if " 404 " not in str(exc):
+        if exc.status != HTTP_NOT_FOUND:
             raise
         return False
 
@@ -380,7 +386,7 @@ async def file_content(repo: str, path: str, ref: str) -> str | None:
     try:
         data = await _api("GET", f"/repos/{repo}/contents/{quote(path, safe='/')}", params={"ref": ref})
     except GitHubError as exc:
-        if " 404 " not in str(exc):
+        if exc.status != HTTP_NOT_FOUND:
             raise
         return None
     return base64.b64decode(data["content"]).decode(errors="replace")
@@ -390,7 +396,7 @@ async def tag_exists(repo: str, tag: str) -> bool:
     try:
         await _api("GET", f"/repos/{repo}/git/ref/tags/{quote(tag, safe='')}")
     except GitHubError as exc:
-        if " 404 " not in str(exc):
+        if exc.status != HTTP_NOT_FOUND:
             raise
         return False
     return True

@@ -6,6 +6,7 @@ from mcp.server.mcpserver import Context
 
 from app import projects, services, toolchains, workflow
 from app.db import SessionLocal
+from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
 from app.models import Employee, Project
 
@@ -88,7 +89,7 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
         me = await s.get(Employee, c.employee_id)
         msg = await services.ask_boss(s, c.project_id, me, content, kind)
     if msg is None:
-        raise services.WorkflowError("This project has no direction channel to ask the boss in")
+        raise WorkflowError("This project has no direction channel to ask the boss in")
     return {"message_id": msg.id, "status": "waiting for the boss"}
 
 
@@ -173,7 +174,8 @@ async def add_question(ctx: Context, question: str) -> dict:
 
 @tool
 async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lead") -> dict:
-    """Escalate a blocker or disagreement you cannot resolve at your level.
+    """Escalate a blocker or disagreement you cannot resolve at your level. With to="boss" the
+    request reaches the boss through the lead's name: keep it short, in the team's language.
     `reason` is posted in the conversation as a message to them: write it as you would say it."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
@@ -205,7 +207,9 @@ async def write_notes(ctx: Context, content: str, append: bool = True) -> str:
 @tool
 async def add_decision(ctx: Context, title: str, rationale: str = "") -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
-    validates or rejects it."""
+    validates or rejects it. title: the decision in one short sentence; rationale: the why in
+    a few sentences (the boss only sees a truncated version, the detail belongs in the room
+    document). Write both in the team's language. The boss's request is signed by the lead."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)

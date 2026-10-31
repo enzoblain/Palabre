@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app import services
 from app import credits
 from app.accounts import assign_accounts, token_for
-from app.company.team import effort_for, render_system_prompt
+from app.company.team import Employee as TeamMember, Team, effort_for, render_system_prompt
 from app.config import settings
 from app.db import SessionLocal
 from app.github import GitHubError
@@ -24,7 +24,9 @@ from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
     RESEARCH_RULES,
+    code_standards_rule,
     language_rule,
+    lead_boss_rule,
     operating_rules,
     orientation_rule,
     task_rules,
@@ -42,6 +44,21 @@ log = logging.getLogger(__name__)
 REPO_SYNC_INTERVAL_S = 60
 # Wakeups that only come from the team talking to itself: the ones the throttle applies to
 CHATTER_EVENTS = {"mention", "conversation_idle", "daily"}
+
+
+def build_system_prompt(team: Team, member: TeamMember, project: Project, boss_name: str, first_run: bool) -> str:
+    """Assemble the system prompt of an agent run from its role and project."""
+    language = services.team_language()
+    return "\n\n".join(p for p in [
+        render_system_prompt(team, member, boss_name),
+        RESEARCH_RULES if project.kind == "research" else operating_rules(),
+        CHAT_RULES,
+        orientation_rule(project.default_branch, first_run) if project.kind == "company" else None,
+        language_rule(language),
+        lead_boss_rule(member.roles, language),
+        version_rule(member.roles),
+        code_standards_rule(member.roles),
+    ] if p)  # fmt: skip
 
 
 class SkipRun(Exception):
@@ -303,15 +320,9 @@ class Orchestrator:
         )
         team = team_of(project)
         member = next(m for m in team.employees if m.name == employee.name)
-        system_prompt = "\n\n".join(p for p in [
-            render_system_prompt(team, member, services.boss_display_name()),
-            RESEARCH_RULES if project.kind == "research" else operating_rules(),
-            CHAT_RULES,
-            orientation_rule(project.default_branch, await self._is_first_run(s, employee, run_id))
-            if project.kind == "company" else None,
-            language_rule(services.team_language()),
-            version_rule(member.roles),
-        ] if p)  # fmt: skip
+        system_prompt = build_system_prompt(
+            team, member, project, services.boss_display_name(), await self._is_first_run(s, employee, run_id)
+        )
         oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
         rooms = await services.rooms_of(s, employee) if project.kind == "company" else []

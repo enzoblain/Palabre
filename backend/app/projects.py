@@ -26,12 +26,12 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, RequestStatus, Room, Task,
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
-from app.errors import ErrorCode
-from app.services import WorkflowError
+# NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
+from app.errors import ErrorCode, NothingToRelease, WorkflowError
 from app import worktrees
 from app.worktrees import sync_repo
 
@@ -236,6 +236,7 @@ async def ensure_all_directions(s: AsyncSession) -> None:
 # generic unless the catalog targets that name. An AI plan or a user can name a channel the same
 # later, so the migration runs once (marker below) and never sees those.
 GENERIC_ROOMS_MARKER = "generic_rooms_dropped"
+RELAYED_ESCALATIONS_MARKER = "relayed_escalations_backfilled"
 _GENERIC_ROOMS = {"general", "equipe", "couts-claude", "engineering", "product"}
 
 
@@ -498,10 +499,6 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
             await github.close_pull_request(repo, decision.pr_number)
         except github.GitHubError:
             pass  # Already closed or merged on GitHub
-
-
-class NothingToRelease(WorkflowError):
-    """No commit since the last tag deserves a version."""
 
 
 async def release_plan(project: Project) -> dict | None:
@@ -836,7 +833,11 @@ async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, r
         raise WorkflowError(f"Request #{request_id} is about a release: it cannot be withdrawn")
     if decision is not None and decision.status == DecisionStatus.proposed:
         await s.flush()  # the request is withdrawn before the settling answers the other pending ones
-        await settle_decision(s, decision, RequestAnswer.rejected, reason.strip(), wake_proposer=False)
+        rejection = reason.strip()
+        if message.request_author_id is not None:
+            # Relayed for a member: the boss reads in direction that they did not answer
+            rejection = f"Withdrawn by the lead, not answered by the boss: {rejection}"
+        await settle_decision(s, decision, RequestAnswer.rejected, rejection, wake_proposer=False)
     await s.commit()
     return message
 
@@ -846,6 +847,32 @@ async def normalize_repo_urls(s: AsyncSession) -> None:
     their HTTPS URL, which git can clone with the token."""
     for project in await s.scalars(select(Project).where(Project.repo_url.like("git@%"))):
         project.repo_url = github.https_url(project.repo_url)
+    await s.commit()
+
+
+async def backfill_relayed_escalations(s: AsyncSession) -> None:
+    """Pending escalations relayed before request_author_id existed carry the member's name as a
+    "Name: " prefix: record who they are for, so the lead still cannot close them. One-shot: a
+    persistent marker stops later runs, since the lead's own escalations may start with a name too."""
+    if await s.get(AppSetting, RELAYED_ESCALATIONS_MARKER) is not None:
+        return
+    pending = await s.scalars(
+        select(Message).where(
+            Message.request_kind == "escalation",
+            Message.request_status == RequestStatus.pending.value,
+            Message.request_author_id.is_(None),
+        )
+    )
+    for message in pending:
+        signer = await s.get(Employee, message.employee_id) if message.employee_id is not None else None
+        if signer is None or "lead" not in signer.roles:
+            continue
+        members = await s.scalars(select(Employee).where(Employee.project_id == signer.project_id, Employee.id != signer.id))
+        for member in sorted(members, key=lambda e: len(e.name), reverse=True):
+            if message.content.startswith(f"{member.name}: "):
+                message.request_author_id = member.id
+                break
+    s.add(AppSetting(key=RELAYED_ESCALATIONS_MARKER, value="1"))
     await s.commit()
 
 

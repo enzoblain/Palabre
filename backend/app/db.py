@@ -41,6 +41,7 @@ def upgrade_schema(conn: Connection) -> None:
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
     _add_missing_checks(conn)
+    _drop_request_author_foreign_key(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
 
@@ -58,3 +59,13 @@ def _add_missing_checks(conn: Connection) -> None:
                 conn.exec_driver_sql(
                     f'ALTER TABLE {table.name} ADD CONSTRAINT {constraint.name} CHECK ({constraint.sqltext}) NOT VALID'
                 )
+
+
+def _drop_request_author_foreign_key(conn: Connection) -> None:
+    """messages.request_author_id was a foreign key with ON DELETE SET NULL, which erased who a relayed
+    request was for when the member left the team: drop it (idempotent). Only PostgreSQL has it in production."""
+    if conn.dialect.name != "postgresql":
+        return
+    for foreign_key in inspect(conn).get_foreign_keys("messages"):
+        if foreign_key["constrained_columns"] == ["request_author_id"]:
+            conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')

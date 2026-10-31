@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-31
+
+### Added
+
+- prompts: require professional-grade code standards in agent prompts (#235)
+
+### Changed
+
+- errors: move WorkflowError and NothingToRelease to errors.py (#239)
+- github: expose the HTTP status on GitHubError instead of parsing the message (#245)
+- errors: import WorkflowError from app.errors everywhere (#246)
+
+### Fixed
+
+- ops: set lock_timeout before the ALTER in diagnose_db and fix report nits (#236)
+- prompts: use the changes verdict in the review checklist and share one standards list (#238)
+- ui: add a conversation tab above the room document (#243)
+- prompts: keep messages to the boss short, simple and in the project language (#242)
+- requests: sign boss requests with the lead and keep decisions short (#244)
+- requests: forbid the lead to withdraw or merge a relayed escalation (#247)
+- requests: keep the real author of relayed requests and protect member escalations (#248)
+- requests: keep relayed escalations bound to a member that left the team (#249)
+- requests: run the relayed escalations backfill only once (#251)
+
 ## [0.16.0] - 2026-10-31
 
 ### Added
@@ -449,7 +473,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/enzoblain/Palabre/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/enzoblain/Palabre/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/enzoblain/Palabre/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/enzoblain/Palabre/compare/v0.14.1...v0.14.2

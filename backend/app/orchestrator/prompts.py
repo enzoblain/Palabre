@@ -112,6 +112,20 @@ LANGUAGE_RULE = """## Language
 Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
 Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which list the changes by type and then keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
+BOSS_REQUESTS_RULE = """## Requests to the boss
+Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Keep them short and plain. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
+
+LEAD_BOSS_RULE = """## Messages to the boss
+In the direction channel, the boss is not a developer. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them."""
+
+LEAD_ROLES = {"lead"}
+
+
+def lead_boss_rule(roles: list[str], language: str) -> str | None:
+    """Return the rule on messages to the boss, for the lead only."""
+    return LEAD_BOSS_RULE.format(language=language) if LEAD_ROLES & set(roles) else None
+
+
 VERSION_RULE = """## Versions
 Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
 
@@ -122,8 +136,44 @@ def version_rule(roles: list[str]) -> str | None:
     return VERSION_RULE if VERSION_ROLES & set(roles) else None
 
 
+# (what a developer applies, what the reviewer checks): one list, rendered in both blocks
+CODE_STANDARDS_LIST: list[tuple[str, str]] = [
+    ("Code, comments, docstrings and identifiers are in English.", "Code, comments, docstrings and identifiers are in English."),
+    ("Explicit names for variables and functions, no obscure abbreviations.", "Variable and function names are explicit, with no obscure abbreviations."),
+    ("Strict typing: type hints in Python, no `any` in TypeScript.", "Typing is strict: type hints in Python, no `any` in TypeScript."),
+    ("Short functions with a single responsibility.", "Functions are short and have a single responsibility."),
+    ("No magic values hardcoded: go through the config or named constants.", "No magic values hardcoded: they go through the config or named constants."),
+    ("Follow the existing patterns of the module you touch.", "The existing patterns of the module are respected."),
+    ("Every new behavior has tests.", "Every new behavior has tests."),
+    ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
+]
+
+
+def _bullets(index: int) -> str:
+    return "\n".join(f"- {pair[index]}" for pair in CODE_STANDARDS_LIST)
+
+
+CODE_STANDARDS = f"""## Code standards
+Everything the team ships is professional-grade and built to evolve. Full list in CLAUDE.md, Conventions.
+{_bullets(0)}"""
+
+REVIEW_CHECKLIST = f"""## Review checklist
+Check every point of the code standards below against the diff. If any point is not respected, give the verdict `changes` (review_task) and name the point and the place in the code; approve only when all of them hold.
+{_bullets(1)}"""
+
+DEV_ROLES = {"dev", "dev_backend", "dev_frontend"}
+REVIEWER_ROLES = {"reviewer"}
+
+
+def code_standards_rule(roles: list[str]) -> str | None:
+    """Devs get the standards to apply, the reviewer the checklist to enforce."""
+    if REVIEWER_ROLES & set(roles):
+        return REVIEW_CHECKLIST
+    return CODE_STANDARDS if DEV_ROLES & set(roles) else None
+
+
 def language_rule(language: str) -> str:
-    return LANGUAGE_RULE.format(language=language)
+    return "\n\n".join([LANGUAGE_RULE.format(language=language), BOSS_REQUESTS_RULE.format(language=language)])
 
 
 TASK_RULES = """## Your current task

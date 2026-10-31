@@ -124,8 +124,8 @@ document, and asks you when something is yours to decide. There is no inbox: the
 what waits for you in the direction channel as a request, a message with three answers,
 Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
-Proposed decisions, releases and escalations to the boss become such requests on their own,
-and the lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
+Proposed decisions, releases and escalations to the boss become such requests on their own. Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, and starts with that member's name. A decision shows its title and a rationale truncated to a few hundred characters (the full text stays in the room document).
+The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
 channel: its decisions are only in the room document. On upgrade, what waited in the old
 inbox is turned into requests in direction.
 
@@ -306,6 +306,16 @@ and `GET /orchestrator` lists `exhausted_accounts` for the app. Once the reset h
 and a run succeeds, the lead is woken with a `credits_back` event (tasks in progress,
 queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
 restart, the first run that hits the limit rebuilds it.
+
+## Database diagnostic
+
+One command, from the folder with `docker-compose.yml`, prints the `conversation_throttled` events of the last 24 h
+(per hour and conversation) and checks the `request_status` CHECK constraint (rows outside the enum, then adds the
+constraint if missing). It only writes that constraint:
+
+```sh
+docker compose exec backend python -m scripts.diagnose_db
+```
 
 ## Tests
 

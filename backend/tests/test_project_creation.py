@@ -125,7 +125,7 @@ def api(monkeypatch):
         if "/branches/" in path:
             name = path.rsplit("/", 1)[1]
             if name not in state.branches:
-                raise github.GitHubError("GET failed: 404 not found")
+                raise github.GitHubError("GET failed: 404 not found", status=404)
             return {"name": name}
         return state.repo
 
@@ -212,8 +212,7 @@ def test_branch_change_rejects_trailing_newline():
 
 
 async def test_lead_cannot_move_the_team_to_production(repo):
-    from app.errors import ErrorCode
-    from app.services import WorkflowError
+    from app.errors import ErrorCode, WorkflowError
 
     project = SimpleNamespace(repo_url=URL, default_branch="dev")
     with pytest.raises(WorkflowError) as e:

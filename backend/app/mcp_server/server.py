@@ -11,7 +11,7 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent
 
 from app.github import GitHubError
 from app.mcp_server.auth import Caller
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 SERVER_NAME = "palabre"
 

@@ -7,7 +7,7 @@ import pytest
 
 from app import github, projects, services
 from app.models import Decision, DecisionStatus, RequestAnswer
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 PROJECT = SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev")
 PR = {"number": 42, "html_url": "https://github.com/acme/app/pull/42", "head": {"sha": "pr-head"}}

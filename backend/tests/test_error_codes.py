@@ -1,5 +1,7 @@
 """API errors carry a stable `code` next to the English `detail`, with unchanged statuses."""
 
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +14,7 @@ from app.api import deps
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode, api_error, validation_error
 from app.config import settings
 from app.github import GitHubError
-from app.services import WorkflowError
+from app.errors import WorkflowError
 from fastapi.exceptions import RequestValidationError
 
 
@@ -72,6 +74,21 @@ async def test_validation_error_code(client):
 def test_codes_are_snake_case_and_unique():
     assert all(c.value == c.name.lower() for c in ErrorCode)
     assert set(NOT_FOUND.values()) <= set(ErrorCode)
+
+
+API_TS = Path(__file__).resolve().parents[2] / "frontend" / "src" / "api.ts"
+ERROR_CODES_BLOCK = re.compile(r"export const ERROR_CODES = \[(.*?)\] as const", re.DOTALL)
+
+
+def test_frontend_error_codes_match_backend():
+    block = ERROR_CODES_BLOCK.search(API_TS.read_text())
+    assert block, f"ERROR_CODES array not found in {API_TS}"
+    frontend = set(re.findall(r'"([^"]+)"', block.group(1)))
+    backend = {c.value for c in ErrorCode}
+    assert frontend == backend, (
+        f"api.ts ERROR_CODES is out of sync with ErrorCode: "
+        f"missing in api.ts: {sorted(backend - frontend)}; extra in api.ts: {sorted(frontend - backend)}"
+    )
 
 
 class _NoRows:
