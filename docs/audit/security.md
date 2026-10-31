@@ -16,6 +16,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 - M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The admin token in `localStorage` remains, covered by M5 (access-map R3, R9).
 - L2. `cors_origins = ["*"]`: fixed (#311), the default is the Vite dev server and the Tauri webview origins, overridable with `CORS_ORIGINS`.
 - L7. Commit messages in the lead's `release_pending` prompt: fixed (#314), framed as untrusted data with the same helper as CI output (#121). The changelog entry returned by `merge_release` to the lead is built from the same messages and stays unframed: accepted, it is a tool result.
+- L6. Shared `GOPATH`: fixed (#136, tested in #313), `GOPATH` and `GOMODCACHE` are per employee (`toolchains.gopath`), only the Go binary in `bin/` stays shared.
 - Stale desk permissions: fixed by #296 (PR #262).
 
 ## Open: medium
@@ -28,7 +29,6 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 ## Open: low
 
 - L4. Prompts passed in argv (`runner.py:199`, `runner.py:206`), visible in `ps` to every agent. Fix: pass them on stdin. S.
-- L6. Shared `GOPATH` between agents (same class as the fixed H2, lower impact). S.
 - L8. Claude OAuth tokens are shared by the employees of an account (access-map R6). Fix: one token per account rotated with `claude setup-token`; the egress filter already keeps agents away from `/api`. S.
 - L9. `Bash` has no command allowlist, so read-only roles can write in their clone (access-map R8). Accepted: the desk is thrown away and nothing is pushed from it.
 - L10. The 429 lockout is per IP (access-map R10). Behind a shared proxy one attacker locks everyone out. Fix: key the lockout on the forwarded client address. S.
@@ -43,4 +43,4 @@ Secrets as files on tmpfs, explicit env allowlist for git and runs, sudoers limi
 
 ## Suggested order
 
-M5 (access-map R3) first, then the low items L4, L6.
+M5 (access-map R3) first, then the low item L4.
