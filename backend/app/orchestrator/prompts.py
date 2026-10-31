@@ -122,6 +122,7 @@ LEAD_ROLES = {"lead"}
 
 
 def lead_boss_rule(roles: list[str], language: str) -> str | None:
+    """Return the rule on messages to the boss, for the lead only."""
     return LEAD_BOSS_RULE.format(language=language) if LEAD_ROLES & set(roles) else None
 
 
@@ -172,7 +173,7 @@ def code_standards_rule(roles: list[str]) -> str | None:
 
 
 def language_rule(language: str) -> str:
-    return "\n".join([LANGUAGE_RULE.format(language=language), BOSS_REQUESTS_RULE.format(language=language)])
+    return "\n\n".join([LANGUAGE_RULE.format(language=language), BOSS_REQUESTS_RULE.format(language=language)])
 
 
 TASK_RULES = """## Your current task
