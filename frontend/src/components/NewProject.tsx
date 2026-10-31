@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
@@ -47,6 +47,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [custom, setCustom] = useState<MemberIn[] | null>(null);
   const [roles, setRoles] = useState<Record<string, Role> | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  const [limits, setLimits] = useState<CatalogLimits | null>(null);
   // First name → Claude account chosen by hand; the others are spread automatically
   const [accounts, setAccounts] = useState<Record<string, number>>({});
   // Research: the peer who writes the report (null: drawn at random)
@@ -56,6 +57,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
   useEffect(() => {
     api.names().then(setNames).catch(() => {});
+    api.limits().then(setLimits).catch(() => {});
   }, []);
 
   // Each kind of project has its own modes, roles and personality axes
@@ -159,7 +161,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
             <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
               onClick={() => setCustom(null)}>{t("new.random")}</button>
             <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
-              disabled={!roles || !personality} onClick={buildByHand}>{t("new.buildOwn")}</button>
+              disabled={!roles || !personality || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
           </div>
         </div>
         <p className="muted">
@@ -179,9 +181,9 @@ export function NewProject({ claudeAccounts, onCreated }: {
             ))}
         </div>
 
-        {custom && roles && personality ? (
+        {custom && roles && personality && limits ? (
           <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} names={names}
-            claudeAccounts={claudeAccounts} />
+            claudeAccounts={claudeAccounts} limits={limits} />
         ) : (
           <>
         <div className="team-head">

@@ -1,14 +1,14 @@
 import { useState } from "react";
-import type { MemberIn, Personality, Role } from "../api";
+import type { CatalogLimits, MemberIn, Personality, Role } from "../api";
 import { useI18n, translate } from "../i18n";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
+import { JobPicker } from "./JobPicker";
+import { teamWarningThreshold } from "../jobs";
 
-export const MAX_AGENTS = 30;
 const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
-const MODELS = ["haiku", "sonnet", "opus"];
 
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -64,13 +64,14 @@ function poleWord(text: string): string {
   return text.split(" — ")[0];
 }
 
-export function TeamEditor({ members, onChange, roles, personality, names, claudeAccounts }: {
+export function TeamEditor({ members, onChange, roles, personality, names, claudeAccounts, limits }: {
   members: MemberIn[];
   onChange: (members: MemberIn[]) => void;
   roles: Record<string, Role>;
   personality: Personality;
   names: string[];
   claudeAccounts: number;
+  limits: CatalogLimits;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState<number | null>(null);
@@ -80,7 +81,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
     onChange(members.map((m, j) => (j === i ? { ...m, ...changes } : m)));
 
   function resize(count: number) {
-    const n = Math.max(0, Math.min(MAX_AGENTS, count || 0));
+    const n = Math.max(0, Math.min(limits.max_agents, count || 0));
     if (n <= members.length) return onChange(members.slice(0, n));
     const added = [...members];
     while (added.length < n) added.push(newMember(personality));
@@ -88,13 +89,22 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
     setOpen(members.length); // Open the first new agent to fill it in
   }
 
+  const atLimit = members.length >= limits.max_agents;
+  const nearLimit = members.length >= teamWarningThreshold(limits.max_agents);
+
   return (
     <div className="team-editor">
       <label className="narrow">
         {t("editor.count")}
-        <input type="number" min={0} max={MAX_AGENTS} value={members.length}
+        <input type="number" min={0} max={limits.max_agents} value={members.length}
           onChange={(e) => resize(Number(e.target.value))} />
       </label>
+
+      <p role="status" className={nearLimit ? "team-count warning" : "team-count muted"}>
+        {nearLimit && <span aria-hidden="true">⚠ </span>}
+        {t("editor.teamCount", { count: members.length, max: limits.max_agents })}
+        {nearLimit && ` ${t(atLimit ? "editor.limitReached" : "editor.limitClose")}`}
+      </p>
 
       {members.length === 0 && <p className="muted">{t("editor.empty")}</p>}
       <ul className="editor-list">
@@ -121,26 +131,16 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
                 }}>{t("common.remove")}</button>
             </div>
 
-            <div className="role-chips">
-              {Object.entries(roles).map(([key, role]) => (
-                <button type="button" key={key} title={role.mission}
-                  className={`chip role-chip${m.roles.includes(key) ? " selected" : ""}`}
-                  onClick={() => update(i, {
-                    roles: m.roles.includes(key) ? m.roles.filter((r) => r !== key) : [...m.roles, key],
-                  })}>
-                  {role.title}
-                </button>
-              ))}
-            </div>
-
             {open === i && (
               <div className="editor-details">
+                <JobPicker roles={roles} selected={m.roles}
+                  onChange={(selected) => update(i, { roles: selected })} />
                 <div className="row">
                   <label>
                     {t("editor.model")}
                     <select value={m.model ?? ""} onChange={(e) => update(i, { model: e.target.value || null })}>
                       <option value="">{t("editor.modelAuto")}</option>
-                      {MODELS.map((model) => <option key={model} value={model}>{model}</option>)}
+                      {limits.models.map((model) => <option key={model} value={model}>{model}</option>)}
                     </select>
                   </label>
                   {Object.entries(personality.style).map(([key, values]) => (
@@ -195,8 +195,10 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
         ))}
       </ul>
 
-      <button type="button" className="btn btn-small" disabled={members.length >= MAX_AGENTS}
+      <button type="button" className="btn btn-small" disabled={atLimit}
+        aria-describedby={atLimit ? "team-limit-help" : undefined}
         onClick={() => resize(members.length + 1)}>{t("editor.addAgent")}</button>
+      {atLimit && <p id="team-limit-help" className="muted">{t("editor.limitHelp", { max: limits.max_agents })}</p>}
     </div>
   );
 }
