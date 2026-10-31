@@ -238,13 +238,62 @@ export function normalizeServer(input: string): string {
   return server.replace(/\/api$/, "");
 }
 
+/** Codes of the backend's error responses (backend/app/api/errors.py); each has an `error.<code>` message. */
+export const ERROR_CODES = [
+  "auth_invalid_token",
+  "auth_locked",
+  "validation_error",
+  "workflow_error",
+  "github_error",
+  "github_merge_refused",
+  "project_not_found",
+  "room_not_found",
+  "task_not_found",
+  "conversation_not_found",
+  "decision_not_found",
+  "employee_not_found",
+  "message_not_found",
+  "question_not_found",
+  "mode_not_found",
+  "unknown_mode",
+  "research_topic_required",
+  "invalid_repository",
+  "duplicate_employee_name",
+  "unknown_roles",
+  "lead_required",
+  "invalid_account",
+  "research_has_no_repository",
+  "direction_room_immutable",
+  "dm_immutable",
+  "boss_direction_only",
+  "boss_read_only_room",
+  "members_not_in_project",
+  "employee_other_project",
+  "direction_room_reserved",
+  "conversation_not_in_room",
+  "invalid_language",
+  "not_found",
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+const isErrorCode = (code: unknown): code is ErrorCode => ERROR_CODES.includes(code as ErrorCode);
+
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The backend's own text (English), kept for logs and debugging, never shown as is. */
+    public detail?: string,
+    public code?: ErrorCode,
   ) {
     super(message);
   }
+}
+
+/** The message in the project's language: by code, else a generic one with the status. */
+function errorMessage(status: number, code: unknown, detail: string): string {
+  if (!isErrorCode(code)) return translate("api.error", { status });
+  return translate(`error.${code}`, { detail, status } as never);
 }
 
 async function request<T>(conn: Connection, path: string, method = "GET", body?: unknown): Promise<T> {
@@ -263,14 +312,16 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
   }
   if (!res.ok) {
     let detail = res.statusText || `HTTP ${res.status}`;
+    let code: unknown;
     try {
       const data = await res.json();
+      code = data.code;
       if (typeof data.detail === "string") detail = data.detail;
       else if (Array.isArray(data.detail)) detail = data.detail.map((d: { msg: string }) => d.msg).join(", ");
     } catch {
       // Not JSON: keep the status text
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, errorMessage(res.status, code, detail), detail, isErrorCode(code) ? code : undefined);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
