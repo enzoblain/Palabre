@@ -72,3 +72,34 @@ async def test_effort_flag_is_passed_only_when_set(monkeypatch, tmp_path, effort
     assert ("--effort" in args) == (effort is not None)
     if effort:
         assert args[args.index("--effort") + 1] == effort
+
+
+async def test_project_and_local_settings_are_not_loaded(monkeypatch, tmp_path):
+    """A .claude/settings.json (hooks) written by an agent in its cwd must not apply to its next run."""
+    hooks = {"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "touch pwned"}]}]}}
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(json.dumps(hooks))
+    seen = []
+
+    class Proc:
+        returncode = 0
+
+        async def communicate(self):
+            return json.dumps({"session_id": "s", "result": "ok"}).encode(), b""
+
+    async def fake_exec(*args, **kwargs):
+        seen.append(args)
+        return Proc()
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(runner, "_write_mcp_config", lambda *a, **k: tmp_path / "mcp.json")
+    monkeypatch.setattr(runner.run_tokens, "attach_config", lambda *a, **k: None)
+    monkeypatch.setattr(runner, "_env", lambda *a, **k: {})
+    monkeypatch.setattr(runner.settings, "agent_user", "")
+    spec = runner.RunSpec(
+        author_name="Léa", system_prompt="", prompt="hi", cwd=Path(tmp_path), employee_id=1,
+        mcp_headers={}, mcp_tools=[], claude_tools=["Write"], model="sonnet",
+    )  # fmt: skip
+    await runner._run_claude(spec, "tok", "")
+    (args,) = seen
+    assert args[args.index("--setting-sources") + 1] == runner.SETTING_SOURCES == "user"
