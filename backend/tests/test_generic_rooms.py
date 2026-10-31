@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import projects
 from app.company.team import generate_team
-from app.models import Base, Conversation, Decision, Employee, Message, OpenQuestion, Project, Room, Task
+from app.models import AgentRun, Base, Conversation, Decision, Employee, Message, OpenQuestion, Project, Room, Task
 from app.projects import RESEARCH_ROOM, drop_generic_rooms, load_project
 
 
@@ -160,3 +160,18 @@ def test_no_cleanup_path_touches_dms():
         if "delete(Room)" in (text := p.read_text()) or "s.delete(room)" in text
     ]  # fmt: skip
     assert sorted(hits) == ["projects.py", "rooms.py"]
+
+
+async def test_agent_runs_of_a_deleted_room_survive_detached(db):
+    project = await make_project(db)
+    emps = project.employees
+    general = await add_room(db, project, "general", list(emps))
+    await add_room(db, project, "direction", [emps[0]], kind="direction")
+    conversation = await db.scalar(select(Conversation.id).where(Conversation.room_id == general.id))
+    run = AgentRun(employee_id=emps[0].id, kind="conversation", conversation_id=conversation, cost_usd=1.5)
+    db.add(run)
+    await db.commit()
+
+    await drop_generic_rooms(db)
+    await db.refresh(run)
+    assert run.conversation_id is None and run.cost_usd == 1.5

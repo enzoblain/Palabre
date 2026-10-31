@@ -26,7 +26,7 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
@@ -276,9 +276,14 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
                 # Nowhere to move them to: keep the room rather than lose them
                 held = [Task.room_id, Decision.room_id, OpenQuestion.room_id]
                 if any([await s.scalar(select(col).where(col == room.id).limit(1)) is not None for col in held]):
+                    log.warning("Keeping generic room %r of project %s: it holds work and there is no direction room",
+                                room.name, project_id)
                     continue
             conversations = select(Conversation.id).where(Conversation.room_id == room.id)
+            # Keep the runs: they are the only record of tokens and cost (the FK would cascade them)
+            await s.execute(update(AgentRun).where(AgentRun.conversation_id.in_(conversations)).values(conversation_id=None))
             await s.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
+            # Wakeups of these conversations cascade too: harmless, the dispatcher is not running yet
             await s.execute(delete(Conversation).where(Conversation.room_id == room.id))
             await s.delete(room)
     s.add(AppSetting(key=GENERIC_ROOMS_MARKER, value="1"))
