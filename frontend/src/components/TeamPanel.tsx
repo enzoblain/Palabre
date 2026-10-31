@@ -161,6 +161,11 @@ export function TeamPanel({ project, presence, open, onClose }: {
           <div className="sr-only" role="status" aria-live="polite">{announce}</div>
         </div>
       )}
+      <footer className="panel-foot">
+        <a className="nav-item" href="#/settings" onClick={onClose}>
+          <GearIcon size={15} /> Paramètres
+        </a>
+      </footer>
     </aside>
   );
 }
