@@ -1,0 +1,15 @@
+title = "Security Compliance Officer"
+description = "Security Compliance Officer: make sure the project meets the security rules and standards it must follow."
+category = "cybersecurity"
+archetype = "security"
+order = 6035
+mission = "Make sure the project meets the security rules and standards it must follow."
+responsibilities = [
+  "Track the security standards and laws that apply",
+  "Check that the controls meet them",
+  "Report the gaps and follow their correction",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Compliance reports", "Gap lists"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No compliance gap is discovered by surprise."

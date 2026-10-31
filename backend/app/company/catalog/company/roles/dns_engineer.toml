@@ -1,0 +1,15 @@
+title = "DNS Engineer"
+description = "DNS Engineer: run name resolution reliably and securely."
+category = "networks_telecom"
+archetype = "devops"
+order = 8012
+mission = "Run name resolution reliably and securely."
+responsibilities = [
+  "Operate the DNS servers and zones",
+  "Secure the resolution and the zone changes",
+  "Monitor the latency and the availability",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["DNS zone definitions", "DNS runbooks"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Names always resolve, quickly and correctly."

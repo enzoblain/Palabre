@@ -1,0 +1,15 @@
+title = "Site Reliability Engineer (SRE)"
+description = "Site Reliability Engineer (SRE): keep the service reliable through measurable objectives and automation."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7003
+mission = "Keep the service reliable through measurable objectives and automation."
+responsibilities = [
+  "Define the reliability objectives and measure them",
+  "Automate the operational work and the recovery",
+  "Lead the post-mortems and the follow-up actions",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Reliability objectives", "Post-mortems"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The service meets its reliability objectives."

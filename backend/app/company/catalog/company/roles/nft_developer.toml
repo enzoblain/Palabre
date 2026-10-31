@@ -1,0 +1,15 @@
+title = "NFT Developer"
+description = "NFT Developer: build the token and metadata features for digital assets."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9004
+mission = "Build the token and metadata features for digital assets."
+responsibilities = [
+  "Implement the token contracts and the minting flow",
+  "Handle the metadata and its storage",
+  "Test the transfers, royalties and permissions",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Token contracts", "Minting flow"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Digital assets are minted, stored and transferred correctly."

@@ -1,0 +1,15 @@
+title = "Test Data Engineer"
+description = "Test Data Engineer: provide the realistic and safe data the tests need."
+category = "quality_testing"
+archetype = "qa"
+order = 10017
+mission = "Provide the realistic and safe data the tests need."
+responsibilities = [
+  "Build the test datasets and the generators",
+  "Anonymize any data copied from production",
+  "Keep the datasets in sync with the schema",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test datasets", "Data generators"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Tests run on realistic data that contains no personal information."

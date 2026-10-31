@@ -1,0 +1,15 @@
+title = "Reliability Engineer"
+description = "Reliability Engineer: measure and improve how reliably the software works over time."
+category = "quality_testing"
+archetype = "qa"
+order = 10023
+mission = "Measure and improve how reliably the software works over time."
+responsibilities = [
+  "Track the failure rates and their causes",
+  "Analyze the recurring failures and propose fixes",
+  "Define the reliability targets with the team",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Reliability analyses", "Reliability targets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Failures are understood and become less frequent."

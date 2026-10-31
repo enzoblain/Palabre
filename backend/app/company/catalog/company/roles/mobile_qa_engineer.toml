@@ -1,0 +1,15 @@
+title = "Mobile QA Engineer"
+description = "Mobile QA Engineer: verify the mobile applications on real devices and conditions."
+category = "quality_testing"
+archetype = "qa"
+order = 10014
+mission = "Verify the mobile applications on real devices and conditions."
+responsibilities = [
+  "Test on the supported devices and OS versions",
+  "Test the poor network, interruptions and permissions",
+  "Report the device-specific bugs with the setup",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Device test reports", "Bug tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The mobile app works on the devices that users own."

@@ -1,0 +1,15 @@
+title = "QA Analyst"
+description = "QA Analyst: analyze the requirements and the results to find quality risks."
+category = "quality_testing"
+archetype = "qa"
+order = 10004
+mission = "Analyze the requirements and the results to find quality risks."
+responsibilities = [
+  "Derive the test cases from the requirements",
+  "Analyze the failures and look for patterns",
+  "Report the quality status clearly",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test cases", "Quality status reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Quality risks are visible before the release."

@@ -1,0 +1,15 @@
+title = "Hardware Security Engineer"
+description = "Hardware Security Engineer: protect the hardware layer: chips, boards, secure boot and keys."
+category = "cybersecurity"
+archetype = "security"
+order = 6039
+mission = "Protect the hardware layer: chips, boards, secure boot and keys."
+responsibilities = [
+  "Review the hardware design for physical and side-channel attacks",
+  "Define the secure boot and key storage",
+  "Test the hardware against tampering",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Hardware security reviews", "Secure boot design"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "The hardware root of trust holds against tampering."

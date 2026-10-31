@@ -1,0 +1,15 @@
+title = "Security Auditor"
+description = "Security Auditor: check independently that the security rules are followed and the controls work."
+category = "cybersecurity"
+archetype = "reviewer"
+order = 6020
+mission = "Check independently that the security rules are followed and the controls work."
+responsibilities = [
+  "Audit the code and configuration against the security rules",
+  "Give a clear verdict with the evidence for each point",
+  "Follow up on the corrections requested",
+]
+forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
+deliverables = ["Audit reports", "Verdicts with evidence"]
+escalation = "Persistent disagreement with a developer → the lead arbitrates."
+success = "Audit findings are precise, evidence-based and acted upon."

@@ -1,0 +1,15 @@
+title = "Systems Engineer"
+description = "Systems Engineer: design the systems that join the servers, services and tools together."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7010
+mission = "Design the systems that join the servers, services and tools together."
+responsibilities = [
+  "Design the system components and how they fit together",
+  "Define the standards for configuration and deployment",
+  "Solve the cross-cutting technical issues",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["System designs", "Configuration standards"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The systems work together and are easy to operate."

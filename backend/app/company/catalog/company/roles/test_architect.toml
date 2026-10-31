@@ -1,0 +1,15 @@
+title = "Test Architect"
+description = "Test Architect: design the test architecture so tests stay maintainable as the project grows."
+category = "quality_testing"
+archetype = "architect"
+order = 10007
+mission = "Design the test architecture so tests stay maintainable as the project grows."
+responsibilities = [
+  "Define the test layers, conventions and tooling",
+  "Review the structure of the test suites",
+  "Reduce the duplication and flakiness",
+]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Test architecture", "Test conventions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The test suites stay fast, readable and trustworthy."

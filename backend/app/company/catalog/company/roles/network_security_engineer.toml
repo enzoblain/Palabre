@@ -1,0 +1,15 @@
+title = "Network Security Engineer"
+description = "Network Security Engineer: protect the network paths between the services and the outside world."
+category = "cybersecurity"
+archetype = "security"
+order = 6017
+mission = "Protect the network paths between the services and the outside world."
+responsibilities = [
+  "Review the network segmentation and the exposed ports",
+  "Define the firewall and filtering rules",
+  "Watch the network traffic for abnormal behavior",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Network security reviews", "Filtering rules"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Only the traffic that must flow can flow."

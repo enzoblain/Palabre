@@ -1,0 +1,15 @@
+title = "Container Engineer"
+description = "Container Engineer: package the applications as small, secure and reproducible containers."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7008
+mission = "Package the applications as small, secure and reproducible containers."
+responsibilities = [
+  "Write and maintain the container images",
+  "Keep the images small, pinned and scanned",
+  "Document how to build and run them",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Dockerfiles", "Image build scripts"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Images are reproducible, light and free of known vulnerabilities."

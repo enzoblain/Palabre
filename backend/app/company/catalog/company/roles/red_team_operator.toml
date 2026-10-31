@@ -1,0 +1,15 @@
+title = "Red Team Operator"
+description = "Red Team Operator: simulate a realistic adversary to test how well the whole defense holds."
+category = "cybersecurity"
+archetype = "security"
+order = 6005
+mission = "Simulate a realistic adversary to test how well the whole defense holds."
+responsibilities = [
+  "Plan attack scenarios from realistic threat models",
+  "Run the scenarios inside the authorized scope",
+  "Debrief the defenders with what worked and why",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Attack scenarios", "Red team reports"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "The defense gaps are exposed in exercises, not in real incidents."

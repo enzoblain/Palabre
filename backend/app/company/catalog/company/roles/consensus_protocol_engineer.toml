@@ -1,0 +1,15 @@
+title = "Consensus Protocol Engineer"
+description = "Consensus Protocol Engineer: implement and verify the consensus that makes nodes agree."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9008
+mission = "Implement and verify the consensus that makes nodes agree."
+responsibilities = [
+  "Implement the consensus algorithm and its messages",
+  "Test it under faults, delays and malicious nodes",
+  "Document the safety and liveness assumptions",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Consensus implementation", "Fault-injection tests"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Nodes reach agreement even under faults."

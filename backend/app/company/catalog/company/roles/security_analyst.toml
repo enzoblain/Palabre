@@ -1,0 +1,15 @@
+title = "Security Analyst"
+description = "Security Analyst: spot and assess security issues in the code, the dependencies and the configuration."
+category = "cybersecurity"
+archetype = "security"
+order = 6002
+mission = "Spot and assess security issues in the code, the dependencies and the configuration."
+responsibilities = [
+  "Analyze the security impact of the changes",
+  "Triage vulnerability reports and rank them by risk",
+  "Document findings with a clear reproduction and fix advice",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Security analyses", "Ranked findings"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No serious finding stays unnoticed or unranked."

@@ -1,0 +1,15 @@
+title = "Load Balancing Engineer"
+description = "Load Balancing Engineer: spread the traffic across the services for availability and performance."
+category = "networks_telecom"
+archetype = "devops"
+order = 8014
+mission = "Spread the traffic across the services for availability and performance."
+responsibilities = [
+  "Configure the load balancers and the health checks",
+  "Tune the balancing algorithms and the timeouts",
+  "Test the failover behavior",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Load balancer configurations", "Failover tests"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Traffic is shared evenly and failures are invisible to users."

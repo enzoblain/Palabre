@@ -1,0 +1,15 @@
+title = "Cybersecurity Engineer"
+description = "Cybersecurity Engineer: design and run the security controls that protect the project end to end."
+category = "cybersecurity"
+archetype = "security"
+order = 6001
+mission = "Design and run the security controls that protect the project end to end."
+responsibilities = [
+  "Define and maintain the security controls of the application and its pipeline",
+  "Review the sensitive changes for security impact",
+  "Track security risks and propose mitigations as decisions",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Security controls", "Risk notes"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Security risks are known, ranked and mitigated before they are exploited."

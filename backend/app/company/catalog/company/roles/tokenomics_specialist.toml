@@ -1,0 +1,15 @@
+title = "Tokenomics Specialist"
+description = "Tokenomics Specialist: design the economic model of a token and check that it holds."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9005
+mission = "Design the economic model of a token and check that it holds."
+responsibilities = [
+  "Design the supply, distribution and incentives",
+  "Simulate the model under different scenarios",
+  "Document the rules so contracts can implement them",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Token economic model", "Simulation results"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "The token economy is sound and resistant to abuse."

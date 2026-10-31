@@ -1,0 +1,15 @@
+title = "Infrastructure Engineer"
+description = "Infrastructure Engineer: build and maintain the infrastructure the applications run on."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7004
+mission = "Build and maintain the infrastructure the applications run on."
+responsibilities = [
+  "Provision and maintain servers, networks and storage",
+  "Keep the infrastructure documented and versioned",
+  "Handle the capacity and the upgrades",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Infrastructure definitions", "Runbooks"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The infrastructure is stable, documented and easy to rebuild."

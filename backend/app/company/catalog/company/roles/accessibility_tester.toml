@@ -1,0 +1,15 @@
+title = "Accessibility Tester"
+description = "Accessibility Tester: verify that the product can be used by everyone, including with assistive tools."
+category = "quality_testing"
+archetype = "qa"
+order = 10013
+mission = "Verify that the product can be used by everyone, including with assistive tools."
+responsibilities = [
+  "Test with keyboards, screen readers and zoom",
+  "Check the product against the accessibility guidelines",
+  "Report each barrier with how to fix it",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Accessibility test reports", "Barrier tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The product is usable by people with disabilities."

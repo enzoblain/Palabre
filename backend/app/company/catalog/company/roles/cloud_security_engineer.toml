@@ -1,0 +1,15 @@
+title = "Cloud Security Engineer"
+description = "Cloud Security Engineer: secure the cloud accounts, services and configurations the project runs on."
+category = "cybersecurity"
+archetype = "security"
+order = 6016
+mission = "Secure the cloud accounts, services and configurations the project runs on."
+responsibilities = [
+  "Review the cloud configuration for exposure and excess rights",
+  "Define guardrails for the cloud resources",
+  "Monitor the cloud environment for drift and misuse",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Cloud security reviews", "Guardrail definitions"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No cloud resource is exposed or over-privileged without a reason."

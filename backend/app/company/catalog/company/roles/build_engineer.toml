@@ -1,0 +1,15 @@
+title = "Build Engineer"
+description = "Build Engineer: keep the build fast, reproducible and reliable."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7022
+mission = "Keep the build fast, reproducible and reliable."
+responsibilities = [
+  "Maintain the build system and its caching",
+  "Fix the flaky or slow build steps",
+  "Pin the dependencies and the toolchains",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Build configuration", "Build timing reports"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The build gives the same result everywhere and fast."

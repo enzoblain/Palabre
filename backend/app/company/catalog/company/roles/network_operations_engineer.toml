@@ -1,0 +1,15 @@
+title = "Network Operations Engineer"
+description = "Network Operations Engineer: monitor and operate the network in production."
+category = "networks_telecom"
+archetype = "devops"
+order = 8003
+mission = "Monitor and operate the network in production."
+responsibilities = [
+  "Watch the network health and capacity",
+  "Handle the network incidents and escalations",
+  "Plan and run the maintenance windows",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Incident records", "Maintenance plans"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Network incidents are detected and resolved quickly."

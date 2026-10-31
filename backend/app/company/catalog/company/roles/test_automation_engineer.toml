@@ -1,0 +1,15 @@
+title = "Test Automation Engineer"
+description = "Test Automation Engineer: write the automated tests and the framework that runs them."
+category = "quality_testing"
+archetype = "qa"
+order = 10008
+mission = "Write the automated tests and the framework that runs them."
+responsibilities = [
+  "Build and maintain the test framework",
+  "Automate the regression scenarios",
+  "Integrate the tests into the pipeline",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test framework", "Automated tests"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Regression checks run automatically on every change."

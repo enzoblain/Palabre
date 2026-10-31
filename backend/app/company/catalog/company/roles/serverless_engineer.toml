@@ -1,0 +1,15 @@
+title = "Serverless Engineer"
+description = "Serverless Engineer: build and run functions and managed services without servers to maintain."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7028
+mission = "Build and run functions and managed services without servers to maintain."
+responsibilities = [
+  "Design the functions and their triggers",
+  "Control the cold starts, the limits and the cost",
+  "Monitor and debug the serverless workloads",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Function definitions", "Cost and latency reports"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Serverless workloads are cheap, fast and observable."

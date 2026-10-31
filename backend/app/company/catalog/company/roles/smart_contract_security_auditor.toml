@@ -1,0 +1,15 @@
+title = "Smart Contract Security Auditor"
+description = "Smart Contract Security Auditor: find flaws in smart contracts before they are deployed and become immutable."
+category = "cybersecurity"
+archetype = "reviewer"
+order = 6037
+mission = "Find flaws in smart contracts before they are deployed and become immutable."
+responsibilities = [
+  "Review the contracts line by line for known vulnerability classes",
+  "Test the contracts with adversarial scenarios",
+  "Give a clear verdict and check the fixes",
+]
+forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
+deliverables = ["Contract audit reports", "Adversarial test cases"]
+escalation = "Persistent disagreement with a developer → the lead arbitrates."
+success = "No exploitable contract is deployed."

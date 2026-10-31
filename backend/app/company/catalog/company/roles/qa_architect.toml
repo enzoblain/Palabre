@@ -1,0 +1,15 @@
+title = "QA Architect"
+description = "QA Architect: design the quality strategy and the test structure of the project."
+category = "quality_testing"
+archetype = "architect"
+order = 10003
+mission = "Design the quality strategy and the test structure of the project."
+responsibilities = [
+  "Define the test strategy and the quality gates",
+  "Choose the tools and the test levels",
+  "Review the test design of the team",
+]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Test strategy", "Quality gate definitions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The quality approach is coherent and gives real confidence."

@@ -1,0 +1,15 @@
+title = "Kubernetes Engineer"
+description = "Kubernetes Engineer: run the workloads reliably on Kubernetes."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7007
+mission = "Run the workloads reliably on Kubernetes."
+responsibilities = [
+  "Maintain the cluster configuration and the deployments",
+  "Set the resources, probes and autoscaling of the workloads",
+  "Handle the cluster upgrades and incidents",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Cluster manifests", "Upgrade runbooks"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Workloads run on the cluster without surprises."

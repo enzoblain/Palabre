@@ -1,0 +1,15 @@
+title = "Manual Tester"
+description = "Manual Tester: test the product by hand, the way a user would use it."
+category = "quality_testing"
+archetype = "qa"
+order = 10005
+mission = "Test the product by hand, the way a user would use it."
+responsibilities = [
+  "Run exploratory and scripted tests on the features",
+  "Try unexpected inputs and unusual paths",
+  "File a clear, reproducible ticket for each bug",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test notes", "Bug tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The bugs a user would hit are found before the user."

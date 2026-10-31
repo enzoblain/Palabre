@@ -366,3 +366,13 @@ def test_mode_seat_with_an_extended_job_is_refused(catalog_copy):
     mode = {"kind": "company", "seats": [{"roles": ["kernel_developer"]}]}
     with pytest.raises(CatalogError, match="at random"):
         validate_catalog(roles, {"m": mode}, [])
+
+
+def test_every_job_of_the_security_to_quality_categories_has_its_file():
+    lot = {"cybersecurity", "cloud_devops_infrastructure", "networks_telecom", "blockchain_web3", "quality_testing"}
+    roles = load_roles()
+    for entry in load_extended_index().values():
+        if entry.category in lot and not entry.existing:
+            assert entry.key in roles, entry.key
+            assert roles[entry.key].archetype == entry.archetype, entry.key
+            assert roles[entry.key].category == entry.category, entry.key

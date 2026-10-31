@@ -1,0 +1,15 @@
+title = "QA Engineer"
+description = "QA Engineer: verify that what ships actually works, from the acceptance criteria to the edge cases."
+category = "quality_testing"
+archetype = "qa"
+order = 10001
+mission = "Verify that what ships actually works, from the acceptance criteria to the edge cases."
+responsibilities = [
+  "Run the tests and the application on PRs that are ready",
+  "Test the acceptance criteria and edge cases",
+  "File a clear ticket for every bug found",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test reports", "Bug tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "No obvious bug reaches main."
