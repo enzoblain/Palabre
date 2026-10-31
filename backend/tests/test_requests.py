@@ -318,6 +318,23 @@ async def test_the_lead_withdraws_and_merges_a_relayed_request(tidy_db):
     assert new.employee_id == lead.id and second.request_merged_into == new.id
 
 
+async def test_the_lead_cannot_withdraw_or_merge_a_relayed_escalation(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    relayed = await _ask(s, project, dev, "Louise is blocking me", "escalation")
+    own = await _ask(s, project, lead, "My own escalation", "escalation")
+    other = await _ask(s, project, lead, "b")
+    with pytest.raises(WorkflowError, match="relayed from a team member"):
+        await services.withdraw_request(s, project.id, lead, relayed.id, "obsolete")
+    with pytest.raises(WorkflowError, match="relayed from a team member"):
+        await services.merge_requests(s, project.id, lead, [other.id, relayed.id], "merged")
+    assert relayed.request_status == other.request_status == RequestStatus.pending.value
+    # The lead's own requests stay theirs to close
+    done = await services.withdraw_request(s, project.id, lead, other.id, "done")
+    assert done.request_status == RequestStatus.withdrawn.value
+    assert (await services.withdraw_request(s, project.id, lead, own.id, "done")).request_status == "withdrawn"
+
+
 async def test_withdraw_closes_the_request_and_the_boss_cannot_answer(tidy_db):
     s = tidy_db
     project, lead, _ = await _direction(s)
