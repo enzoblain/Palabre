@@ -238,7 +238,7 @@ export function normalizeServer(input: string): string {
   return server.replace(/\/api$/, "");
 }
 
-/** Codes of the backend's error responses (backend/app/api/errors.py); each has an `error.<code>` message. */
+/** Codes of the backend's error responses (backend/app/errors.py); each has an `error.<code>` message. */
 export const ERROR_CODES = [
   "auth_invalid_token",
   "auth_locked",
@@ -273,6 +273,23 @@ export const ERROR_CODES = [
   "conversation_not_in_room",
   "invalid_language",
   "not_found",
+  "invalid_personality",
+  "invalid_branch_name",
+  "branch_already_used",
+  "no_name_left",
+  "task_wrong_status",
+  "task_not_yours",
+  "task_waiting_for_dependencies",
+  "task_no_branch",
+  "task_no_pull_request",
+  "invalid_pr_title",
+  "cannot_review_own_task",
+  "merge_blocked",
+  "no_commits",
+  "github_not_configured",
+  "invalid_github_url",
+  "github_branch_missing",
+  "production_branch_boss_only",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -291,9 +308,9 @@ export class ApiError extends Error {
 }
 
 /** The message in the project's language: by code, else a generic one with the status. */
-function errorMessage(status: number, code: unknown, detail: string): string {
+function errorMessage(status: number, code: unknown): string {
   if (!isErrorCode(code)) return translate("api.error", { status });
-  return translate(`error.${code}`, { detail, status } as never);
+  return translate(`error.${code}`);
 }
 
 async function request<T>(conn: Connection, path: string, method = "GET", body?: unknown): Promise<T> {
@@ -307,8 +324,8 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch (err) {
-    throw new ApiError(0, translate("api.unreachable", { server: conn.server, reason: err instanceof Error ? err.message : String(err) }));
+  } catch {
+    throw new ApiError(0, translate("api.unreachable", { server: conn.server }));
   }
   if (!res.ok) {
     let detail = res.statusText || `HTTP ${res.status}`;
@@ -321,7 +338,7 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
     } catch {
       // Not JSON: keep the status text
     }
-    throw new ApiError(res.status, errorMessage(res.status, code, detail), detail, isErrorCode(code) ? code : undefined);
+    throw new ApiError(res.status, errorMessage(res.status, code), detail, isErrorCode(code) ? code : undefined);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
