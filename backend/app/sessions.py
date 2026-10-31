@@ -31,6 +31,8 @@ def verify_session_token(admin_token: str, token: str, now: float | None = None)
     expiry, _, signature = token.partition(".")
     if not (expiry.isascii() and expiry.isdecimal()) or len(expiry) > _MAX_EXPIRY_DIGITS or not signature:
         return False
+    if expiry != str(int(expiry)):  # canonical form only: no leading zeros, one string per token
+        return False
     if not hmac.compare_digest(signature.encode(), _sign(admin_token, int(expiry)).encode()):
         return False
     return int(expiry) > (time.time() if now is None else now)

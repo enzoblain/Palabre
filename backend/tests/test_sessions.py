@@ -38,6 +38,13 @@ def test_malformed_tokens_are_refused(junk):
     assert not verify_session_token(SECRET, junk, now=1)
 
 
+def test_non_canonical_expiry_is_refused():
+    token, _ = issue_session_token(SECRET, 60, now=1000)
+    assert verify_session_token(SECRET, token, now=1)
+    assert not verify_session_token(SECRET, "0" + token, now=1)
+    assert not verify_session_token(SECRET, "00" + token, now=1)
+
+
 def test_raw_admin_token_is_not_a_valid_session_token():
     assert not verify_session_token(SECRET, SECRET, now=1)
 
