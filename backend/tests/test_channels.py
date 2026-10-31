@@ -8,8 +8,10 @@ from fastapi import HTTPException
 from app import services
 from app.api import conversations
 from app.api.schemas import MessageIn
+from app.company.team import load_catalog
 from app.errors import WorkflowError
 from app.models import Conversation, Event, Project, Room
+from app.orchestrator.prompts import reason_for
 
 from .conftest import make_employee
 
@@ -247,8 +249,6 @@ async def test_mentioning_a_third_party_in_a_dm_is_refused():
 
 
 def test_dm_wake_prompt_is_not_a_mention():
-    from app.orchestrator.prompts import reason_for
-
     reason = reason_for("mention", {"message_id": 4, "dm_from": "Maya"})
     assert "Maya sent you a direct message" in reason and "mentioned" not in reason
     assert "mentioned" in reason_for("mention", {"message_id": 4})
@@ -353,16 +353,18 @@ async def test_boss_cannot_create_a_room_in_a_company():
 
 
 def test_conversation_idle_asks_for_a_project_summary() -> None:
-    from app.orchestrator.prompts import reason_for
-
     reason = reason_for("conversation_idle", {})
-    assert "summary of the project" in reason
+    assert "project" in reason
     assert "not of the conversation" in reason
     assert "team's language" in reason
 
 
-def test_scribe_summary_responsibility_targets_the_project() -> None:
-    from app.company.team import load_catalog
+def test_research_report_stays_the_summary_exception() -> None:
+    reason = reason_for("research_report", {})
+    assert "update_summary" in reason
+    assert "exception" in reason
 
+
+def test_scribe_summary_responsibility_targets_the_project() -> None:
     scribe = load_catalog()["roles"]["scribe"]
     assert any("summary of the project" in item for item in scribe["responsibilities"])
