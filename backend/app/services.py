@@ -179,6 +179,7 @@ async def post_message(
     *,
     request_kind: str | None = None,
     request_decision_id: int | None = None,
+    request_author_id: int | None = None,
     commit: bool = True,
 ) -> Message:
     """Post a message (author None = the boss) and wake up everyone @mentioned.
@@ -214,6 +215,7 @@ async def post_message(
         request_kind=request_kind,
         request_status=RequestStatus.pending.value if request_kind else None,
         request_decision_id=request_decision_id,
+        request_author_id=request_author_id,
     )
     s.add(msg)
     await s.flush()
@@ -303,15 +305,17 @@ async def ask_boss(
     conversation_id = await direction_conversation_id(s, project_id)
     if conversation_id is None:
         return None
+    request_author_id = None
     if "lead" not in author.roles:
         employees = await s.scalars(select(Employee).where(Employee.project_id == project_id).order_by(Employee.id))
         lead = next((e for e in employees if "lead" in e.roles), None)
         if lead is None:
             raise WorkflowError("This project has no lead to relay the request to the boss")
-        content, author = f"{author.name}: {content}", lead
+        content, request_author_id, author = f"{author.name}: {content}", author.id, lead
     return await post_message(
         s, project_id, conversation_id, content, author,
-        request_kind=kind, request_decision_id=decision_id, commit=commit,
+        request_kind=kind, request_decision_id=decision_id,
+        request_author_id=request_author_id, commit=commit,
     )  # fmt: skip
 
 
@@ -364,20 +368,13 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
     return [found[i] for i in ids]
 
 
-async def _refuse_relayed_escalations(s: AsyncSession, project_id: int, messages: list[Message]) -> None:
-    """A member's escalation to the boss is relayed under the lead's name (`ask_boss`): the lead may not
-    close it, `escalate(to="boss")` being the only path that goes around them."""
-    escalations = [m for m in messages if m.request_kind == "escalation"]
-    if not escalations:
-        return
-    members = await s.scalars(select(Employee.name).where(Employee.project_id == project_id))
-    prefixes = tuple(f"{name}: " for name in members if name != escalations[0].author_name)
-    for message in escalations:
-        if message.content.startswith(prefixes):
-            raise WorkflowError(
-                f"Request #{message.id} is an escalation relayed from a team member: "
-                "only the boss can answer it, you cannot withdraw or merge it"
-            )
+def _refuse_relayed_escalation(message: Message, action: str) -> None:
+    """An escalation relayed for a member goes to the boss whatever the lead thinks: the lead may not close it."""
+    if message.request_kind == "escalation" and message.request_author_id not in (None, message.employee_id):
+        raise WorkflowError(
+            f"Request #{message.id} is a member's escalation relayed to the boss: the lead cannot {action} it, "
+            "only the boss answers it"
+        )
 
 
 def _close_request(message: Message, status: RequestStatus, comment: str, merged_into: int | None = None) -> None:
@@ -396,7 +393,7 @@ async def withdraw_request(
     if not reason:
         raise WorkflowError("A withdrawn request needs a reason")
     (message,) = await _own_pending_requests(s, project_id, author, [request_id])
-    await _refuse_relayed_escalations(s, project_id, [message])
+    _refuse_relayed_escalation(message, "withdraw")
     _close_request(message, RequestStatus.withdrawn, reason)
     if commit:
         await s.commit()
@@ -415,8 +412,8 @@ async def merge_requests(
     if len(ids) > MAX_MERGED_REQUESTS:
         raise WorkflowError(f"Merge at most {MAX_MERGED_REQUESTS} requests at a time")
     olds = await _own_pending_requests(s, project_id, author, ids)
-    await _refuse_relayed_escalations(s, project_id, olds)
     for old in olds:
+        _refuse_relayed_escalation(old, "merge")
         if old.request_decision_id is not None or old.request_kind == "release":
             raise WorkflowError(
                 f"Request #{old.id} is about a decision or a release: it cannot be merged, "

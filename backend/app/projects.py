@@ -832,7 +832,11 @@ async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, r
         raise WorkflowError(f"Request #{request_id} is about a release: it cannot be withdrawn")
     if decision is not None and decision.status == DecisionStatus.proposed:
         await s.flush()  # the request is withdrawn before the settling answers the other pending ones
-        await settle_decision(s, decision, RequestAnswer.rejected, reason.strip(), wake_proposer=False)
+        rejection = reason.strip()
+        if message.request_author_id is not None:
+            # Relayed for a member: the boss reads in direction that they did not answer
+            rejection = f"Withdrawn by the lead, not answered by the boss: {rejection}"
+        await settle_decision(s, decision, RequestAnswer.rejected, rejection, wake_proposer=False)
     await s.commit()
     return message
 
