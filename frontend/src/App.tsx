@@ -164,7 +164,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   return (
     <div className={`shell${navOpen ? " nav-open" : ""}`}>
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-      <TeamPanel project={inProject ? project : null} noProject={!inProject} presence={presence} open={navOpen}
+      <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} presence={presence} open={navOpen}
         onClose={() => setNavOpen(false)} />
       <main className="main">
         {inProject ? (
