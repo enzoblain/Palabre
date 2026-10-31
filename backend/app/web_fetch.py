@@ -101,17 +101,21 @@ def _charset(content_type: str) -> str:
     for param in content_type.split(";")[1:]:
         key, _, value = param.strip().partition("=")
         if key.lower() == "charset" and value:
-            return _known_charset(value.strip("\"'"))
+            return value.strip("\"'")
     return DEFAULT_CHARSET
 
 
-def _known_charset(name: str) -> str:
-    """`name` if Python can decode it, else the default (the server may announce anything)."""
+def _decode(raw: bytes, charset: str) -> str:
+    """Decode `raw`, falling back to the default charset when the announced one is unusable.
+
+    Besides unknown names, codecs such as hex or zlib are not text codecs, and undefined, idna or
+    punycode raise UnicodeError even with errors="replace".
+    """
     try:
-        b" ".decode(name, errors="replace")  # codecs.lookup also accepts non-text codecs such as hex or zlib
-    except LookupError:
-        return DEFAULT_CHARSET
-    return name
+        text = raw.decode(charset, errors="replace")
+    except (LookupError, UnicodeError):
+        return raw.decode(DEFAULT_CHARSET, errors="replace")
+    return text
 
 
 def _header(response: httpcore.Response, name: bytes) -> str:
@@ -141,7 +145,7 @@ async def _get(pool: httpcore.AsyncConnectionPool, url: str) -> tuple[str, str]:
             if not content_type.startswith(TEXT_TYPES):
                 raise WorkflowError(f"Unsupported content type: {content_type or 'unknown'}")
             raw = await _read_limited(response)
-            return content_type, raw.decode(_charset(content_type), errors="replace")
+            return content_type, _decode(raw, _charset(content_type))
     raise WorkflowError(f"More than {settings.fetch_max_redirects} redirects")
 
 
