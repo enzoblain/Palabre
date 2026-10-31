@@ -37,7 +37,7 @@ def check_not_direction(room: Room) -> None:
 
 
 def check_not_dm(room: Room) -> None:
-    """A DM is exactly its two employees, named after them: no admin edit."""
+    """A DM is exactly its two employees, named after them: no admin edit, no deletion."""
     if room.kind == services.DM:
         raise HTTPException(status.HTTP_409_CONFLICT, "A direct message cannot be changed this way")
 
@@ -98,6 +98,7 @@ async def update_room(room_id: int, body: RoomPatch, s: SessionDep):
 async def delete_room(room_id: int, s: SessionDep):
     room = await load_room(s, room_id)
     check_not_direction(room)
+    check_not_dm(room)  # DMs last forever: nothing deletes or expires them
     await s.delete(room)
     await s.commit()
 
