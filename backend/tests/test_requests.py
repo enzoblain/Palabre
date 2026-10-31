@@ -378,6 +378,17 @@ async def test_backfill_marks_prefixed_pending_escalations_and_is_idempotent(tid
         await services.withdraw_request(s, project.id, lead, relayed.id, "obsolete")
 
 
+async def test_backfill_runs_once_so_a_later_own_escalation_stays_withdrawable(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    await projects.backfill_relayed_escalations(s)
+    own = await _ask(s, project, lead, f"{dev.name}: is it blocked?", "escalation")
+    await projects.backfill_relayed_escalations(s)  # a restart
+    assert own.request_author_id is None
+    done = await services.withdraw_request(s, project.id, lead, own.id, "unblocked")
+    assert done.request_status == RequestStatus.withdrawn.value
+
+
 async def test_withdrawing_a_relayed_decision_says_the_boss_did_not_answer(tidy_db):
     s = tidy_db
     project, lead, dev = await _direction(s)

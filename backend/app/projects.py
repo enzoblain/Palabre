@@ -236,6 +236,7 @@ async def ensure_all_directions(s: AsyncSession) -> None:
 # generic unless the catalog targets that name. An AI plan or a user can name a channel the same
 # later, so the migration runs once (marker below) and never sees those.
 GENERIC_ROOMS_MARKER = "generic_rooms_dropped"
+RELAYED_ESCALATIONS_MARKER = "relayed_escalations_backfilled"
 _GENERIC_ROOMS = {"general", "equipe", "couts-claude", "engineering", "product"}
 
 
@@ -851,7 +852,10 @@ async def normalize_repo_urls(s: AsyncSession) -> None:
 
 async def backfill_relayed_escalations(s: AsyncSession) -> None:
     """Pending escalations relayed before request_author_id existed carry the member's name as a
-    "Name: " prefix: record who they are for, so the lead still cannot close them (idempotent)."""
+    "Name: " prefix: record who they are for, so the lead still cannot close them. One-shot: a
+    persistent marker stops later runs, since the lead's own escalations may start with a name too."""
+    if await s.get(AppSetting, RELAYED_ESCALATIONS_MARKER) is not None:
+        return
     pending = await s.scalars(
         select(Message).where(
             Message.request_kind == "escalation",
@@ -868,6 +872,7 @@ async def backfill_relayed_escalations(s: AsyncSession) -> None:
             if message.content.startswith(f"{member.name}: "):
                 message.request_author_id = member.id
                 break
+    s.add(AppSetting(key=RELAYED_ESCALATIONS_MARKER, value="1"))
     await s.commit()
 
 
