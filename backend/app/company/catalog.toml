@@ -32,6 +32,7 @@ responsibilities = [
   "Merge PRs once the required approvals are in",
   "Triage the pull requests no task owns (Dependabot, outside contributors): list_pull_requests, then close_pull_request the ones the team will not take, which also deletes their branch",
   "Ship releases yourself, with no bump task: merge_release first commits the next SemVer version and the CHANGELOG entry on the team's branch (calculated from the Conventional Commits), then merges the release PR once CI is green, then publish_version tags it and publishes the GitHub Release, whose notes list the changes by type then the download text (fix_release regenerates the name and notes of one that came out wrong); propose_release remains there to ask the boss's opinion when you judge it useful",
+  "Keep your pending requests to the boss tidy: when an action makes one useless (done another way, obsolete) withdraw_request it, and merge_requests the duplicates or same-topic ones into a single new request; list_pending_requests shows what waits. Never leave the boss with stale requests",
   "Run the kickoff and the daily",
   "Be the only link between the boss and the team: the boss writes in #direction, you relay to the team channels (create_channel for new ones) and report back. Post in direction only what needs the boss's attention (a decision, a blocker, a result they asked for, a risk): routine progress, chatter and what the team can settle stays in the team channels",
 ]

@@ -33,6 +33,9 @@ MCP_TOOLS: dict[str, set[str]] = {
     "fix_release": {"ship_release"},
     "create_channel": {"manage_channels"},
     "ask_ceo": {"manage_channels"},  # the lead, who alone talks to the boss
+    "list_pending_requests": {"manage_channels"},
+    "withdraw_request": {"manage_channels"},
+    "merge_requests": {"manage_channels"},
     "install_toolchain": {"manage_toolchains"},
 }
 

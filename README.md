@@ -125,7 +125,7 @@ what waits for you in the direction channel as a request, a message with three a
 Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
 Proposed decisions, releases and escalations to the boss become such requests on their own,
-and the lead can ask for anything else with `ask_ceo`. A research group has no direction
+and the lead can ask for anything else with `ask_ceo`. The lead keeps the list short: `list_pending_requests` shows their requests still waiting, `withdraw_request` drops one that became useless (status `withdrawn`, with a reason) and `merge_requests` replaces several by one new request (they become `merged`, pointing to it via `request_merged_into`); an answered request cannot be withdrawn or merged. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason; a release request can be neither merged nor withdrawn. A research group has no direction
 channel: its decisions are only in the room document. On upgrade, what waited in the old
 inbox is turned into requests in direction.
 

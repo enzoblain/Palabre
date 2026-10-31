@@ -69,9 +69,11 @@ export type Message = {
   is_system: boolean;
   // Set when the lead asks the CEO something (Validate / Reject / Nuance)
   request_kind: string | null;
-  request_status: "pending" | RequestAnswer | null;
+  request_status: "pending" | RequestAnswer | "withdrawn" | "merged" | null;
   request_comment: string | null;
   request_answered_at: string | null;
+  // The new request that replaced this one (status "merged")
+  request_merged_into: number | null;
   request_decision_id: number | null;
 };
 export type RequestAnswer = "validated" | "rejected" | "nuanced";

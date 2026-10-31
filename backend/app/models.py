@@ -52,6 +52,18 @@ class RequestAnswer(str, enum.Enum):
     nuanced = "nuanced"
 
 
+class RequestStatus(str, enum.Enum):
+    """Where a request to the boss stands (Message.request_status): waiting, answered by the
+    boss (RequestAnswer values), or closed by the lead without an answer."""
+
+    pending = "pending"
+    validated = "validated"
+    rejected = "rejected"
+    nuanced = "nuanced"
+    withdrawn = "withdrawn"
+    merged = "merged"
+
+
 class TaskKind(str, enum.Enum):
     feature = "feature"
     bug = "bug"
@@ -223,11 +235,14 @@ class Message(Base):
     # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # A request to the boss ("decision", "release", "escalation", "question"), answered
-    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then
+    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then,
+    # or until the lead withdraws it (the comment is their reason) or merges it into another
     request_kind: Mapped[str | None] = mapped_column(String(20))
     request_status: Mapped[str | None] = mapped_column(String(20))
     request_comment: Mapped[str | None] = mapped_column(Text)
     request_answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The request that replaced this one (request_status "merged")
+    request_merged_into: Mapped[int | None] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"))
     # The decision (or release) the request is about
     request_decision_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = created_at_column()
