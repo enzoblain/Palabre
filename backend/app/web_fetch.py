@@ -2,6 +2,7 @@
 
 import asyncio
 import socket
+from collections.abc import Iterable
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
@@ -30,7 +31,14 @@ class PublicOnlyBackend(httpcore.AsyncNetworkBackend):
     def __init__(self) -> None:
         self._backend = httpcore.AnyIOBackend()
 
-    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[tuple[int, int, int | bytes]] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
         infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
         addresses = [info[4][0] for info in infos]
         if not addresses or not all(is_public_address(a) for a in addresses):
@@ -47,7 +55,7 @@ class _TextExtractor(HTMLParser):
         self._parts: list[str] = []
         self._skipped_depth = 0
 
-    def handle_starttag(self, tag: str, attrs) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in SKIPPED_TAGS:
             self._skipped_depth += 1
         elif tag in BLOCK_TAGS:
@@ -137,6 +145,6 @@ async def fetch_page(url: str) -> str:
                 content_type, body = await _get(pool, url)
     except TimeoutError as exc:
         raise WorkflowError("The page took too long to answer") from exc
-    except (httpcore.ConnectError, httpcore.ProtocolError, OSError) as exc:
+    except (httpcore.NetworkError, httpcore.TimeoutException, httpcore.ProtocolError, OSError) as exc:
         raise WorkflowError(f"The page could not be fetched: {exc}") from exc
     return extract_text(body, content_type)[: settings.fetch_max_chars]

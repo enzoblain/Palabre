@@ -1,16 +1,20 @@
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpcore
 import pytest
 
+from mcp.server.mcpserver.exceptions import ToolError
+
 from app import web_fetch
 from app.config import settings
 from app.errors import WorkflowError
+from app.mcp_server import tools
 from app.mcp_server.permissions import mcp_tools_for
 
 
-async def chunked(body: bytes):
+async def chunked(body: bytes) -> AsyncIterator[bytes]:
     for start in range(0, len(body), 4):
         yield body[start : start + 4]
 
@@ -23,7 +27,7 @@ class FakePool:
         self.urls: list[str] = []
 
     @asynccontextmanager
-    async def stream(self, method: str, url: str, headers=None):
+    async def stream(self, method: str, url: str, headers: list[tuple[bytes, bytes]] | None = None):
         assert method == "GET"
         self.urls.append(url)
         status, response_headers, body = self.answers.pop(0)
@@ -122,3 +126,26 @@ def test_only_research_gets_fetch_page():
     assert "fetch_page" in mcp_tools_for(["conversation", "research"], False)
     for permissions in (["conversation"], ["conversation", "code", "request_review"], ["manage_tasks", "merge"]):
         assert "fetch_page" not in mcp_tools_for(permissions, True)
+
+
+async def test_fetch_page_wraps_network_errors(monkeypatch):
+    async def failing_get(pool, url):
+        raise httpcore.ReadTimeout("slow")
+
+    monkeypatch.setattr(web_fetch, "_get", failing_get)
+    with pytest.raises(WorkflowError, match="could not be fetched"):
+        await web_fetch.fetch_page("https://example.com/")
+
+
+async def test_mcp_tool_delegates_and_propagates_errors(monkeypatch):
+    monkeypatch.setattr(tools, "current_caller", lambda ctx: None)
+
+    async def fake_fetch(url):
+        if "bad" in url:
+            raise WorkflowError("refused")
+        return f"text of {url}"
+
+    monkeypatch.setattr(web_fetch, "fetch_page", fake_fetch)
+    assert await tools.fetch_page(None, "https://example.com/") == "text of https://example.com/"
+    with pytest.raises(ToolError, match="refused"):
+        await tools.fetch_page(None, "https://bad.example/")
