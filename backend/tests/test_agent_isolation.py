@@ -104,7 +104,7 @@ async def test_run_launches_sudo_and_cleans_up(as_agent, monkeypatch, tmp_path):
         returncode = 0
         pid = 1
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b'{"session_id": "s", "result": "ok"}', b""
 
     async def fake_exec(*argv, **kw):
@@ -128,7 +128,7 @@ async def test_timeout_kills_the_group_through_sudo(as_agent, monkeypatch, tmp_p
         pid = 4242
         returncode = None
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             await asyncio.sleep(10)
 
         async def wait(self):
@@ -160,7 +160,7 @@ async def test_sudo_run_uses_a_per_run_token_in_the_agent_dir_and_revokes_it(as_
         returncode = 0
         pid = 1
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             # While the run lives: the config sits in the agent dir with the #108 rights
             path = Path(seen["argv"][seen["argv"].index("--mcp-config") + 1])
             seen["path"], seen["mode"] = path, path.stat().st_mode & 0o777
@@ -477,7 +477,7 @@ def test_kill_all_runs_the_sudo_kill_of_the_whole_uid(monkeypatch):
     class Proc:
         returncode = 1
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b"", b"kill: sending signal to -1 failed: No such process"
 
     async def fake_exec(*args, **kw):
@@ -556,7 +556,7 @@ async def test_uid_is_killed_before_the_run_dir_is_collected(as_agent, monkeypat
         returncode = 0
         pid = 1
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b'{"session_id": "s", "result": "ok"}', b""
 
     async def fake_exec(*argv, **kw):
@@ -664,7 +664,7 @@ def _fake_proc(monkeypatch, events):
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b'{"session_id": "s", "result": "ok"}', b""
 
     async def fake_exec(*argv, **kw):
@@ -799,7 +799,7 @@ async def test_clone_is_released_when_the_run_times_out(as_agent, pooled, monkey
         paths_seen.append(paths)
 
     class Proc:
-        async def communicate(self):
+        async def communicate(self, input=None):
             raise TimeoutError
 
         async def wait(self):
@@ -834,7 +834,7 @@ async def test_claim_never_chmods_an_existing_directory(monkeypatch, tmp_path):
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b"", b""
 
     async def fake_exec(*a, **k):
@@ -850,3 +850,28 @@ async def test_claim_never_chmods_an_existing_directory(monkeypatch, tmp_path):
     # A directory just created is closed to the work group from the start
     await runner._claim([tmp_path / "fresh"], "agent1")
     assert chmods == [("fresh", 0o700)]
+
+
+async def test_prompts_stay_out_of_argv(as_agent, monkeypatch, tmp_path):
+    seen = {}
+
+    class Proc:
+        returncode = 0
+        pid = 1
+
+        async def communicate(self, input=None):
+            seen["stdin"] = input
+            seen["system_prompt"] = Path(seen["argv"][seen["argv"].index("--append-system-prompt-file") + 1]).read_text()
+            return b'{"session_id": "s", "result": "ok"}', b""
+
+    async def fake_exec(*argv, **kw):
+        seen.update(argv=list(argv), **kw)
+        return Proc()
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    run_spec = replace(spec(tmp_path), prompt="SECRET-USER-PROMPT", system_prompt="SECRET-SYSTEM-PROMPT")
+    await runner.run_claude(run_spec)
+    assert "SECRET" not in " ".join(seen["argv"])
+    assert seen["stdin"] == b"SECRET-USER-PROMPT"
+    assert seen["system_prompt"] == "SECRET-SYSTEM-PROMPT"
+    assert list((tmp_path / "run").iterdir()) == []
