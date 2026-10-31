@@ -138,6 +138,7 @@ class RoomOut(ORM):
     objective: str
     summary: str
     created_at: datetime
+    updated_at: datetime | None = None
     members: list[EmployeeBrief]
 
 

@@ -72,11 +72,6 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
       {asTitle ? <h1>{button}</h1> : button}
       {open && (
         <div className="menu" role="menu" aria-label={t("menu.projects")}>
-          {project && (
-            <a role="menuitem" className="menu-item" href={`#/p/${project.detail.id}/report`} onClick={close}>
-              <DocumentIcon size={15} /> {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
-            </a>
-          )}
           <div className="section-label" role="presentation">{t("menu.projects")}</div>
           {projects.map((p) => (
             <a key={p.id} role="menuitem" className="menu-item" href={`#/p/${p.id}`} onClick={close}
@@ -93,8 +88,9 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
 }
 
 /** The left-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
-export function TeamPanel({ project, presence, open, onClose, noProject }: {
+export function TeamPanel({ project, route, presence, open, onClose, noProject }: {
   project: ProjectState | null;
+  route: Route;
   // Home, new project, settings: no team to list, only the Settings link stays
   noProject?: boolean;
   presence: Presence[];
@@ -130,11 +126,17 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
   return (
     <aside className={`team-panel${open ? " open" : ""}`} aria-label={t("team.title")} onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="panel-head">
-        {!noProject && <h2 className="panel-title" id="people-label">{t("team.title")}</h2>}
         <button className="icon-btn panel-close" onClick={onClose} aria-label={t("team.close")}>×</button>
       </header>
       {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">{t("common.loading")}</p> : (
         <div className="panel-body">
+          <nav aria-label={t("menu.document")}>
+            <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${project.detail.id}/report`}
+              aria-current={route.name === "report" ? "page" : undefined} onClick={onClose}>
+              <DocumentIcon size={15} /> {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
+            </a>
+          </nav>
+          <h2 className="section-label" id="people-label">{t("team.title")}</h2>
           <ul className="panel-list" aria-labelledby="people-label">
             {people.map((e) => {
               const p = byId.get(e.id);
