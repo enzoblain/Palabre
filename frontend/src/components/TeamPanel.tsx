@@ -6,12 +6,11 @@ import { DocumentIcon, GearIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
-/** Button with the project's name; opens the menu to switch project or reach the settings. */
-export function ProjectMenu({ route, projects, project, bossName, onNavigate, asTitle }: {
+/** Button with the project's name; opens the menu to switch project. */
+export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
   route: Route;
   projects: Project[];
   project: ProjectState | null;
-  bossName: string;
   onNavigate?: () => void;
   // The button is the page title (the conversation header), so it sits in the heading
   asTitle?: boolean;
@@ -59,7 +58,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
 
   const button = (
     <button ref={buttonRef} className="project-menu-btn" aria-haspopup="menu" aria-expanded={open}
-      aria-label={`${name}: changer de projet ou ouvrir les réglages`} onClick={() => setOpen(!open)}>
+      aria-label={`${name}: changer de projet`} onClick={() => setOpen(!open)}>
       <span className="project-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
       <span className="truncate">{name}</span>
       <span className="caret" aria-hidden="true">▾</span>
@@ -70,7 +69,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
     <div className={`project-menu${asTitle ? " as-title" : ""}`} ref={rootRef} onKeyDown={onKeyDown}>
       {asTitle ? <h1>{button}</h1> : button}
       {open && (
-        <div className="menu" role="menu" aria-label="Projets et réglages">
+        <div className="menu" role="menu" aria-label="Projets">
           {project && (
             <a role="menuitem" className="menu-item" href={`#/p/${project.detail.id}/report`} onClick={close}>
               <DocumentIcon size={15} /> {project.detail.kind === "research" ? "Report" : "Document"}
@@ -85,10 +84,6 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
             </a>
           ))}
           <a role="menuitem" className="menu-item" href="#/new" onClick={close}><PlusIcon size={15} /> New project</a>
-          <hr />
-          <a role="menuitem" className="menu-item" href="#/settings" onClick={close}>
-            <GearIcon size={15} /> <span className="truncate">{bossName ? `Settings · ${bossName}` : "Settings"}</span>
-          </a>
         </div>
       )}
     </div>
@@ -97,7 +92,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
 
 const stateText = (p: Presence | undefined) => (p?.state === "working" ? "Occupé" : "Disponible");
 
-/** The right-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
+/** The left-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
 export function TeamPanel({ project, presence, open, onClose }: {
   project: ProjectState | null;
   presence: Presence[];
