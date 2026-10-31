@@ -1,0 +1,15 @@
+title = "Infrastructure Security Engineer"
+description = "Infrastructure Security Engineer: harden the servers, containers and platforms the project runs on."
+category = "cybersecurity"
+archetype = "security"
+order = 6018
+mission = "Harden the servers, containers and platforms the project runs on."
+responsibilities = [
+  "Define the hardening baseline of the infrastructure",
+  "Check the systems against the baseline",
+  "Follow the patching of the infrastructure components",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Hardening baselines", "Compliance checks"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "The infrastructure stays hardened and patched."

@@ -1,0 +1,15 @@
+title = "Network Engineer"
+description = "Network Engineer: design and maintain the networks that connect the systems."
+category = "networks_telecom"
+archetype = "devops"
+order = 8001
+mission = "Design and maintain the networks that connect the systems."
+responsibilities = [
+  "Design and configure the network equipment and links",
+  "Document the topology and the addressing",
+  "Troubleshoot the network incidents",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Network configurations", "Topology diagrams"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The network is reliable, documented and easy to evolve."

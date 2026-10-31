@@ -1,0 +1,15 @@
+title = "Digital Forensics Analyst"
+description = "Digital Forensics Analyst: establish what happened on a compromised system, with evidence that holds."
+category = "cybersecurity"
+archetype = "security"
+order = 6023
+mission = "Establish what happened on a compromised system, with evidence that holds."
+responsibilities = [
+  "Collect and preserve the evidence without altering it",
+  "Reconstruct the attacker's actions from logs and artifacts",
+  "Document the findings so they can be verified",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Forensic reports", "Evidence inventory"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "What happened is established with verifiable evidence."

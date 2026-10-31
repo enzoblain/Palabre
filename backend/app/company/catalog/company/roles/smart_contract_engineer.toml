@@ -1,0 +1,15 @@
+title = "Smart Contract Engineer"
+description = "Smart Contract Engineer: write secure, tested and gas-efficient smart contracts."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9002
+mission = "Write secure, tested and gas-efficient smart contracts."
+responsibilities = [
+  "Write the contracts and their deployment scripts",
+  "Test the contracts, including the attack scenarios",
+  "Optimize the gas costs without hurting safety",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Contracts", "Contract tests"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Contracts behave exactly as specified and hold up to attacks."

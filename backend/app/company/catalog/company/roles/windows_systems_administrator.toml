@@ -1,0 +1,15 @@
+title = "Windows Systems Administrator"
+description = "Windows Systems Administrator: operate the Windows servers and their directory services."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7012
+mission = "Operate the Windows servers and their directory services."
+responsibilities = [
+  "Maintain the Windows hosts, updates and policies",
+  "Manage the directory services and the access",
+  "Troubleshoot the Windows-specific incidents",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Host configurations", "Policy documentation"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Windows systems are stable, patched and under control."

@@ -1,0 +1,15 @@
+title = "Chaos Engineering Specialist"
+description = "Chaos Engineering Specialist: test the resilience of the system by causing failures on purpose."
+category = "quality_testing"
+archetype = "qa"
+order = 10019
+mission = "Test the resilience of the system by causing failures on purpose."
+responsibilities = [
+  "Design failure experiments with a clear hypothesis",
+  "Run them with a limited blast radius",
+  "Turn the findings into fixes",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Experiment plans", "Resilience findings"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Weaknesses are found by controlled experiments, not by outages."

@@ -1,0 +1,15 @@
+title = "Product Security Engineer"
+description = "Product Security Engineer: build security into the product features before they ship."
+category = "cybersecurity"
+archetype = "security"
+order = 6015
+mission = "Build security into the product features before they ship."
+responsibilities = [
+  "Assess the security impact of each new feature",
+  "Define security requirements with the product owner",
+  "Verify the requirements are met before release",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Feature security assessments", "Security requirements"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Security is a requirement of each feature, not an afterthought."

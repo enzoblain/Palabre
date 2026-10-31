@@ -1,0 +1,15 @@
+title = "Cryptography Engineer"
+description = "Cryptography Engineer: make sure cryptography is used correctly and only where it is needed."
+category = "cybersecurity"
+archetype = "security"
+order = 6026
+mission = "Make sure cryptography is used correctly and only where it is needed."
+responsibilities = [
+  "Choose well-established algorithms and libraries",
+  "Review every use of cryptography in the code",
+  "Define the key management and rotation rules",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Cryptography guidelines", "Key management rules"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No home-made or misused cryptography reaches production."

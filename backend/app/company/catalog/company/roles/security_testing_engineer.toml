@@ -1,0 +1,15 @@
+title = "Security Testing Engineer"
+description = "Security Testing Engineer: test the product for security weaknesses as part of quality checks."
+category = "quality_testing"
+archetype = "qa"
+order = 10012
+mission = "Test the product for security weaknesses as part of quality checks."
+responsibilities = [
+  "Run the security test cases on the features",
+  "Automate the common security checks",
+  "Report the weaknesses to the security owner",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Security test cases", "Weakness reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Common security flaws are caught by testing."

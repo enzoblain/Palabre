@@ -1,0 +1,15 @@
+title = "QA Automation Engineer"
+description = "QA Automation Engineer: automate the checks of the product so quality does not depend on manual effort."
+category = "quality_testing"
+archetype = "qa"
+order = 10002
+mission = "Automate the checks of the product so quality does not depend on manual effort."
+responsibilities = [
+  "Write and maintain the automated end-to-end checks",
+  "Keep the automated suites fast and reliable",
+  "Report the failures with clear evidence",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Automated check suites", "Failure reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Regressions are caught automatically."

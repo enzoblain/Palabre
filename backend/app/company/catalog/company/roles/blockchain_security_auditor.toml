@@ -1,0 +1,15 @@
+title = "Blockchain Security Auditor"
+description = "Blockchain Security Auditor: audit blockchain systems and their keys for flaws that can lose funds."
+category = "cybersecurity"
+archetype = "reviewer"
+order = 6036
+mission = "Audit blockchain systems and their keys for flaws that can lose funds."
+responsibilities = [
+  "Audit the protocol code, the nodes and the key handling",
+  "Test the economic and logic attack paths",
+  "Give a clear verdict and retest the fixes",
+]
+forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
+deliverables = ["Audit reports", "Retest results"]
+escalation = "Persistent disagreement with a developer → the lead arbitrates."
+success = "Flaws that could lose funds are found before deployment."

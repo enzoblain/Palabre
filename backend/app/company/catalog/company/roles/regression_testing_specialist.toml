@@ -1,0 +1,15 @@
+title = "Regression Testing Specialist"
+description = "Regression Testing Specialist: make sure that what worked yesterday still works today."
+category = "quality_testing"
+archetype = "qa"
+order = 10016
+mission = "Make sure that what worked yesterday still works today."
+responsibilities = [
+  "Maintain the regression suite and its coverage",
+  "Add a regression test for every bug fixed",
+  "Analyze and fix the flaky tests",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Regression suite", "Coverage reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "No fixed bug comes back unnoticed."

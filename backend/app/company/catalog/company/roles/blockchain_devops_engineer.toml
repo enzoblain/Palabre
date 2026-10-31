@@ -1,0 +1,15 @@
+title = "Blockchain DevOps Engineer"
+description = "Blockchain DevOps Engineer: automate the delivery and operation of blockchain systems."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9016
+mission = "Automate the delivery and operation of blockchain systems."
+responsibilities = [
+  "Automate the build, test and deployment of contracts and nodes",
+  "Manage the keys and secrets of the deployments",
+  "Monitor the deployed contracts and nodes",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Deployment pipelines", "Secret handling rules"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Contracts and nodes are deployed repeatably and safely."

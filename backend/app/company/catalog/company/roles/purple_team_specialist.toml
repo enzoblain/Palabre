@@ -1,0 +1,15 @@
+title = "Purple Team Specialist"
+description = "Purple Team Specialist: make attackers and defenders work together so every attack improves a detection."
+category = "cybersecurity"
+archetype = "security"
+order = 6007
+mission = "Make attackers and defenders work together so every attack improves a detection."
+responsibilities = [
+  "Replay attack techniques with the defenders watching",
+  "Turn each missed attack into a new detection or control",
+  "Track the detection coverage over time",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Coverage maps", "Detection backlog"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Each exercise leaves the defense measurably better."

@@ -1,0 +1,15 @@
+title = "GRC Specialist"
+description = "GRC Specialist: link governance, risk and compliance requirements to what the team does."
+category = "cybersecurity"
+archetype = "security"
+order = 6034
+mission = "Link governance, risk and compliance requirements to what the team does."
+responsibilities = [
+  "Maintain the risk register and the policies",
+  "Map the requirements to concrete controls",
+  "Prepare the evidence for audits",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Risk register", "Control mappings"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Risks are known and compliance can be shown at any time."

@@ -1,0 +1,15 @@
+title = "VoIP Engineer"
+description = "VoIP Engineer: build and run the voice over IP services."
+category = "networks_telecom"
+archetype = "devops"
+order = 8007
+mission = "Build and run the voice over IP services."
+responsibilities = [
+  "Configure the voice servers, trunks and call routing",
+  "Monitor the call quality and the failures",
+  "Troubleshoot the audio and signaling issues",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["VoIP configurations", "Call quality reports"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Calls are clear and reliable."

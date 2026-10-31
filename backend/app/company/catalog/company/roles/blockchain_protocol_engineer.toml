@@ -1,0 +1,15 @@
+title = "Blockchain Protocol Engineer"
+description = "Blockchain Protocol Engineer: work on the protocol layer of the blockchain itself."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9007
+mission = "Work on the protocol layer of the blockchain itself."
+responsibilities = [
+  "Implement and test the protocol rules",
+  "Handle the network messages and the state",
+  "Check the compatibility with other nodes",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Protocol code", "Compatibility tests"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "The protocol behaves identically to the specification on every node."

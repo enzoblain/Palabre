@@ -1,0 +1,15 @@
+title = "Application Security Engineer"
+description = "Application Security Engineer: make the application itself hard to attack, from design to code."
+category = "cybersecurity"
+archetype = "security"
+order = 6014
+mission = "Make the application itself hard to attack, from design to code."
+responsibilities = [
+  "Review the code and the designs for security flaws",
+  "Define secure coding rules and check them in reviews",
+  "Add security checks to the development workflow",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Secure coding rules", "Application security reviews"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "The application ships without known exploitable flaws."

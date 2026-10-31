@@ -1,0 +1,15 @@
+title = "Network Automation Engineer"
+description = "Network Automation Engineer: replace the manual network changes with tested automation."
+category = "networks_telecom"
+archetype = "devops"
+order = 8004
+mission = "Replace the manual network changes with tested automation."
+responsibilities = [
+  "Automate the configuration of the network devices",
+  "Validate the changes before they are applied",
+  "Keep the network state in version control",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Network automation code", "Validation tests"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Network changes are automatic, tested and reversible."

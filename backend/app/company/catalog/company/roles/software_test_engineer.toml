@@ -1,0 +1,15 @@
+title = "Software Test Engineer"
+description = "Software Test Engineer: design and run the tests that prove the software works."
+category = "quality_testing"
+archetype = "qa"
+order = 10006
+mission = "Design and run the tests that prove the software works."
+responsibilities = [
+  "Design test cases from the requirements and the code",
+  "Run the tests and analyze the failures",
+  "Maintain the test documentation",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test cases", "Test reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The software is tested thoroughly and the results are trusted."

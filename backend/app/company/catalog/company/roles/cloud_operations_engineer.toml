@@ -1,0 +1,15 @@
+title = "Cloud Operations Engineer"
+description = "Cloud Operations Engineer: run the cloud environment day to day."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7016
+mission = "Run the cloud environment day to day."
+responsibilities = [
+  "Monitor and maintain the cloud services",
+  "Handle the incidents and the routine requests",
+  "Keep the runbooks up to date",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Runbooks", "Operations reports"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "The cloud environment runs smoothly day after day."

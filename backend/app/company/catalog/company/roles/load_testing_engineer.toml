@@ -1,0 +1,15 @@
+title = "Load Testing Engineer"
+description = "Load Testing Engineer: check how the system behaves under heavy traffic."
+category = "quality_testing"
+archetype = "qa"
+order = 10011
+mission = "Check how the system behaves under heavy traffic."
+responsibilities = [
+  "Design load and stress scenarios from real usage",
+  "Run them against a production-like environment",
+  "Find the breaking points and report them",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Load test scenarios", "Breaking point reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The limits of the system are known before users reach them."

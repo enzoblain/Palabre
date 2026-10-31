@@ -1,0 +1,15 @@
+title = "Game QA Tester"
+description = "Game QA Tester: find the bugs and the unfun parts of a game before the players do."
+category = "quality_testing"
+archetype = "qa"
+order = 10015
+mission = "Find the bugs and the unfun parts of a game before the players do."
+responsibilities = [
+  "Play and test the builds systematically",
+  "Reproduce and document each defect with the steps",
+  "Check the performance and the balance issues",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Bug reports", "Playtest notes"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Players do not meet blocking bugs."

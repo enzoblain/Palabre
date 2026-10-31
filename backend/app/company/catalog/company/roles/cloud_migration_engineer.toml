@@ -1,0 +1,15 @@
+title = "Cloud Migration Engineer"
+description = "Cloud Migration Engineer: move the applications to the cloud with minimal risk and downtime."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7017
+mission = "Move the applications to the cloud with minimal risk and downtime."
+responsibilities = [
+  "Assess the applications and plan the migration steps",
+  "Run the migrations with a tested rollback",
+  "Check the migrated services against the old ones",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Migration plans", "Rollback procedures"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Migrations complete without data loss and with minimal downtime."

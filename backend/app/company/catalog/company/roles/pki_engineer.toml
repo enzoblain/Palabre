@@ -1,0 +1,15 @@
+title = "PKI Engineer"
+description = "PKI Engineer: run the certificates and trust chains that secure the communications."
+category = "cybersecurity"
+archetype = "security"
+order = 6027
+mission = "Run the certificates and trust chains that secure the communications."
+responsibilities = [
+  "Design and operate the certificate authorities and issuance",
+  "Automate the renewal and revocation of certificates",
+  "Monitor the certificates before they expire",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["PKI design", "Certificate automation"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Certificates never expire or leak unnoticed."

@@ -1,0 +1,15 @@
+title = "Security Researcher"
+description = "Security Researcher: study new attack and defense techniques and bring the useful ones to the project."
+category = "cybersecurity"
+archetype = "security"
+order = 6041
+mission = "Study new attack and defense techniques and bring the useful ones to the project."
+responsibilities = [
+  "Follow and test new security techniques",
+  "Assess how they apply to the project",
+  "Share findings as decisions or notes",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Research notes", "Proposals"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "The team benefits from new security knowledge before attackers do."

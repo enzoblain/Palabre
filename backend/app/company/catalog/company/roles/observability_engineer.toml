@@ -1,0 +1,15 @@
+title = "Observability Engineer"
+description = "Observability Engineer: make the system's behavior visible through logs, metrics and traces."
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+order = 7019
+mission = "Make the system's behavior visible through logs, metrics and traces."
+responsibilities = [
+  "Instrument the services with logs, metrics and traces",
+  "Build dashboards and alerts that answer real questions",
+  "Keep the observability stack reliable",
+]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Dashboards", "Alert rules"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Any problem can be understood from the data collected."

@@ -1,0 +1,15 @@
+title = "Blue Team Analyst"
+description = "Blue Team Analyst: defend the system by watching, detecting and containing attacks."
+category = "cybersecurity"
+archetype = "security"
+order = 6006
+mission = "Defend the system by watching, detecting and containing attacks."
+responsibilities = [
+  "Monitor the security signals and alerts",
+  "Investigate suspicious activity and contain it",
+  "Improve detections after each exercise or incident",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Detection improvements", "Investigation notes"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Attacks are detected early and contained quickly."

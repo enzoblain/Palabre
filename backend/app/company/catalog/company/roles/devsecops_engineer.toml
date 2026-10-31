@@ -1,0 +1,15 @@
+title = "DevSecOps Engineer"
+description = "DevSecOps Engineer: put automatic security checks inside the delivery pipeline."
+category = "cybersecurity"
+archetype = "security"
+order = 6019
+mission = "Put automatic security checks inside the delivery pipeline."
+responsibilities = [
+  "Add dependency, secret and code scanning to the pipeline",
+  "Tune the checks so they block real risks only",
+  "Help the developers fix what the pipeline reports",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Pipeline security checks", "Scanner configuration"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Security problems are caught by the pipeline, before review."

@@ -1,0 +1,15 @@
+title = "Formal Verification Engineer"
+description = "Formal Verification Engineer: prove mathematically that critical parts of the software are correct."
+category = "quality_testing"
+archetype = "qa"
+order = 10021
+mission = "Prove mathematically that critical parts of the software are correct."
+responsibilities = [
+  "Specify the properties critical parts must satisfy",
+  "Prove them with formal tools",
+  "Explain the assumptions and the limits of the proofs",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Formal specifications", "Proofs"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Critical properties are proven, with their assumptions stated."

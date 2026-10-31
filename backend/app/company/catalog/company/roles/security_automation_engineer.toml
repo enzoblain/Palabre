@@ -1,0 +1,15 @@
+title = "Security Automation Engineer"
+description = "Security Automation Engineer: automate the repetitive security work so people focus on real threats."
+category = "cybersecurity"
+archetype = "security"
+order = 6032
+mission = "Automate the repetitive security work so people focus on real threats."
+responsibilities = [
+  "Automate the scanning, triage and reporting tasks",
+  "Build integrations between the security tools",
+  "Measure the time saved and the errors avoided",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Security automations", "Integration scripts"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Routine security tasks run without human effort."

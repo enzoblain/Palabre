@@ -1,0 +1,15 @@
+title = "Software Verification Engineer"
+description = "Software Verification Engineer: check that the software meets its specification."
+category = "quality_testing"
+archetype = "qa"
+order = 10020
+mission = "Check that the software meets its specification."
+responsibilities = [
+  "Derive the verification checks from the specification",
+  "Run the reviews, analyses and tests",
+  "Record the evidence of conformity",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Verification plans", "Conformity evidence"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Every requirement is verified and the proof is on record."

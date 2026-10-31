@@ -1,0 +1,15 @@
+title = "Blockchain Engineer"
+description = "Blockchain Engineer: build and maintain the blockchain-based components of the product."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9001
+mission = "Build and maintain the blockchain-based components of the product."
+responsibilities = [
+  "Implement the blockchain features in the backend",
+  "Interact with the nodes and the networks safely",
+  "Write the tests, including the failure cases",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Commits", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Blockchain features are correct, tested and safe with funds."
