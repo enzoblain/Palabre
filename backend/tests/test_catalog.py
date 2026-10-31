@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from app.company import catalog as catalog_module
 from app.company.catalog import (
-    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, load_catalog, load_personality_pools, load_roles,
-    team_permission_error,
+    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, ExtendedCategory, Permission, Role, held_role_keys, load_catalog,
+    load_extended_index, load_personality_pools, load_roles, team_permission_error,
     validate_catalog,
 )
 from app.company.team import generate_team
@@ -192,7 +192,7 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
             "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
             "claude": claude_tools_for(permissions),
         }
-        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key].model_dump(mode="json", exclude_none=True)}
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, "archetype": None, **expected[key].model_dump(mode="json", exclude_none=True)}
 
 
 async def test_roles_endpoint_filters_by_kind(api_client):
@@ -245,3 +245,85 @@ def test_loaded_role_permissions_and_wakes_on_are_immutable():
         role.permissions.append("merge")
     with pytest.raises(ValidationError):
         role.permissions = ()
+
+
+EXTENDED_JOB = """title = "Kernel Developer"
+description = "Works on kernels."
+category = "software_development"
+archetype = "dev_backend"
+order = 500
+mission = "Deliver kernel code."
+responsibilities = ["Code"]
+forbidden = []
+deliverables = ["Commits"]
+escalation = "The lead decides."
+success = "Reliable."
+"""
+
+
+def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
+    index = load_extended_index()
+    roles = load_roles()
+    base = {k for k, r in roles.items() if r.kind == "company" and r.archetype is None}
+    assert len(index) > 400
+    assert {e.category for e in index.values()} >= set(get_args(ExtendedCategory))
+    for entry in index.values():
+        assert entry.archetype in base, entry.key
+        assert entry.category in get_args(ExtendedCategory) or roles[entry.key].category == entry.category
+        assert entry.existing == (entry.key in roles)
+
+
+def test_extended_index_has_unique_names():
+    names = [e.name.casefold() for e in load_extended_index().values()]
+    assert len(names) == len(set(names))
+
+
+def test_extended_job_inherits_the_archetype_permissions(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    roles = load_roles()
+    assert roles["kernel_developer"].permissions == roles["dev_backend"].permissions
+    assert roles["kernel_developer"].wakes_on == roles["dev_backend"].wakes_on
+    assert roles["kernel_developer"].model == roles["dev_backend"].model
+
+
+def test_extended_job_acts_as_its_archetype(catalog_copy):
+    (catalog_copy / "company/roles/unlisted_job.toml").write_text(EXTENDED_JOB.replace("dev_backend", "reviewer"))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        assert held_role_keys(["unlisted_job"]) == {"unlisted_job", "reviewer"}
+        assert held_role_keys(["qa"]) == {"qa"}
+    finally:
+        catalog_module.load_catalog.cache_clear()
+
+
+def test_extended_job_with_unknown_archetype_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "nobody"))
+    with pytest.raises(CatalogError, match="kernel_developer.toml.*not a base role"):
+        load_roles()
+
+
+def test_extended_job_cannot_be_an_archetype(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    (catalog_copy / "company/roles/driver_developer.toml").write_text(
+        EXTENDED_JOB.replace("dev_backend", "kernel_developer")
+    )
+    with pytest.raises(CatalogError, match="not a base role"):
+        load_roles()
+
+
+def test_role_file_disagreeing_with_the_index_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "qa"))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        with pytest.raises(CatalogError, match="disagrees"):
+            load_catalog()
+    finally:
+        catalog_module.load_catalog.cache_clear()
+
+
+def test_mode_seat_with_an_extended_job_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    roles = load_roles()
+    mode = {"kind": "company", "seats": [{"roles": ["kernel_developer"]}]}
+    with pytest.raises(CatalogError, match="at random"):
+        validate_catalog(roles, {"m": mode}, [])

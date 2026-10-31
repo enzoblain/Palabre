@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.company.catalog import load_catalog
+from app.company.catalog import held_role_keys, load_catalog
 from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_members
 from app.orchestrator.event_types import TASK_EVENTS
 from app.orchestrator.prompts import reason_for
@@ -25,7 +25,7 @@ async def _targets(s: AsyncSession, event: Event) -> list[Employee]:
         return [employee] if employee else []
     employees = await s.scalars(select(Employee).where(Employee.project_id == event.project_id))
     if event.target_role is not None:
-        return [e for e in employees if event.target_role in e.roles]
+        return [e for e in employees if event.target_role in held_role_keys(e.roles)]
     # Broadcast: everyone whose position reacts to this event (catalog: wakes_on)
     return [e for e in employees if wakes_on(e, event.type)]
 

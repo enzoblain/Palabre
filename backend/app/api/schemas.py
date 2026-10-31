@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, Kind, Model, Permission
+from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Kind, Model, Permission
 from app.github import BRANCH_PATTERN
 from app.models import RequestStatus
 
@@ -50,7 +50,8 @@ class RoleOut(BaseModel):
     kind: Kind
     title: str
     description: str
-    category: Category
+    category: Category | ExtendedCategory
+    archetype: str | None = None
     order: int
     model: Model
     effort: Effort | None = None
