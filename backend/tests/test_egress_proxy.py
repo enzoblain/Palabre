@@ -65,3 +65,19 @@ async def test_refuses_tunnels_beyond_the_cap(monkeypatch):
     monkeypatch.setattr(settings, "egress_allowed_hosts", ["pypi.org"])
     monkeypatch.setattr(egress_proxy, "_tunnels", asyncio.Semaphore(0))
     assert (await _ask("CONNECT pypi.org:443 HTTP/1.1")).startswith(b"HTTP/1.1 503")
+
+
+@pytest.mark.parametrize(
+    "address, expected",
+    [
+        ("64:ff9b::a00:1", False),
+        ("64:ff9b::808:808", False),
+        ("::7f00:1", False),
+        ("::808:808", False),
+        ("8.8.8.8", True),
+        ("2606:4700:4700::1111", True),
+        ("10.0.0.1", False),
+    ],
+)
+def test_is_public_address_refuses_embedded_ipv4(address: str, expected: bool) -> None:
+    assert egress_proxy.is_public_address(address) is expected
