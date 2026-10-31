@@ -40,8 +40,14 @@ class Settings(BaseSettings):
     auth_fail_window_seconds: int = 300
     # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
     trusted_proxy_hosts: list[str] = ["web"]
-    # Origins allowed to call the API from a browser (the desktop app's dev server)
-    cors_origins: list[str] = ["*"]
+    # Origins allowed to call the API from a browser: the Vite dev server and the Tauri webview.
+    # The web app goes through nginx on its own origin and the Tauri app calls from Rust: neither needs CORS.
+    cors_origins: list[str] = [
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
     github_token: str | None = None
     projects_dir: Path = Path("/data/projects")

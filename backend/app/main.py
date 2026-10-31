@@ -76,7 +76,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Palabre", lifespan=lifespan)
-# The API is authenticated by a bearer token, not cookies: any origin may call it
+# Only the configured origins get CORS headers; the API itself is authenticated by a bearer token
 app.add_middleware(
     CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"], allow_headers=["*"]
 )
