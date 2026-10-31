@@ -216,7 +216,8 @@ Four values in `.env` are required:
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
 | `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
 
-The server listens on port `2710` and the web app on port `2810`.
+The server listens on port `2710`, bound to `127.0.0.1` by default (this machine only), and the web app on port `2810`.
+See [Remote access](#remote-access) to reach the server from another machine.
 
 ### Updates
 
@@ -274,7 +275,8 @@ To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
 - **Windows**: the `.msi` or the `-setup.exe`.
 - **Linux**: the `.AppImage`, `.deb` or `.rpm`.
 
-Enter your server's address (e.g. `http://192.168.1.10:2710`) and the `ADMIN_TOKEN`.
+Enter your server's address (`http://127.0.0.1:2710` when it runs on the same machine, or the
+HTTPS address of your reverse proxy, see [Remote access](#remote-access)) and the `ADMIN_TOKEN`.
 
 **Phone or any browser**: open `http://<your server>:2810` and enter the `ADMIN_TOKEN`.
 To reach it away from home, put the server on a private network such as
@@ -308,6 +310,28 @@ and `GET /orchestrator` lists `exhausted_accounts` for the app. Once the reset h
 and a run succeeds, the lead is woken with a `credits_back` event (tasks in progress,
 queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
 restart, the first run that hits the limit rebuilds it.
+
+### Remote access
+
+The server port only listens on `127.0.0.1`, so the `ADMIN_TOKEN` never crosses the network in
+clear text. To use the desktop app from another machine, put a reverse proxy with TLS in front of
+`127.0.0.1:2710` (Caddy, nginx, Traefik...) and enter its `https://` address in the app. For example
+with Caddy, which gets the certificate by itself:
+
+```
+palabre.example.com {
+    reverse_proxy 127.0.0.1:2710
+}
+```
+
+Or keep it on a private network such as [Tailscale](https://tailscale.com) and set `PALABRE_BIND`
+to the machine's private address in `.env`. Avoid `PALABRE_BIND=0.0.0.0` unless a firewall limits
+who can reach the port. The web app on port `2810` also passes `/api` on to the server: do not
+expose it without TLS either.
+
+To rotate the `ADMIN_TOKEN` (regularly, or as soon as it may have leaked), generate a new one with
+`openssl rand -hex 32`, replace it in `.env`, run `docker compose up -d`, then enter the new one
+in every app.
 
 ## Database diagnostic
 
@@ -382,6 +406,7 @@ All optional, in `.env`:
 |---|---|---|
 | `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
+| `PALABRE_BIND` | `127.0.0.1` | Host address the server port is published on; `0.0.0.0` exposes it on every interface in clear HTTP |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
@@ -482,8 +507,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   (bubblewrap, user namespace).
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
-- The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a
-  private network: Palabre is not meant to be exposed to the internet.
+- The API is protected by `ADMIN_TOKEN`. The server port is published on `127.0.0.1` only;
+  for remote access use a TLS reverse proxy or a private network ([Remote access](#remote-access)): Palabre is not meant to be exposed to the internet.
 
 ### Checking the isolation
 

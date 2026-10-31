@@ -41,7 +41,8 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${PALABRE_PORT:-2710}:8000"
+      # Loopback only by default: set PALABRE_BIND to expose it (see the README)
+      - "${PALABRE_BIND:-127.0.0.1}:${PALABRE_PORT:-2710}:8000"
     volumes:
       # Repositories and worktrees, Claude sessions, run files
       - palabre-data:/data
