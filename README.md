@@ -212,6 +212,7 @@ Four values in `.env` are required:
 | Variable | What it is |
 |---|---|
 | `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
+| `SESSION_TTL_SECONDS` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`). Default `43200` (12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
 | `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
@@ -338,7 +339,7 @@ use a TLS reverse proxy, a private network, or `DOCKER-USER` rules).
 
 To rotate the `ADMIN_TOKEN` (regularly, or as soon as it may have leaked), generate a new one with
 `openssl rand -hex 32`, replace it in `.env`, run `docker compose up -d`, then enter the new one
-in every app.
+in every app. Sessions signed with the old one stop working at once.
 
 ## Database diagnostic
 

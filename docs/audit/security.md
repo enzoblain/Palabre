@@ -6,6 +6,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 
 - H1. Shared `agent` uid: one uid per run from a pool, per-run tokens and `/proc` isolation. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
 - H2. Shared `/data/claude`: one Claude config directory per run. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
+- M5. `ADMIN_TOKEN` static and never expiring: fixed, the apps log in with it (`POST /api/auth/session`) and keep only a stateless HMAC session token (12 h by default, `SESSION_TTL_SECONDS`) in `sessionStorage`; changing the `ADMIN_TOKEN` revokes every session. The raw token still works for scripts. HttpOnly cookie left out for now.
 - M2. `ADMIN_TOKEN` length and rate limit: fixed, 32 characters minimum (same for `POSTGRES_PASSWORD`), `429` after 10 failures in 5 minutes.
 - M3. Unpinned supply chain: fixed, Claude Code pinned with checksums and images pinned.
 - L3. `compare_digest` on non-ASCII input: fixed.
@@ -13,7 +14,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 - L5. Remote images in Markdown: covered by the CSP (`img-src 'self' data:`).
 - Egress and Claude token exfiltration (access-map R1, R4): fixed by #295 (PR #263), #301 (PR #268) and #306 (PR #271).
 - M1. Self-declared `sensitive` flag: fixed (#151), sensitivity is detected from the changed paths (`backend/app/sensitive_paths.py`, `workflow.py:453`), the flag can only add.
-- M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The admin token in `localStorage` remains, covered by M5 (access-map R3, R9).
+- M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The long-lived admin token in `localStorage` is gone with M5 (access-map R3, R9).
 - L2. `cors_origins = ["*"]`: fixed (#311), the default is the Vite dev server and the Tauri webview origins, overridable with `CORS_ORIGINS`.
 - L7. Commit messages in the lead's `release_pending` prompt: fixed (#314), framed as untrusted data with the same helper as CI output (#121). The changelog entry returned by `merge_release` to the lead is built from the same messages and stays unframed: accepted, it is a tool result.
 - L6. Shared `GOPATH`: fixed (#136, tested in #313), `GOPATH` and `GOMODCACHE` are per employee (`toolchains.gopath`), only the Go binary in `bin/` stays shared.
@@ -21,10 +22,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 
 ## Open: medium
 
-### M5. `ADMIN_TOKEN` is static and never expires
-- Where: `backend/app/api/deps.py`, `frontend/src/api.ts` (access-map R3).
-- Impact: one all-powers credential, no revocation other than editing `.env`. Rotation is documented in the README.
-- Fix: short-lived session token issued from `ADMIN_TOKEN` (HttpOnly cookie or memory); Security thinks documented rotation is enough for now. No task yet. Effort: M.
+None.
 
 ## Open: low
 

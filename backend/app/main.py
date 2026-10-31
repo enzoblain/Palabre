@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from app import models  # noqa: F401 (registers tables)
 from app import agent_pool, anthropic_proxy, egress_proxy, services
 from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
-from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
+from app.api import auth, catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.api.errors import ApiError, api_error, validation_error
 from app.config import removed_settings_present, settings
@@ -100,6 +100,9 @@ async def workflow_error(_: Request, exc: WorkflowError) -> JSONResponse:
 async def github_error(_: Request, exc: GitHubError) -> JSONResponse:
     return JSONResponse({"detail": str(exc), "code": exc.code.value}, status_code=502)
 
+
+# Login: guarded by its own raw-token-only dependency, so it is mounted apart from the routers below
+app.include_router(auth.router, prefix="/api")
 
 # REST API for the boss
 for router in (
