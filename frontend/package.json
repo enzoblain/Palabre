@@ -1,13 +1,13 @@
 {
   "name": "palabre",
   "private": true,
-  "version": "0.18.0",
+  "version": "0.19.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
-    "check": "npm run build && node scripts/check-i18n.mjs",
+    "check": "npm run build && node scripts/check-i18n.mjs && node scripts/check-csp.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -9,6 +9,8 @@ _active: dict[str, tuple[int, Path | None]] = {}
 _initializes: dict[str, int] = {}
 # token -> (task id, conversation id) the run was started for, fixed at creation (None = not that kind of run)
 _scopes: dict[str, tuple[int | None, int | None]] = {}
+# token -> the Claude account token the Anthropic proxy uses for this run (never given to the agent)
+_credentials: dict[str, str] = {}
 
 
 def issue(employee_id: int, task_id: int | None = None, conversation_id: int | None = None) -> str:
@@ -16,6 +18,15 @@ def issue(employee_id: int, task_id: int | None = None, conversation_id: int | N
     _active[token] = (employee_id, None)
     _scopes[token] = (task_id, conversation_id)
     return token
+
+
+def bind_credential(token: str, credential: str) -> None:
+    if token in _active:
+        _credentials[token] = credential
+
+
+def credential_of(token: str) -> str | None:
+    return _credentials.get(token) if token in _active else None
 
 
 def scope_of(token: str) -> tuple[int | None, int | None]:
@@ -58,3 +69,4 @@ def revoke(token: str) -> None:
     _active.pop(token, None)
     _initializes.pop(token, None)
     _scopes.pop(token, None)
+    _credentials.pop(token, None)

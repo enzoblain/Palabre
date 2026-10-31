@@ -432,3 +432,10 @@ class AccountQuotaOut(BaseModel):
 
 class QuotaOut(BaseModel):
     accounts: list[AccountQuotaOut]
+
+
+class SessionOut(BaseModel):
+    """A session token and when it stops being accepted (Unix seconds)."""
+
+    token: str
+    expires_at: int

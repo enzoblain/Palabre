@@ -1,50 +1,35 @@
 # Security audit
 
-Read-only audit of `dev` (2026-10-30). Findings sorted by severity, each with location, impact, fix and effort (S/M/L). No code was changed.
+Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted by severity, each with location, impact, fix and effort (S/M/L). Status: **Fixed** (merged), **Open**. The map of actors, credentials and flows, with the risks of the second audit (R1 to R11), is in [access-map.md](access-map.md).
 
-## High
+## Fixed since the first audit
 
-### H1. Shared `agent` uid exposes other runs' secrets
-- Where: `backend/app/runner.py:98`, `runner.py:194`.
-- Impact: every run executes as the same uid, so any agent with Bash can read `/proc/<pid>/environ` and `cmdline` of the other live runs: `CLAUDE_CODE_OAUTH_TOKEN` of other Claude accounts and the live MCP token of the lead. With the lead's token, an agent can merge or release without review. Per-run tokens, scope and revoke (#108, #119, #131) shrink the window to the lifetime of the run, they do not close it.
-- Fix: one uid per run, or at least a dedicated uid for the lead. Effort: L.
+- H1. Shared `agent` uid: one uid per run from a pool, per-run tokens and `/proc` isolation. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
+- H2. Shared `/data/claude`: one Claude config directory per run. Verified by `test_run_config_dir_is_throwaway_and_sessions_stay_private` in `backend/tests/test_agent_isolation.py`, see #162 and #172.
+- M5. `ADMIN_TOKEN` static and never expiring: fixed, the apps log in with it (`POST /api/auth/session`) and keep only a stateless HMAC session token (12 h by default, `SESSION_TTL_SECONDS`) in `sessionStorage`; changing the `ADMIN_TOKEN` revokes every session. The raw token still works for scripts. HttpOnly cookie left out for now.
+- M2. `ADMIN_TOKEN` length and rate limit: fixed, 32 characters minimum (same for `POSTGRES_PASSWORD`), `429` after 10 failures in 5 minutes.
+- M3. Unpinned supply chain: fixed, Claude Code pinned with checksums and images pinned.
+- L3. `compare_digest` on non-ASCII input: fixed.
+- L1. API in clear HTTP on `0.0.0.0`: fixed (PR #265, #267), bound to `127.0.0.1` by default, reverse proxy documented. This is R2 of the access map.
+- L5. Remote images in Markdown: covered by the CSP (`img-src 'self' data:`).
+- Egress and Claude token exfiltration (access-map R1, R4): fixed by #295 (PR #263), #301 (PR #268) and #306 (PR #271).
+- M1. Self-declared `sensitive` flag: fixed (#151), sensitivity is detected from the changed paths (`backend/app/sensitive_paths.py`, `workflow.py:453`), the flag can only add.
+- M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The long-lived admin token in `localStorage` is gone with M5 (access-map R3, R9).
+- L2. `cors_origins = ["*"]`: fixed (#311), the default is the Vite dev server and the Tauri webview origins, overridable with `CORS_ORIGINS`.
+- L4. Prompts passed in argv: fixed (#312), the prompt travels on stdin and the system prompt in a private file (`--append-system-prompt-file`), so `ps` shows neither.
+- L7. Commit messages in the lead's `release_pending` prompt: fixed (#314), framed as untrusted data with the same helper as CI output (#121). The changelog entry returned by `merge_release` to the lead is built from the same messages and stays unframed: accepted, it is a tool result.
+- L6. Shared `GOPATH`: fixed (#136, tested in #313), `GOPATH` and `GOMODCACHE` are per employee (`toolchains.gopath`), only the Go binary in `bin/` stays shared.
+- Stale desk permissions: fixed by #296 (PR #262).
 
-### H2. `/data/claude` is shared and writable by all agents
-- Where: `entrypoint.sh:28` (mode 2775), `CLAUDE_CONFIG_DIR` in the `Dockerfile`.
-- Impact: an agent with Bash can edit the lead's session `.jsonl` files (resumed with `--resume`) or `settings.json` (hooks), i.e. persistent prompt injection or command execution in another employee's next run.
-- Fix: one `CLAUDE_CONFIG_DIR` per employee, not writable by the others. Effort: M/L.
+## Open: medium
 
-## Medium
+None.
 
-### M1. The `sensitive` flag is self-declared
-- Where: `backend/app/workflow.py:394`, `workflow.py:515`.
-- Impact: the developer decides whether their PR goes through security; a dev can skip the security gate.
-- Fix: detect sensitivity from the changed paths (auth, dependency manifests and lockfiles, `Dockerfile`, `entrypoint.sh`, sudoers, `runner.py`, `mcp_server/`), the flag can only add, never remove. Effort: S/M.
+## Open: low
 
-### M2. `ADMIN_TOKEN` has no minimum length, no rate limit
-- Where: `backend/app/config.py:91-97`.
-- Impact: a short token can be brute-forced over the network.
-- Fix: minimum 32 characters (same for `POSTGRES_PASSWORD`), basic rate limit on failed auth. Effort: S.
-
-### M3. Unpinned supply chain
-- Where: `Dockerfile:54` (`curl | bash` install of Claude Code, unpinned), compose `:19`, `:52` (`:latest` images + auto updater), compose `:67` (updater mounts `docker.sock`).
-- Impact: a compromised upstream script or image is pulled and run automatically, with Docker socket access (= root on the host).
-- Fix: pin the Claude Code version + checksum, pin images by digest, make updates explicit. Effort: S/M.
-
-### M4. Admin token in `localStorage`, no CSP
-- Where: `frontend/src/api.ts:192-207`, `nginx.conf`.
-- Impact: any XSS (agent-written content is rendered in the UI) can steal the admin token.
-- Fix: strict CSP and security headers in nginx (`default-src 'self'`, no inline script, `frame-ancestors 'none'`, `X-Content-Type-Options`). Effort: S.
-
-## Low
-
-- L1. API in clear HTTP on `0.0.0.0:2710` (compose `:43`, `Dockerfile:74`), `/mcp` exposed too. Fix: bind to `127.0.0.1` by default, document a TLS reverse proxy. S.
-- L2. `cors_origins = ["*"]` (`config.py:35`). Fix: restrict to the app origins. S.
-- L3. `compare_digest` on `str` with non-ASCII input raises → 500 (`api/deps.py:20`). Fix: compare encoded bytes. S.
-- L4. Prompts passed in argv (`runner.py:199`, `runner.py:206`), visible in `ps` to every agent. Fix: pass them on stdin. S.
-- L5. Remote images in Markdown (`Markdown.tsx`) allow pixel tracking / IP leak. Fix: block remote `img` or proxy them, CSP `img-src`. S.
-- L6. Shared `GOPATH` between agents (same class as H2, lower impact). S.
-- L7. Commit messages are injected into the lead's prompt (prompt injection, low). Fix: frame them as untrusted data, like CI output (#121). S.
+- L8. Claude OAuth tokens are shared by the employees of an account (access-map R6). Fix: one token per account rotated with `claude setup-token`; the egress filter already keeps agents away from `/api`. S.
+- L9. `Bash` has no command allowlist, so read-only roles can write in their clone (access-map R8). Accepted: the desk is thrown away and nothing is pushed from it.
+- L10. The 429 lockout is per IP (access-map R10). Behind a shared proxy one attacker locks everyone out. Fix: key the lockout on the forwarded client address. S.
 
 ## Note on the "second session" alert
 
@@ -52,8 +37,8 @@ No code path on `dev` posts this alert anymore (removed by #131 / PR 101). The i
 
 ## What is already fine
 
-Secrets as files on tmpfs, explicit env allowlist for git and runs, sudoers limited to 3 rules, per-run MCP tokens with server-side scope and revoke in `finally`, react-markdown links filtered, hashed `requirements`.
+Secrets as files on tmpfs, explicit env allowlist for git and runs, sudoers limited to the `claude` binary and four helper commands, egress allowlist, Claude token kept server-side, per-run MCP tokens with server-side scope and revoke in `finally`, react-markdown links filtered, hashed `requirements`.
 
 ## Suggested order
 
-H2 and M1 first (cheap compared to their impact), then M2/M3/M4 (all S), then H1 (larger isolation work).
+M5 (access-map R3) first, then the low item L8.

@@ -38,10 +38,18 @@ class Settings(BaseSettings):
     # answered 429 (and so even with a valid token) until the window has passed
     auth_max_failures: int = 10
     auth_fail_window_seconds: int = 300
+    # Lifetime of the session tokens issued by POST /api/auth/session (changing ADMIN_TOKEN revokes them all)
+    session_ttl_seconds: int = Field(12 * 3600, gt=0)
     # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
     trusted_proxy_hosts: list[str] = ["web"]
-    # Origins allowed to call the API from a browser (the desktop app's dev server)
-    cors_origins: list[str] = ["*"]
+    # Origins allowed to call the API from a browser: the Vite dev server and the Tauri webview.
+    # The web app goes through nginx on its own origin and the Tauri app calls from Rust: neither needs CORS.
+    cors_origins: list[str] = [
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
     github_token: str | None = None
     projects_dir: Path = Path("/data/projects")
@@ -57,6 +65,29 @@ class Settings(BaseSettings):
     claude_store_dir: Path | None = None
     # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)
     agent_run_dir: Path = Path("/data/run")
+    # Agents reach the Internet only through this local CONNECT proxy (the entrypoint's firewall
+    # drops their other connections): the Anthropic API and the package registries of the toolchains
+    egress_proxy_port: int = 3128
+    egress_allowed_ports: list[int] = [443]
+    # Concurrent tunnels the proxy serves: an agent cannot starve the server's event loop and file descriptors
+    egress_max_tunnels: int = 64
+    egress_allowed_hosts: list[str] = [
+        "statsig.anthropic.com", "registry.npmjs.org", "pypi.org",
+        "files.pythonhosted.org", "proxy.golang.org", "sum.golang.org",
+    ]
+    # Claude Code talks to this local reverse proxy (ANTHROPIC_BASE_URL), which holds the account token
+    anthropic_proxy_url: str = "http://127.0.0.1:8000/anthropic"
+    anthropic_api_url: str = "https://api.anthropic.com"
+    # API paths the proxy forwards (exact match); server tools (type prefixes) a request may declare
+    anthropic_allowed_paths: list[str] = ["v1/messages", "v1/messages/count_tokens"]
+    anthropic_allowed_server_tools: list[str] = ["web_search"]
+    anthropic_max_body_bytes: int = 64 * 1024 * 1024
+    anthropic_timeout_s: int = 600
+    # fetch_page (research groups' web reader, run by the backend): bounds on what one call may cost
+    fetch_timeout_s: float = 20
+    fetch_max_bytes: int = 2_000_000
+    fetch_max_chars: int = 30_000
+    fetch_max_redirects: int = 3
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")
 

@@ -147,7 +147,7 @@ def test_file_transport_only_when_asked(monkeypatch):
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b"", b""
 
     async def fake_exec(*args, env, **kwargs):

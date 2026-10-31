@@ -212,11 +212,13 @@ Four values in `.env` are required:
 | Variable | What it is |
 |---|---|
 | `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
+| `SESSION_TTL_SECONDS` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`). Default `43200` (12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
 | `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
 
-The server listens on port `2710` and the web app on port `2810`.
+The server listens on port `2710`, bound to `127.0.0.1` by default (this machine only), and the web app on port `2810`.
+See [Remote access](#remote-access) to reach the server from another machine.
 
 ### Updates
 
@@ -274,11 +276,13 @@ To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
 - **Windows**: the `.msi` or the `-setup.exe`.
 - **Linux**: the `.AppImage`, `.deb` or `.rpm`.
 
-Enter your server's address (e.g. `http://192.168.1.10:2710`) and the `ADMIN_TOKEN`.
+Enter your server's address (`http://127.0.0.1:2710` when it runs on the same machine, or the
+HTTPS address of your reverse proxy, see [Remote access](#remote-access)) and the `ADMIN_TOKEN`.
 
-**Phone or any browser**: open `http://<your server>:2810` and enter the `ADMIN_TOKEN`.
-To reach it away from home, put the server on a private network such as
-[Tailscale](https://tailscale.com) rather than exposing it to the internet.
+**Phone or any browser**: open `http://127.0.0.1:2810` on the server itself, or, from another device,
+the HTTPS address of your reverse proxy or the private address of the server (for example on
+[Tailscale](https://tailscale.com), with `PALABRE_WEB_BIND` set to it, see [Remote access](#remote-access)),
+and enter the `ADMIN_TOKEN`. Never expose it on the internet.
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
@@ -308,6 +312,34 @@ and `GET /orchestrator` lists `exhausted_accounts` for the app. Once the reset h
 and a run succeeds, the lead is woken with a `credits_back` event (tasks in progress,
 queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
 restart, the first run that hits the limit rebuilds it.
+
+### Remote access
+
+The server port only listens on `127.0.0.1`, so the `ADMIN_TOKEN` never crosses the network in
+clear text. To use the desktop app from another machine, put a reverse proxy with TLS in front of
+`127.0.0.1:2710` (Caddy, nginx, Traefik...) and enter its `https://` address in the app. For example
+with Caddy, which gets the certificate by itself:
+
+```
+palabre.example.com {
+    reverse_proxy 127.0.0.1:2710
+}
+```
+
+Or keep it on a private network such as [Tailscale](https://tailscale.com) and set `PALABRE_BIND`
+to the machine's private address in `.env`. Avoid `PALABRE_BIND=0.0.0.0`: Docker writes its own
+iptables rules for published ports, so a host firewall such as `ufw` or `firewalld` does **not** filter
+them. If you really must expose the port, restrict it in the `DOCKER-USER` iptables chain.
+
+The web app on port `2810` also passes `/api` on to the server, so it is bound to `127.0.0.1` too
+(`PALABRE_WEB_BIND`). Reach it from a phone through the TLS reverse proxy (point it at `127.0.0.1:2810`)
+or a private network. **Warning**: `PALABRE_WEB_BIND=0.0.0.0` sends the `ADMIN_TOKEN` in clear HTTP
+to anyone on the network, and the same firewall caveat applies (`ufw`/`firewalld` do not filter it;
+use a TLS reverse proxy, a private network, or `DOCKER-USER` rules).
+
+To rotate the `ADMIN_TOKEN` (regularly, or as soon as it may have leaked), generate a new one with
+`openssl rand -hex 32`, replace it in `.env`, run `docker compose up -d`, then enter the new one
+in every app. Sessions signed with the old one stop working at once.
 
 ## Database diagnostic
 
@@ -382,6 +414,8 @@ All optional, in `.env`:
 |---|---|---|
 | `PALABRE_VERSION` | the current release | Version of the images; `latest` only with the autoupdate profile |
 | `PALABRE_PORT` / `PALABRE_WEB_PORT` | `2710` / `2810` | Ports of the server and web app |
+| `PALABRE_BIND` | `127.0.0.1` | Host address the server port is published on; `0.0.0.0` exposes it on every interface in clear HTTP |
+| `PALABRE_WEB_BIND` | `127.0.0.1` | Host address the web app port is published on; `0.0.0.0` exposes `/api` on every interface in clear HTTP |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
@@ -397,6 +431,7 @@ All optional, in `.env`:
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude task session (for one employee) serves before the next run on that subject starts a new session instead of resuming it. Conversation wakeups never resume: each starts a new session, as the prompt cache has expired between two wakeups. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
+| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere. Add it to the `environment:` of the `backend` service |
 | `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
 
 The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
@@ -423,6 +458,30 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   none, so the healthcheck and every child process (git, `claude`) start without them. The
   entrypoint closes `/run/secrets` and gives the server a private copy in
   `/run/palabre-secrets` (read by `pydantic-settings`' `secrets_dir`).
+- Agents have no free network. The entrypoint (root, `NET_ADMIN` from the compose file, dropped from the
+  server's capabilities right after) adds `iptables` rules that only let the agents' uids connect to
+  `127.0.0.1:8000` (MCP) and to the egress proxy (`127.0.0.1:3128`, `app/egress_proxy.py`, an HTTP `CONNECT`
+  tunnel in the server). The proxy only opens port 443 of the hosts in `EGRESS_ALLOWED_HOSTS` (the npm, PyPI and Go
+  registries by default, not the Anthropic API; set a JSON list to change it) and never to a non-public
+  address. So an agent cannot send its Claude token elsewhere, and cannot reach `db:5432`. Runs get
+  `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
+  `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
+  Consequences and residual risk: `WebFetch` is run client-side by Claude Code, so it is not available to the
+  research role (`WebSearch` is served by Anthropic and still works).
+  Research groups read pages through the `fetch_page` MCP tool instead, run by the backend (`app/web_fetch.py`): `GET` over https on port 443 only, at most
+  `FETCH_MAX_REDIRECTS` redirects each checked again, never to a non-public address (checked at connection time, as
+  for the proxy), bounded by `FETCH_TIMEOUT_S`, `FETCH_MAX_BYTES` and `FETCH_MAX_CHARS`, returning extracted text.
+  The proxy caps concurrent tunnels
+  (`EGRESS_MAX_TUNNELS`). The Anthropic API is reached through a local reverse proxy
+  (`app/anthropic_proxy.py`, `/anthropic` on the server, `ANTHROPIC_BASE_URL`): the agent's
+  `CLAUDE_CODE_OAUTH_TOKEN` is only its run token (worthless outside the run), the server adds the account's real
+  token, so it is in neither the agent's environment nor `/proc/<pid>/environ`, and cannot be sent to the API with a
+  server-side tool. The proxy also refuses server tools other than `web_search` (`ANTHROPIC_ALLOWED_SERVER_TOOLS`,
+  so no `web_fetch` or `code_execution`), `mcp_servers`, content blocks whose `source` is a `url` or a `file` (Anthropic would fetch it server-side,
+  a way around the allowlist; Claude Code only sends base64), and API paths outside `ANTHROPIC_ALLOWED_PATHS`.
+  Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
+  A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
+  with an attacker-supplied npm token: a known, accepted risk.
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
@@ -470,8 +529,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   (bubblewrap, user namespace).
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
-- The API is protected by `ADMIN_TOKEN`. Keep the server on your local network or a
-  private network: Palabre is not meant to be exposed to the internet.
+- The API is protected by `ADMIN_TOKEN`. The server port is published on `127.0.0.1` only;
+  for remote access use a TLS reverse proxy or a private network ([Remote access](#remote-access)): Palabre is not meant to be exposed to the internet.
 
 ### Checking the isolation
 

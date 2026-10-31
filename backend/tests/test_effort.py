@@ -51,7 +51,7 @@ async def test_effort_flag_is_passed_only_when_set(monkeypatch, tmp_path, effort
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return json.dumps({"session_id": "s", "result": "ok"}).encode(), b""
 
     async def fake_exec(*args, **kwargs):
@@ -60,12 +60,13 @@ async def test_effort_flag_is_passed_only_when_set(monkeypatch, tmp_path, effort
 
     monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
     monkeypatch.setattr(runner, "_write_mcp_config", lambda *a, **k: tmp_path / "mcp.json")
+    monkeypatch.setattr(runner, "_write_private_file", lambda *a, **k: tmp_path / "system.txt")
     monkeypatch.setattr(runner.run_tokens, "attach_config", lambda *a, **k: None)
     monkeypatch.setattr(runner, "_env", lambda *a, **k: {})
     monkeypatch.setattr(runner.settings, "agent_user", "")
     spec = runner.RunSpec(
         author_name="Léa", system_prompt="", prompt="hi", cwd=Path(tmp_path), employee_id=1,
-        mcp_headers={}, mcp_tools=[], claude_tools=[], model="sonnet", effort=effort,
+        mcp_headers={}, mcp_tools=[], claude_tools=[], model="sonnet", effort=effort, oauth_token="t",
     )  # fmt: skip
     await runner._run_claude(spec, "tok", "")
     (args,) = seen
@@ -84,7 +85,7 @@ async def test_project_and_local_settings_are_not_loaded(monkeypatch, tmp_path):
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return json.dumps({"session_id": "s", "result": "ok"}).encode(), b""
 
     async def fake_exec(*args, **kwargs):
@@ -93,12 +94,13 @@ async def test_project_and_local_settings_are_not_loaded(monkeypatch, tmp_path):
 
     monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
     monkeypatch.setattr(runner, "_write_mcp_config", lambda *a, **k: tmp_path / "mcp.json")
+    monkeypatch.setattr(runner, "_write_private_file", lambda *a, **k: tmp_path / "system.txt")
     monkeypatch.setattr(runner.run_tokens, "attach_config", lambda *a, **k: None)
     monkeypatch.setattr(runner, "_env", lambda *a, **k: {})
     monkeypatch.setattr(runner.settings, "agent_user", "")
     spec = runner.RunSpec(
         author_name="Léa", system_prompt="", prompt="hi", cwd=Path(tmp_path), employee_id=1,
-        mcp_headers={}, mcp_tools=[], claude_tools=["Write"], model="sonnet",
+        mcp_headers={}, mcp_tools=[], claude_tools=["Write"], model="sonnet", oauth_token="t",
     )  # fmt: skip
     await runner._run_claude(spec, "tok", "")
     (args,) = seen

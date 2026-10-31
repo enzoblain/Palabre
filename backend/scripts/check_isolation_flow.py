@@ -52,6 +52,7 @@ async def probe(cwd: Path, reference: Path) -> None:
     got = parse(result.text)
     report(got.get("uid") == "1001", f"the run is uid agent (got uid={got.get('uid')}) via sudo -u")
     expected = f"{toolchains.bin_dir()}:/usr/local/bin:/usr/bin:/bin"
+    report(got.get("argv") == "clean", f"the prompt is not in claude's argv (got argv={got.get('argv')})")
     report(got.get("path") == expected, f"the run's PATH is the toolchains + system PATH (got {got.get('path')})")
     report(got.get("home") == "/home/agent", f"the run's HOME is the agent's (got {got.get('home')})")
     report(got.get("secrets") == "0", "no backend secret in the run's environment")

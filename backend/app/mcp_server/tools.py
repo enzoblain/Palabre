@@ -4,7 +4,7 @@ from typing import Literal
 
 from mcp.server.mcpserver import Context
 
-from app import projects, services, toolchains, workflow
+from app import projects, services, toolchains, web_fetch, workflow
 from app.db import SessionLocal
 from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
@@ -566,3 +566,15 @@ async def install_toolchain(
     result = await toolchains.install(name, version, packages)
     commands = ", ".join(sorted(toolchains.installed()))
     return f"{result}\nInstalled commands: {commands}"
+
+
+# --- Research groups -----------------------------------------------------------------
+
+
+@tool
+async def fetch_page(ctx: Context, url: str) -> str:
+    """Read a web page: GET over https only, run by the backend (your sandbox has no
+    network). Returns the page's text, cut to a size limit. Pages on private or local
+    addresses are refused."""
+    current_caller(ctx)
+    return await web_fetch.fetch_page(url)

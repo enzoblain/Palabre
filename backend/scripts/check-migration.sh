@@ -32,8 +32,8 @@ root '
   rm -f /data/.isolation-v1 /data/.isolation-v2
 ' || { echo "FAIL cannot prepare the old volume"; exit 1; }
 
-# The image's own entrypoint, as docker compose runs it, then a command as the backend
-docker run --rm -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && test -f /data/.isolation-v1' >/dev/null 2>&1 \
+# The image's own entrypoint, as docker compose runs it (with NET_ADMIN, for the egress firewall), then a command as the backend
+docker run --rm --cap-add NET_ADMIN -v "$volume:/data" "$image" sh -c '[ "$(id -un)" = palabre ] && test -f /data/.isolation-v1' >/dev/null 2>&1 \
   && { echo "ok   the entrypoint runs on the old volume and drops to palabre, marker written"; nok=$((nok + 1)); } \
   || { echo "FAIL the entrypoint fails on the old volume"; fail=1; nfail=$((nfail + 1)); }
 
@@ -73,7 +73,7 @@ check "setpriv runs as a pool account, agent1 (positive control)" \
   '[ "$(setpriv --reuid=agent1 --regid=agent1 --init-groups id -u)" = 2001 ]'
 
 # A second start must change nothing (the marker makes the one-time part a no-op)
-docker run --rm -v "$volume:/data" "$image" true >/dev/null 2>&1 \
+docker run --rm --cap-add NET_ADMIN -v "$volume:/data" "$image" true >/dev/null 2>&1 \
   && { echo "ok   a second start succeeds"; nok=$((nok + 1)); } \
   || { echo "FAIL a second start fails"; fail=1; nfail=$((nfail + 1)); }
 echo "check-migration: $nok ok, $nfail FAIL"

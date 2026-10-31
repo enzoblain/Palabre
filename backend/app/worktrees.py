@@ -46,6 +46,22 @@ async def remove_project_files(project_id: int) -> None:
     _repo_locks.pop(project_id, None)
 
 
+STALE_DESK_GLOB = "stale-desk-*"  # Desks once set aside by an older version, left readable by the work group
+
+
+async def remove_stale_desks() -> None:
+    """Delete the leftover `stale-desk-*` folders of every project: they kept the work group's
+    rights, so any agent could read and write another agent's old desk. Best effort, logged."""
+    for stale in sorted(settings.projects_dir.glob(f"project-*/{STALE_DESK_GLOB}")):
+        try:
+            await _remove_clone(stale)
+            log.info("Removed the stale desk %s", stale)
+        except OSError as exc:
+            log.error("Cannot remove the stale desk %s: %s", stale, exc)
+        except CloneRemovalError as exc:
+            log.error("%s", exc)
+
+
 def repo_dir(project: Project) -> Path:
     return project_dir(project) / "repo"
 

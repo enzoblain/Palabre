@@ -39,6 +39,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "withdraw_request": {"manage_channels"},
     "merge_requests": {"manage_channels"},
     "install_toolchain": {"manage_toolchains"},
+    "fetch_page": {"research"},  # run by the backend: the agents' sandbox has no free network
 }
 
 # Only exposed during a task run (X-Palabre-Task header), on the caller's own task
@@ -51,7 +52,7 @@ CLAUDE_TOOLS: dict[str, list[str]] = {
     "read_code": ["Read", "Grep", "Glob"],
     "edit_docs": ["Read", "Grep", "Glob", "Edit(**/*.md)", "Write(**/*.md)"],
     # Research groups: the web, and drafts in their own folder
-    "research": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", f"Write({DRAFTS_GLOB})", f"Edit({DRAFTS_GLOB})"],
+    "research": ["WebSearch", "Read", "Grep", "Glob", f"Write({DRAFTS_GLOB})", f"Edit({DRAFTS_GLOB})"],
 }
 
 
