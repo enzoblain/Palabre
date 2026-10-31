@@ -12,8 +12,8 @@ SENSITIVE_NAMES = {
     "dockerfile", "entrypoint.sh", "docker-entrypoint.sh", "sudoers", ".env",
     # Settings and agent runner
     "config.py", "runner.py", "auth.py", "deps.py", "github.py", "worktrees.py",
-    # The gate itself, the role permissions, installs run by the server, the front's CSP and token storage
-    "sensitive_paths.py", "workflow.py", "catalog.toml", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
+    # The gate itself, the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
+    "sensitive_paths.py", "workflow.py", "catalog.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
 }
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
