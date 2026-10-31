@@ -322,8 +322,8 @@ export function ConversationView({ conversation, room, project, projects, route,
         {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
         <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }}
           bossName={bossName} asTitle />
-        {conversation.title && <span className="muted">· {conversation.title}</span>}
-        <span className="conv-members muted">{room.members.length} members</span>
+        {conversation.title && room.kind !== "direction" && conversation.title.toLowerCase().replace(/^#/, "") !== "direction" && <span className="muted">· {conversation.title}</span>}
+        <span className="conv-members muted">{room.members.length} membres</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
       {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
