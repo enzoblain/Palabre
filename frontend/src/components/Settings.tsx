@@ -82,7 +82,7 @@ function TeamLanguage({ settings, onSaved }: { settings: AppSettings; onSaved: (
       <h2>Team language</h2>
       <p className="muted">Your agents speak and write in this language: messages, tasks, reviews and documents.</p>
       <div className="row">
-        <select value={settings.language} onChange={(e) => change(e.target.value)} aria-label="Team language">
+        <select value={settings.language} onChange={(e) => change(e.target.value)} aria-label="Langue de l’équipe">
           {Object.entries(settings.languages).map(([key, label]) => (
             <option key={key} value={key}>{label}</option>
           ))}
@@ -238,7 +238,7 @@ function BranchField({ project, onChanged }: { project: Project; onChanged: () =
   return (
     <form className="row branch-field" onSubmit={save}>
       <input autoFocus required value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false}
-        autoCapitalize="off" aria-label="Branch" />
+        autoCapitalize="off" aria-label="Branche" />
       <button type="button" className="btn btn-small" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
       <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? "Saving…" : "Save"}</button>
       {error && <span className="error">{error}</span>}
@@ -283,9 +283,9 @@ function QuotaSection() {
             <p className="error" role="alert">Usage unavailable: {a.error}</p>
           ) : (
             <>
-              <QuotaBar label="Current session (5h)" window={a.session} />
-              <QuotaBar label="Current week (all models)" window={a.week} />
-              {a.models.map((m) => <QuotaBar key={m.model} label={`Current week (${m.model})`} window={m} />)}
+              <QuotaBar label="Session en cours (5 h)" window={a.session} />
+              <QuotaBar label="Semaine en cours (tous modèles)" window={a.week} />
+              {a.models.map((m) => <QuotaBar key={m.model} label={`Semaine en cours (${m.model})`} window={m} />)}
             </>
           )}
         </div>
@@ -337,7 +337,7 @@ function UsageSection() {
       <p className="muted">
         Runs, tokens and estimated cost reported by Claude. Day is today (UTC), week the last 7 days.
       </p>
-      <div className="row" role="group" aria-label="Period">
+      <div className="row" role="group" aria-label="Période">
         {PERIODS.map((p) => (
           <button key={p.key} className={`btn btn-small${p.key === period ? " btn-primary" : ""}`}
             aria-pressed={p.key === period} onClick={() => setPeriod(p.key)}>{p.label}</button>
