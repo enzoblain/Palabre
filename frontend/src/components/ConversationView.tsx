@@ -72,7 +72,12 @@ function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: 
     return (
       <div className="request">
         <p className="request-answer muted">
-          {m.request_status === "merged" ? `Merged into #${m.request_merged_into}` : "Withdrawn by the lead"}
+          {m.request_status === "merged" && m.request_merged_into
+            ? <>Merged into <a href={`#message-${m.request_merged_into}`} onClick={(e) => {
+                const target = document.getElementById(`message-${m.request_merged_into}`);
+                if (target) { e.preventDefault(); target.scrollIntoView({ block: "center" }); target.focus(); }
+              }}>request #{m.request_merged_into}</a></>
+            : m.request_status === "merged" ? "Merged into another request" : "Withdrawn by the lead"}
           {m.request_status === "withdrawn" && m.request_comment ? <>: <q>{m.request_comment}</q></> : ""}
         </p>
       </div>
@@ -138,8 +143,10 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
   const system = m.is_system;
   const boss = m.employee_id === null && !system;
   const forMe = !boss && !system && mentionsAny(m.content, selfNames);
+  const closed = m.request_status === "withdrawn" || m.request_status === "merged";
+  const body = <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>;
   return (
-    <div className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
+    <div id={`message-${m.id}`} tabIndex={-1} className={`message${closed ? " request-closed" : ""}${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
       <div className="message-avatar">{!grouped && (system
           ? <span className="avatar avatar-system" aria-hidden="true" style={{ width: 34, height: 34 }}>•</span>
           : <Avatar name={m.author_name} boss={boss} size={34} />)}</div>
@@ -152,7 +159,7 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
             {forYou && <span className="for-you">For you</span>}
           </div>
         )}
-        <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>
+        {closed ? <details className="request-closed-body"><summary>Original request</summary>{body}</details> : body}
         {m.request_status && !boss && !system && <RequestBox message={m} onAnswered={onAnswered} />}
       </div>
     </div>

@@ -482,3 +482,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .conv-people { font-size: 13px; min-width: 0; flex: 1; }
 .conv-people + .live-tag, .conv-people + .conv-members { margin-left: 0; }
 @media (prefers-reduced-motion: reduce) { .team-panel { transition: none; } }
+.message:focus { outline: none; }
+.message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
+.request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }
