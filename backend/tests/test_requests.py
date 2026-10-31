@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import github, projects, services
 from app.api.schemas import RequestAnswerIn
+from app.errors import WorkflowError
 from app.mcp_server.permissions import mcp_tools_for
 from app.models import (
     Base,
@@ -100,14 +101,14 @@ async def test_answer_is_stored_and_wakes_the_lead_with_it(answer):
 
 async def test_a_request_is_answered_only_once():
     s = _objects(_request(status="validated"))
-    with pytest.raises(services.WorkflowError, match="already answered"):
+    with pytest.raises(WorkflowError, match="already answered"):
         await projects.answer_request(s, 5, RequestAnswer.rejected)
     assert s.events == []
 
 
 async def test_a_plain_message_cannot_be_answered():
     s = _objects(Message(id=5, conversation_id=9, author_name="Louise", content="hi"))
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await projects.answer_request(s, 5, RequestAnswer.validated)
 
 
@@ -216,7 +217,7 @@ async def test_a_research_group_has_no_direction_to_ask_in():
 
 
 async def test_unknown_request_kind_is_refused():
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await services.ask_boss(FakeSession(), 1, LEAD, "x", "chitchat")
 
 
@@ -292,7 +293,7 @@ async def test_withdraw_closes_the_request_and_the_boss_cannot_answer(tidy_db):
     done = await services.withdraw_request(s, project.id, lead, request.id, "done another way")
     assert done.request_status == RequestStatus.withdrawn.value and done.request_comment == "done another way"
     assert await services.list_pending_requests(s, project.id, lead) == []
-    with pytest.raises(services.WorkflowError, match="already answered"):
+    with pytest.raises(WorkflowError, match="already answered"):
         await projects.answer_request(s, request.id, RequestAnswer.validated)
 
 
@@ -329,7 +330,7 @@ async def test_merge_failure_after_creation_leaves_no_new_request(tidy_db, monke
 async def test_merge_caps_the_number_of_requests(tidy_db):
     s = tidy_db
     project, lead, _ = await _direction(s)
-    with pytest.raises(services.WorkflowError, match="at most"):
+    with pytest.raises(WorkflowError, match="at most"):
         await services.merge_requests(s, project.id, lead, list(range(1, 60)), "x")
 
 
@@ -346,7 +347,7 @@ async def test_merge_refuses_a_decision_request(tidy_db):
     project, lead, _ = await _direction(s)
     decision, linked = await _linked_request(s, project, lead)
     other = await _ask(s, project, lead, "b")
-    with pytest.raises(services.WorkflowError, match="decision or a release"):
+    with pytest.raises(WorkflowError, match="decision or a release"):
         await services.merge_requests(s, project.id, lead, [linked.id, other.id], "merged")
     assert decision.status == DecisionStatus.proposed and linked.request_status == "pending"
 
@@ -355,7 +356,7 @@ async def test_merge_refuses_a_release_request(tidy_db):
     s = tidy_db
     project, lead, _ = await _direction(s)
     _, release_request = await _linked_request(s, project, lead, "release", pr_number=7)
-    with pytest.raises(services.WorkflowError, match="decision or a release"):
+    with pytest.raises(WorkflowError, match="decision or a release"):
         await services.merge_requests(s, project.id, lead, [release_request.id], "merged")
 
 
@@ -375,7 +376,7 @@ async def test_withdrawing_a_release_request_is_refused(tidy_db):
     s = tidy_db
     project, lead, _ = await _direction(s)
     decision, request = await _linked_request(s, project, lead, "release", pr_number=7)
-    with pytest.raises(services.WorkflowError, match="release"):
+    with pytest.raises(WorkflowError, match="release"):
         await projects.withdraw_request(s, project.id, lead, request.id, "nope")
     await s.refresh(request)
     await s.refresh(decision)
@@ -387,16 +388,16 @@ async def test_refusals(tidy_db):
     project, lead, dev = await _direction(s)
     answered, theirs, ok = await _ask(s, project, lead), await _ask(s, project, dev), await _ask(s, project, lead)
     await projects.answer_request(s, answered.id, RequestAnswer.rejected)
-    with pytest.raises(services.WorkflowError, match="no longer pending"):
+    with pytest.raises(WorkflowError, match="no longer pending"):
         await services.withdraw_request(s, project.id, lead, answered.id, "x")
-    with pytest.raises(services.WorkflowError, match="not yours"):
+    with pytest.raises(WorkflowError, match="not yours"):
         await services.withdraw_request(s, project.id, lead, theirs.id, "x")
-    with pytest.raises(services.WorkflowError, match="does not exist"):
+    with pytest.raises(WorkflowError, match="does not exist"):
         await services.withdraw_request(s, project.id, lead, 999, "x")
-    with pytest.raises(services.WorkflowError, match="reason"):
+    with pytest.raises(WorkflowError, match="reason"):
         await services.withdraw_request(s, project.id, lead, ok.id, "  ")
     # One bad request refuses the whole merge: nothing is closed nor created
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await services.merge_requests(s, project.id, lead, [ok.id, answered.id], "merged")
     assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [ok.id]
 

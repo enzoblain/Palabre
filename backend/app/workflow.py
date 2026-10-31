@@ -14,9 +14,8 @@ from app import github
 from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
-from app.errors import ErrorCode
+from app.errors import ErrorCode, WorkflowError
 from app.sensitive_paths import touches_sensitive_paths
-from app.errors import WorkflowError
 from app.services import emit_event, post_message, post_system_message
 from app.worktrees import (
     final_branch_name,
