@@ -8,6 +8,15 @@ import { parseDate, spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 
+const MODE_KEYS = {
+  startup: "mode.startup", scaleup: "mode.scaleup", enterprise: "mode.enterprise", multinational: "mode.multinational",
+} as const;
+
+/** Company size in the project language; an unknown mode is shown as stored. */
+function modeLabel(mode: string, t: (key: (typeof MODE_KEYS)[keyof typeof MODE_KEYS]) => string): string {
+  return Object.prototype.hasOwnProperty.call(MODE_KEYS, mode) ? t(MODE_KEYS[mode as keyof typeof MODE_KEYS]) : mode;
+}
+
 export function Settings({ settings, projects, onSaved, onProjectsChanged, onDisconnect }: {
   settings: AppSettings;
   projects: Project[];
@@ -187,7 +196,7 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
           <li key={p.id}>
             <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
             <span className="truncate project-list-name">
-              {p.name} <span className="muted">· {p.kind === "research" ? t("settings.research") : p.mode}</span>
+              {p.name} <span className="muted">· {p.kind === "research" ? t("settings.research") : modeLabel(p.mode, t)}</span>
             </span>
             {p.kind === "company" && confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
             {confirming === p.id ? (
