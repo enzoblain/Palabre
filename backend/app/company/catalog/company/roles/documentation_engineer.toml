@@ -1,0 +1,11 @@
+title = "Documentation Engineer"
+description = "Engineers the documentation system and its quality across the project."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19004
+mission = "A documentation system that scales."
+responsibilities = ["Define the documentation structure and standards", "Automate generation and validation", "Keep documentation reviewed and current"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Commits", "Standards"]
+escalation = "Contradictory information → ask the lead."
+success = "Consistent documentation across the project."

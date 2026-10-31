@@ -1,0 +1,11 @@
+title = "IT Trainer"
+description = "Trains users and IT staff on tools and procedures."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19010
+mission = "Users comfortable with their tools."
+responsibilities = ["Prepare guides and sessions adapted to the audience", "Answer questions and collect difficulties", "Update the material as tools change"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Training material", "Quick guides"]
+escalation = "Contradictory information → ask the lead."
+success = "Fewer support requests after training."

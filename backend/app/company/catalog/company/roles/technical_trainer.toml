@@ -1,0 +1,11 @@
+title = "Technical Trainer"
+description = "Designs and delivers technical training for engineers."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19009
+mission = "People who can do the work after the training."
+responsibilities = ["Define learning goals and prepare the material", "Run hands-on exercises with feedback", "Evaluate and improve the training"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Training material", "Evaluation notes"]
+escalation = "Contradictory information → ask the lead."
+success = "Learners able to apply what they learned."

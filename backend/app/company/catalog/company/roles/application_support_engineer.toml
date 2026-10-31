@@ -1,0 +1,11 @@
+title = "Application Support Engineer"
+description = "Supports business applications in production: investigation, fixes and data corrections."
+category = "support_operations"
+archetype = "devops"
+order = 18004
+mission = "Applications keep running for their users."
+responsibilities = ["Investigate application incidents with logs and data", "Apply fixes or workarounds and verify them", "Pass confirmed defects to development with details"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Incident analyses", "Fix notes"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Application incidents resolved and understood."
