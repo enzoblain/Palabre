@@ -299,6 +299,8 @@ def _check_extended(roles: dict[str, Role], index: dict[str, ExtendedRoleEntry])
         if role is not None and not entry.existing and (role.archetype, role.category) != (entry.archetype, entry.category):
             raise CatalogError(f"Role file '{entry.key}' disagrees with its category or archetype in {EXTENDED_INDEX_FILE}")
     for role in roles.values():
+        if role.archetype is not None and role.kind != "company":
+            raise CatalogError(f"Role '{role.key}' has an archetype but is a {role.kind} role: only company roles can be extended jobs")
         if role.archetype is not None and role.archetype not in base:
             raise CatalogError(f"Role '{role.key}' has archetype '{role.archetype}', which is not a base company role")
 

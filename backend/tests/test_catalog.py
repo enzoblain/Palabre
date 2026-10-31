@@ -376,3 +376,14 @@ def test_every_job_of_the_security_to_quality_categories_has_its_file():
             assert entry.key in roles, entry.key
             assert roles[entry.key].archetype == entry.archetype, entry.key
             assert roles[entry.key].category == entry.category, entry.key
+
+
+def test_research_role_with_an_archetype_is_refused(catalog_copy):
+    base = next(p for p in (catalog_copy / "research/roles").glob("*.toml"))
+    (catalog_copy / "research/roles/kernel_researcher.toml").write_text(EXTENDED_JOB.replace("dev_backend", base.stem))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        with pytest.raises(CatalogError, match="only company roles"):
+            load_catalog()
+    finally:
+        catalog_module.load_catalog.cache_clear()
