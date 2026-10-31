@@ -69,7 +69,7 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
 @tool
 async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
     """Create a team channel (e.g. "backend", "front", "quality") with the given members,
-    by first name. You are always in it. The boss reads it but cannot write in it."""
+    by first name. You are always in it. The boss does not see it."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         room = await services.create_channel(s, c.project_id, name, members)

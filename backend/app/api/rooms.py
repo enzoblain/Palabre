@@ -25,7 +25,7 @@ router = APIRouter(tags=["rooms"])
 
 async def load_room(s, room_id: int) -> Room:
     room = await s.scalar(select(Room).where(Room.id == room_id).options(selectinload(Room.members)))
-    if room is None or (room.kind == services.DM and not services.BOSS_READS_DMS):
+    if room is None or not await services.boss_sees(s, room):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -46,7 +46,7 @@ def check_not_dm(room: Room) -> None:
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
     q = select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
-    return list(await s.scalars(services.hide_dms(q)))
+    return list(await s.scalars(services.boss_rooms(q)))
 
 
 @router.post("/projects/{project_id}/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
