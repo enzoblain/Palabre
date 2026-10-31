@@ -5,9 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import runner
-from app.company.catalog import load_catalog
 from app.models import Event, Wakeup
-from app.orchestrator import events
 from app.orchestrator.events import expand_events, wakes_on
 
 from .conftest import make_employee, make_task
@@ -285,5 +283,7 @@ async def test_no_real_claude_run_in_tests():
         await runner.asyncio.create_subprocess_exec("claude", "-p")
 
 
-def test_events_module_uses_the_catalog_not_the_network():
-    assert load_catalog()["roles"]["lead"].permissions
+def test_wakes_on_reads_the_catalog_roles():
+    lead = make_employee("Lead", "lead")
+    assert wakes_on(lead, "objective_set")
+    assert not wakes_on(lead, "unknown_event")

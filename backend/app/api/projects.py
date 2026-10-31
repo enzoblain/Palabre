@@ -19,8 +19,7 @@ from app.api.schemas import (
     ProjectIn,
     ProjectOut,
 )
-from app.company.catalog import team_permission_error
-from app.company.catalog import load_catalog
+from app.company.catalog import load_catalog, team_permission_error
 from app.company.team import kind_of_mode, render_system_prompt
 from app.models import Employee, Project
 from app.orchestrator.dispatcher import orchestrator
