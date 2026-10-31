@@ -284,11 +284,6 @@ select:focus { border-color: var(--accent); }
 }
 
 /* --- Notifications --- */
-.badge-count {
-  margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px;
-  font-weight: 600; display: inline-grid; place-items: center; background: var(--border); color: var(--text); flex-shrink: 0;
-}
-.badge-count.urgent { background: var(--accent); color: var(--accent-text); }
 .banner {
   margin: 0 20px 6px; padding: 8px 12px; border-radius: 8px; font-size: 13px;
   background: var(--mention-me-bg); box-shadow: inset 3px 0 0 var(--mention-me-border);
@@ -422,7 +417,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .live-dot { margin-left: auto; flex-shrink: 0; }
-.live-dot + .badge-count { margin-left: 6px; }
 
 .quota-account { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .quota-account h3 { margin: 0; font-size: 14px; }
