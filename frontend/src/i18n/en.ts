@@ -106,9 +106,9 @@ export const en = {
   "menu.changeProject": "{name}: switch project",
   "menu.projects": "Projects",
   "menu.report": "Report",
+  "menu.project": "Project",
   "menu.document": "Document",
   "menu.conversation": "Conversation",
-  "menu.viewSwitch": "View",
   "menu.newProject": "New project",
 
   "settings.title": "Settings",
@@ -295,7 +295,6 @@ export const en = {
   "doc.resolvedCount": "{count} resolved",
   "doc.whoDoesWhat": "Who does what",
   "doc.unassigned": "unassigned",
-  "doc.summaryMeta": "Document updated {ago}",
   "doc.nothing": "Nothing for now",
   "doc.statsLabel": "Jump to a section",
   "doc.statDecisions": "{count} to validate",
