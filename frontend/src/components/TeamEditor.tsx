@@ -1,11 +1,13 @@
 import { useState } from "react";
-import type { CatalogLimits, MemberIn, Personality, Role } from "../api";
+import type { CatalogLimits, MemberIn, Personality, PersonalityPreset, Role } from "../api";
 import { useI18n, translate } from "../i18n";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
 import { JobPicker } from "./JobPicker";
+import { PersonalityPicker } from "./PersonalityPicker";
+import { applyPreset } from "../presets";
 import { teamWarningThreshold } from "../jobs";
 
 const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
@@ -64,11 +66,12 @@ function poleWord(text: string): string {
   return text.split(" — ")[0];
 }
 
-export function TeamEditor({ members, onChange, roles, personality, names, claudeAccounts, limits }: {
+export function TeamEditor({ members, onChange, roles, personality, presets, names, claudeAccounts, limits }: {
   members: MemberIn[];
   onChange: (members: MemberIn[]) => void;
   roles: Record<string, Role>;
   personality: Personality;
+  presets: Record<string, PersonalityPreset>;
   names: string[];
   claudeAccounts: number;
   limits: CatalogLimits;
@@ -135,6 +138,10 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
               <div className="editor-details">
                 <JobPicker roles={roles} selected={m.roles}
                   onChange={(selected) => update(i, { roles: selected })} />
+                <PersonalityPicker presets={presets} personality={personality} selected={m.personality ?? null}
+                  onSelect={(key) => update(i, key === null
+                    ? { ...randomPersonality(personality), personality: null }
+                    : applyPreset(presets[key], personality, m))} />
                 <div className="row">
                   <label>
                     {t("editor.model")}
@@ -159,7 +166,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
                     </label>
                   )}
                   <button type="button" className="btn btn-small randomize"
-                    onClick={() => update(i, randomPersonality(personality))}>
+                    onClick={() => update(i, { ...randomPersonality(personality), personality: null })}>
                     <ShuffleIcon size={14} /> {t("editor.randomPersonality")}
                   </button>
                 </div>
