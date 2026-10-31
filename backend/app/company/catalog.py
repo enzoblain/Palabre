@@ -1,4 +1,4 @@
-"""Typed catalog: every role and personality preset is a TOML file under catalog/<kind>/, validated when the backend starts."""
+"""Typed catalog: every role, personality preset and personality pool is a TOML file under catalog/<kind>/, validated when the backend starts."""
 
 import tomllib
 from functools import cache
@@ -41,6 +41,7 @@ UNIQUE_PERMISSIONS = ("ship_release", "manage_channels")
 MAX_TEAM_SIZE = 30
 MODELS = get_args(Model)
 
+PERSONALITY_POOL_FILE = "personality_pool.toml"
 KEY_PATTERN = r"^[a-z][a-z0-9_]*$"
 MAX_QUIRKS = 5
 MAX_QUIRK_LENGTH = 200
@@ -71,6 +72,29 @@ class Role(BaseModel):
     success: str
     permissions: list[Permission]
     wakes_on: list[EventType]
+
+
+class PersonalityAxis(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(pattern=KEY_PATTERN)
+    label: str
+    low: str
+    high: str
+    diverse: bool = False  # the team always has one employee on each side of the axis
+
+
+class PersonalityPool(BaseModel):
+    """What the employees' personalities are drawn from: a level per axis, quirks and styles."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(pattern=KEY_PATTERN)
+    kind: Kind
+    levels: list[int] = Field(min_length=1)
+    quirks: list[str]
+    axes: list[PersonalityAxis] = Field(min_length=1)
+    style: dict[str, list[str]]
 
 
 class PresetStyle(BaseModel):
@@ -144,6 +168,18 @@ def load_personalities() -> dict[str, dict[str, PersonalityPreset]]:
     return presets
 
 
+def load_personality_pools() -> dict[str, PersonalityPool]:
+    """The personality pool of each kind, from catalog/<kind>/personality_pool.toml."""
+    return {kind: _load_entry(PersonalityPool, CATALOG_DIR / kind / PERSONALITY_POOL_FILE, kind) for kind in KINDS}
+
+
+def _personality_pool_dict(pool: PersonalityPool) -> dict:
+    """The dict shape callers read; `diverse` is only present on the axes that set it."""
+    data = pool.model_dump(exclude={"key", "kind"})
+    data["axes"] = [{k: v for k, v in a.items() if k != "diverse" or v} for a in data["axes"]]
+    return data
+
+
 def _check_presets(presets: dict[str, dict[str, PersonalityPreset]], personalities: dict[str, dict]) -> None:
     """A preset only uses the axes and the styles of its kind."""
     for kind, by_key in presets.items():
@@ -204,10 +240,13 @@ def _shared_catalog() -> dict:
 @cache
 def load_catalog() -> dict:
     """The whole catalog as a dict, validated: `roles` holds the role files (as dicts), `modes`
-    both kinds of modes. Raises CatalogError at the first invalid file or cross-check."""
+    both kinds of modes, `personality` and `research.personality` the pool files. Raises CatalogError at the first invalid file or cross-check."""
     roles = load_roles()
+    pools = load_personality_pools()
     catalog = _shared_catalog()
     validate_catalog(roles, catalog["modes"], catalog["channels"])
+    catalog["personality"] = _personality_pool_dict(pools["company"])
+    catalog["research"]["personality"] = _personality_pool_dict(pools["research"])
     presets = load_personalities()
     _check_presets(presets, {"company": catalog["personality"], "research": catalog["research"]["personality"]})
     catalog["personalities"] = {

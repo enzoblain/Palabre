@@ -9,7 +9,8 @@ import pytest
 
 from app.company import catalog as catalog_module
 from app.company.catalog import (
-    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, load_catalog, load_roles, team_permission_error,
+    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, load_catalog, load_personality_pools, load_roles,
+    team_permission_error,
     validate_catalog,
 )
 from app.company.team import generate_team
@@ -205,3 +206,30 @@ async def test_limits_endpoint_exposes_models_and_team_size(api_client):
 
     assert response.status_code == 200
     assert response.json() == {"models": ["haiku", "sonnet", "opus"], "max_agents": 30}
+
+
+def test_personality_pool_files_feed_the_facade():
+    pools = load_personality_pools()
+    catalog = load_catalog()
+    assert set(pools) == {"company", "research"}
+    assert catalog["personality"]["axes"][0] == {
+        "key": "risk", "label": "Risk-taking", "diverse": True,
+        "low": "cautious — you limit risk and always want a plan B",
+        "high": "bold — you are willing to bet on an ambitious solution if the payoff is worth it",
+    }
+    assert "diverse" not in catalog["personality"]["axes"][3]
+    assert catalog["research"]["personality"]["axes"][0]["key"] == "skepticism"
+
+
+def test_personality_pool_unknown_field_names_the_file(catalog_copy):
+    path = catalog_copy / "research/personality_pool.toml"
+    path.write_text("colour = 1\n" + path.read_text())
+    with pytest.raises(CatalogError, match=r"(?s)personality_pool\.toml.*colour"):
+        load_personality_pools()
+
+
+def test_personality_pool_axis_typo_names_the_file_and_field(catalog_copy):
+    path = catalog_copy / "company/personality_pool.toml"
+    path.write_text(path.read_text().replace('label = "Risk-taking"', 'lable = "Risk-taking"', 1))
+    with pytest.raises(CatalogError, match=r"(?s)company/personality_pool\.toml.*axes\.0\.lable"):
+        load_personality_pools()
