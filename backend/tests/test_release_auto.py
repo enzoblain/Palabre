@@ -240,6 +240,15 @@ async def test_pending_release_wakes_the_lead_once_per_sha(pending, gh):
     assert pending.release_reminded_sha == "tip1"
 
 
+async def test_pending_release_frames_commit_messages_as_untrusted(pending, gh):
+    s = WatchSession([pending], pending)
+    await merge_watch.watch_pending_release(s)
+    [event] = events_of(s, "release_pending")
+    lines = event.payload["changes"].splitlines()
+    assert lines[0] == github.COMMIT_MESSAGES_START and lines[-1] == github.COMMIT_MESSAGES_END
+    assert all(line.startswith("| ") for line in lines[1:-1])
+
+
 async def test_pending_release_waits_for_calm_and_for_no_open_task(pending, gh):
     gh.tip_date = datetime.now(UTC) - timedelta(minutes=1)
     s = WatchSession([pending], pending)
