@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test scripts/jobs.test.mjs",
+    "test": "node --test scripts/jobs.test.mjs scripts/presets.test.mjs",
     "check": "npm run build && npm test && node scripts/check-i18n.mjs && node scripts/check-csp.mjs",
     "tauri": "tauri"
   },

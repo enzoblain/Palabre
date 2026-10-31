@@ -183,6 +183,17 @@ export type Personality = {
   style: Record<string, string[]>;
 };
 
+/** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
+export type PersonalityPreset = {
+  key: string;
+  kind: ProjectKind;
+  label: string;
+  description: string;
+  traits: Record<string, number>;
+  quirks: string[];
+  style: Record<string, string>;
+};
+
 export type Model = "haiku" | "sonnet" | "opus";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type RoleCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
@@ -222,6 +233,8 @@ export type MemberIn = {
   traits: Record<string, number>;
   quirks: string[];
   style: Record<string, string>;
+  // Key of the preset the personality started from (the fields above override it)
+  personality?: string | null;
   account: number | null;
 };
 
@@ -416,6 +429,7 @@ export const api = {
 
   modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
   personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
+  personalities: (kind: ProjectKind) => call<Record<string, PersonalityPreset>>(`/catalog/personalities?kind=${kind}`),
   roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
   limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),

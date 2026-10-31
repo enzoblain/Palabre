@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { ApiError, type MemberIn, type Mode, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
@@ -37,6 +37,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [kind, setKind] = useState<ProjectKind>("company");
   const [modes, setModes] = useState<Record<string, Mode> | null>(null);
   const [personality, setPersonality] = useState<Personality | null>(null);
+  const [presets, setPresets] = useState<Record<string, PersonalityPreset> | null>(null);
   const [name, setName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [topic, setTopic] = useState("");
@@ -65,10 +66,12 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setModes(null);
     setRoles(null);
     setPersonality(null);
+    setPresets(null);
     setCustom(null);
     setMode(DEFAULT_MODE[kind]);
     api.modes(kind).then(setModes).catch((err) => setError(String(err.message ?? err)));
     api.personality(kind).then(setPersonality).catch(() => {});
+    api.personalities(kind).then(setPresets).catch(() => {});
     api.roles(kind).then(setRoles).catch(() => {});
   }, [kind]);
 
@@ -161,7 +164,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
             <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
               onClick={() => setCustom(null)}>{t("new.random")}</button>
             <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
-              disabled={!roles || !personality || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
+              disabled={!roles || !personality || !presets || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
           </div>
         </div>
         <p className="muted">
@@ -181,8 +184,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
             ))}
         </div>
 
-        {custom && roles && personality && limits ? (
-          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} names={names}
+        {custom && roles && personality && presets && limits ? (
+          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} presets={presets} names={names}
             claudeAccounts={claudeAccounts} limits={limits} />
         ) : (
           <>
