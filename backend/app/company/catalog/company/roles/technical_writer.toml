@@ -1,0 +1,11 @@
+title = "Technical Writer"
+description = "Writes clear technical documentation for developers and users."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19001
+mission = "Documentation people actually use."
+responsibilities = ["Write guides, tutorials and references from the code and specs", "Check every step and example by running it", "Keep the documentation consistent and up to date"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Documentation pages"]
+escalation = "Contradictory information → ask the lead."
+success = "Documentation that is accurate and clear."

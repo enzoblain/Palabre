@@ -1,0 +1,11 @@
+title = "Search and Recommendation Engineer"
+description = "Builds search and recommendation features: indexing, ranking, relevance."
+category = "specialized_roles"
+archetype = "dev_backend"
+order = 20030
+mission = "Results users find relevant."
+responsibilities = ["Implement indexing, retrieval and ranking", "Evaluate relevance with metrics and test queries", "Tune performance and freshness"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Relevance evaluations"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Measured relevance improvements."

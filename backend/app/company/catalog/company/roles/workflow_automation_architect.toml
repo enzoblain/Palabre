@@ -1,0 +1,11 @@
+title = "Workflow Automation Architect"
+description = "Designs automated workflow platforms and their integration into the system landscape."
+category = "specialized_roles"
+archetype = "architect"
+order = 20031
+mission = "Automation that scales and stays maintainable."
+responsibilities = ["Define the automation architecture and its standards", "Choose orchestration patterns and failure handling", "Record choices and trade-offs as decisions"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Architecture notes", "Decisions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "A workflow landscape that is understandable and robust."

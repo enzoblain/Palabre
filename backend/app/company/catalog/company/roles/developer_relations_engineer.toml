@@ -1,0 +1,11 @@
+title = "Developer Relations Engineer"
+description = "Technical liaison between the product and its developer community."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19008
+mission = "A healthy developer community."
+responsibilities = ["Build samples and integrations for developers", "Answer technical questions from the community", "Report recurring pain points to the team"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Samples", "Community reports"]
+escalation = "Contradictory information → ask the lead."
+success = "Developers adopt the product with little friction."

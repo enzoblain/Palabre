@@ -1,0 +1,11 @@
+title = "Systems Support Engineer"
+description = "Supports servers and system infrastructure: troubleshooting and maintenance."
+category = "support_operations"
+archetype = "devops"
+order = 18019
+mission = "Systems that stay available and patched."
+responsibilities = ["Troubleshoot system and server problems", "Apply patches and maintenance windows safely", "Keep the system documentation current"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Maintenance logs", "Documentation"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Systems that are stable and documented."

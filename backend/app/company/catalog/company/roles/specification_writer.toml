@@ -1,0 +1,11 @@
+title = "Specification Writer"
+description = "Writes precise specifications that developers and testers can act on."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19012
+mission = "Specifications with no ambiguity."
+responsibilities = ["Turn needs into precise, testable requirements", "Resolve ambiguities with the stakeholders", "Keep the specification versioned and consistent"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Specifications"]
+escalation = "Contradictory information → ask the lead."
+success = "Specifications that can be implemented and tested as written."

@@ -1,0 +1,11 @@
+title = "Open Source Program Manager"
+description = "Manages the organization's open source usage and contributions."
+category = "technical_documentation"
+archetype = "product_owner"
+order = 19015
+mission = "Healthy, compliant open source participation."
+responsibilities = ["Define the policies for using and contributing to open source", "Coordinate releases and contributions", "Track community health and licensing"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Policies", "Program reports"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Open source activity that is safe and valuable."

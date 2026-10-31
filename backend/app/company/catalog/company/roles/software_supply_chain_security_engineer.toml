@@ -1,0 +1,11 @@
+title = "Software Supply Chain Security Engineer"
+description = "Secures the software supply chain: dependencies, builds, artifacts and provenance."
+category = "specialized_roles"
+archetype = "security"
+order = 20001
+mission = "No untrusted code reaches production."
+responsibilities = ["Audit dependencies, build pipelines and artifacts", "Implement signing, provenance and pinning", "Flag vulnerable or suspicious components"]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Audits", "Security tickets"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "A verifiable supply chain."

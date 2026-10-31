@@ -271,7 +271,7 @@ def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
     for entry in index.values():
         assert entry.archetype in base, entry.key
         assert entry.category in get_args(ExtendedCategory) or roles[entry.key].category == entry.category
-        assert entry.existing == (entry.key in roles)
+        assert entry.existing == (entry.key in roles and roles[entry.key].archetype is None), entry.key
 
 
 def test_no_extended_job_uses_the_lead_or_its_own_permissions():

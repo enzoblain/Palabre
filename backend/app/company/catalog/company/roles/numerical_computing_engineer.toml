@@ -1,0 +1,11 @@
+title = "Numerical Computing Engineer"
+description = "Implements numerical methods with attention to precision, stability and speed."
+category = "advanced_research"
+archetype = "dev_backend"
+order = 16012
+mission = "Get accurate numbers, fast."
+responsibilities = ["Choose stable numerical methods for the problem", "Handle floating-point error, conditioning and edge cases", "Test against reference solutions and tolerances"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Accuracy tests"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Numerical code that is stable and accurate."

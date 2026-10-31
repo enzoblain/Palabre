@@ -1,0 +1,11 @@
+title = "Production Engineer"
+description = "Keeps production healthy and improves its reliability through engineering."
+category = "support_operations"
+archetype = "devops"
+order = 18017
+mission = "Reliable production."
+responsibilities = ["Improve the tooling and automation of production", "Investigate production problems down to the cause", "Reduce manual operations"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Commits", "Runbooks"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Fewer production incidents, less manual work."
