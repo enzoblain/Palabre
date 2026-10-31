@@ -83,6 +83,9 @@ async def concurrent_runs(clones: tuple[Path, Path]) -> None:
         report(got.get("ownenviron") == "allowed" and got.get("ownmcp") == "ok", f"the {name} reads its own environ and MCP config, expected ownenviron=allowed ownmcp=ok", got)
         report(got.get("environ") == "denied", f"the {name} cannot read the other run's /proc/<pid>/environ, expected environ=denied", got)
         report(got.get("mcpconfig") == "denied", f"the {name} cannot read the other run's MCP config, expected mcpconfig=denied", got)
+        report(got.get("systhere") == "yes", f"the {name} could see the other run's system prompt file (else 'denied' means 'missing'), expected systhere=yes", got)
+        report(got.get("ownsystemprompt") == "ok", f"the {name} reads its own system prompt file, expected ownsystemprompt=ok", got)
+        report(got.get("systemprompt") == "denied", f"the {name} cannot read the other run's system prompt file, expected systemprompt=denied", got)
 
 
 async def leftover_process(cwd: Path) -> None:
