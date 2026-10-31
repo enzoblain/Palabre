@@ -8,7 +8,7 @@ import pytest
 from app import github, workflow
 from app.models import TaskStatus
 from app.orchestrator import merge_watch
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 from .conftest import make_employee, make_project, make_task
 

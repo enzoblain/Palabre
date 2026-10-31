@@ -30,8 +30,8 @@ from app.models import (
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
-from app.errors import ErrorCode
-from app.services import WorkflowError
+# NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
+from app.errors import ErrorCode, NothingToRelease, WorkflowError
 from app import worktrees
 from app.worktrees import sync_repo
 
@@ -498,10 +498,6 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
             await github.close_pull_request(repo, decision.pr_number)
         except github.GitHubError:
             pass  # Already closed or merged on GitHub
-
-
-class NothingToRelease(WorkflowError):
-    """No commit since the last tag deserves a version."""
 
 
 async def release_plan(project: Project) -> dict | None:

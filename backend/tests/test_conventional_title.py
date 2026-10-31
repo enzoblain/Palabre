@@ -2,7 +2,8 @@
 
 import pytest
 
-from app.workflow import WorkflowError, conventional_title
+from app.errors import WorkflowError
+from app.workflow import conventional_title
 from app.github import is_task_branch_name
 from app.worktrees import branch_name, final_branch_name
 

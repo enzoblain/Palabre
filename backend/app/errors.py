@@ -56,3 +56,16 @@ class ErrorCode(StrEnum):
     INVALID_GITHUB_URL = "invalid_github_url"
     GITHUB_BRANCH_MISSING = "github_branch_missing"
     PRODUCTION_BRANCH_BOSS_ONLY = "production_branch_boss_only"
+
+
+class WorkflowError(Exception):
+    """A rule of the company was not respected; the message is shown to the agent.
+    `code` names it for the API (falls back to the generic `workflow_error`)."""
+
+    def __init__(self, *args: object, code: ErrorCode | None = None):
+        super().__init__(*args)
+        self.code = code or ErrorCode.WORKFLOW_ERROR
+
+
+class NothingToRelease(WorkflowError):
+    """No commit since the last tag deserves a version."""

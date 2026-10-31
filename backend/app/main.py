@@ -22,7 +22,7 @@ from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
 from app.mcp_server.server import mcp
 from app.orchestrator.dispatcher import orchestrator
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 log = logging.getLogger(__name__)
 

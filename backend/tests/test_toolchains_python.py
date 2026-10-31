@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from app import toolchains
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 
 @pytest.mark.parametrize("spec", ["pytest", "pytest==8.2.0", "httpx[http2]>=0.27", "ruff~=0.5"])

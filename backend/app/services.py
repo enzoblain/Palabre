@@ -8,7 +8,8 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
-from app.errors import ErrorCode
+# WorkflowError now lives in app.errors; kept importable from here for one release for external callers
+from app.errors import WorkflowError
 from app.models import (
     AppSetting,
     Conversation,
@@ -59,15 +60,6 @@ async def boss_sees(s: AsyncSession, room: Room) -> bool:
     if room.kind == DIRECTION:
         return True
     return await s.scalar(select(Project.kind).where(Project.id == room.project_id)) == "research"
-
-
-class WorkflowError(Exception):
-    """A rule of the company was not respected; the message is shown to the agent.
-    `code` names it for the API (falls back to the generic `workflow_error`)."""
-
-    def __init__(self, *args: object, code: ErrorCode | None = None):
-        super().__init__(*args)
-        self.code = code or ErrorCode.WORKFLOW_ERROR
 
 
 # Languages the team can work in: key (stored) → name in that language (shown in the UI)
