@@ -195,12 +195,12 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
   );
 }
 
-/** True when the primary input is a touch screen (media query, not the user agent). */
 // The direction room is the boss's own conversation: its title would only repeat the project name
-function isDirectionTitle(room: Room, conversation: Conversation): boolean {
+function isDirectionTitle(room: Pick<Room, "kind">, conversation: Pick<Conversation, "title">): boolean {
   return room.kind === "direction" || conversation.title?.toLowerCase().replace(/^#/, "") === "direction";
 }
 
+/** True when the primary input is a touch screen (media query, not the user agent). */
 function isTouchInput(): boolean {
   return window.matchMedia?.("(pointer: coarse)").matches ?? false;
 }
