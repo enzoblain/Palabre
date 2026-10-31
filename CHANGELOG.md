@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-31
+
+### Added
+
+- rooms: show the boss only direction and agent presence (#201)
+- company: drop generic default channels, keep DMs permanent (#200)
+- ui: team panel with people only, project-named conversation (#202)
+- ui: pin settings link at the bottom of the team panel (#205)
+
+### Fixed
+
+- ui: hide direction title for the boss and translate remaining aria-labels (#204)
+- infra: copy hard links internal to a clone in palabre-claim-clone (#203)
+
 ## [0.13.0] - 2026-10-30
 
 ### Added
@@ -381,7 +395,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/enzoblain/Palabre/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/enzoblain/Palabre/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/enzoblain/Palabre/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/enzoblain/Palabre/compare/v0.11.0...v0.11.1
