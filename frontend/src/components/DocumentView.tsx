@@ -161,7 +161,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
       <header className="doc-head">
         <h1>{project.detail.name}</h1>
         <p className="muted doc-meta">
-          {doc.room.updated_at && t("doc.summaryMeta", { ago: formatAgo(doc.room.updated_at) })}
+          {t("doc.summaryMeta", { ago: formatAgo(doc.room.updated_at) })}
         </p>
       </header>
       {error && <p className="error" role="alert">{error}</p>}

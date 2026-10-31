@@ -52,7 +52,7 @@ export type Room = {
   objective: string;
   summary: string;
   created_at: string;
-  updated_at: string | null;
+  updated_at: string;
   members: EmployeeBrief[];
 };
 
