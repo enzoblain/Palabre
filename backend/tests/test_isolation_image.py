@@ -306,3 +306,84 @@ CLAIM = BACKEND / "scripts" / "claim-clone.sh"
 def test_claim_clone_refuses_anything_but_a_clone_and_an_agent(args):
     result = subprocess.run(["sh", str(CLAIM), *args], capture_output=True, text=True)
     assert result.returncode == 2, result.stderr
+
+
+def _claim_script(tmp_path, root):
+    """claim-clone.sh pointed at a throwaway root, with the root-only chown/chmod no-ops, run as the current user."""
+    me = subprocess.run(["id", "-un"], capture_output=True, text=True).stdout.strip()
+    conf = tmp_path / "projects-root.conf"
+    conf.write_text(str(root))
+    text = CLAIM.read_text().replace("/etc/palabre/projects-root.conf", str(conf)).replace("-user palabre", f"-user {me}")
+    text = text.replace("/usr/bin/chown -R -h", "true").replace("/usr/bin/chmod -R", "true")
+    text = text.replace('/usr/bin/find -P "$1" -type d -exec /usr/bin/chmod g+s {} +', "true")
+    script = tmp_path / "claim.sh"
+    script.write_text(text)
+    return script, me
+
+
+def _claim(tmp_path, clone, root):
+    script, me = _claim_script(tmp_path, root)
+    return subprocess.run(["sh", str(script), str(clone), "agent1"], capture_output=True, text=True)
+
+
+@pytest.fixture
+def claim_env(tmp_path, monkeypatch):
+    if shutil.which("find") is None:
+        pytest.skip("needs GNU find")
+    root = tmp_path / "projects"
+    clone = root / "project-1" / "worktrees" / "task-1"
+    clone.mkdir(parents=True)
+    # The script only accepts a pool account; run it as agent1 by faking id
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    me = subprocess.run(["id", "-un"], capture_output=True, text=True).stdout.strip()
+    (bindir / "id").write_text(f"#!/bin/sh\necho {me}\n")
+    (bindir / "id").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}:{os.environ['PATH']}")
+    return tmp_path, root, clone
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_claim_clone_copies_internal_hard_links(claim_env):
+    tmp_path, root, clone = claim_env
+    a = clone / "node_modules" / "esbuild" / "bin"
+    b = clone / "node_modules" / "@esbuild" / "linux-x64" / "bin"
+    a.mkdir(parents=True)
+    b.mkdir(parents=True)
+    (b / "esbuild").write_bytes(b"binary")
+    (b / "esbuild").chmod(0o755)
+    os.link(b / "esbuild", a / "esbuild")
+    result = _claim(tmp_path, clone, root)
+    assert result.returncode == 0, result.stderr
+    for f in (a / "esbuild", b / "esbuild"):
+        assert f.read_bytes() == b"binary"
+        assert f.stat().st_mode & 0o777 == 0o755
+        assert f.stat().st_nlink == 1
+    assert not list(clone.rglob(".claim-copy.*"))
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_claim_clone_refuses_a_hard_link_to_outside_the_clone(claim_env):
+    tmp_path, root, clone = claim_env
+    outside = tmp_path / "secret"
+    outside.write_text("x")
+    os.link(outside, clone / "alias")
+    # Two internal links as well: the external one must still be refused
+    (clone / "f").write_text("y")
+    os.link(clone / "f", clone / "g")
+    result = _claim(tmp_path, clone, root)
+    assert result.returncode == 3, result.stderr
+    assert (outside.stat().st_nlink, (clone / "f").stat().st_nlink) == (2, 2)
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_claim_clone_does_not_follow_symlinks(claim_env):
+    tmp_path, root, clone = claim_env
+    outside = tmp_path / "outside"
+    outside.write_text("x")
+    os.link(outside, tmp_path / "outside2")
+    (clone / "link").symlink_to(outside)
+    (clone / "dirlink").symlink_to(tmp_path)
+    result = _claim(tmp_path, clone, root)
+    assert result.returncode == 0, result.stderr
+    assert (clone / "link").is_symlink() and outside.stat().st_nlink == 2
