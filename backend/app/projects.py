@@ -849,9 +849,15 @@ async def normalize_repo_urls(s: AsyncSession) -> None:
     await s.commit()
 
 
+RELAYED_ESCALATIONS_MARKER = "relayed_escalations_backfilled"
+
+
 async def backfill_relayed_escalations(s: AsyncSession) -> None:
     """Pending escalations relayed before request_author_id existed carry the member's name as a
-    "Name: " prefix: record who they are for, so the lead still cannot close them (idempotent)."""
+    "Name: " prefix: record who they are for, so the lead still cannot close them. One-shot: a
+    persistent marker stops later runs, so the lead's own "Name: ..." escalations stay theirs."""
+    if await s.get(AppSetting, RELAYED_ESCALATIONS_MARKER) is not None:
+        return
     pending = await s.scalars(
         select(Message).where(
             Message.request_kind == "escalation",
@@ -868,6 +874,7 @@ async def backfill_relayed_escalations(s: AsyncSession) -> None:
             if message.content.startswith(f"{member.name}: "):
                 message.request_author_id = member.id
                 break
+    s.add(AppSetting(key=RELAYED_ESCALATIONS_MARKER, value="1"))
     await s.commit()
 
 
