@@ -29,6 +29,9 @@ ENV_ALLOWLIST = (
 # AGENT_USER they are replaced by the agent's, never inherited
 BACKEND_OWN = ("PATH", "HOME", "USER", "SHELL", "TMPDIR")
 AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
+# Settings layers claude may load. Never project/local: an agent that can write in its cwd
+# could persist a .claude/settings.json (hooks run outside --tools) for its next run
+SETTING_SOURCES = "user"
 
 
 class ClaudeRunError(RuntimeError):
@@ -259,6 +262,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         "--output-format", "json",
         "--mcp-config", str(mcp_config),
         "--strict-mcp-config",
+        "--setting-sources", SETTING_SOURCES,
         # Only these built-in tools exist for the agent; the others cannot even be asked for
         "--tools", ",".join(spec.claude_tools),
         "--allowedTools", ",".join(allowed),
