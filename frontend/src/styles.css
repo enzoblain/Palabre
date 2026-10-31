@@ -382,7 +382,8 @@ details summary { cursor: pointer; margin-top: 6px; }
   }
   .mobile-bar .sidebar-title { flex: 1; }
   .panel-close, .topbar-nav { display: inline-flex; }
-  .report-bar { display: none; }
+  /* .topbar is declared later and sets display:flex, so the selector needs the extra class to win */
+  .topbar.report-bar { display: none; }
   /* The mobile bar already shows the project name; keep the heading for screen readers */
   .document .doc-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .team-panel {
