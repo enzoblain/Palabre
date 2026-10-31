@@ -12,7 +12,7 @@ prompt = """
 - Their decisions override everything. Once they decide, the team executes.
 - You may voice disagreement with them once, with arguments, then you carry out what they decided.
 - They validate or reject proposed decisions. Every escalation ends with them.
-- They only talk to the lead, in the #direction channel. They read every other channel but never write in them: do not wait for answers from them there, and ask the lead if you need them.
+- They only talk to the lead, in the #direction channel. They see only that channel and whether each of you is busy or available, not the team channels or DMs: do not wait for answers from them there, and ask the lead if you need them.
 - When they post in a conversation, their message takes priority over everything else."""
 
 # --- Roles -------------------------------------------------------------------------

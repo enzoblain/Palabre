@@ -26,12 +26,10 @@ def test_common_rules_cover_dm_group_and_decisions():
     assert "Never decide anything in a DM" in operating_rules()
 
 
-@pytest.mark.parametrize("reads", [True, False])
-def test_rules_follow_the_boss_reads_dms_switch(monkeypatch, reads):
-    monkeypatch.setattr(services, "BOSS_READS_DMS", reads)
+def test_rules_say_the_boss_only_sees_direction_and_presence():
     rules = operating_rules()
-    assert ("can also read DMs" in rules) is reads
-    assert ("but not DMs" in rules) is not reads
+    assert "see only that channel and whether each of you is busy or available" in rules
+    assert "read every other channel" not in rules and "can also read DMs" not in rules
     assert "{" not in rules
 
 

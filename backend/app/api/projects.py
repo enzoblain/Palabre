@@ -36,10 +36,10 @@ async def _project(s, project_id: int) -> Project:
 
 
 def _detail(project: Project) -> ProjectDetail:
-    """The project's payload; DMs are left out of its rooms unless BOSS_READS_DMS (same rule as list_rooms)."""
+    """The project's payload; its rooms are only what the boss sees (same rule as list_rooms)."""
     detail = ProjectDetail.model_validate(project)
-    if not services.BOSS_READS_DMS:
-        detail.rooms = [r for r in detail.rooms if r.kind != services.DM]
+    if project.kind != "research":
+        detail.rooms = [r for r in detail.rooms if r.kind == services.DIRECTION]
     return detail
 
 

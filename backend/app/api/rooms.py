@@ -25,7 +25,7 @@ router = APIRouter(tags=["rooms"])
 
 async def load_room(s, room_id: int) -> Room:
     room = await s.scalar(select(Room).where(Room.id == room_id).options(selectinload(Room.members)))
-    if room is None or (room.kind == services.DM and not services.BOSS_READS_DMS):
+    if room is None or not await services.boss_sees(s, room):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -46,13 +46,15 @@ def check_not_dm(room: Room) -> None:
 async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
     q = select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
-    return list(await s.scalars(services.hide_dms(q)))
+    return list(await s.scalars(services.boss_rooms(q)))
 
 
 @router.post("/projects/{project_id}/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(project_id: int, body: RoomIn, s: SessionDep):
     """A room (like a channel), with its first conversation. Members default to everyone."""
-    await get_or_404(s, Project, project_id)
+    project = await get_or_404(s, Project, project_id)
+    if project.kind != "research":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "The boss only works through the direction channel")
     q = select(Employee).where(Employee.project_id == project_id)
     if body.member_ids is not None:
         q = q.where(Employee.id.in_(body.member_ids))
@@ -170,6 +172,7 @@ async def add_question(room_id: int, body: QuestionIn, s: SessionDep):
 @router.patch("/questions/{question_id}", response_model=QuestionOut)
 async def answer_question(question_id: int, body: QuestionPatch, s: SessionDep):
     question = await get_or_404(s, OpenQuestion, question_id)
+    await load_room(s, question.room_id)
     question.answer, question.resolved = body.answer, True
     await s.commit()
     return question

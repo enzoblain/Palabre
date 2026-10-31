@@ -17,9 +17,9 @@ router = APIRouter(tags=["conversations"])
 
 
 async def get_visible_room(s: AsyncSession, room_id: int) -> Room:
-    """The room, or 404 for a DM while BOSS_READS_DMS is off."""
+    """The room, or 404 when it is not one the boss sees (a team channel or a DM)."""
     room = await get_or_404(s, Room, room_id)
-    if room.kind == services.DM and not services.BOSS_READS_DMS:
+    if not await services.boss_sees(s, room):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -46,7 +46,7 @@ async def unread_summary(project_id: int, s: SessionDep):
         .group_by(Conversation.id)
         .order_by(Conversation.id)
     )
-    rows = await s.execute(services.hide_dms(q))
+    rows = await s.execute(services.boss_rooms(q))
     return [UnreadSummaryItem(conversation_id=c, last_id=last, last_employee_message_id=emp) for c, last, emp in rows]
 
 
