@@ -6,7 +6,22 @@ import pytest
 
 from app import github, projects, services
 from app.api.schemas import RequestAnswerIn
-from app.models import Conversation, Decision, DecisionStatus, Event, Message, RequestAnswer, RequestStatus, Room
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from app.models import (
+    Base,
+    Conversation,
+    Decision,
+    DecisionStatus,
+    Employee,
+    Event,
+    Message,
+    Project,
+    RequestAnswer,
+    RequestStatus,
+    Room,
+)
 
 from .conftest import make_employee
 
@@ -235,11 +250,6 @@ async def test_migration_turns_what_waited_in_the_inbox_into_requests():
 
 @pytest.fixture
 async def tidy_db():
-    from sqlalchemy import event
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-    from app.models import Base
-
     engine = create_async_engine("sqlite+aiosqlite://")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -249,8 +259,6 @@ async def tidy_db():
 
 
 async def _direction(s):
-    from app.models import Employee, Project
-
     project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
     s.add(project)
     await s.flush()
@@ -297,6 +305,21 @@ async def test_merge_replaces_requests_by_a_new_one(tidy_db):
         assert old.request_status == RequestStatus.merged.value and old.request_merged_into == new.id
     assert new.request_status == RequestStatus.pending.value and new.content == "a and b together"
     assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [new.id]
+
+
+async def test_merging_a_decision_request_becomes_a_question(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    room_id = await s.scalar(select(Room.id).where(Room.kind == "direction"))
+    decision = Decision(room_id=room_id, title="D", proposed_by="Louise")
+    s.add(decision)
+    await s.flush()
+    linked = await services.ask_boss(s, project.id, lead, "validate D?", "decision", decision.id)
+    other = await _ask(s, project, lead, "b", "decision")
+    new = await services.merge_requests(s, project.id, lead, [linked.id, other.id], "merged")
+    # Answering it must not look like settling a decision it no longer carries
+    assert new.request_kind == "question" and new.request_decision_id is None
+    assert decision.status == DecisionStatus.proposed
 
 
 async def test_refusals(tidy_db):

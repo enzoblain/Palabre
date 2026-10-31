@@ -354,7 +354,8 @@ def _close_request(message: Message, status: RequestStatus, comment: str, merged
 
 
 async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:
-    """The lead drops one of their pending requests (obsolete, done otherwise): the boss no longer sees it as open."""
+    """The lead drops one of their pending requests (obsolete, done otherwise): the boss no longer sees it as open.
+    A decision linked to the request stays `proposed`: the lead settles it otherwise."""
     reason = reason.strip()
     if not reason:
         raise WorkflowError("A withdrawn request needs a reason")
@@ -373,8 +374,10 @@ async def merge_requests(
         raise WorkflowError("Name the requests to merge")
     olds = await _own_pending_requests(s, project_id, author, ids)
     kinds = {m.request_kind for m in olds}
-    # Several kinds of request become a question: it is the one that asks for no side effect
-    kind = kinds.pop() if len(kinds) == 1 else "question"
+    # A question is the one kind that settles nothing when answered: use it as soon as an old request
+    # carries a side effect (a decision to settle, a release) or the kinds differ, never lose a link silently
+    linked = any(m.request_decision_id is not None for m in olds)
+    kind = kinds.pop() if len(kinds) == 1 and not linked and kinds <= {"question", "escalation"} else "question"
     new = await ask_boss(s, project_id, author, content, kind)
     if new is None:
         raise WorkflowError("This project has no direction channel to ask the boss in")
