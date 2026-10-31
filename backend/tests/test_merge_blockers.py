@@ -1,9 +1,12 @@
 """workflow.merge_blockers: each merge rule, passing and failing."""
 
+import pytest
+
 from app import workflow
+from app.errors import WorkflowError
 from app.models import Verdict
 
-from .conftest import FakeSession, make_employee, make_review
+from .conftest import FakeSession, make_employee, make_project, make_review, make_task
 
 
 async def blockers(project, task, *reviews):
@@ -195,3 +198,59 @@ async def test_multinational_mode_stacks_every_gate(project, task, fake_github):
         "CI failed",
         "the README or docs/ were not updated",
     ]
+
+
+# --- Outdated opinions -------------------------------------------------------------
+
+
+async def test_changes_on_a_previous_round_no_longer_blocks(project, reviewer, process, fake_github):
+    process()
+    task = make_task(review_round=2)
+    reviews = [make_review(reviewer, Verdict.changes, round=1), make_review(reviewer, Verdict.approve, round=2)]
+    assert await blockers(project, task, *reviews) == []
+
+
+async def test_changes_on_an_old_head_is_named_and_does_not_block_as_changes(project, reviewer, process, fake_github):
+    process()
+    task = make_task(review_round=2, reviewed_head="new")
+    result = await blockers(project, task, make_review(reviewer, Verdict.changes, round=1, head_sha="old"))
+    assert "Karim requested changes" not in result
+    assert any("Karim" in b and "outdated" in b and "must review" in b for b in result)
+
+
+async def test_approval_on_an_old_head_does_not_count(project, reviewer, process, fake_github):
+    process(required_approvals=1)
+    task = make_task(reviewed_head="new")
+    result = await blockers(project, task, make_review(reviewer, Verdict.approve, head_sha="old"))
+    assert "0/1 reviewer approval(s)" in result
+    assert any("outdated" in b for b in result)
+
+
+async def test_opinion_on_the_current_head_counts(project, reviewer, process, fake_github):
+    process()
+    task = make_task(reviewed_head="abc")
+    assert await blockers(project, task, make_review(reviewer, Verdict.approve, head_sha="abc")) == []
+
+
+async def test_stale_qa_is_named(project, reviewer, qa, process, fake_github):
+    process(qa_gate=True)
+    task = make_task(review_round=2)
+    reviews = [make_review(reviewer, Verdict.approve, round=2), make_review(qa, Verdict.approve, round=1)]
+    result = await blockers(project, task, *reviews)
+    assert "QA has not approved" in result
+    assert any("Samuel" in b and "outdated" in b for b in result)
+
+
+async def test_review_on_an_old_head_is_refused(reviewer, monkeypatch):
+    task = make_task(reviewed_head="b" * 40)
+
+    class Sess:
+        async def get(self, *_):
+            return make_project()
+
+    async def get_task(*_):
+        return task
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    with pytest.raises(WorkflowError, match="PR head is now"):
+        await workflow.review_task(Sess(), 1, task.id, reviewer, "changes", "x", head_sha="a" * 8)
