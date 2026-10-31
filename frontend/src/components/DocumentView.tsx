@@ -152,7 +152,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
 
   const stats: { key: SectionKey; label: string }[] = [
     { key: "proposed", label: t("doc.statDecisions", { count: proposed.length }) },
-    { key: "questions", label: t("doc.statQuestions", { count: open.length }) },
+    { key: "questions", label: t(open.length === 1 ? "doc.statQuestion" : "doc.statQuestions", { count: open.length }) },
     ...(research ? [] : [{ key: "tasks" as const, label: t("doc.statTasks", { count: active.length }) }]),
   ];
 
