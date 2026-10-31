@@ -8,4 +8,4 @@ responsibilities = ["Align the projects on shared objectives", "Manage the depen
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Program plan", "Cross-project status"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Related projects advance together, with cross-project dependencies and risks under control."

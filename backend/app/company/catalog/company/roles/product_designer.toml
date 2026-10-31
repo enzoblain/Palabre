@@ -8,4 +8,4 @@ responsibilities = ["Understand the user problem", "Design the solution from flo
 forbidden = ["Coding", "Merging"]
 deliverables = ["Design proposals", "Interface specs"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "A product that solves the user's problem from end to end, validated with users."

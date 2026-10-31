@@ -8,4 +8,4 @@ responsibilities = ["Write PLC programs in the standard languages", "Handle faul
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["PLC programs", "Test logs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "PLC programs that run the machine safely, handle faults and are tested before commissioning."

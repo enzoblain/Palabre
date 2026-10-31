@@ -8,4 +8,4 @@ responsibilities = ["Map the user journeys and pain points", "Propose flows and 
 forbidden = ["Coding", "Merging"]
 deliverables = ["User flows", "Wireframes"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Flows that users complete without help, confirmed by usability tests."

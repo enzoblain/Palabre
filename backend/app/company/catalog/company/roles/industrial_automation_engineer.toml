@@ -8,4 +8,4 @@ responsibilities = ["Design the control logic and its interfaces", "Integrate ma
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Automation design", "Commissioning reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Automated processes that run safely and keep producing without manual intervention."

@@ -8,4 +8,4 @@ responsibilities = ["Profile CPU, memory and allocations", "Optimize algorithms 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Optimized code", "Benchmark suite", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "CPU and memory use drop by a measured amount, without changing the behavior."

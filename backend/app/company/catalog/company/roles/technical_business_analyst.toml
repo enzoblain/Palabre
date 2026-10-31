@@ -8,4 +8,4 @@ responsibilities = ["Turn business needs into technical requirements", "Check th
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Technical requirements", "Data flow descriptions"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Business needs translated into technical requirements that both sides confirm as accurate."

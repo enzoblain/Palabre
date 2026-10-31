@@ -8,4 +8,4 @@ responsibilities = ["Interview stakeholders and collect needs", "Model the busin
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Requirements", "Process models"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Business needs written so clearly that developers build the right thing without asking again."

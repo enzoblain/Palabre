@@ -8,4 +8,4 @@ responsibilities = ["Design for deterministic timing", "Analyze deadlines and sc
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Real-time code", "Timing analyses", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Software that meets its deadlines every time, proven by worst-case timing measurements."

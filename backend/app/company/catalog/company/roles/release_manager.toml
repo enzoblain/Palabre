@@ -8,4 +8,4 @@ responsibilities = ["Plan the content and date of each release", "Check that the
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Release plan", "Release notes"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Releases ship on the planned date with a checked scope and a rollback plan ready."

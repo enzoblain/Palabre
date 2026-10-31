@@ -8,4 +8,4 @@ responsibilities = ["Elicit and structure the requirements", "Check them for con
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Requirements document", "Traceability matrix"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Requirements that are complete, consistent and testable, with traceability to the tests."

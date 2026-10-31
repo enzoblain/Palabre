@@ -8,4 +8,4 @@ responsibilities = ["Understand the need and the constraints", "Compare the tech
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Recommendation notes", "Option comparisons"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Technical advice that fits the real need, with options and trade-offs stated plainly."

@@ -8,4 +8,4 @@ responsibilities = ["Design failure experiments with a clear hypothesis", "Injec
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Experiment reports", "Resilience fixes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Each failure experiment ends with a documented finding and the system recovering as expected."

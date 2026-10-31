@@ -8,4 +8,4 @@ responsibilities = ["Implement drivers for the devices", "Handle interrupts, mem
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Driver code", "Driver tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Drivers that expose the hardware correctly and stay stable under stress and unplugging."

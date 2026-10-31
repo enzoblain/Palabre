@@ -8,4 +8,4 @@ responsibilities = ["Implement flight control and navigation", "Handle failures 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Drone software", "Simulation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Flight and mission software that behaves safely, including on signal loss and low battery."

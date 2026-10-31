@@ -8,4 +8,4 @@ responsibilities = ["Map the current processes", "Find the delays, waste and err
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Process maps", "Improvement proposals"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Documented processes that match reality, with the bottlenecks identified and the fixes agreed."

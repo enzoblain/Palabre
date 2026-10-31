@@ -8,4 +8,4 @@ responsibilities = ["Rig characters and set up animation systems", "Blend and tr
 forbidden = ["Coding", "Merging"]
 deliverables = ["Rigs and animation setups", "Animation documentation"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Animations that blend smoothly, stay within the budget and work in the engine without manual fixes."

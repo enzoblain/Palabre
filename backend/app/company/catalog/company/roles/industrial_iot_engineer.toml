@@ -8,4 +8,4 @@ responsibilities = ["Integrate machines and industrial protocols", "Collect and 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Integration code", "Connectivity documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Industrial equipment connected without data loss, over secured and monitored links."

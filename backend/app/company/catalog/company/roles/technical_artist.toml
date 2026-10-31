@@ -8,4 +8,4 @@ responsibilities = ["Set up shaders, materials and asset pipelines", "Optimize a
 forbidden = ["Coding", "Merging"]
 deliverables = ["Asset pipeline setups", "Optimization guidelines"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Art content that runs within the performance budget and flows through the pipeline without rework."

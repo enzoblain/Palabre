@@ -8,4 +8,4 @@ responsibilities = ["Define the metrics that show product success", "Analyze usa
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Metric analyses", "Recommendations"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Product decisions backed by trustworthy data and clear metrics."

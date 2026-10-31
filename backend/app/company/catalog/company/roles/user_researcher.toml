@@ -8,4 +8,4 @@ responsibilities = ["Recruit and interview users", "Observe how they use the pro
 forbidden = ["Coding", "Merging"]
 deliverables = ["Interview notes", "User insights"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Research findings, grounded in direct observation, that change decisions on the product."

@@ -8,4 +8,4 @@ responsibilities = ["Define the mechanics and the rules", "Balance difficulty an
 forbidden = ["Coding", "Merging"]
 deliverables = ["Game design documents", "Balance tables"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Mechanics that are clear, balanced and fun, confirmed by playtests."

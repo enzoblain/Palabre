@@ -8,4 +8,4 @@ responsibilities = ["Measure load time and web vitals", "Reduce bundle size and 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Optimized frontend code", "Web vitals reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Page load and interaction metrics meet their budgets, and regressions are caught in CI."

@@ -8,4 +8,4 @@ responsibilities = ["Translate the technical constraints into product trade-offs
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Technical specifications", "Prioritized backlog"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Technical choices that serve the product's value, with their trade-offs visible to the team."

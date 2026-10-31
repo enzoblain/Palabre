@@ -8,4 +8,4 @@ responsibilities = ["Plan the technical work and its dependencies", "Track risks
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Delivery plan", "Risk register"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "A technical project delivered with its dependencies identified and tracked from the start."

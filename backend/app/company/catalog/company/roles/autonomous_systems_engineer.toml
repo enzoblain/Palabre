@@ -8,4 +8,4 @@ responsibilities = ["Implement sensing, decision and control loops", "Handle fai
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Autonomy software", "Validation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "A system that stays in a safe state when sensors, inputs or decisions fail, proven in tests."

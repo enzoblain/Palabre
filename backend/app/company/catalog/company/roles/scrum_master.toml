@@ -8,4 +8,4 @@ responsibilities = ["Run the rituals and keep them short and useful", "Remove th
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Retrospective notes", "Action items"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "The team follows its agile process, blockers are removed fast and the team improves each sprint."

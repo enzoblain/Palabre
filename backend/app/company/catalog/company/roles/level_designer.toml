@@ -8,4 +8,4 @@ responsibilities = ["Lay out spaces, challenges and pacing", "Build and test the
 forbidden = ["Coding", "Merging"]
 deliverables = ["Level layouts", "Playtest notes"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Levels that are playable, readable and paced as intended, confirmed by playtests."

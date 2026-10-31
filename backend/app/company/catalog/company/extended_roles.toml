@@ -1786,7 +1786,7 @@ archetype = "designer"
 [game_producer]
 name = "Game Producer"
 category = "games_3d_multimedia"
-archetype = "dev_backend"
+archetype = "product_owner"
 
 [level_designer]
 name = "Level Designer"

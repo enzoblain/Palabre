@@ -8,4 +8,4 @@ responsibilities = ["Watch the flow of work and remove blockers", "Track deliver
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Delivery forecast", "Blocker list"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Teams deliver at a steady, predictable pace and the delivery risks are raised early."

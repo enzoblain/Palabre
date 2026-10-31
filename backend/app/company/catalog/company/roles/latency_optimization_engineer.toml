@@ -8,4 +8,4 @@ responsibilities = ["Measure p50, p95 and p99 latency", "Trace where time is spe
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Latency measurements", "Latency fixes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Tail latency (p95 and p99) drops to the target and stays there under load."

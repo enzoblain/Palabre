@@ -8,4 +8,4 @@ responsibilities = ["Model and texture characters", "Prepare them for animation"
 forbidden = ["Coding", "Merging"]
 deliverables = ["Character models", "Texture sets"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Characters that look good, deform correctly when animated and fit the technical budget."

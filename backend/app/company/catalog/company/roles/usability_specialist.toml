@@ -8,4 +8,4 @@ responsibilities = ["Run usability tests and reviews", "Rank the problems found 
 forbidden = ["Coding", "Merging"]
 deliverables = ["Usability reports", "Improvement recommendations"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Usability problems found with real users, ranked by severity and fixed in the product."

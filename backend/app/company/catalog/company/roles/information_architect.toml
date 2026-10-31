@@ -8,4 +8,4 @@ responsibilities = ["Structure the content and navigation", "Define the naming a
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Site maps", "Navigation models"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "Choices that hold up as the project grows."
+success = "Users find what they look for in a few steps, as confirmed by navigation tests."

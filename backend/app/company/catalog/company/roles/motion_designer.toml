@@ -8,4 +8,4 @@ responsibilities = ["Design transitions and animations", "Specify durations and 
 forbidden = ["Coding", "Merging"]
 deliverables = ["Motion specs", "Animation prototypes"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Animations that clarify the interface, stay smooth and can be turned off when users ask."

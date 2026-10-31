@@ -8,4 +8,4 @@ responsibilities = ["Split the system into hardware and software parts", "Choose
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture documents", "Interface definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "Choices that hold up as the project grows."
+success = "An embedded architecture that fits the memory, power and real-time limits of the target device."

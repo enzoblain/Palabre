@@ -8,4 +8,4 @@ responsibilities = ["Plan the work, milestones and dependencies", "Track progres
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Project plan", "Status reports"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "The project is delivered on scope and on schedule, with risks flagged early."

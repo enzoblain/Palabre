@@ -8,4 +8,4 @@ responsibilities = ["Build environment assets and scenes", "Light and compose th
 forbidden = ["Coding", "Merging"]
 deliverables = ["Environment assets", "Scene setups"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Worlds that look coherent, run within the performance budget and guide the player naturally."

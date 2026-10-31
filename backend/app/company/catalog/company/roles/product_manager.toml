@@ -8,4 +8,4 @@ responsibilities = ["Define the product goals and priorities", "Write user stori
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Product roadmap", "User stories"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "The team builds what brings value to users, and priorities are clear to everyone."

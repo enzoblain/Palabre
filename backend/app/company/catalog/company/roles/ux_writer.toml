@@ -8,4 +8,4 @@ responsibilities = ["Write labels, messages and errors", "Keep the voice consist
 forbidden = ["Coding", "Merging"]
 deliverables = ["Interface texts", "Voice and tone guide"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Interface text that is short, consistent and understood on the first read."

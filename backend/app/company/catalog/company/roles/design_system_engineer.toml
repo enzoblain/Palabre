@@ -8,4 +8,4 @@ responsibilities = ["Build and test the reusable components", "Publish the desig
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Component code", "Component documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Components that match the design system exactly and are reused without local workarounds."

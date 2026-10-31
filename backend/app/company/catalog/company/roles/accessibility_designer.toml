@@ -8,4 +8,4 @@ responsibilities = ["Apply accessibility principles to the designs", "Check cont
 forbidden = ["Coding", "Merging"]
 deliverables = ["Accessible designs", "Accessibility annotations"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Designs that pass accessibility audits and work for people with assistive technologies."

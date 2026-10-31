@@ -8,4 +8,4 @@ responsibilities = ["Integrate and calibrate the sensors", "Filter and validate 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Sensor integration code", "Calibration reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Sensor readings that are accurate, calibrated and filtered of noise and drift."

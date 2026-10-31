@@ -8,4 +8,4 @@ responsibilities = ["Model the system", "Design and tune the controllers", "Chec
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Control designs", "Tuning results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Controllers that stay stable and accurate within the specified margins, including under disturbances."

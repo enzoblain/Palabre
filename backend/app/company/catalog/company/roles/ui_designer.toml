@@ -8,4 +8,4 @@ responsibilities = ["Design screens and components", "Keep the visual style cons
 forbidden = ["Coding", "Merging"]
 deliverables = ["Screen mockups", "Component specs"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Interfaces that are consistent, readable and delivered as specs that developers implement directly."

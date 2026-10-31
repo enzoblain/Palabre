@@ -8,4 +8,4 @@ responsibilities = ["Track the service levels agreed", "Handle the incidents and
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Service reports", "Improvement actions"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "The service meets its agreed levels, and breaches are caught and explained quickly."

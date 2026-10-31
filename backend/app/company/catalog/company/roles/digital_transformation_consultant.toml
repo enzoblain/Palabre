@@ -8,4 +8,4 @@ responsibilities = ["Assess the current maturity", "Define the target and the st
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Transformation roadmap", "Maturity assessment"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "A realistic transformation roadmap that teams understand and start applying."

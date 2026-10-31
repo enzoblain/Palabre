@@ -8,4 +8,4 @@ responsibilities = ["Implement perception, planning and control modules", "Keep 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Robotics code", "Simulation tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "A robot software stack that is modular, tested in simulation and stable on the real robot."

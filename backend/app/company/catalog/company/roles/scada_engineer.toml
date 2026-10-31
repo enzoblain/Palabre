@@ -8,4 +8,4 @@ responsibilities = ["Configure screens, alarms and data collection", "Connect th
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["SCADA configuration", "Alarm documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Supervision screens and alarms that operators trust, with data collected without gaps."

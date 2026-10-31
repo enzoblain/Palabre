@@ -8,4 +8,4 @@ responsibilities = ["Implement device communication and protocols", "Handle upda
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Device and gateway code", "Integration tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Connected devices that stay online, report correct data and recover after network loss."

@@ -8,4 +8,4 @@ responsibilities = ["Maintain the backlog and its hygiene", "Gather product data
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Backlog reports", "Process improvements"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Product teams spend less time on process, with data and tools available when needed."

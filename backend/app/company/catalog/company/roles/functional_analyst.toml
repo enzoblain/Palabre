@@ -8,4 +8,4 @@ responsibilities = ["Write functional specifications", "Define the cases, rules 
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Functional specifications", "Use cases"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Functional specifications precise enough that the expected behavior is never in doubt."

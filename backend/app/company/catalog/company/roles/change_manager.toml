@@ -8,4 +8,4 @@ responsibilities = ["Assess the impact of a change", "Plan how to announce and r
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Change plan", "Impact assessment"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Changes adopted by the people affected, with the disruptions anticipated and handled."

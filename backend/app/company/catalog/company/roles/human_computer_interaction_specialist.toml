@@ -8,4 +8,4 @@ responsibilities = ["Review designs against HCI research", "Study how people per
 forbidden = ["Coding", "Merging"]
 deliverables = ["HCI analyses", "Design recommendations"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Design decisions backed by evidence on how people actually interact with the product."

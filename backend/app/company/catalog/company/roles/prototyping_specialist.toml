@@ -8,4 +8,4 @@ responsibilities = ["Build prototypes at the right fidelity", "Prepare them for 
 forbidden = ["Coding", "Merging"]
 deliverables = ["Prototypes", "Test notes"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Prototypes ready fast enough to test an idea before any real development."

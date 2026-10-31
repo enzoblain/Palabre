@@ -8,4 +8,4 @@ responsibilities = ["Assess the current IT situation", "Identify improvements an
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Assessment", "Recommendations"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Recommendations the client can act on, tied to its business goals and constraints."

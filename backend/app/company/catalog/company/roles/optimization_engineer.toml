@@ -8,4 +8,4 @@ responsibilities = ["Pick the optimizations with the best measured return", "Kee
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Optimization patches", "Before and after measures", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "The code does less work for the same behavior, with before/after measurements to prove it."

@@ -8,4 +8,4 @@ responsibilities = ["Identify the stakeholders and what they expect", "Communica
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Stakeholder map", "Communication plan"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Stakeholders informed and aligned, with no surprises at the time of decisions."

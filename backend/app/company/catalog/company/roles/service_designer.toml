@@ -8,4 +8,4 @@ responsibilities = ["Map the service from the user's point of view", "Find where
 forbidden = ["Coding", "Merging"]
 deliverables = ["Service blueprints", "Journey maps"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "A service that works from the user's first contact to the back office, with the gaps mapped."

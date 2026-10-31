@@ -8,4 +8,4 @@ responsibilities = ["Compare the projects by value, cost and risk", "Balance cap
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Portfolio overview", "Prioritization proposal"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Effort goes to the projects with the best value, and the portfolio choices are explained."

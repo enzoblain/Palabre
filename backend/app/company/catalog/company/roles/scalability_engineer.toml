@@ -8,4 +8,4 @@ responsibilities = ["Find the limits of the current design with load tests", "Re
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Load test reports", "Scaling changes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "The system keeps its response times when load and data volume grow, shown by load tests."

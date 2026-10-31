@@ -8,4 +8,4 @@ responsibilities = ["Design sound effects and ambiances", "Integrate audio with 
 forbidden = ["Coding", "Merging"]
 deliverables = ["Audio assets", "Audio integration specs"]
 escalation = "Product disagreement → the product owner, then the boss."
-success = "Work people understand without explanation."
+success = "Sounds that fit the experience, are mixed clearly and integrate without glitches or memory excess."

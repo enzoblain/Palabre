@@ -8,4 +8,4 @@ responsibilities = ["Define the main hardware blocks", "Choose components agains
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Hardware architecture", "Component choices"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "Choices that hold up as the project grows."
+success = "A hardware architecture whose components, interfaces and budgets stand up to validation."

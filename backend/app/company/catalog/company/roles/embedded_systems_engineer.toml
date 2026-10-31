@@ -8,4 +8,4 @@ responsibilities = ["Implement code within memory and power limits", "Interface 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Embedded code", "Hardware test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "Your PRs pass review and do what the task asks."
+success = "Software that runs within the memory and power limits of the device without crashes or leaks."
