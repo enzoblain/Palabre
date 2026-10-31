@@ -438,6 +438,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 /* --- Team panel (left column, a drawer under 900px) --- */
 .team-panel { background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; width: 280px; }
 .panel-title { font-size: 15px; padding: 0 8px; flex: 1; }
+.panel-close { margin-left: auto; }
 .project-menu.as-title { width: auto; min-width: 0; }
 .project-menu.as-title h1 { margin: 0; font-size: 16px; }
 .panel-head { padding: 8px; height: 56px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }

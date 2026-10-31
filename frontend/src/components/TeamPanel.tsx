@@ -128,7 +128,7 @@ export function TeamPanel({ project, presence, open, onClose, noProject }: {
   return (
     <aside className={`team-panel${open ? " open" : ""}`} aria-label="Équipe" onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="panel-head">
-        <h2 className="panel-title" id="people-label">Équipe</h2>
+        {!noProject && <h2 className="panel-title" id="people-label">Équipe</h2>}
         <button className="icon-btn panel-close" onClick={onClose} aria-label="Fermer le panneau Équipe">×</button>
       </header>
       {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">Chargement…</p> : (
