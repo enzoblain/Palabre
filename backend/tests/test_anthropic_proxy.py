@@ -82,6 +82,9 @@ async def test_web_search_is_allowed_by_default(upstream, run_token):
 
 async def test_other_paths_are_refused(upstream, run_token):
     assert (await _post("v1/files", {}, run_token)).status_code == 403
+    assert (await _post("api/oauth/claude_cli/create_api_key", {}, run_token)).status_code == 403
+    assert (await _post("v1/messages/batches", {"requests": []}, run_token)).status_code == 403
+    assert (await _post("v1/messages_other", {}, run_token)).status_code == 403
     assert (await _post("v1/messages/../files", {}, run_token)).status_code == 403
     assert upstream == []
 

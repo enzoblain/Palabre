@@ -70,8 +70,8 @@ class Settings(BaseSettings):
     # Claude Code talks to this local reverse proxy (ANTHROPIC_BASE_URL), which holds the account token
     anthropic_proxy_url: str = "http://127.0.0.1:8000/anthropic"
     anthropic_api_url: str = "https://api.anthropic.com"
-    # API paths the proxy forwards; server tools (type prefixes) a request may declare
-    anthropic_allowed_paths: list[str] = ["v1/messages", "api/"]
+    # API paths the proxy forwards (exact match); server tools (type prefixes) a request may declare
+    anthropic_allowed_paths: list[str] = ["v1/messages", "v1/messages/count_tokens"]
     anthropic_allowed_server_tools: list[str] = ["web_search"]
     anthropic_max_body_bytes: int = 64 * 1024 * 1024
     anthropic_timeout_s: int = 600

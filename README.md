@@ -439,7 +439,9 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   token, so it is in neither the agent's environment nor `/proc/<pid>/environ`, and cannot be sent to the API with a
   server-side tool. The proxy also refuses server tools other than `web_search` (`ANTHROPIC_ALLOWED_SERVER_TOOLS`,
   so no `web_fetch` or `code_execution`), `mcp_servers`, and API paths outside `ANTHROPIC_ALLOWED_PATHS`.
-  A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish` with an attacker-supplied npm token: a known, accepted risk.
+  Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
+  A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
+  with an attacker-supplied npm token: a known, accepted risk.
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,

@@ -41,7 +41,7 @@ async def close_client() -> None:
 
 
 def is_path_allowed(path: str) -> bool:
-    return ".." not in path.split("/") and any(path.startswith(prefix) for prefix in settings.anthropic_allowed_paths)
+    return ".." not in path.split("/") and path in settings.anthropic_allowed_paths
 
 
 def refused_server_tool(body: object) -> str | None:
@@ -90,7 +90,7 @@ async def _forward(request: Request, path: str, body: bytes, credential: str) ->
     )
 
 
-@router.api_route("/anthropic/{path:path}", methods=["GET", "POST"])
+@router.api_route("/anthropic/{path:path}", methods=["POST"])
 async def proxy(path: str, request: Request) -> Response:
     credential = run_tokens.credential_of(_bearer(request))
     if credential is None:
