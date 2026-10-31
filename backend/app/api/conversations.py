@@ -3,12 +3,12 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, services
 from app.api.deps import SessionDep, get_or_404
-from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn, UnreadSummaryItem
+from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
 from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room, Wakeup
 from app.orchestrator.dispatcher import orchestrator
 from app.orchestrator.research import start_question
@@ -28,26 +28,6 @@ async def get_visible_room(s: AsyncSession, room_id: int) -> Room:
 async def list_conversations(room_id: int, s: SessionDep):
     await get_visible_room(s, room_id)
     return list(await s.scalars(select(Conversation).where(Conversation.room_id == room_id).order_by(Conversation.id)))
-
-
-@router.get("/projects/{project_id}/unread-summary", response_model=list[UnreadSummaryItem])
-async def unread_summary(project_id: int, s: SessionDep):
-    """One cheap poll for the whole project: per visible conversation, its latest message ids."""
-    await get_or_404(s, Project, project_id)
-    q = (
-        select(
-            Conversation.id,
-            func.coalesce(func.max(Message.id), 0),
-            func.coalesce(func.max(Message.id).filter(Message.employee_id.is_not(None)), 0),
-        )
-        .join(Room, Room.id == Conversation.room_id)
-        .outerjoin(Message, Message.conversation_id == Conversation.id)
-        .where(Room.project_id == project_id)
-        .group_by(Conversation.id)
-        .order_by(Conversation.id)
-    )
-    rows = await s.execute(services.boss_rooms(q))
-    return [UnreadSummaryItem(conversation_id=c, last_id=last, last_employee_message_id=emp) for c, last, emp in rows]
 
 
 @router.post("/rooms/{room_id}/conversations", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
