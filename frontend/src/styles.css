@@ -375,7 +375,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 
 /* --- Small screens (the app in a phone's browser) --- */
 .mobile-bar, .nav-backdrop { display: none; }
-.panel-close { display: none; }
+.panel-close { display: none; margin-left: auto; }
 .topbar-nav { display: none; }
 .report-bar { display: flex; }
 @media (max-width: 900px) {
