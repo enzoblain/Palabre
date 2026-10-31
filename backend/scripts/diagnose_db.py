@@ -10,8 +10,10 @@ Reads DATABASE_URL like the app does. Two parts:
 """
 
 import asyncio
+import sys
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.db import _add_missing_checks, engine
@@ -24,8 +26,8 @@ async def throttling(conn: AsyncConnection) -> None:
     rows = (
         await conn.execute(
             text(
-                "SELECT date_trunc('hour', created_at) AS hour, project_id, payload->>'conversation_id' AS conv,"
-                " count(*) AS n, max(payload->>'runs') AS max_runs"
+                "SELECT date_trunc('hour', created_at AT TIME ZONE 'UTC') AS hour, project_id, payload->>'conversation_id' AS conv,"
+                " count(*) AS n, max((payload->>'runs')::int) AS max_runs"
                 " FROM events WHERE type = 'conversation_throttled' AND created_at > now() - interval '24 hours'"
                 " GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"
             )
@@ -36,6 +38,14 @@ async def throttling(conn: AsyncConnection) -> None:
         print(f"{r.hour:%Y-%m-%d %H}:00 UTC  project {r.project_id}  conversation {r.conv}  x{r.n}  runs={r.max_runs}")
     if not rows:
         print("none in the last 24 h")
+
+
+async def check_state(conn: AsyncConnection):
+    return (
+        await conn.execute(
+            text("SELECT convalidated FROM pg_constraint WHERE conname = :n AND contype = 'c'"), {"n": REQUEST_STATUS_CHECK}
+        )
+    ).first()
 
 
 async def request_status(conn: AsyncConnection) -> None:
@@ -56,12 +66,10 @@ async def request_status(conn: AsyncConnection) -> None:
             print(f"  {r.request_status!r}: {r.n} (ids {r.first_id}..{r.last_id})")
     else:
         print(f"no message outside the enum {valid}")
+    existed = await check_state(conn) is not None
     await conn.run_sync(_add_missing_checks)
-    found = (
-        await conn.execute(
-            text("SELECT convalidated FROM pg_constraint WHERE conname = :n AND contype = 'c'"), {"n": REQUEST_STATUS_CHECK}
-        )
-    ).first()
+    print(f"{REQUEST_STATUS_CHECK}: {'already present' if existed else 'added'}")
+    found = await check_state(conn)
     if found is None:
         print(f"{REQUEST_STATUS_CHECK}: MISSING")
     else:
@@ -70,10 +78,19 @@ async def request_status(conn: AsyncConnection) -> None:
 
 async def main() -> None:
     # One transaction, committed at the end: part 1 and the checks only read, _add_missing_checks may add constraints
-    async with engine.begin() as conn:
-        await throttling(conn)
-        await request_status(conn)
-    await engine.dispose()
+    try:
+        async with engine.begin() as conn:
+            # Fail fast instead of queueing behind a long transaction, which would block every query on messages
+            await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+            await throttling(conn)
+            await request_status(conn)
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) != "55P03":
+            raise
+        print("\nLock timeout: the messages table is busy (long transaction?). Nothing was changed, run it again later.")
+        sys.exit(1)
+    finally:
+        await engine.dispose()
 
 
 if __name__ == "__main__":
