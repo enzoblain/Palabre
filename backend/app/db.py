@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy import Connection, inspect
+from sqlalchemy import CheckConstraint, Connection, inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -40,5 +40,20 @@ def upgrade_schema(conn: Connection) -> None:
                     conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    _add_missing_checks(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
+
+
+def _add_missing_checks(conn: Connection) -> None:
+    """Add the CHECK constraints declared since a table was created (create_all leaves existing tables
+    alone). SQLite cannot add one afterwards, and only PostgreSQL runs in production."""
+    if conn.dialect.name != "postgresql":
+        return
+    for table in Base.metadata.sorted_tables:
+        have = {c["name"] for c in inspect(conn).get_check_constraints(table.name)}
+        for constraint in table.constraints:
+            if isinstance(constraint, CheckConstraint) and constraint.name not in have:
+                conn.exec_driver_sql(
+                    f'ALTER TABLE {table.name} ADD CONSTRAINT {constraint.name} CHECK ({constraint.sqltext})'
+                )

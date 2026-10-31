@@ -337,7 +337,12 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
             select(Message)
             .join(Conversation, Conversation.id == Message.conversation_id)
             .join(Room, Room.id == Conversation.room_id)
-            .where(Message.id.in_(ids), Room.project_id == project_id, Message.request_kind.is_not(None))
+            .where(
+                Message.id.in_(ids),
+                Room.project_id == project_id,
+                Room.kind == DIRECTION,
+                Message.request_kind.is_not(None),
+            )
             .with_for_update()  # the boss answering at the same time: one of the two wins
         )
     }
