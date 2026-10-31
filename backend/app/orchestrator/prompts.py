@@ -112,6 +112,19 @@ LANGUAGE_RULE = """## Language
 Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
 Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which list the changes by type and then keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
+BOSS_REQUESTS_RULE = """## Requests to the boss
+Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Keep them short and plain. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
+
+LEAD_BOSS_RULE = """## Messages to the boss
+In the direction channel, the boss is not a developer. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them."""
+
+LEAD_ROLES = {"lead"}
+
+
+def lead_boss_rule(roles: list[str], language: str) -> str | None:
+    return LEAD_BOSS_RULE.format(language=language) if LEAD_ROLES & set(roles) else None
+
+
 VERSION_RULE = """## Versions
 Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
 
@@ -159,7 +172,7 @@ def code_standards_rule(roles: list[str]) -> str | None:
 
 
 def language_rule(language: str) -> str:
-    return LANGUAGE_RULE.format(language=language)
+    return "\n".join([LANGUAGE_RULE.format(language=language), BOSS_REQUESTS_RULE.format(language=language)])
 
 
 TASK_RULES = """## Your current task
