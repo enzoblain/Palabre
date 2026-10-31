@@ -292,12 +292,6 @@ export async function testConnection(conn: Connection): Promise<void> {
 
 // --- Endpoints ---------------------------------------------------------------------
 
-export interface UnreadSummaryItem {
-  conversation_id: number;
-  last_id: number;
-  last_employee_message_id: number;
-}
-
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
   getUsage: () => call<Usage>("/settings/usage"),
@@ -338,7 +332,6 @@ export const api = {
     call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
-  unreadSummary: (projectId: number) => call<UnreadSummaryItem[]>(`/projects/${projectId}/unread-summary`),
   listMessages: (conversationId: number, sinceId?: number) =>
     call<Message[]>(
       `/conversations/${conversationId}/messages?limit=200${sinceId !== undefined ? `&since_id=${sinceId}` : ""}`,
