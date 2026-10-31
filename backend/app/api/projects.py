@@ -89,8 +89,9 @@ async def create_project(body: ProjectIn, s: SessionDep):
 def _check_team(employees: list[MemberIn], kind: str) -> None:
     """A team built by hand: valid roles and personalities, unique names, for a company a
     lead (they organize the work and merge), and the permission rules of the catalog."""
-    roles = {k for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
-    presets = load_catalog()["personalities"][kind]
+    catalog = load_catalog()
+    roles = {k for k, r in catalog["roles"].items() if r["kind"] == kind}
+    presets = catalog["personalities"][kind]
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
         raise ApiError(

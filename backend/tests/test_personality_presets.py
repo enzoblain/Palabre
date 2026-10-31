@@ -3,6 +3,7 @@
 import shutil
 
 import pytest
+from pydantic import ValidationError
 
 from app.api.catalog import list_personalities
 from app.api.errors import ApiError, ErrorCode
@@ -153,3 +154,9 @@ async def test_endpoint_lists_the_presets_of_a_kind():
     presets = await list_personalities("research")
     assert set(presets) == set(load_catalog()["personalities"]["research"])
     assert all(p["kind"] == "research" for p in presets.values())
+
+
+@pytest.mark.parametrize("key", ["../etc", "Guardian", "x" * 41, ""])
+def test_member_personality_key_is_bounded(key):
+    with pytest.raises(ValidationError):
+        MemberIn(name="Ada", roles=["lead"], personality=key)
