@@ -336,3 +336,16 @@ def test_project_detail_only_lists_direction():
     assert [r.id for r in projects_api._detail(project).rooms] == [1]
     project.kind = "research"
     assert [r.id for r in projects_api._detail(project).rooms] == [1, 2, 3]
+
+
+async def test_boss_cannot_create_a_room_in_a_company():
+    from app.api import rooms as rooms_api
+    from app.api.schemas import RoomIn
+
+    class S(FakeApiSession):
+        async def get(self, model, _id):
+            return self.objects[Project]
+
+    with pytest.raises(HTTPException) as exc:
+        await rooms_api.create_room(3, RoomIn(name="side"), S("direction"))
+    assert exc.value.status_code == 403

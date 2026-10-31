@@ -34,8 +34,8 @@ speed vs quality...), or you build the team yourself.
 You only talk to the lead, in `#direction`: it is the one channel you can write in, and
 it holds only you and the lead. The team works in its own channels (`#general`,
 `#engineering`, `#dev`, `#quality`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
-You see nothing else: the API hides the team channels and the DMs from you (404), and only
-the lead is woken by what you post. What you do see is whether each employee is busy or
+You see no other conversation: the API hides the team channels and the DMs from you (404; you cannot create a channel either), and only
+the lead is woken by what you post. Tasks and their reviews stay visible as tasks. A research group has no direction channel, so all its rooms are yours to read. What you do see is whether each employee is busy or
 available (`GET /projects/{id}/presence`). The lead relays between direction and
 the team, and posts in direction only what needs your attention. Employees also have DMs
 (`@Name`, one per pair, never with you as a participant): a DM is for an exchange between two people, a channel
