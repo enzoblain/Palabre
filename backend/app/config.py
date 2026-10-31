@@ -61,9 +61,11 @@ class Settings(BaseSettings):
     # drops their other connections): the Anthropic API and the package registries of the toolchains
     egress_proxy_port: int = 3128
     egress_allowed_ports: list[int] = [443]
+    # Concurrent tunnels the proxy serves: an agent cannot starve the server's event loop and file descriptors
+    egress_max_tunnels: int = 64
     egress_allowed_hosts: list[str] = [
         "api.anthropic.com", "statsig.anthropic.com", "registry.npmjs.org", "pypi.org",
-        "files.pythonhosted.org", "proxy.golang.org", "sum.golang.org", "storage.googleapis.com",
+        "files.pythonhosted.org", "proxy.golang.org", "sum.golang.org",
     ]
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")

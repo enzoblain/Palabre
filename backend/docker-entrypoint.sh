@@ -194,6 +194,8 @@ firewall_agents() {
   for ipt in iptables ip6tables; do
     loopback=127.0.0.1; [ "$ipt" = ip6tables ] && loopback=::1
     chain=PALABRE_AGENTS
+    # No IPv6 in the kernel (e.g. disabled on the host): nothing to filter, so no reason to refuse to start
+    [ "$ipt" = ip6tables ] && [ ! -e /proc/net/if_inet6 ] && continue
     "$ipt" -N "$chain" 2>/dev/null || "$ipt" -F "$chain" || return 1
     "$ipt" -A "$chain" -o lo -d "$loopback" -p tcp -m multiport --dports "$ports_mcp,$ports_proxy" -j ACCEPT || return 1
     "$ipt" -A "$chain" -j REJECT || return 1

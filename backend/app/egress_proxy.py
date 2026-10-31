@@ -13,6 +13,7 @@ MAX_HEADER_BYTES = 16384
 CONNECT_TIMEOUT_S = 15
 RELAY_CHUNK_BYTES = 65536
 _CRLF = b"\r\n"
+_tunnels = asyncio.Semaphore(settings.egress_max_tunnels)
 
 
 def parse_connect(request_line: str) -> tuple[str, int] | None:
@@ -60,6 +61,15 @@ async def _reply(writer: asyncio.StreamWriter, status: str) -> None:
     await writer.drain()
 
 
+async def _tunnel(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, host: str, port: int) -> None:
+    try:
+        upstream_reader, upstream_writer = await asyncio.wait_for(_open(host, port), CONNECT_TIMEOUT_S)
+    except (OSError, asyncio.TimeoutError):
+        return await _reply(writer, "502 Bad Gateway")
+    await _reply(writer, "200 Connection established")
+    await asyncio.gather(_pipe(reader, upstream_writer), _pipe(upstream_reader, writer))
+
+
 async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
         head = await asyncio.wait_for(reader.readuntil(_CRLF + _CRLF), CONNECT_TIMEOUT_S)
@@ -69,12 +79,10 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         if not is_allowed(*target):
             log.warning("egress proxy: refused %s:%s", *target)
             return await _reply(writer, "403 Forbidden")
-        try:
-            upstream_reader, upstream_writer = await asyncio.wait_for(_open(*target), CONNECT_TIMEOUT_S)
-        except (OSError, asyncio.TimeoutError):
-            return await _reply(writer, "502 Bad Gateway")
-        await _reply(writer, "200 Connection established")
-        await asyncio.gather(_pipe(reader, upstream_writer), _pipe(upstream_reader, writer))
+        if _tunnels.locked():
+            return await _reply(writer, "503 Service Unavailable")
+        async with _tunnels:
+            await _tunnel(reader, writer, *target)
     except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, asyncio.TimeoutError, ConnectionError):
         pass
     finally:

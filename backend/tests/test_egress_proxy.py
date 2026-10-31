@@ -59,3 +59,9 @@ async def test_allowed_name_never_reaches_a_private_address(monkeypatch, address
     monkeypatch.setattr(settings, "egress_allowed_hosts", ["pypi.org"])
     monkeypatch.setattr(asyncio.get_running_loop().__class__, "getaddrinfo", resolve)
     assert (await _ask("CONNECT pypi.org:443 HTTP/1.1")).startswith(b"HTTP/1.1 502")
+
+
+async def test_refuses_tunnels_beyond_the_cap(monkeypatch):
+    monkeypatch.setattr(settings, "egress_allowed_hosts", ["pypi.org"])
+    monkeypatch.setattr(egress_proxy, "_tunnels", asyncio.Semaphore(0))
+    assert (await _ask("CONNECT pypi.org:443 HTTP/1.1")).startswith(b"HTTP/1.1 503")

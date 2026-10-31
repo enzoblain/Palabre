@@ -431,6 +431,10 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   address. So an agent cannot send its Claude token elsewhere, and cannot reach `db:5432`. Runs get
   `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
   `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
+  Consequences and residual risk: `WebFetch` is run client-side by Claude Code, so it is not available to the
+  research role (`WebSearch` is served by Anthropic and still works). The proxy caps concurrent tunnels
+  (`EGRESS_MAX_TUNNELS`). A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an
+  `npm publish` with an attacker-supplied npm token: a known, accepted risk.
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
