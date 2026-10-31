@@ -1,10 +1,11 @@
 """REST endpoints for tasks."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import workflow
+from app.api.errors import ApiError, ErrorCode
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import MergeIn, ReviewOut, TaskDetail, TaskIn, TaskOut, TaskPatch
@@ -16,7 +17,7 @@ router = APIRouter(tags=["tasks"])
 async def load_task(s, task_id: int) -> Task:
     task = await s.scalar(select(Task).where(Task.id == task_id).options(selectinload(Task.assignee)))
     if task is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Task {task_id} not found")
+        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.TASK_NOT_FOUND, f"Task {task_id} not found")
     return task
 
 
@@ -56,7 +57,7 @@ async def create_task(room_id: int, body: TaskIn, s: SessionDep):
     )
     conversation = await s.get(Conversation, conversation_id) if conversation_id else None
     if conversation is None or conversation.room_id != room_id:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The room has no such conversation")
+        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.CONVERSATION_NOT_IN_ROOM, "The room has no such conversation")
     task = await workflow.create_task(
         s,
         project_id=room.project_id,

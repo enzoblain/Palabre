@@ -2,11 +2,12 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, services
+from app.api.errors import ApiError, ErrorCode
 from app.api.deps import SessionDep, get_or_404
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
 from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room, Wakeup
@@ -20,7 +21,7 @@ async def get_visible_room(s: AsyncSession, room_id: int) -> Room:
     """The room, or 404 when it is not one the boss sees (a team channel or a DM)."""
     room = await get_or_404(s, Room, room_id)
     if not await services.boss_sees(s, room):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Room {room_id} not found")
+        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.ROOM_NOT_FOUND, f"Room {room_id} not found")
     return room
 
 
@@ -67,8 +68,9 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     room = await get_visible_room(s, conversation.room_id)
     project = await get_or_404(s, Project, room.project_id)
     if project.kind == "company" and room.kind != services.DIRECTION:
-        raise HTTPException(
+        raise ApiError(
             status.HTTP_403_FORBIDDEN,
+            ErrorCode.BOSS_READ_ONLY_ROOM,
             "The boss only writes in the direction channel; the other channels are read-only",
         )
     message = await services.post_message(s, room.project_id, conversation_id, body.content, None)
@@ -131,4 +133,4 @@ async def answer_request(message_id: int, body: RequestAnswerIn, s: SessionDep):
     try:
         return await projects.answer_request(s, message_id, RequestAnswer(body.answer), body.comment)
     except github.GitHubError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"GitHub refused the merge: {exc}") from None
+        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.GITHUB_MERGE_REFUSED, f"GitHub refused the merge: {exc}") from None
