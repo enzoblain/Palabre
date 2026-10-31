@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -50,6 +51,21 @@ class RequestAnswer(str, enum.Enum):
     validated = "validated"
     rejected = "rejected"
     nuanced = "nuanced"
+
+
+class RequestStatus(str, enum.Enum):
+    """Where a request to the boss stands (Message.request_status): waiting, answered by the
+    boss (RequestAnswer values), or closed by the lead without an answer."""
+
+    pending = "pending"
+    validated = "validated"
+    rejected = "rejected"
+    nuanced = "nuanced"
+    withdrawn = "withdrawn"
+    merged = "merged"
+
+
+REQUEST_STATUS_CHECK = "ck_messages_request_status"
 
 
 class TaskKind(str, enum.Enum):
@@ -212,7 +228,13 @@ class Conversation(Base):
 
 class Message(Base):
     __tablename__ = "messages"
-    __table_args__ = (Index("ix_messages_conversation_id_id", "conversation_id", "id"),)
+    __table_args__ = (
+        Index("ix_messages_conversation_id_id", "conversation_id", "id"),
+        CheckConstraint(
+            "request_status IN (" + ", ".join(f"'{s.value}'" for s in RequestStatus) + ")",
+            name=REQUEST_STATUS_CHECK,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
@@ -223,11 +245,14 @@ class Message(Base):
     # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # A request to the boss ("decision", "release", "escalation", "question"), answered
-    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then
+    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then,
+    # or until the lead withdraws it (the comment is their reason) or merges it into another
     request_kind: Mapped[str | None] = mapped_column(String(20))
     request_status: Mapped[str | None] = mapped_column(String(20))
     request_comment: Mapped[str | None] = mapped_column(Text)
     request_answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The request that replaced this one (request_status "merged")
+    request_merged_into: Mapped[int | None] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"))
     # The decision (or release) the request is about
     request_decision_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = created_at_column()

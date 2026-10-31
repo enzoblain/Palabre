@@ -69,9 +69,11 @@ export type Message = {
   is_system: boolean;
   // Set when the lead asks the CEO something (Validate / Reject / Nuance)
   request_kind: string | null;
-  request_status: "pending" | RequestAnswer | null;
+  request_status: "pending" | RequestAnswer | "withdrawn" | "merged" | null;
   request_comment: string | null;
   request_answered_at: string | null;
+  // The new request that replaced this one (status "merged")
+  request_merged_into: number | null;
   request_decision_id: number | null;
 };
 export type RequestAnswer = "validated" | "rejected" | "nuanced";
@@ -292,12 +294,6 @@ export async function testConnection(conn: Connection): Promise<void> {
 
 // --- Endpoints ---------------------------------------------------------------------
 
-export interface UnreadSummaryItem {
-  conversation_id: number;
-  last_id: number;
-  last_employee_message_id: number;
-}
-
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
   getUsage: () => call<Usage>("/settings/usage"),
@@ -338,7 +334,6 @@ export const api = {
     call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
-  unreadSummary: (projectId: number) => call<UnreadSummaryItem[]>(`/projects/${projectId}/unread-summary`),
   listMessages: (conversationId: number, sinceId?: number) =>
     call<Message[]>(
       `/conversations/${conversationId}/messages?limit=200${sinceId !== undefined ? `&since_id=${sinceId}` : ""}`,

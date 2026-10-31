@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.github import BRANCH_PATTERN
+from app.models import RequestStatus
 
 
 class ORM(BaseModel):
@@ -226,13 +227,6 @@ class ConversationOut(ORM):
     created_at: datetime
 
 
-class UnreadSummaryItem(BaseModel):
-    conversation_id: int
-    last_id: int
-    # Latest message written by an employee (the only ones that count as unread); 0 if none
-    last_employee_message_id: int
-
-
 class MessageIn(BaseModel):
     content: str = Field(min_length=1)
 
@@ -248,9 +242,10 @@ class MessageOut(ORM):
     is_system: bool = False
     # Set when the message asks the boss something (see services.ask_boss)
     request_kind: str | None = None
-    request_status: str | None = None
+    request_status: RequestStatus | None = None
     request_comment: str | None = None
     request_answered_at: datetime | None = None
+    request_merged_into: int | None = None
     request_decision_id: int | None = None
 
 

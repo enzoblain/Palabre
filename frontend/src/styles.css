@@ -284,11 +284,6 @@ select:focus { border-color: var(--accent); }
 }
 
 /* --- Notifications --- */
-.badge-count {
-  margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 11px;
-  font-weight: 600; display: inline-grid; place-items: center; background: var(--border); color: var(--text); flex-shrink: 0;
-}
-.badge-count.urgent { background: var(--accent); color: var(--accent-text); }
 .banner {
   margin: 0 20px 6px; padding: 8px 12px; border-radius: 8px; font-size: 13px;
   background: var(--mention-me-bg); box-shadow: inset 3px 0 0 var(--mention-me-border);
@@ -382,7 +377,7 @@ details summary { cursor: pointer; margin-top: 6px; }
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
   .mobile-bar {
-    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px 0 12px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 8px; flex-shrink: 0;
     background: var(--sidebar); border-bottom: 1px solid var(--border);
   }
   .mobile-bar .sidebar-title { flex: 1; }
@@ -422,7 +417,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .live-dot { margin-left: auto; flex-shrink: 0; }
-.live-dot + .badge-count { margin-left: 6px; }
 
 .quota-account { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .quota-account h3 { margin: 0; font-size: 14px; }
@@ -488,3 +482,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .conv-people { font-size: 13px; min-width: 0; flex: 1; }
 .conv-people + .live-tag, .conv-people + .conv-members { margin-left: 0; }
 @media (prefers-reduced-motion: reduce) { .team-panel { transition: none; } }
+.message:focus { outline: none; }
+.message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
+.request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }
