@@ -192,7 +192,7 @@ case $mode in
   pair)
     # Two runs alive together: each looks at the other's process and MCP config. $2 dir, $3 me, $4 peer
     dir=$2; me=$3; peer=$4
-    echo $$ > "$dir/$me.pid"; echo "$mcp" > "$dir/$me.mcp"; echo "$sysfile" > "$dir/$me.sys"
+    echo $$ > "$dir/$me.pid"; echo "$sysfile" > "$dir/$me.sys"; echo "$mcp" > "$dir/$me.mcp"
     i=0; while [ ! -s "$dir/$peer.mcp" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
     if [ -s "$dir/$peer.mcp" ]; then found=found; else found=missing; fi
     other=$(cat "$dir/$peer.pid" 2>/dev/null); othermcp=$(cat "$dir/$peer.mcp" 2>/dev/null)
