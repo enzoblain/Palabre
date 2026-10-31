@@ -115,8 +115,6 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 
 /* --- Layout --- */
 .shell { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
-.shell.no-panel { grid-template-columns: 1fr; }
-.shell.no-panel .main { display: flex; flex-direction: column; }
 .main { min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 
 .sidebar-title { font-weight: 600; font-size: 15px; }
@@ -378,6 +376,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 /* --- Small screens (the app in a phone's browser) --- */
 .mobile-bar, .nav-backdrop { display: none; }
 .panel-close { display: none; }
+.topbar-nav { display: none; }
 .report-bar { display: flex; }
 @media (max-width: 900px) {
   .shell { display: flex; flex-direction: column; }
@@ -387,7 +386,7 @@ details summary { cursor: pointer; margin-top: 6px; }
     background: var(--sidebar); border-bottom: 1px solid var(--border);
   }
   .mobile-bar .sidebar-title { flex: 1; }
-  .panel-close { display: inline-flex; }
+  .panel-close, .topbar-nav { display: inline-flex; }
   .report-bar { display: none; }
   .team-panel {
     position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;

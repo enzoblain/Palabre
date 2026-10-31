@@ -93,8 +93,10 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
 const stateText = (p: Presence | undefined) => (p?.state === "working" ? "Occupé" : "Disponible");
 
 /** The left-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
-export function TeamPanel({ project, presence, open, onClose }: {
+export function TeamPanel({ project, presence, open, onClose, noProject }: {
   project: ProjectState | null;
+  // Home, new project, settings: no team to list, only the Settings link stays
+  noProject?: boolean;
   presence: Presence[];
   open: boolean;
   onClose: () => void;
@@ -129,7 +131,7 @@ export function TeamPanel({ project, presence, open, onClose }: {
         <h2 className="panel-title" id="people-label">Équipe</h2>
         <button className="icon-btn panel-close" onClick={onClose} aria-label="Fermer le panneau Équipe">×</button>
       </header>
-      {!project ? <p className="muted panel-empty">Chargement…</p> : (
+      {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">Chargement…</p> : (
         <div className="panel-body">
           <ul className="panel-list" aria-labelledby="people-label">
             {people.map((e) => {
