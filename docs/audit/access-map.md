@@ -27,13 +27,13 @@ Read-only map of `dev` (0.18.0 plus the egress, Anthropic proxy and loopback-bin
 |---|----------|--------|------|-----|
 | R1 | High | Fixed (#295, PR #263; Anthropic proxy #301/#306) | No egress control: a prompt-injected agent with Bash could exfiltrate the repo and its own Claude token | Egress proxy plus `iptables` owner rules; real token kept server-side. Known leftover: `npm publish` with an attacker-supplied npm token through `registry.npmjs.org` (accepted) |
 | R2 | Medium | Fixed (PR #265, #267, #269) | Ports published on `0.0.0.0`: `/api` and `/mcp` in clear HTTP on the LAN | Bound to `127.0.0.1` by default, TLS reverse proxy documented (README, Remote access) |
-| R3 | Medium | Open | `ADMIN_TOKEN` is a single static, all-powers credential, in `localStorage`, with no expiry. Rotation is documented, revocation means editing `.env` | Short-lived session token issued from `ADMIN_TOKEN` (HttpOnly cookie or memory). Inès judges documented rotation enough for now. M |
+| R3 | Medium | Open | `ADMIN_TOKEN` is a single static, all-powers credential, in `localStorage`, with no expiry. Rotation is documented, revocation means editing `.env` | Short-lived session token issued from `ADMIN_TOKEN` (HttpOnly cookie or memory). Inès judges documented rotation enough for now. Effort: M |
 | R4 | Medium | Fixed (PR #263) | Agents with Bash could reach Postgres and the backend `/api` | `iptables` owner rules; `check-isolation.sh` verifies the database is unreachable |
 | R5 | Low | Accepted | Agent code runs in CI on every branch push (`contents: read`) | Keep workflows free of secrets on push events and the token without `workflows` scope (`sensitive_paths` covers `.github/`) |
 | R6 | Low | Open | A Claude OAuth token is per account, shared by several employees: one leak exposes all of them | One token per account, rotated through `claude setup-token`. Mitigated by R1 |
 | R7 | Info | Accepted | Per-run MCP tokens live in memory only: a backend restart kills the runs | Documented in `run_tokens.py` |
 | R8 | Low | Accepted | Bash has no command allowlist (`code`, `run_tests`): read-only roles can still write in their clone | Desk thrown away at each wake-up and nothing pushed from it. A `Bash(pytest:*)` allowlist would be brittle, not recommended |
-| R9 | Medium | Open | No CSP or security headers in `frontend/nginx.conf` while the admin token is in `localStorage` (Tauri CSP done in PR #264) | Strict CSP and headers in nginx, see `frontend-ux.md` point 2. S |
+| R9 | Medium | Fixed | nginx now sets a strict CSP and security headers (`frontend/security-headers.conf`, included from `frontend/nginx.conf`, #127); Tauri CSP done in PR #264. The admin token in `localStorage` remains, see R3 | Effort: S, done |
 | R10 | Low | Open | The 429 lockout is per IP: an agent could fail 10 times from `127.0.0.1` and lock out everything coming from the same IP | Agents no longer reach `/api` since R1 and R4; Inès re-checks it in review |
 | R11 | Low | Fixed (#296, PR #262) | Stale desk folders left group-writable | Deleted at startup |
 
