@@ -283,8 +283,7 @@ async def _direction(s):
     s.add(project)
     await s.flush()
     lead = Employee(project_id=project.id, name="Louise", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="a")
-    # A second lead-role member: only leads sign requests, this one stands for "someone else's request"
-    dev = Employee(project_id=project.id, name="Mehdi", title="Dev", model="sonnet", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="b")
+    dev = Employee(project_id=project.id, name="Mehdi", title="Dev", model="sonnet", permissions=[], traits={}, quirks=[], style={}, roles=["backend"], mcp_token="b")
     room = Room(project_id=project.id, name="direction", kind="direction")
     s.add_all([lead, dev, room])
     await s.flush()
@@ -302,8 +301,21 @@ async def test_list_returns_only_pending_requests_of_the_lead(tidy_db):
     project, lead, dev = await _direction(s)
     mine, answered = await _ask(s, project, lead, "a"), await _ask(s, project, lead, "b")
     await projects.answer_request(s, answered.id, RequestAnswer.validated)
-    await _ask(s, project, dev, "not the lead's")
-    assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [mine.id]
+    relayed = await _ask(s, project, dev, "from a member")
+    assert relayed.employee_id == lead.id
+    # The lead owns every request in direction, the ones relayed for a member included
+    assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [mine.id, relayed.id]
+    assert await services.list_pending_requests(s, project.id, dev) == []
+
+
+async def test_the_lead_withdraws_and_merges_a_relayed_request(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    first, second = await _ask(s, project, dev, "one"), await _ask(s, project, dev, "two")
+    done = await services.withdraw_request(s, project.id, lead, first.id, "obsolete")
+    assert done.request_status == RequestStatus.withdrawn.value
+    new = await services.merge_requests(s, project.id, lead, [second.id], "merged")
+    assert new.employee_id == lead.id and second.request_merged_into == new.id
 
 
 async def test_withdraw_closes_the_request_and_the_boss_cannot_answer(tidy_db):
@@ -406,7 +418,10 @@ async def test_withdrawing_a_release_request_is_refused(tidy_db):
 async def test_refusals(tidy_db):
     s = tidy_db
     project, lead, dev = await _direction(s)
-    answered, theirs, ok = await _ask(s, project, lead), await _ask(s, project, dev), await _ask(s, project, lead)
+    other_lead = Employee(project_id=project.id, name="Zoé", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="c")
+    s.add(other_lead)
+    await s.flush()
+    answered, theirs, ok = await _ask(s, project, lead), await _ask(s, project, other_lead), await _ask(s, project, lead)
     await projects.answer_request(s, answered.id, RequestAnswer.rejected)
     with pytest.raises(WorkflowError, match="no longer pending"):
         await services.withdraw_request(s, project.id, lead, answered.id, "x")

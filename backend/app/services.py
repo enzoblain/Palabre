@@ -295,7 +295,8 @@ async def ask_boss(
     commit: bool = True,
 ) -> Message | None:
     """Post a message in direction that the boss answers with Validate / Reject / Nuance.
-    Only the lead speaks in direction: a request from another member is signed by the lead, who names its author.
+    Only the lead speaks in direction: a request from another member is stored under the lead,
+    who owns every request in direction, and starts with the author's name.
     Returns None where there is no direction (research groups): the boss reads the room instead."""
     if kind not in REQUEST_KINDS:
         raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
@@ -303,7 +304,7 @@ async def ask_boss(
     if conversation_id is None:
         return None
     if "lead" not in author.roles:
-        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id).order_by(Employee.id))
         lead = next((e for e in employees if "lead" in e.roles), None)
         if lead is None:
             raise WorkflowError("This project has no lead to relay the request to the boss")
