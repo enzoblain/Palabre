@@ -100,7 +100,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
           <li key={i} className="editor-card">
             <div className="editor-head">
               <Avatar name={m.name || "?"} size={32} />
-              <input className="editor-name" value={m.name} maxLength={40} aria-label="Name" placeholder="Name"
+              <input className="editor-name" value={m.name} maxLength={40} aria-label="Nom" placeholder="Name"
                 onChange={(e) => update(i, { name: e.target.value.replace(/\s/g, "") })} />
               <button type="button" className="icon-btn" title="Pick a first name"
                 onClick={() => update(i, { name: freeName(names, members.map((x) => x.name)) })}>
