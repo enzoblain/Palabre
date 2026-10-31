@@ -1,4 +1,4 @@
-"""Reverse proxy to the Anthropic API for the agents: adds the account's token and refuses unexpected server tools."""
+"""Reverse proxy to the Anthropic API for the agents: adds the account's token and refuses unexpected server tools and remote content sources."""
 
 import json
 import logging
@@ -23,6 +23,10 @@ _DROPPED_RESPONSE_HEADERS = {"content-length", "content-encoding", "transfer-enc
 _CLIENT_TOOL_TYPES = {None, "custom"}
 # Request fields that make Anthropic reach other servers on the agent's behalf
 _FORBIDDEN_FIELDS = ("mcp_servers",)
+# Content sources Anthropic fetches itself (URL, uploaded file); base64 and text are sent inline
+_REMOTE_SOURCE_TYPES = {"url", "file"}
+# Keys whose content is data the model produced, not a content block of the request
+_OPAQUE_KEYS = {"input"}
 _client: httpx.AsyncClient | None = None
 
 
@@ -59,6 +63,34 @@ def refused_server_tool(body: object) -> str | None:
         if not isinstance(tool_type, str) or not tool_type.startswith(tuple(settings.anthropic_allowed_server_tools)):
             return str(tool_type)
     return None
+
+
+def _find_remote_source(node: object) -> str | None:
+    """Type of the first content source Anthropic would fetch itself, searched through nested blocks."""
+    if isinstance(node, list):
+        return next((found for item in node if (found := _find_remote_source(item))), None)
+    if not isinstance(node, dict):
+        return None
+    source = node.get("source")
+    if isinstance(source, dict) and source.get("type") in _REMOTE_SOURCE_TYPES:
+        return source["type"]
+    children = [value for key, value in node.items() if key not in _OPAQUE_KEYS]
+    return _find_remote_source(children)
+
+
+def refused_remote_source(body: object) -> str | None:
+    """Source type of a remote content block in the messages or system prompt, None if the request is clean."""
+    if not isinstance(body, dict):
+        return None
+    return _find_remote_source([body.get("messages"), body.get("system")])
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Refuse duplicated keys: parsers disagree on which value wins, so the checks could be bypassed."""
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate key")
+    return dict(pairs)
 
 
 def _bearer(request: Request) -> str:
@@ -105,10 +137,13 @@ async def proxy(path: str, request: Request) -> Response:
         return _refuse(413, "Request too large")
     if body:
         try:
-            parsed = json.loads(body)
+            parsed = json.loads(body, object_pairs_hook=_reject_duplicate_keys)
         except ValueError:
-            return _refuse(400, "The body is not JSON")
+            return _refuse(400, "The body is not valid JSON without duplicated keys")
         if (refused := refused_server_tool(parsed)) is not None:
             log.warning("anthropic proxy: refused server tool %s", refused)
             return _refuse(403, f"Server tool {refused!r} is not available to agents")
+        if (remote_source := refused_remote_source(parsed)) is not None:
+            log.warning("anthropic proxy: refused %s content source", remote_source)
+            return _refuse(403, f"Content sources of type {remote_source!r} are not available to agents")
     return await _forward(request, path, body, credential)

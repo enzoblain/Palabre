@@ -471,7 +471,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   `CLAUDE_CODE_OAUTH_TOKEN` is only its run token (worthless outside the run), the server adds the account's real
   token, so it is in neither the agent's environment nor `/proc/<pid>/environ`, and cannot be sent to the API with a
   server-side tool. The proxy also refuses server tools other than `web_search` (`ANTHROPIC_ALLOWED_SERVER_TOOLS`,
-  so no `web_fetch` or `code_execution`), `mcp_servers`, and API paths outside `ANTHROPIC_ALLOWED_PATHS`.
+  so no `web_fetch` or `code_execution`), `mcp_servers`, content blocks whose `source` is a `url` or a `file` (Anthropic would fetch it server-side,
+  a way around the allowlist; Claude Code only sends base64), and API paths outside `ANTHROPIC_ALLOWED_PATHS`.
   Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
   A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
   with an attacker-supplied npm token: a known, accepted risk.

