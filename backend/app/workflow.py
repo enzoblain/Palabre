@@ -13,8 +13,8 @@ from sqlalchemy.orm import selectinload
 from app import github
 from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, load_catalog
 from app.config import settings
-from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.errors import ErrorCode, WorkflowError
+from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.sensitive_paths import touches_sensitive_paths
 from app.services import emit_event, post_message, post_system_message
 from app.worktrees import (
