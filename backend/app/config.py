@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # answered 429 (and so even with a valid token) until the window has passed
     auth_max_failures: int = 10
     auth_fail_window_seconds: int = 300
+    # Lifetime of the session tokens issued by POST /api/auth/session (changing ADMIN_TOKEN revokes them all)
+    session_ttl_seconds: int = Field(12 * 3600, gt=0)
     # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
     trusted_proxy_hosts: list[str] = ["web"]
     # Origins allowed to call the API from a browser: the Vite dev server and the Tauri webview.

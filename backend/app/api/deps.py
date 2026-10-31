@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode
 from app.config import settings
 from app.db import Base, get_session
+from app.sessions import verify_session_token
 
 log = logging.getLogger(__name__)
 
@@ -69,9 +70,11 @@ async def client_ip(request: Request) -> str:
     return peer
 
 
-async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
-    ip = await client_ip(request)
-    now = time.monotonic()
+def _is_raw_admin_token(credential: str) -> bool:
+    return secrets.compare_digest(credential.encode(), settings.admin_token.encode())
+
+
+def _check_lockout(ip: str, now: float) -> None:
     recent = _recent_failures(ip, now)
     if len(recent) >= settings.auth_max_failures:
         retry = max(1, int(settings.auth_fail_window_seconds - (now - recent[0])) + 1)
@@ -81,15 +84,38 @@ async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | N
             "Too many failed authentications",
             headers={"Retry-After": str(retry)},
         )
-    if cred is None or not secrets.compare_digest(cred.credentials.encode(), settings.admin_token.encode()):
-        if len(_failures) > _SWEEP_ABOVE:
-            for known in list(_failures):
-                _recent_failures(known, now)
-        recent = _failures.setdefault(ip, [])
-        recent.append(now)
-        if len(recent) == settings.auth_max_failures:
-            log.warning("API auth: %s locked out after %d failed attempts", ip, len(recent))
-        raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_TOKEN, "Invalid token")
+
+
+def _reject(ip: str, now: float) -> ApiError:
+    """Counts a failed authentication and returns the 401 to raise."""
+    if len(_failures) > _SWEEP_ABOVE:
+        for known in list(_failures):
+            _recent_failures(known, now)
+    recent = _failures.setdefault(ip, [])
+    recent.append(now)
+    if len(recent) == settings.auth_max_failures:
+        log.warning("API auth: %s locked out after %d failed attempts", ip, len(recent))
+    return ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_TOKEN, "Invalid token")
+
+
+async def _authenticate(request: Request, cred: HTTPAuthorizationCredentials | None, accept_session: bool) -> None:
+    ip = await client_ip(request)
+    now = time.monotonic()
+    _check_lockout(ip, now)
+    token = cred.credentials if cred else ""
+    if token and (_is_raw_admin_token(token) or (accept_session and verify_session_token(settings.admin_token, token))):
+        return
+    raise _reject(ip, now)
+
+
+async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
+    """The API's guard: a session token or the raw ADMIN_TOKEN (scripts), both throttled by the same failure counter."""
+    await _authenticate(request, cred, accept_session=True)
+
+
+async def require_raw_admin_token(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
+    """Only the raw ADMIN_TOKEN: a session token cannot mint a new session (no endless extension of a stolen one)."""
+    await _authenticate(request, cred, accept_session=False)
 
 
 async def get_or_404(s: AsyncSession, model: type[ModelT], id: int, **kwargs) -> ModelT:

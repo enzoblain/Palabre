@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
-import { ApiError, type Connection, normalizeServer, pageServer, testConnection } from "../api";
+import { ApiError, type Connection, normalizeServer, login, pageServer } from "../api";
 
 export function Connect({ onConnected }: { onConnected: (conn: Connection) => void }) {
   const { t } = useI18n();
@@ -11,12 +11,10 @@ export function Connect({ onConnected }: { onConnected: (conn: Connection) => vo
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const conn = { server: normalizeServer(server), token: token.trim() };
     setBusy(true);
     setError(null);
     try {
-      await testConnection(conn);
-      onConnected(conn);
+      onConnected(await login(normalizeServer(server), token.trim()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {

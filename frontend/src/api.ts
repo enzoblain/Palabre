@@ -198,15 +198,22 @@ export type MemberIn = {
 
 // --- Connection to the server ------------------------------------------------------
 
+/** `token` is a short-lived session token, never the ADMIN_TOKEN itself. */
 export type Connection = { server: string; token: string };
 
 const STORAGE_KEY = "palabre.connection";
+try {
+  // Older versions kept the raw ADMIN_TOKEN here for good: drop it
+  localStorage.removeItem(STORAGE_KEY);
+} catch {
+  // Storage unavailable: nothing to drop
+}
 let current: Connection | null = readConnection();
 let onUnauthorized: () => void = () => {};
 
 function readConnection(): Connection | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as Connection) : null;
   } catch {
     return null;
@@ -220,8 +227,8 @@ export function getConnection(): Connection | null {
 export function saveConnection(conn: Connection | null): void {
   current = conn;
   try {
-    if (conn) localStorage.setItem(STORAGE_KEY, JSON.stringify(conn));
-    else localStorage.removeItem(STORAGE_KEY);
+    if (conn) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(conn));
+    else sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // Storage unavailable: the connection lasts until the app is closed
   }
@@ -351,10 +358,11 @@ function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   });
 }
 
-/** Checks the address and token before saving them. */
-export async function testConnection(conn: Connection): Promise<void> {
+/** Exchanges the ADMIN_TOKEN for a session token; only the session token is kept. */
+export async function login(server: string, adminToken: string): Promise<Connection> {
   try {
-    await request(conn, "/settings");
+    const session = await request<{ token: string }>({ server, token: adminToken }, "/auth/session", "POST");
+    return { server, token: session.token };
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) throw new ApiError(401, translate("api.wrongToken"));
     if (err instanceof ApiError && err.status === 404) throw new ApiError(404, translate("api.notPalabre"));
