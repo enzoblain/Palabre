@@ -205,6 +205,8 @@ export const fr: Messages = {
   "new.yourTeam": "Votre équipe",
   "new.random": "Aléatoire",
   "new.buildOwn": "Composer la mienne",
+  "new.presetsFailed": "Impossible de charger les personnalités prédéfinies : la composition manuelle est indisponible pour l'instant.",
+  "new.presetsRetry": "Réessayer",
   "new.introResearchCustom": "Des pairs de même rang, chacun avec son angle. Choisissez-les vous-même ci-dessous.",
   "new.introResearch": "Des pairs de même rang, chacun avec son angle sur le sujet.",
   "new.introCompanyCustom": "La taille de l’entreprise fixe les règles avant fusion (approbations, QA, CI). Choisissez les agents vous-même ci-dessous.",

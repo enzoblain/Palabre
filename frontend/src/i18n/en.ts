@@ -204,6 +204,8 @@ export const en = {
   "new.yourTeam": "Your team",
   "new.random": "Random",
   "new.buildOwn": "Build my own",
+  "new.presetsFailed": "Could not load the personality presets, so you cannot build your own team yet.",
+  "new.presetsRetry": "Retry",
   "new.introResearchCustom": "Peers of equal standing, each with their own angle. Pick them yourself below.",
   "new.introResearch": "Peers of equal standing, each with their own angle on the topic.",
   "new.introCompanyCustom": "The company size sets the rules before merging (approvals, QA, CI). Pick the agents yourself below.",
