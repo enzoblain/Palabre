@@ -16,7 +16,7 @@ services:
 
   backend:
     # Published image (`docker compose pull`); `docker compose up -d --build` builds it here instead
-    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-0.19.0}
+    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-0.20.0}
     build:
       context: ./backend
       args:
@@ -51,7 +51,7 @@ services:
 
   web:
     # The app in a browser (phone...): the interface, with /api passed on to the backend
-    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.19.0}
+    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.20.0}
     build: ./frontend
     restart: unless-stopped
     depends_on:
@@ -74,7 +74,7 @@ services:
       - .:/project:ro
     environment:
       INTERVAL: ${PALABRE_UPDATE_INTERVAL:-300}
-      PALABRE_VERSION: ${PALABRE_VERSION:-0.19.0}
+      PALABRE_VERSION: ${PALABRE_VERSION:-0.20.0}
     # The project is reached at its path on the host (a link to /project), so the
     # containers it recreates keep the labels of this compose project
     entrypoint:
@@ -82,7 +82,7 @@ services:
       - -c
       - |
         set -u
-        case "$${PALABRE_VERSION:-0.19.0}" in latest) ;; *) echo "Warning: PALABRE_VERSION is not 'latest' (it is '$${PALABRE_VERSION:-0.19.0}'): this updater will never find a new version";; esac
+        case "$${PALABRE_VERSION:-0.20.0}" in latest) ;; *) echo "Warning: PALABRE_VERSION is not 'latest' (it is '$${PALABRE_VERSION:-0.20.0}'): this updater will never find a new version";; esac
         project=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$$(hostname)")
         dir=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$$(hostname)")
         mkdir -p "$$(dirname "$$dir")" && { [ -e "$$dir" ] || ln -s /project "$$dir"; }

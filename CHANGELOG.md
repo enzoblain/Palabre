@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-31
+
+### Added
+
+- catalog: split roles into one validated TOML file each (#291)
+- catalog: expose RoleOut with tools and /catalog/limits (#294)
+- catalog: add personality presets picked per team member (#295)
+- catalog: type the roles API and add the job picker (#300)
+- catalog: add the personality preset picker to the team editor (#303)
+- new-project: show an error when personality presets fail to load (#305)
+
+### Changed
+
+- catalog: move the personality pool to one validated TOML file per kind (#296)
+- catalog: remove the compat facades and type the roles (#306)
+
+### Fixed
+
+- workflow: ignore reviews given on an outdated PR head in the merge gates (#293)
+- workflow: pin the merge of a PR on the reviewed head (#298)
+- workflow: check the CI on the pinned head and refuse a missing reviewed head (#299)
+- new-project: ignore stale personality preset responses on kind change (#307)
+
 ## [0.19.0] - 2026-10-31
 
 ### Added
@@ -515,7 +538,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/enzoblain/Palabre/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/enzoblain/Palabre/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/enzoblain/Palabre/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/enzoblain/Palabre/compare/v0.17.0...v0.17.1
