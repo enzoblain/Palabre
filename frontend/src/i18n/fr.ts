@@ -59,6 +59,7 @@ export const fr: Messages = {
   "error.no_name_left": "Plus aucun nom d’employé disponible pour cette équipe",
   "error.task_wrong_status": "Cette tâche n’a pas le bon statut pour cette action",
   "error.stale_review_head": "La pull request a changé depuis le début de cette review",
+  "error.pr_head_moved": "La tête de la pull request a bougé depuis sa review",
   "error.invalid_head_sha": "Le commit relu est manquant ou trop court",
   "error.task_not_yours": "Cette tâche est assignée à quelqu’un d’autre",
   "error.task_waiting_for_dependencies": "Cette tâche attend les tâches dont elle dépend",

@@ -58,6 +58,7 @@ export const en = {
   "error.no_name_left": "No employee name left for this team",
   "error.task_wrong_status": "This task is not in the right status for this action",
   "error.stale_review_head": "The pull request moved since this review was started",
+  "error.pr_head_moved": "The pull request head moved since it was reviewed",
   "error.invalid_head_sha": "The reviewed commit is missing or too short",
   "error.task_not_yours": "This task is assigned to someone else",
   "error.task_waiting_for_dependencies": "This task is waiting for the tasks it depends on",

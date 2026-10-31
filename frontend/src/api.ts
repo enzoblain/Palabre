@@ -287,6 +287,7 @@ export const ERROR_CODES = [
   "no_name_left",
   "task_wrong_status",
   "stale_review_head",
+  "pr_head_moved",
   "invalid_head_sha",
   "task_not_yours",
   "task_waiting_for_dependencies",

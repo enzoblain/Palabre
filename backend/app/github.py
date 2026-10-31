@@ -36,6 +36,7 @@ def is_task_branch_name(branch: str | None) -> bool:
 
 
 HTTP_NOT_FOUND = 404
+HTTP_CONFLICT = 409
 HTTP_UNPROCESSABLE = 422
 
 
