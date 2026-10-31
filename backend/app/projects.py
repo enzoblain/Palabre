@@ -26,7 +26,7 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
@@ -232,8 +232,9 @@ async def ensure_all_directions(s: AsyncSession) -> None:
 
 
 # Names of the channels every company used to get. A channel (kind "team") with one of them is
-# generic unless the catalog targets that name; a channel an AI plan or a user named the same
-# cannot be told apart, so it goes too (the plan never proposes these names).
+# generic unless the catalog targets that name. An AI plan or a user can name a channel the same
+# later, so the migration runs once (marker below) and never sees those.
+GENERIC_ROOMS_MARKER = "generic_rooms_dropped"
 _GENERIC_ROOMS = {"general", "equipe", "couts-claude", "engineering", "product"}
 
 
@@ -245,7 +246,10 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
     """There are no generic channels anymore: delete the old ones with their messages, and give
     the "general" room of a research project its new name. Their tasks, decisions and open
     questions move to the project's direction room first (they would cascade with the room).
-    Direction, targeted channels and DMs are never touched. Safe to run at every startup."""
+    Direction, targeted channels and DMs are never touched. One-shot: a persistent marker stops
+    later runs, so a #product created afterwards survives restarts."""
+    if await s.get(AppSetting, GENERIC_ROOMS_MARKER) is not None:
+        return
     targeted = {c["name"] for c in load_catalog()["channels"]}
     for project_id in list(await s.scalars(select(Project.id))):
         project = await load_project(s, project_id)
@@ -277,6 +281,7 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
             await s.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
             await s.execute(delete(Conversation).where(Conversation.room_id == room.id))
             await s.delete(room)
+    s.add(AppSetting(key=GENERIC_ROOMS_MARKER, value="1"))
     await s.commit()
 
 

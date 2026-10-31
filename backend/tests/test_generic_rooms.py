@@ -83,9 +83,20 @@ async def test_generic_rooms_go_with_their_messages_and_the_rest_stays(db):
     kept = await db.scalar(select(func.count()).select_from(Message))
     assert kept == 1 + 1 + 3 + 2  # dev, direction, both DMs; none of the deleted rooms' messages
 
-    await drop_generic_rooms(db)  # idempotent
+    await drop_generic_rooms(db)  # one-shot: second run is a no-op
     assert await names(db) == {"dev", "direction", "Malik-Nathan", "general"}
     assert await db.scalar(select(func.count()).select_from(Message)) == kept
+
+
+async def test_a_product_room_created_after_the_migration_survives(db):
+    project = await make_project(db)
+    await add_room(db, project, "direction", [project.employees[0]], kind="direction")
+    await db.commit()
+    await drop_generic_rooms(db)
+    await add_room(db, project, "product", project.employees[:2])  # planned by the AI or made by a human
+    await db.commit()
+    await drop_generic_rooms(db)  # a restart
+    assert await names(db) == {"direction", "product"}
 
 
 async def test_tasks_decisions_and_questions_move_to_direction(db):

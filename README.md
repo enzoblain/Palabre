@@ -51,7 +51,8 @@ At startup, existing projects lose their old generic channels (`#general`, `#eng
 never a DM or `#direction`) and the name, unless the catalog targets that name; membership
 does not matter. Their tasks, decisions (releases included) and open questions move to
 `#direction` first. `#direction`, targeted channels and all DMs are kept, and the `#general`
-of a research project becomes `#research`.
+of a research project becomes `#research`. This runs once, guarded by a marker in the app
+settings: a `#product` created afterwards survives restarts.
 
 From there the team works on its own:
 
