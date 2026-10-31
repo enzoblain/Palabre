@@ -6,8 +6,8 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.company.team import load_catalog
-from app.orchestrator.event_types import TASK_EVENTS
 from app.models import Conversation, Employee, Event, Room, Task, Wakeup, room_members
+from app.orchestrator.event_types import TASK_EVENTS
 from app.orchestrator.prompts import reason_for
 from app.services import DIRECTION, DM
 

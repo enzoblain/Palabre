@@ -11,10 +11,10 @@ from fastapi.responses import JSONResponse
 from app import models  # noqa: F401 (registers tables)
 from app import agent_pool, anthropic_proxy, egress_proxy, services
 from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
-from app.company.catalog import load_catalog
 from app.api import auth, catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.api.errors import ApiError, api_error, validation_error
+from app.company.catalog import load_catalog
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError

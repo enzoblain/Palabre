@@ -3,19 +3,22 @@
 import hashlib
 import json
 import shutil
-from pathlib import Path
+from typing import get_args
 
 import pytest
 
+from app.api.errors import ApiError
+from app.api.projects import _check_team
+from app.api.schemas import MemberIn
 from app.company import catalog as catalog_module
 from app.company.catalog import (
-    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, _check_channels, _check_roles, _check_seats,
-    _load_roles, load_catalog, team_permission_error,
+    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, _load_roles, load_catalog, team_permission_error,
+    validate_catalog,
 )
 from app.company.team import generate_team
+from app.errors import ErrorCode
 from app.mcp_server.permissions import CLAUDE_TOOLS, MCP_TOOLS
 from app.orchestrator import event_types
-from typing import get_args
 
 
 @pytest.fixture
@@ -78,29 +81,29 @@ def test_role_combining_merge_and_code_is_refused():
     roles = _load_roles()
     bad = Role(**{**roles["dev"].model_dump(), "permissions": ["merge", "code"]})
     with pytest.raises(CatalogError, match="merge and code"):
-        _check_roles({**roles, "dev": bad})
+        validate_catalog({**roles, "dev": bad}, {}, [])
 
 
 def test_missing_gated_role_is_refused():
     roles = {k: r for k, r in _load_roles().items() if k != "security"}
     with pytest.raises(CatalogError, match="security"):
-        _check_roles(roles)
+        validate_catalog(roles, {}, [])
 
 
 def test_seat_with_unknown_role_or_merge_plus_code_is_refused():
     roles = _load_roles()
     with pytest.raises(CatalogError, match="unknown"):
-        _check_seats(roles, {"m": {"kind": "company", "seats": [{"roles": ["nobody"]}]}})
+        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["nobody"]}]}}, [])
     with pytest.raises(CatalogError, match="unknown"):
-        _check_seats(roles, {"m": {"kind": "company", "seats": [{"roles": ["explorer"]}]}})
+        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["explorer"]}]}}, [])
     with pytest.raises(CatalogError, match="merge and code"):
-        _check_seats(roles, {"m": {"kind": "company", "seats": [{"roles": ["lead", "dev"]}]}})
+        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["lead", "dev"]}]}}, [])
 
 
 def test_channel_with_unknown_role_is_refused():
     with pytest.raises(CatalogError, match="unknown"):
-        _check_channels(_load_roles(), [{"name": "x", "roles": ["nobody"]}])
-    _check_channels(_load_roles(), [{"name": "x", "roles": ["*"]}])
+        validate_catalog(_load_roles(), {}, [{"name": "x", "roles": ["nobody"]}])
+    validate_catalog(_load_roles(), {}, [{"name": "x", "roles": ["*"]}])
 
 
 def test_every_predefined_mode_passes_the_checks():
@@ -118,7 +121,8 @@ def test_team_constraints():
 def test_facade_keeps_the_dict_shape_and_the_role_order():
     roles = load_catalog()["roles"]
     assert list(roles)[:3] == ["lead", "architect", "product_owner"]
-    assert list(roles)[13] == "explorer"
+    company_roles = [k for k, r in roles.items() if r["kind"] == "company"]
+    assert list(roles)[len(company_roles)] == "explorer"
     assert {"title", "model", "mission", "permissions", "wakes_on", "kind"} <= set(roles["lead"])
 
 
@@ -152,3 +156,11 @@ PINNED_TEAMS = {
 def test_seeded_teams_are_unchanged(mode, seed):
     dumped = json.dumps(generate_team(mode, seed).to_dict(), sort_keys=True)
     assert hashlib.sha256(dumped.encode()).hexdigest()[:16] == PINNED_TEAMS[(mode, seed)]
+
+
+def test_custom_team_with_two_leads_is_a_422():
+    members = [MemberIn(name="Ada", roles=["lead"]), MemberIn(name="Bob", roles=["lead"])]
+    with pytest.raises(ApiError) as error:
+        _check_team(members, "company")
+    assert error.value.status_code == 422
+    assert error.value.code == ErrorCode.INVALID_TEAM_PERMISSIONS

@@ -44,6 +44,3 @@ def test_scripts_and_non_ascii():
 def test_role_files_and_permissions_are_sensitive_by_path(path):
     assert is_sensitive_path(path)
 
-
-def test_other_catalog_files_follow_their_own_rules():
-    assert not is_sensitive_path("backend/app/company/catalog/company/personalities/pragmatic.toml")

@@ -120,6 +120,13 @@ def _check_channels(roles: dict[str, Role], channels: list[dict]) -> None:
             raise CatalogError(f"Channel '{channel['name']}' uses unknown roles: {', '.join(unknown)}")
 
 
+def validate_catalog(roles: dict[str, Role], modes: dict[str, dict], channels: list[dict]) -> None:
+    """Every cross-check of the catalog; raises CatalogError at the first broken rule."""
+    _check_roles(roles)
+    _check_seats(roles, modes)
+    _check_channels(roles, channels)
+
+
 def _shared_catalog() -> dict:
     """catalog.toml, with the research modes merged into `modes` (each carries its `kind`)."""
     with SHARED_PATH.open("rb") as f:
@@ -135,10 +142,8 @@ def load_catalog() -> dict:
     """The whole catalog as a dict, validated: `roles` holds the role files (as dicts), `modes`
     both kinds of modes. Raises CatalogError at the first invalid file or cross-check."""
     roles = _load_roles()
-    _check_roles(roles)
     catalog = _shared_catalog()
-    _check_seats(roles, catalog["modes"])
-    _check_channels(roles, catalog["channels"])
+    validate_catalog(roles, catalog["modes"], catalog["channels"])
     catalog["roles"] = {k: r.model_dump(exclude_none=True) for k, r in roles.items()}
     return catalog
 
