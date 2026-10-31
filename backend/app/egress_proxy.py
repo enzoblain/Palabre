@@ -13,6 +13,8 @@ MAX_HEADER_BYTES = 16384
 CONNECT_TIMEOUT_S = 15
 RELAY_CHUNK_BYTES = 65536
 _CRLF = b"\r\n"
+# IPv4-compatible and NAT64 addresses would smuggle a private IPv4 past is_global.
+_EMBEDDED_IPV4_NETWORKS = (ipaddress.ip_network("::/96"), ipaddress.ip_network("64:ff9b::/96"))
 _tunnels = asyncio.Semaphore(settings.egress_max_tunnels)
 
 
@@ -32,7 +34,11 @@ def is_allowed(host: str, port: int) -> bool:
 
 
 def is_public_address(address: str) -> bool:
-    return ipaddress.ip_address(address).is_global
+    """True for a globally routable address; IPv6 forms embedding an IPv4 are refused, not unwrapped."""
+    ip = ipaddress.ip_address(address)
+    if isinstance(ip, ipaddress.IPv6Address) and any(ip in network for network in _EMBEDDED_IPV4_NETWORKS):
+        return False
+    return ip.is_global
 
 
 async def _open(host: str, port: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
