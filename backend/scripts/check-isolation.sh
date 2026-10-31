@@ -158,10 +158,11 @@ trap on_exit EXIT
 trap 'exit 130' INT TERM
 cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
-# $2 is the prompt: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
+# The prompt arrives on stdin: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
 prev=
 for arg in "$@"; do [ "$prev" = --mcp-config ] && mcp=$arg; prev=$arg; done
-set -- $2
+prompt=$(cat)
+set -- $prompt
 mode=$1
 denied() { if "$@" >/dev/null 2>&1; then echo allowed; else echo denied; fi; }
 case $mode in
