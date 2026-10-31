@@ -318,7 +318,8 @@ async def submit_for_review(ctx: Context, title: str, summary: str, message: str
     title: the pull request title and squash commit title, in English, Conventional Commits
     format `type(scope): description`, for example `feat(usage): show real Claude usage per model`
     (the PR number is added for you; refused if the format is not respected).
-    summary: the pull request description, in English (as detailed as needed).
+    summary: the pull request description, in English (as detailed as needed). It is the whole PR body:
+    the task's own text is not copied, so cover what changed and why.
     message: what you tell the team in the chat, in a sentence or two (the PR link is added).
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
     c = current_caller(ctx)
@@ -459,7 +460,7 @@ async def list_pull_requests(ctx: Context) -> list[dict]:
 async def close_pull_request(ctx: Context, number: int, reason: str, message: str) -> dict:
     """Close a pull request no task owns (e.g. Dependabot) and delete its branch. A task's
     PR is closed by cancelling the task; the release PR is the boss's to reject.
-    reason: posted as a comment on the PR, e.g. "Not needed: we stay on v4".
+    reason: posted as a comment on the PR, in English, e.g. "Not needed: we stay on v4".
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
@@ -477,7 +478,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     request from it to production (the repository's default branch) and ask the boss to
     accept it: a request in direction that merges it when they validate it. One release at a time.
     title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
-    summary: for the boss, in Markdown: what changes for users, what was tested, known limits.
+    summary: the PR description (it goes to GitHub, in English), in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
@@ -501,7 +502,7 @@ async def merge_release(ctx: Context, summary: str, message: str, title: str = "
     merge_release again. The PR is opened if missing. The boss is told in direction, with nothing to answer. To get their
     opinion first, use propose_release.
     title: optional, what ships in English (it goes to GitHub); the version by default, e.g. "0.7.0".
-    summary: the PR description, in Markdown: what changes for users, what was tested, known limits.
+    summary: the PR description (it goes to GitHub, in English), in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:

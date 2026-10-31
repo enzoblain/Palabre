@@ -29,6 +29,7 @@ from app.worktrees import (
 MAX_DIFF_CHARS = 100_000
 SHORT_SHA_LENGTH = 8
 MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
+FALLBACK_MERGE_TITLE = "chore: merge task"  # squash title when no PR title was recorded; never the (French) task title
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
 TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -447,16 +448,13 @@ async def submit_for_review(
     await push_task_branch(project, task)
     changed_files = await _changed_files(project, task)
     if task.pr_number is None:
-        criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(
             repo,
             head=task.branch,
             base=project.default_branch,
             title=bare_title,
-            body=(
-                f"{task.description}\n\n**Acceptance criteria**\n{criteria}\n\n"
-                f"**Summary from {author.name}**\n{summary}\n\n_Palabre task #{task.id}_"
-            ),
+            # Only the author's English summary: the task's own text is in the team's language
+            body=f"{summary}\n\n_Palabre task #{task.id}, by {author.name}_",
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
         # The PR number is only known now: it goes last in the title, which becomes the squash commit's
@@ -731,7 +729,7 @@ async def _merge_pinned(repo: str, task: Task, head: str) -> None:
     """Merge only if the PR head is still `head`: a moved head is a clear error, not a raw GitHub one."""
     try:
         await github.merge_pull_request(
-            repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}", sha=head
+            repo, task.pr_number, task.pr_title or f"{FALLBACK_MERGE_TITLE} (#{task.pr_number})", sha=head
         )
     except github.GitHubError as exc:
         if exc.status != github.HTTP_CONFLICT:
