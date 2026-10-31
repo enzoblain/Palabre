@@ -39,6 +39,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "withdraw_request": {"manage_channels"},
     "merge_requests": {"manage_channels"},
     "install_toolchain": {"manage_toolchains"},
+    "fetch_page": {"research"},  # run by the backend: the agents' sandbox has no free network
 }
 
 # Only exposed during a task run (X-Palabre-Task header), on the caller's own task

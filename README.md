@@ -465,7 +465,11 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
   `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
   Consequences and residual risk: `WebFetch` is run client-side by Claude Code, so it is not available to the
-  research role (`WebSearch` is served by Anthropic and still works). The proxy caps concurrent tunnels
+  research role (`WebSearch` is served by Anthropic and still works).
+  Research groups read pages through the `fetch_page` MCP tool instead, run by the backend (`app/web_fetch.py`): `GET` over https on port 443 only, at most
+  `FETCH_MAX_REDIRECTS` redirects each checked again, never to a non-public address (checked at connection time, as
+  for the proxy), bounded by `FETCH_TIMEOUT_S`, `FETCH_MAX_BYTES` and `FETCH_MAX_CHARS`, returning extracted text.
+  The proxy caps concurrent tunnels
   (`EGRESS_MAX_TUNNELS`). The Anthropic API is reached through a local reverse proxy
   (`app/anthropic_proxy.py`, `/anthropic` on the server, `ANTHROPIC_BASE_URL`): the agent's
   `CLAUDE_CODE_OAUTH_TOKEN` is only its run token (worthless outside the run), the server adds the account's real

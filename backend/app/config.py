@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     anthropic_allowed_server_tools: list[str] = ["web_search"]
     anthropic_max_body_bytes: int = 64 * 1024 * 1024
     anthropic_timeout_s: int = 600
+    # fetch_page (research groups' web reader, run by the backend): bounds on what one call may cost
+    fetch_timeout_s: float = 20
+    fetch_max_bytes: int = 2_000_000
+    fetch_max_chars: int = 30_000
+    fetch_max_redirects: int = 3
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")
 
