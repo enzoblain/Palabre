@@ -307,6 +307,32 @@ async def test_merge_replaces_requests_by_a_new_one(tidy_db):
     assert [m.id for m in await services.list_pending_requests(s, project.id, lead)] == [new.id]
 
 
+async def test_merge_failure_after_creation_leaves_no_new_request(tidy_db, monkeypatch):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    first, second = await _ask(s, project, lead, "a"), await _ask(s, project, lead, "b")
+    ids, project_id, lead_ref = {first.id, second.id}, project.id, SimpleNamespace(id=lead.id)
+    calls = []
+
+    def boom(*args, **kwargs):
+        calls.append(1)
+        raise RuntimeError("closing failed")
+
+    monkeypatch.setattr(services, "_close_request", boom)
+    with pytest.raises(RuntimeError):
+        await services.merge_requests(s, project.id, lead, [first.id, second.id], "together")
+    await s.rollback()
+    assert calls
+    assert {m.id for m in await services.list_pending_requests(s, project_id, lead_ref)} == ids
+
+
+async def test_merge_caps_the_number_of_requests(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    with pytest.raises(services.WorkflowError, match="at most"):
+        await services.merge_requests(s, project.id, lead, list(range(1, 60)), "x")
+
+
 async def _linked_request(s, project, lead, kind="decision", **fields):
     room_id = await s.scalar(select(Room.id).where(Room.kind == "direction"))
     decision = Decision(room_id=room_id, title="D", proposed_by="Louise", **fields)

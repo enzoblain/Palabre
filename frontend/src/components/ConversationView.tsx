@@ -73,7 +73,7 @@ function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: 
       <div className="request">
         <p className="request-answer muted">
           {m.request_status === "merged" ? `Merged into #${m.request_merged_into}` : "Withdrawn by the lead"}
-          {m.request_status === "withdrawn" && m.request_comment ? <> : <q>{m.request_comment}</q></> : ""}
+          {m.request_status === "withdrawn" && m.request_comment ? <>: <q>{m.request_comment}</q></> : ""}
         </p>
       </div>
     );

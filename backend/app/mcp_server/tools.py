@@ -112,6 +112,7 @@ async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
     decision is rejected with your reason. reason: why, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, reason)
         me = await s.get(Employee, c.employee_id)
         msg = await projects.withdraw_request(s, c.project_id, me, request_id, reason)
     return {"id": msg.id, "status": msg.request_status}

@@ -181,9 +181,11 @@ async def post_message(
     *,
     request_kind: str | None = None,
     request_decision_id: int | None = None,
+    commit: bool = True,
 ) -> Message:
     """Post a message (author None = the boss) and wake up everyone @mentioned.
-    With a request_kind, the message asks the boss something (see ask_boss)."""
+    With a request_kind, the message asks the boss something (see ask_boss).
+    With commit=False the caller's transaction carries it (flushed, not committed)."""
     mentioned = {m.lower() for m in MENTION_RE.findall(content)}
     room_kind = await s.scalar(
         select(Room.kind).join(Conversation, Conversation.room_id == Room.id).where(Conversation.id == conversation_id)
@@ -243,8 +245,9 @@ async def post_message(
             if employee.name.lower() in mentioned and (author is None or employee.id != author.id):
                 emit_event(s, project_id, "mention", payload, employee_id=employee.id)
 
-    await s.commit()
-    await s.refresh(msg)
+    if commit:
+        await s.commit()
+        await s.refresh(msg)
     return msg
 
 
@@ -258,6 +261,7 @@ async def post_system_message(s: AsyncSession, conversation_id: int, content: st
 # --- Requests to the boss ----------------------------------------------------------
 
 REQUEST_KINDS = {"decision", "release", "escalation", "question"}
+MAX_MERGED_REQUESTS = 50
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
@@ -289,6 +293,7 @@ async def ask_boss(
     content: str,
     kind: str,
     decision_id: int | None = None,
+    commit: bool = True,
 ) -> Message | None:
     """Post a message in direction that the boss answers with Validate / Reject / Nuance.
     Returns None where there is no direction (research groups): the boss reads the room instead."""
@@ -298,8 +303,9 @@ async def ask_boss(
     if conversation_id is None:
         return None
     return await post_message(
-        s, project_id, conversation_id, content, author, request_kind=kind, request_decision_id=decision_id
-    )
+        s, project_id, conversation_id, content, author,
+        request_kind=kind, request_decision_id=decision_id, commit=commit,
+    )  # fmt: skip
 
 
 def _pending_requests_query(project_id: int, author: Employee) -> Select:
@@ -372,10 +378,13 @@ async def merge_requests(
     s: AsyncSession, project_id: int, author: Employee, request_ids: list[int], content: str
 ) -> Message:
     """Replace several pending requests of the lead by one new request, which the old ones point to.
-    A request linked to a decision or a release is refused: the new one could not settle it."""
+    A request linked to a decision or a release is refused: the new one could not settle it.
+    All or nothing: the new request is only flushed, the old ones are closed under their lock, one commit."""
     ids = list(dict.fromkeys(request_ids))
     if not ids:
         raise WorkflowError("Name the requests to merge")
+    if len(ids) > MAX_MERGED_REQUESTS:
+        raise WorkflowError(f"Merge at most {MAX_MERGED_REQUESTS} requests at a time")
     olds = await _own_pending_requests(s, project_id, author, ids)
     for old in olds:
         if old.request_decision_id is not None or old.request_kind == "release":
@@ -385,12 +394,13 @@ async def merge_requests(
             )
     kinds = {m.request_kind for m in olds}
     kind = kinds.pop() if len(kinds) == 1 else "question"
-    new = await ask_boss(s, project_id, author, content, kind)
+    new = await ask_boss(s, project_id, author, content, kind, commit=False)
     if new is None:
         raise WorkflowError("This project has no direction channel to ask the boss in")
     for old in olds:
         _close_request(old, RequestStatus.merged, f"Merged into request #{new.id}", merged_into=new.id)
     await s.commit()
+    await s.refresh(new)
     return new
 
 
