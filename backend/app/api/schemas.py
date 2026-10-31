@@ -131,7 +131,21 @@ class MemberIn(BaseModel):
     traits: dict[str, int] | None = None
     quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
     style: dict[str, str] | None = None
+    # Key of a personality preset of the project's kind; traits, quirks and style given here override it
+    personality: str | None = None
     account: int | None = Field(default=None, ge=1)
+
+
+class PersonalityPresetOut(BaseModel):
+    """A named personality: the axes it leans on (the others are neutral), quirks and style."""
+
+    key: str
+    kind: Literal["company", "research"]
+    label: str
+    description: str
+    traits: dict[str, int]
+    quirks: list[str]
+    style: dict[str, str]
 
 
 class ProjectIn(BaseModel):

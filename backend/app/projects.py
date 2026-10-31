@@ -84,7 +84,7 @@ async def create_project(
         members = [
             custom_employee(
                 m["roles"], m["name"], traits=m.get("traits"), quirks=m.get("quirks"), style=m.get("style"),
-                model=m.get("model"), seed=seed + i, kind=kind,
+                preset=m.get("personality"), model=m.get("model"), seed=seed + i, kind=kind,
             )  # fmt: skip
             for i, m in enumerate(employees)
         ]

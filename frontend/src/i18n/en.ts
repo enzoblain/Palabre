@@ -52,6 +52,7 @@ export const en = {
   "error.direction_room_reserved": "The direction channel is created with the project",
   "error.conversation_not_in_room": "This channel has no such conversation",
   "error.invalid_language": "This language is not supported",
+  "error.unknown_personality": "This personality preset does not exist",
   "error.invalid_personality": "This personality does not exist",
   "error.invalid_branch_name": "Invalid branch name",
   "error.branch_already_used": "This branch is already used by another task",

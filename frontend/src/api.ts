@@ -267,6 +267,7 @@ export const ERROR_CODES = [
   "invalid_repository",
   "duplicate_employee_name",
   "unknown_roles",
+  "unknown_personality",
   "lead_required",
   "invalid_team_permissions",
   "invalid_account",

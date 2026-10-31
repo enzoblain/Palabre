@@ -41,6 +41,7 @@ class ErrorCode(StrEnum):
     INVALID_LANGUAGE = "invalid_language"
     NOT_FOUND = "not_found"
     INVALID_PERSONALITY = "invalid_personality"
+    UNKNOWN_PERSONALITY = "unknown_personality"
     INVALID_BRANCH_NAME = "invalid_branch_name"
     BRANCH_ALREADY_USED = "branch_already_used"
     NO_NAME_LEFT = "no_name_left"

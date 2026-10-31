@@ -37,6 +37,14 @@ def personality_for(kind: str) -> dict:
     return catalog["research"]["personality"] if kind == "research" else catalog["personality"]
 
 
+def personality_preset(kind: str, key: str) -> dict:
+    """A personality preset of this kind of project; ValueError when it does not exist."""
+    presets = load_catalog()["personalities"][kind]
+    if key not in presets:
+        raise ValueError(f"Unknown personality: {key} (choices: {', '.join(presets)})")
+    return presets[key]
+
+
 def boss_for(kind: str) -> dict:
     catalog = load_catalog()
     return catalog["research"]["boss"] if kind == "research" else catalog["boss"]
@@ -96,22 +104,28 @@ def custom_employee(
     traits: dict[str, int] | None = None,
     quirks: list[str] | None = None,
     style: dict[str, str] | None = None,
+    preset: str | None = None,
     model: str | None = None,
     seed: int | None = None,
     kind: str = "company",
 ) -> Employee:
     """An employee chosen by the boss. The roles (of this kind of project) set the title,
-    permissions and default model; whatever part of the personality is left out is drawn
-    at random."""
+    permissions and default model. The personality preset applies first, then the explicit
+    traits, quirks and style override it; whatever is still left out is drawn at random."""
     catalog = load_catalog()
     roles = list(dict.fromkeys(roles))
     unknown = [r for r in roles if catalog["roles"].get(r, {}).get("kind") != kind]
     if not roles or unknown:
         raise ValueError(f"Unknown roles: {', '.join(unknown)}" if unknown else "An employee needs a role")
+    preset_data = personality_preset(kind, preset) if preset is not None else None
     rng = random.Random(seed)
     personality = personality_for(kind)
     drawn = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
-    member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **(traits or {})})
+    preset_traits = {a["key"]: preset_data["traits"].get(a["key"], 0) for a in personality["axes"]} if preset_data else {}
+    member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **preset_traits, **(traits or {})})
+    if preset_data:
+        member.quirks = list(preset_data["quirks"])
+        member.style = dict(preset_data["style"])
     if quirks is not None:
         member.quirks = list(quirks)
     if style is not None:

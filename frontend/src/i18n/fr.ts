@@ -53,6 +53,7 @@ export const fr: Messages = {
   "error.direction_room_reserved": "Le canal direction est créé avec le projet",
   "error.conversation_not_in_room": "Ce canal n’a pas cette conversation",
   "error.invalid_language": "Cette langue n’est pas prise en charge",
+  "error.unknown_personality": "Ce préréglage de personnalité n’existe pas",
   "error.invalid_personality": "Cette personnalité n’existe pas",
   "error.invalid_branch_name": "Nom de branche invalide",
   "error.branch_already_used": "Cette branche est déjà utilisée par une autre tâche",

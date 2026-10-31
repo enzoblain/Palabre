@@ -588,6 +588,8 @@ role or seat combines `merge` and `code`, and a key cannot exist in both kinds. 
 `invalid_team_permissions` when one employee combines `merge` and `code`, or when it does not have exactly
 one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
 gate applies to them automatically.
+**Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist for the kind in `catalog.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
+
 A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
