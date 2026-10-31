@@ -253,6 +253,8 @@ class Message(Base):
     request_answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # The request that replaced this one (request_status "merged")
     request_merged_into: Mapped[int | None] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"))
+    # The member a request was relayed for (the message itself is signed by the lead); NULL = the lead's own
+    request_author_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     # The decision (or release) the request is about
     request_decision_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = created_at_column()

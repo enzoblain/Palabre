@@ -318,21 +318,42 @@ async def test_the_lead_withdraws_and_merges_a_relayed_request(tidy_db):
     assert new.employee_id == lead.id and second.request_merged_into == new.id
 
 
+async def test_a_relayed_request_keeps_its_real_author(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    relayed, own = await _ask(s, project, dev, "from a member"), await _ask(s, project, lead, "mine")
+    assert relayed.employee_id == lead.id and relayed.request_author_id == dev.id
+    assert own.request_author_id is None
+
+
 async def test_the_lead_cannot_withdraw_or_merge_a_relayed_escalation(tidy_db):
     s = tidy_db
     project, lead, dev = await _direction(s)
-    relayed = await _ask(s, project, dev, "Louise is blocking me", "escalation")
-    own = await _ask(s, project, lead, "My own escalation", "escalation")
+    escalation = await _ask(s, project, dev, "the lead blocks me", "escalation")
     other = await _ask(s, project, lead, "b")
-    with pytest.raises(WorkflowError, match="relayed from a team member"):
-        await services.withdraw_request(s, project.id, lead, relayed.id, "obsolete")
-    with pytest.raises(WorkflowError, match="relayed from a team member"):
-        await services.merge_requests(s, project.id, lead, [other.id, relayed.id], "merged")
-    assert relayed.request_status == other.request_status == RequestStatus.pending.value
-    # The lead's own requests stay theirs to close
-    done = await services.withdraw_request(s, project.id, lead, other.id, "done")
+    with pytest.raises(WorkflowError, match="relayed to the boss"):
+        await services.withdraw_request(s, project.id, lead, escalation.id, "obsolete")
+    with pytest.raises(WorkflowError, match="relayed to the boss"):
+        await services.merge_requests(s, project.id, lead, [escalation.id, other.id], "merged")
+    assert escalation.request_status == "pending" and other.request_status == "pending"
+
+
+async def test_the_lead_can_withdraw_their_own_escalation(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    escalation = await _ask(s, project, lead, "blocked", "escalation")
+    done = await services.withdraw_request(s, project.id, lead, escalation.id, "unblocked")
     assert done.request_status == RequestStatus.withdrawn.value
-    assert (await services.withdraw_request(s, project.id, lead, own.id, "done")).request_status == "withdrawn"
+
+
+async def test_withdrawing_a_relayed_decision_says_the_boss_did_not_answer(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    decision, linked = await _linked_request(s, project, dev)
+    twin = await services.ask_boss(s, project.id, lead, "again?", "decision", decision.id)
+    await projects.withdraw_request(s, project.id, lead, linked.id, "obsolete")
+    assert decision.status == DecisionStatus.rejected
+    assert twin.request_comment == "Withdrawn by the lead, not answered by the boss: obsolete"
 
 
 async def test_withdraw_closes_the_request_and_the_boss_cannot_answer(tidy_db):

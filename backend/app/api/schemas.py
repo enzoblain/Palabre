@@ -248,6 +248,7 @@ class MessageOut(ORM):
     request_answered_at: datetime | None = None
     request_merged_into: int | None = None
     request_decision_id: int | None = None
+    request_author_id: int | None = None
 
 
 class RequestAnswerIn(BaseModel):
