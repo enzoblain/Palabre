@@ -85,7 +85,7 @@ def test_token_only_for_network_commands(monkeypatch):
     class Proc:
         returncode = 0
 
-        async def communicate(self):
+        async def communicate(self, input=None):
             return b"", b""
 
     async def fake_exec(*args, env, **kwargs):

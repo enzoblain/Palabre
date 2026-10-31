@@ -133,9 +133,14 @@ def _env(author_name: str, run_token: str, cwd: Path, config_dir: Path | None = 
 
 
 def _write_mcp_config(headers: dict[str, str], user: str | None = None) -> Path:
-    user = settings.agent_user if user is None else user
     # Outside the repositories, so the token can never be committed
     config = {"mcpServers": {SERVER_NAME: {"type": "http", "url": settings.mcp_url, "headers": headers}}}
+    return _write_private_file("mcp", ".json", json.dumps(config), user)
+
+
+def _write_private_file(prefix: str, suffix: str, content: str, user: str | None = None) -> Path:
+    """Writes `content` where only the run's account (and the backend) can read it."""
+    user = settings.agent_user if user is None else user
     if user:
         # The agent must read it, and runtime_dir is closed to it: a directory it can only
         # cross, a name it cannot guess, readable by the run's own group (the user's private
@@ -147,11 +152,11 @@ def _write_mcp_config(headers: dict[str, str], user: str | None = None) -> Path:
         directory = settings.runtime_dir
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         mode = 0o600
-    path = directory / f"mcp-{uuid.uuid4().hex}.json"
+    path = directory / f"{prefix}-{uuid.uuid4().hex}{suffix}"
     path.touch(mode=mode)
     if user and user != settings.agent_user:
         shutil.chown(path, group=user)
-    path.write_text(json.dumps(config))
+    path.write_text(content)
     return path
 
 
@@ -171,7 +176,7 @@ async def _claim(paths: list[Path], user: str) -> None:
             raise ClaudeRunError(f"Cannot prepare {path} for {user}: {exc}") from exc
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "/usr/local/bin/palabre-claim-clone", str(path), user,
-            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
         )  # fmt: skip
         _, stderr = await proc.communicate()
         if proc.returncode:
@@ -201,7 +206,7 @@ async def _terminate(proc: asyncio.subprocess.Process, user: str | None = None) 
         return
     killer = await asyncio.create_subprocess_exec(
         "sudo", "-n", "-u", user, "/usr/bin/kill", "-KILL", "--", f"-{proc.pid}",
-        stdin=asyncio.subprocess.DEVNULL,
+        stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )  # fmt: skip
@@ -261,10 +266,13 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
     run_tokens.bind_credential(token, spec.oauth_token)
     mcp_config = _write_mcp_config(spec.mcp_headers | {"Authorization": f"Bearer {token}"}, user)
     run_tokens.attach_config(token, mcp_config)
+    # Prompts never go in argv, which `ps` shows to every account: the prompt travels on stdin,
+    # the system prompt in a private file
+    system_prompt_file = _write_private_file("system-prompt", ".txt", spec.system_prompt, user)
     allowed = [f"mcp__{SERVER_NAME}__{t}" for t in spec.mcp_tools] + spec.claude_tools
     cmd = [
         settings.claude_bin,
-        "-p", spec.prompt,
+        "-p",
         "--output-format", "json",
         "--mcp-config", str(mcp_config),
         "--strict-mcp-config",
@@ -272,7 +280,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         # Only these built-in tools exist for the agent; the others cannot even be asked for
         "--tools", ",".join(spec.claude_tools),
         "--allowedTools", ",".join(allowed),
-        "--append-system-prompt", spec.system_prompt,
+        "--append-system-prompt-file", str(system_prompt_file),
         "--max-turns", str(spec.max_turns or settings.claude_max_turns),
         "--model", spec.model,
     ]  # fmt: skip
@@ -296,7 +304,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
                 *_command(cmd, env, user),
                 cwd=spec.cwd,
                 env=env,
-                stdin=asyncio.subprocess.DEVNULL,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 # Own process group, so the whole run can be killed through the agent
@@ -305,7 +313,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         except OSError as exc:
             raise ClaudeRunError(f"Cannot start {settings.claude_bin}: {exc}") from exc
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), settings.agent_timeout_s)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(spec.prompt.encode()), settings.agent_timeout_s)
         except (TimeoutError, asyncio.CancelledError) as exc:
             await _terminate(proc, user)
             await proc.wait()
@@ -314,6 +322,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
             raise
     finally:
         mcp_config.unlink(missing_ok=True)
+        system_prompt_file.unlink(missing_ok=True)
         # Nothing of the run may still write in its dir or clone while they are collected or handed
         # back (a lease's kill comes too late for that). Not for the shared legacy user: it would kill other runs.
         dead = pooled and await agent_pool.kill_all(user)
