@@ -286,7 +286,9 @@ async def _watch_pending(s: AsyncSession, project: Project) -> None:
     plan = await projects.release_plan(project)
     if plan is None or plan["ahead"] == 0:
         return
-    changes = release.changelog_body(plan["commits"])
+    changes = github.frame_untrusted(
+        release.changelog_body(plan["commits"]), github.COMMIT_MESSAGES_START, github.COMMIT_MESSAGES_END
+    )
     payload = {"sha": tip["sha"], "version": plan["version"], "count": plan["ahead"], "changes": changes}
     project.release_reminded_sha = tip["sha"]
     await _announce_ci(
