@@ -1,19 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import type { Role, RoleCategory } from "../api";
 import { useI18n } from "../i18n";
-
-/** Display order of the categories (the server sends the keys). */
-const CATEGORIES: RoleCategory[] = ["management", "engineering", "quality", "product", "support", "research"];
-
-/** Jobs matching a search, in catalog order, grouped by category (empty groups left out). */
-export function groupJobs(roles: Record<string, Role>, search: string): [RoleCategory, Role[]][] {
-  const needle = search.trim().toLowerCase();
-  const matching = Object.values(roles)
-    .filter((role) => !needle || `${role.title} ${role.description}`.toLowerCase().includes(needle))
-    .sort((a, b) => a.order - b.order);
-  return CATEGORIES.map((category): [RoleCategory, Role[]] => [category, matching.filter((r) => r.category === category)])
-    .filter(([, jobs]) => jobs.length > 0);
-}
+import { groupJobs } from "../jobs";
 
 function JobCard({ role, selected, onToggle }: { role: Role; selected: boolean; onToggle: () => void }) {
   const { t } = useI18n();
@@ -71,7 +59,7 @@ function CategoryGroup({ category, jobs, selected, forceOpen, onToggle }: {
   return (
     <section className="job-group">
       <button type="button" className="job-group-head" aria-expanded={open} aria-controls={id}
-        onClick={() => setCollapsed(open)}>
+        onClick={() => setCollapsed(!collapsed)}>
         <span aria-hidden="true">{open ? "▾" : "▸"}</span> {t(`jobs.category.${category}`)} ({jobs.length})
       </button>
       <ul id={id} className="job-list" hidden={!open}>

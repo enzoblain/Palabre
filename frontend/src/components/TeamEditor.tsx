@@ -6,9 +6,8 @@ import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
 import { JobPicker } from "./JobPicker";
+import { teamWarningThreshold } from "../jobs";
 
-/** From this many members the counter warns that the team limit is close. */
-const TEAM_WARNING_THRESHOLD = 25;
 const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
 
 function pick<T>(items: T[]): T {
@@ -91,7 +90,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
   }
 
   const atLimit = members.length >= limits.max_agents;
-  const nearLimit = members.length >= TEAM_WARNING_THRESHOLD;
+  const nearLimit = members.length >= teamWarningThreshold(limits.max_agents);
 
   return (
     <div className="team-editor">
