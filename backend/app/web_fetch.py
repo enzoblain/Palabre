@@ -106,9 +106,9 @@ def _charset(content_type: str) -> str:
 
 
 def _known_charset(name: str) -> str:
-        b" ".decode(name, errors="replace")  # codecs.lookup also accepts non-text codecs such as hex or zlib
+    """`name` if Python can decode it, else the default (the server may announce anything)."""
     try:
-        b"".decode(name)  # codecs.lookup also accepts non-text codecs such as hex or zlib
+        b" ".decode(name, errors="replace")  # codecs.lookup also accepts non-text codecs such as hex or zlib
     except LookupError:
         return DEFAULT_CHARSET
     return name
