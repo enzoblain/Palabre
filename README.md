@@ -573,8 +573,9 @@ To check the frontend (TypeScript typecheck, then Vite build), run `npm run chec
 `frontend/`. No linter is configured yet.
 
 Roles live in [`backend/app/company/catalog/`](backend/app/company/catalog), one TOML file per role
-(`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). Company sizes, research
-angles' modes, channels and personalities are in
+(`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). The personality each kind draws from (axes, quirks, styles) is
+`<kind>/personality_pool.toml`. Company sizes, research
+angles' modes, channels and first names are in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml). The backend validates every
 file at startup and refuses to start, naming the file and the field, if one is invalid.
 
@@ -588,7 +589,7 @@ role or seat combines `merge` and `code`, and a key cannot exist in both kinds. 
 `invalid_team_permissions` when one employee combines `merge` and `code`, or when it does not have exactly
 one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
 gate applies to them automatically.
-**Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist for the kind in `catalog.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
+**Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist in the kind's `personality_pool.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
 
 A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 

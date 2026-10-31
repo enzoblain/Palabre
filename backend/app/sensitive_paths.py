@@ -13,7 +13,7 @@ SENSITIVE_NAMES = {
     # Settings and agent runner
     "config.py", "runner.py", "egress_proxy.py", "auth.py", "deps.py", "github.py", "worktrees.py",
     # The gate itself (catalog.py holds its role keys and team checks), the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
-    "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
+    "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
 }
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
