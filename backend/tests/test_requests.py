@@ -346,6 +346,38 @@ async def test_the_lead_can_withdraw_their_own_escalation(tidy_db):
     assert done.request_status == RequestStatus.withdrawn.value
 
 
+async def test_a_deleted_member_escalation_stays_out_of_the_leads_reach(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    escalation = await _ask(s, project, dev, "the lead blocks me", "escalation")
+    await s.delete(dev)
+    await s.flush()
+    with pytest.raises(WorkflowError, match="relayed to the boss"):
+        await services.withdraw_request(s, project.id, lead, escalation.id, "obsolete")
+
+
+async def test_the_lead_can_withdraw_an_own_escalation_starting_with_a_name(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    escalation = await _ask(s, project, lead, f"{dev.name}: is it blocked?", "escalation")
+    assert escalation.request_author_id is None
+    done = await services.withdraw_request(s, project.id, lead, escalation.id, "unblocked")
+    assert done.request_status == RequestStatus.withdrawn.value
+
+
+async def test_backfill_marks_prefixed_pending_escalations_and_is_idempotent(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    relayed = await _ask(s, project, dev, "blocked", "escalation")
+    relayed.content = f"{dev.name}: blocked"
+    relayed.request_author_id = None  # as stored before the column existed
+    for _ in range(2):
+        await projects.backfill_relayed_escalations(s)
+        assert relayed.request_author_id == dev.id
+    with pytest.raises(WorkflowError, match="relayed to the boss"):
+        await services.withdraw_request(s, project.id, lead, relayed.id, "obsolete")
+
+
 async def test_withdrawing_a_relayed_decision_says_the_boss_did_not_answer(tidy_db):
     s = tidy_db
     project, lead, dev = await _direction(s)
