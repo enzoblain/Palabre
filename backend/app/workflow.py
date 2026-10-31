@@ -582,7 +582,8 @@ async def review_task(
         await wake_dev(s, task, "changes_requested", payload)
     await s.commit()
 
-    await _wake_waiting_reviewers(s, task, reviewer)
+    if task.status == TaskStatus.review:  # A changes verdict sends the task back to its dev
+        await _wake_waiting_reviewers(s, task, reviewer)
     blockers = await merge_blockers(s, project, task) if task.status == TaskStatus.review else []
     if review.verdict == Verdict.approve and not blockers:
         await mark_merge_ready(s, task, reviewer.name)

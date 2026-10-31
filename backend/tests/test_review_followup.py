@@ -96,7 +96,7 @@ async def test_silent_review_wakes_the_reviewer_and_tells_the_lead(reviewer, mon
     await merge_watch.watch_silent_reviews(s)
     [overdue] = woken(s, "review_overdue")
     [stalled] = woken(s, "review_stalled")
-    assert overdue.target_role == "reviewer" and stalled.target_role == "lead"
+    assert overdue.target_employee_id == reviewer.id and stalled.target_role == "lead"
 
 
 async def test_recent_review_is_left_alone(reviewer, monkeypatch):
@@ -118,3 +118,44 @@ async def test_busy_reviewer_is_not_woken_again(reviewer, monkeypatch):
     s = SilenceSession([silent_task(1000)], [reviewer], busy=7)
     await merge_watch.watch_silent_reviews(s)
     assert not s.added
+
+
+async def test_assignee_holding_the_reviewer_role_is_not_asked_to_review(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    other = make_employee("Lina", "reviewer")
+    task = silent_task(1000, assignee_id=reviewer.id)
+    s = SilenceSession([task], [reviewer, other])
+    await merge_watch.watch_silent_reviews(s)
+    [overdue] = woken(s, "review_overdue")
+    assert overdue.target_employee_id == other.id
+
+
+async def test_changes_verdict_of_qa_does_not_wake_the_waiting_reviewer(qa, monkeypatch):
+    task = make_task(status=TaskStatus.review, assignee_id=99, pr_number=None, reviewed_head=None)
+
+    class ReviewSession(RecordingSession):
+        async def get(self, model, _id):
+            return None
+
+        async def flush(self):
+            pass
+
+    async def noop(*_args, **_kwargs):
+        pass
+
+    async def get_task(*_args):
+        return task
+
+    async def merge_blockers(*_args):
+        return []
+
+    waking = []
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "wake_lead", lambda *_: None)
+    monkeypatch.setattr(workflow, "wake_dev", noop)
+    monkeypatch.setattr(workflow, "merge_blockers", merge_blockers)
+    monkeypatch.setattr(workflow, "_wake_waiting_reviewers", lambda *args: waking.append(args) or noop())
+    s = ReviewSession([])
+    await workflow.review_task(s, task.project_id, task.id, qa, "changes", "broken", "a" * 12)
+    assert task.status == TaskStatus.changes_requested and not waking
