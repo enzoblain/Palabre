@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401 (registers tables)
 from app import agent_pool, services
-from app.projects import drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
+from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.api.errors import ApiError, api_error, validation_error
@@ -58,6 +58,7 @@ async def lifespan(_: FastAPI):
         await drop_generic_rooms(s)
         await migrate_inbox(s)
         await normalize_repo_urls(s)
+        await backfill_relayed_escalations(s)
     async with mcp.session_manager.run():
         if settings.orchestrator_enabled:
             await orchestrator.start()

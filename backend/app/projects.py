@@ -26,7 +26,7 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, RequestStatus, Room, Task,
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
@@ -846,6 +846,28 @@ async def normalize_repo_urls(s: AsyncSession) -> None:
     their HTTPS URL, which git can clone with the token."""
     for project in await s.scalars(select(Project).where(Project.repo_url.like("git@%"))):
         project.repo_url = github.https_url(project.repo_url)
+    await s.commit()
+
+
+async def backfill_relayed_escalations(s: AsyncSession) -> None:
+    """Pending escalations relayed before request_author_id existed carry the member's name as a
+    "Name: " prefix: record who they are for, so the lead still cannot close them (idempotent)."""
+    pending = await s.scalars(
+        select(Message).where(
+            Message.request_kind == "escalation",
+            Message.request_status == RequestStatus.pending.value,
+            Message.request_author_id.is_(None),
+        )
+    )
+    for message in pending:
+        signer = await s.get(Employee, message.employee_id) if message.employee_id is not None else None
+        if signer is None or "lead" not in signer.roles:
+            continue
+        members = await s.scalars(select(Employee).where(Employee.project_id == signer.project_id, Employee.id != signer.id))
+        for member in sorted(members, key=lambda e: len(e.name), reverse=True):
+            if message.content.startswith(f"{member.name}: "):
+                message.request_author_id = member.id
+                break
     await s.commit()
 
 
