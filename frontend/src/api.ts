@@ -196,7 +196,16 @@ export type PersonalityPreset = {
 
 export type Model = "haiku" | "sonnet" | "opus";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
-export type RoleCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+/** Categories of the historic roles. */
+export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+/** Categories of the extended jobs (extended_roles.toml on the server). */
+export type ExtendedCategory =
+  | "direction_strategy" | "architecture" | "software_development" | "artificial_intelligence" | "data_databases"
+  | "cybersecurity" | "cloud_devops_infrastructure" | "networks_telecom" | "blockchain_web3" | "quality_testing"
+  | "performance_reliability" | "product_project_management" | "ux_ui_design" | "iot_robotics_embedded"
+  | "games_3d_multimedia" | "advanced_research" | "ecommerce_fintech_business" | "support_operations"
+  | "technical_documentation" | "specialized_roles";
+export type RoleCategory = CoreCategory | ExtendedCategory;
 
 /** The tools the permissions of a job give (RoleToolsOut on the server). */
 export type RoleTools = { mcp: string[]; claude: string[] };
