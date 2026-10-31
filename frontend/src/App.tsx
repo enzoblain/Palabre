@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
@@ -12,7 +12,6 @@ import { go, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
 const STATUS_POLL_MS = 3000;
-const PENDING_POLL_MS = 4000;
 const CREDITS_POLL_MS = 15000;
 
 export default function App() {
@@ -57,80 +56,6 @@ function useProject(projectId: number | null) {
   return { project: project?.detail.id === projectId ? project : null, error };
 }
 
-const UNREAD_POLL_MS = 4000;
-const seenKey = (conversationId: number) => `palabre.seen.${conversationId}`;
-
-/** Unread messages in the direction conversation since the CEO's last visit; the open conversation is always read. */
-function useUnread(project: ProjectState | null, directionId: number | null, activeConversation: number | null) {
-  const [unread, setUnread] = useState<Record<number, number>>({});
-  // Per conversation: last message id fetched, last id the CEO saw, and ids of unseen messages from others
-  const state = useRef<Record<number, { last: number; seen: number | null; fresh: number[] }>>({});
-  const activeRef = useRef(activeConversation);
-  activeRef.current = activeConversation;
-  const projectId = project?.detail.id;
-  useEffect(() => {
-    state.current = {};
-    setUnread({});
-  }, [projectId]);
-  const publish = () =>
-    setUnread(Object.fromEntries(Object.entries(state.current).map(([id, s]) => [id, s.fresh.length])));
-  const markRead = (id: number) => {
-    const s = state.current[id];
-    if (!s) return;
-    s.fresh = [];
-    s.seen = s.last;
-    localStorage.setItem(seenKey(id), String(s.last));
-  };
-  useEffect(() => {
-    if (activeConversation === null) return;
-    markRead(activeConversation);
-    publish();
-  }, [activeConversation]);
-  usePolling(
-    project && directionId ? async () => {
-      // One call for the whole project; only the direction conversation is followed
-      for (const item of (await api.unreadSummary(project.detail.id)).filter((i) => i.conversation_id === directionId)) {
-        try {
-          const id = item.conversation_id;
-          const stored = localStorage.getItem(seenKey(id));
-          const s = (state.current[id] ??= {
-            last: stored === null ? 0 : Number(stored),
-            seen: stored === null ? null : Number(stored),
-            fresh: [],
-          });
-          if (id === activeRef.current) {
-            s.last = Math.max(s.last, item.last_id);
-            markRead(id);
-            continue;
-          }
-          if (s.seen === null) {
-            // First visit ever: start from a clean slate rather than flag the whole history
-            s.last = item.last_id;
-            markRead(id);
-            continue;
-          }
-          if (item.last_employee_message_id <= s.last) {
-            s.last = Math.max(s.last, item.last_id);
-            continue;
-          }
-          const messages = await api.listMessages(id, s.last);
-          for (const m of messages) {
-            s.last = Math.max(s.last, m.id);
-            // Messages written by the CEO themself (no employee) are never unread
-            if (m.employee_id !== null && m.id > s.seen && !s.fresh.includes(m.id)) s.fresh.push(m.id);
-          }
-        } catch {
-          // A failing conversation must not stop the others; it is retried at the next tick
-        }
-      }
-      publish();
-    } : null,
-    UNREAD_POLL_MS,
-    [projectId, directionId],
-  );
-  return unread;
-}
-
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const route = useRoute();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -155,20 +80,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       if (!s.boss_name) go("/settings"); // First time: the team needs a name for its CEO
     }).catch(() => {});
   }, [reloadProjects]);
-
-  // Requests of the lead still waiting for the CEO, in the direction channel (badge in the mobile bar)
-  const [pending, setPending] = useState(0);
-  const direction = project?.detail.rooms.find((r) => r.kind === "direction");
-  const directionConversation = direction && project?.conversations[direction.id]?.[0]?.id;
-  useEffect(() => setPending(0), [projectId]);
-  usePolling(
-    directionConversation ? async () => {
-      const messages = await api.listMessages(directionConversation);
-      setPending(messages.filter((m) => m.request_status === "pending").length);
-    } : null,
-    PENDING_POLL_MS,
-    [directionConversation],
-  );
 
   useEffect(() => setStatuses([]), [projectId]);
   usePolling(
@@ -195,9 +106,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   usePolling(async () => {
     setExhausted((await api.orchestratorStatus()).exhausted_accounts);
   }, CREDITS_POLL_MS, []);
-
-  const unread = useUnread(project, directionConversation || null, route.name === "project" ? route.conversationId : null);
-  const unreadCount = Object.values(unread).reduce((n, c) => n + c, 0);
 
   // Opening a project lands in the conversation with the lead
   const conversationId = route.name === "project" ? route.conversationId : null;
