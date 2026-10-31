@@ -125,7 +125,7 @@ def api(monkeypatch):
         if "/branches/" in path:
             name = path.rsplit("/", 1)[1]
             if name not in state.branches:
-                raise github.GitHubError("GET failed: 404 not found")
+                raise github.GitHubError("GET failed: 404 not found", status=404)
             return {"name": name}
         return state.repo
 
