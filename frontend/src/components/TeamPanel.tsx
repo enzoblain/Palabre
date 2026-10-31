@@ -59,7 +59,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
 
   const button = (
     <button ref={buttonRef} className="project-menu-btn" aria-haspopup="menu" aria-expanded={open}
-      aria-label={`${name}: switch project or open settings`} onClick={() => setOpen(!open)}>
+      aria-label={`${name}: changer de projet ou ouvrir les réglages`} onClick={() => setOpen(!open)}>
       <span className="project-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
       <span className="truncate">{name}</span>
       <span className="caret" aria-hidden="true">▾</span>
@@ -70,7 +70,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
     <div className={`project-menu${asTitle ? " as-title" : ""}`} ref={rootRef} onKeyDown={onKeyDown}>
       {asTitle ? <h1>{button}</h1> : button}
       {open && (
-        <div className="menu" role="menu" aria-label="Projects and settings">
+        <div className="menu" role="menu" aria-label="Projets et réglages">
           {project && (
             <a role="menuitem" className="menu-item" href={`#/p/${project.detail.id}/report`} onClick={close}>
               <DocumentIcon size={15} /> {project.detail.kind === "research" ? "Report" : "Document"}
@@ -95,7 +95,7 @@ export function ProjectMenu({ route, projects, project, bossName, onNavigate, as
   );
 }
 
-const stateText = (p: Presence | undefined) => (p?.state === "working" ? "Busy" : "Available");
+const stateText = (p: Presence | undefined) => (p?.state === "working" ? "Occupé" : "Disponible");
 
 /** The right-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
 export function TeamPanel({ project, presence, open, onClose }: {
@@ -114,7 +114,7 @@ export function TeamPanel({ project, presence, open, onClose }: {
     previous.current = now;
     if (!before || before.size === 0) return;
     const changes = presence.filter((p) => before.has(p.employee_id) && before.get(p.employee_id) !== p.state);
-    if (changes.length) setAnnounce(changes.map((p) => `${p.name} is now ${stateText(p).toLowerCase()}`).join(". "));
+    if (changes.length) setAnnounce(changes.map((p) => `${p.name} est maintenant ${stateText(p).toLowerCase()}`).join(". "));
   }, [presence]);
   useEffect(() => {
     previous.current = null;
@@ -129,26 +129,25 @@ export function TeamPanel({ project, presence, open, onClose }: {
   });
 
   return (
-    <aside className={`team-panel${open ? " open" : ""}`} aria-label="Team" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <aside className={`team-panel${open ? " open" : ""}`} aria-label="Équipe" onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="panel-head">
-        <h2 className="panel-title" id="people-label">Team</h2>
-        <button className="icon-btn panel-close" onClick={onClose} aria-label="Close the team panel">×</button>
+        <h2 className="panel-title" id="people-label">Équipe</h2>
+        <button className="icon-btn panel-close" onClick={onClose} aria-label="Fermer le panneau Équipe">×</button>
       </header>
-      {!project ? <p className="muted panel-empty">Loading…</p> : (
+      {!project ? <p className="muted panel-empty">Chargement…</p> : (
         <div className="panel-body">
           <ul className="panel-list" aria-labelledby="people-label">
             {people.map((e) => {
               const p = byId.get(e.id);
               const state = stateText(p);
-              const task = p?.state === "working" && p.kind === "task" && p.task_id ? `Task #${p.task_id}` : null;
+              const task = p?.state === "working" && p.kind === "task" && p.task_id ? `Tâche #${p.task_id}` : null;
               return (
-                <li key={e.id} className="person member"
-                  aria-label={`${e.name}, ${e.title}, ${state.toLowerCase()}${task ? `, ${task.toLowerCase()}` : ""}`}>
+                <li key={e.id} className="person member">
                   <span className="member-avatar">
                     <Avatar name={e.name} size={30} />
                     <span className={`presence presence-${p?.state ?? "idle"}`} aria-hidden="true" />
                   </span>
-                  <span className="member-text" aria-hidden="true">
+                  <span className="member-text">
                     <span className="truncate">{e.name}</span>
                     <span className="member-role truncate">{e.title}</span>
                     <span className={`presence-label presence-label-${p?.state ?? "idle"} truncate`}>

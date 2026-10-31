@@ -319,6 +319,7 @@ export function ConversationView({ conversation, room, project, projects, route,
     <div className="conversation">
       <header className="conv-head">
         {/* The boss's conversation carries the project's name; a click on it switches project */}
+        {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
         <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }}
           bossName={bossName} asTitle />
         {conversation.title && <span className="muted">· {conversation.title}</span>}
