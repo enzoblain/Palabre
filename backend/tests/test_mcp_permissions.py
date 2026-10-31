@@ -9,8 +9,8 @@ from mcp.types import CallToolResult, ListToolsResult, Tool
 from app.company.team import load_catalog
 from app.mcp_server import auth, server
 from app.mcp_server.auth import AgentAuthMiddleware, Caller
-from app.orchestrator.research import DRAFTS_GLOB
 from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_for, mcp_tools_for
+from app.orchestrator.research import DRAFTS_GLOB
 
 CONVERSATION_TOOLS = {name for name, perms in MCP_TOOLS.items() if perms == {"conversation"}}
 SHIP_TOOLS = {"merge_release", "publish_version", "fix_release"}
