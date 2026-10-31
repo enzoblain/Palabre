@@ -34,7 +34,7 @@ export function Connect({ onConnected }: { onConnected: (conn: Connection) => vo
           <label>
             {t("connect.server")}
             <input autoFocus required value={server} onChange={(e) => setServer(e.target.value)}
-              placeholder="http://192.168.1.10:2710" spellCheck={false} autoCapitalize="off" />
+              placeholder="http://127.0.0.1:2710" spellCheck={false} autoCapitalize="off" />
           </label>
         )}
         <label>
