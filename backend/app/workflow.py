@@ -612,8 +612,9 @@ def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: T
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
-async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[str]:
-    """Everything that prevents merging this task under the company's mode."""
+async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head: str | None = None) -> list[str]:
+    """Everything that prevents merging this task under the company's mode.
+    ci_head: the commit whose CI is checked (the one about to be merged); default, the PR's current head."""
     process = mode_process(project.mode)
     reviews = await _task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
@@ -635,7 +636,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in e.roles for e in approvers):
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
-        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number):
+        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, sha=ci_head):
             blockers.append(ci)
     if process["docs_required"]:
         repo, head = _task_checkout(project, task)
@@ -697,7 +698,12 @@ async def clean_up_finished_tasks(s: AsyncSession) -> int:
 
 async def _check_head_is_reviewed(project: Project, task: Task, head: str) -> None:
     """The PR head is the reviewed commit or a pure rebase of it (whose CI the gates checked)."""
-    if not task.reviewed_head or head == task.reviewed_head or await _is_pure_rebase(project, task, head):
+    if not task.reviewed_head:
+        raise WorkflowError(
+            "No reviewed commit is recorded for this PR: the branch must be submitted and reviewed again",
+            code=ErrorCode.PR_HEAD_MOVED,
+        )
+    if head == task.reviewed_head or await _is_pure_rebase(project, task, head):
         return
     raise WorkflowError(
         f"The PR head is now {head[:SHORT_SHA_LENGTH]}, not the reviewed commit "
@@ -732,16 +738,16 @@ async def merge_task(
         raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged", code=ErrorCode.TASK_NO_PULL_REQUEST)
     repo = github.repo_slug(project.repo_url)
     # Read before the gates: if the head moves afterwards, GitHub refuses the merge pinned on this one
-    head = (await github.get_pull_request(repo, task.pr_number))["head"]["sha"]
-    if not force and (blockers := await merge_blockers(s, project, task)):
+    ci_head = (await github.get_pull_request(repo, task.pr_number))["head"]["sha"]
+    if not force and (blockers := await merge_blockers(s, project, task, ci_head)):
         if any(b.startswith("CI still running") for b in blockers):
             task.merge_retry_at = datetime.now(UTC)  # The watcher wakes the lead when the CI is over
             await s.commit()
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers), code=ErrorCode.MERGE_BLOCKED)
 
     if not force:
-        await _check_head_is_reviewed(project, task, head)
-    await _merge_pinned(repo, task, head)
+        await _check_head_is_reviewed(project, task, ci_head)
+    await _merge_pinned(repo, task, ci_head)
     task.status = TaskStatus.done
     task.closed_by_id = author.id if author else None
     task.closed_at = datetime.now(UTC)

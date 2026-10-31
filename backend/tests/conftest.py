@@ -105,7 +105,7 @@ def fake_github(monkeypatch):
     """CI is green and the diff holds a README, unless the test changes it."""
     state = SimpleNamespace(ci=None, changed_files=["app/x.py", "README.md"], git_calls=[])
 
-    async def checks_status(_repo, _number):
+    async def checks_status(_repo, _number, sha=None):
         return state.ci
 
     async def git(_cwd, *args, **_kwargs):
