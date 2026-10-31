@@ -32,18 +32,17 @@ speed vs quality...), or you build the team yourself.
 | Multinational | 16 | Two approvals, QA, security, CI, updated docs (README or `docs/`), and your validation of every decision |
 
 You only talk to the lead, in `#direction`: it is the one channel you can write in, and
-it holds only you and the lead. The team works in its own channels (`#general`,
-`#engineering`, `#dev`, `#quality`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
+it holds only you and the lead. The team works in its own channels (`#dev`,
+`#quality`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
 You see no other conversation: the API hides the team channels and the DMs from you (404; you cannot create a channel either), and only
 the lead is woken by what you post. Tasks and their reviews stay visible as tasks. A research group has no direction channel, so all its rooms are yours to read. What you do see is whether each employee is busy or
 available (`GET /projects/{id}/presence`). The lead relays between direction and
 the team, and posts in direction only what needs your attention. Employees also have DMs
 (`@Name`, one per pair, never with you as a participant): a DM is for an exchange between two people, a channel
 for anything that concerns several, and decisions never stay in a DM. At each wakeup an
-employee is told which channels and DMs they are in. Existing projects get their `#direction`
-channel at startup; their rooms become team channels. A team you build by hand starts with
-`#general`; a single Claude call (`company/channel_planner.py`, in the background) then
-proposes its other channels, and the catalog's channels are used if that fails.
+employee is told which channels and DMs they are in. DMs stay forever: nothing deletes or expires them, and the admin API refuses to delete one. Existing projects get their `#direction`
+channel at startup; their rooms become team channels. There is no catch-all channel. A team you build by hand starts with only `#direction`; a single Claude call (`company/channel_planner.py`, in the background) then
+proposes its channels, and the catalog's channels are used if that fails.
 
 From there the team works on its own:
 

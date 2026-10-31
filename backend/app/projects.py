@@ -36,6 +36,7 @@ from app.worktrees import sync_repo
 log = logging.getLogger(__name__)
 
 _background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
+RESEARCH_ROOM = "research"  # The one room of a research team (no generic channels elsewhere)
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
@@ -102,8 +103,11 @@ async def create_project(
         for member in team.employees
     ]
     s.add(project)
-    # A custom team only gets "general" now: the others come from plan_custom_channels
-    await _open_channels(s, project, bool(employees) and kind == "company")
+    if kind == "research":
+        # The research room holds everyone: the topic is posted there (see _kick_off_research)
+        await _open_rooms(s, project, [(RESEARCH_ROOM, list(project.employees))])
+    elif not employees:
+        await _open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
     await ensure_direction(s, project)
     await s.commit()
     if kind == "research" and topic:
@@ -112,7 +116,7 @@ async def create_project(
 
 
 async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
-    """The topic becomes the objective of the general room and the boss's first message,
+    """The topic becomes the objective of the research room and the boss's first message,
     which starts the research (phase 1)."""
     room = project.rooms[0]
     room.objective = topic
@@ -127,12 +131,10 @@ def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]
     return [e for e in employees if "*" in roles or roles & set(e.roles)]
 
 
-async def _open_channels(s: AsyncSession, project: Project, general_only: bool = False) -> None:
-    """Create the catalog's channels the company is big enough for (each with a first
+async def _open_channels(s: AsyncSession, project: Project) -> None:
+    """Create the catalog's targeted channels the company is big enough for (each with a first
     conversation). Channels that already exist are left alone."""
     channels = load_catalog()["channels"]
-    if general_only:
-        channels = [c for c in channels if "*" in c["roles"]]
     await _open_rooms(s, project, [(c["name"], _channel_members(c, project.employees)) for c in channels])
 
 
@@ -334,13 +336,15 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         hired.append(Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)))
 
     channels = {c["name"]: c for c in load_catalog()["channels"]}
-    for i, room in enumerate(project.rooms):
+    for room in project.rooms:
         room.members = [m for m in room.members if m not in remaining]
         if room.kind == services.DIRECTION:
             continue
-        # Newcomers join the general room and the channels of their roles
+        # Newcomers join the research room (everyone) and the channels of their roles
         channel = channels.get(room.name)
-        room.members.extend(e for e in hired if i == 0 or (channel and _channel_members(channel, [e])))
+        room.members.extend(
+            e for e in hired if room.name == RESEARCH_ROOM or (channel and _channel_members(channel, [e]))
+        )
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
     if project.kind == "research":
         appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur

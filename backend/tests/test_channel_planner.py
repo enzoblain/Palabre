@@ -127,15 +127,15 @@ async def test_predefined_team_gets_targeted_channels():
     s = Session()
     await projects._open_channels(s, project_of())
     rooms = opened(s)
-    assert {"general", "dev", "quality"} <= set(rooms)
+    assert {"dev", "quality"} <= set(rooms)
     assert all({"dev", "dev_backend", "dev_frontend"} & set(e.roles) for e in rooms["dev"].members)
     assert all({"reviewer", "qa", "security"} & set(e.roles) for e in rooms["quality"].members)
 
 
-async def test_general_only_for_a_custom_team():
+async def test_no_generic_channel_in_the_catalog():
     s = Session()
-    await projects._open_channels(s, project_of(), True)
-    assert list(opened(s)) == ["general"]
+    await projects._open_channels(s, project_of())
+    assert not {"general", "engineering", "product"} & set(opened(s))
 
 
 async def test_open_rooms_skips_duplicates_and_small_rooms():
@@ -220,13 +220,13 @@ async def test_plan_custom_channels_opens_planned_rooms(planned):
 
 async def test_plan_custom_channels_falls_back_to_catalog(planned):
     await projects.plan_custom_channels(1)
-    assert {"general", "dev", "quality"} <= rooms_of(planned)
+    assert {"dev", "quality"} <= rooms_of(planned)
 
 
 async def test_plan_custom_channels_falls_back_on_planner_error(planned):
     planned.plan = RuntimeError("boom")
     await projects.plan_custom_channels(1)
-    assert {"general", "dev", "quality"} <= rooms_of(planned)
+    assert {"dev", "quality"} <= rooms_of(planned)
 
 
 async def test_plan_runs_in_an_empty_dir_of_its_own(planned, tmp_path):
@@ -235,3 +235,8 @@ async def test_plan_runs_in_an_empty_dir_of_its_own(planned, tmp_path):
     assert cwd.parent == tmp_path / "project"
     assert planned.cwd_entries == []
     assert not cwd.exists()  # Removed afterwards
+
+
+def test_catalog_has_no_generic_channel():
+    names = {c["name"] for c in projects.load_catalog()["channels"]}
+    assert not {"general", "engineering", "product"} & names

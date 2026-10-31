@@ -53,7 +53,7 @@ def build_prompt(members: list[Member]) -> str:
         "Here are the members of the team (name: roles):\n"
         f"{roster}\n\n"
         f"Propose at most {MAX_CHANNELS} topic channels that suit this team (for example by discipline: "
-        "development, quality, product). A \"general\" channel with everyone already exists: do not propose it.\n"
+        "development, quality, product). Do not propose a catch-all channel with everyone.\n"
         "Rules: a channel name is lowercase (letters, digits, - or _); each channel has at least 2 members, "
         "taken from the list above with their exact name; channel names are unique.\n"
         'Answer with a JSON array only: [{"name": "dev", "members": ["Alice", "Bob"]}]'
