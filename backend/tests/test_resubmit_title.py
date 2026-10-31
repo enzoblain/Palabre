@@ -401,4 +401,3 @@ async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
     # Unknown reviewed commit: fail closed
     task.reviewed_head = "0" * 40
     assert not await check()
-
