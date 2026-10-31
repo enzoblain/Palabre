@@ -28,6 +28,7 @@ from app.worktrees import (
 
 MAX_DIFF_CHARS = 100_000
 SHORT_SHA_LENGTH = 8
+MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
 TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -350,7 +351,7 @@ async def _keep_reviewed_head(project: Project, task: Task, head: str) -> None:
         log.warning("cannot keep reviewed head of task %s: %s", task.id, e)
 
 
-def is_stale(review: Review, task: Task) -> bool:
+def _is_stale(review: Review, task: Task) -> bool:
     """The opinion was given on an earlier round or on a head that is no longer the PR's: it counts for nothing."""
     if review.round != task.review_round:
         return True
@@ -375,7 +376,7 @@ async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
 
 async def _changes_pending(s: AsyncSession, task: Task) -> bool:
     """A reviewer's latest verdict on the current head is 'changes'."""
-    current = [r for r in await _task_reviews(s, task) if not is_stale(r, task)]
+    current = [r for r in await _task_reviews(s, task) if not _is_stale(r, task)]
     return any(r.verdict == Verdict.changes for r in _latest_verdicts(current).values())
 
 
@@ -540,21 +541,27 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
 
 async def review_task(
     s: AsyncSession, project_id: int, task_id: int, reviewer: Employee, verdict: str, body: str,
-    head_sha: str = "",
+    head_sha: str,
 ) -> list[str]:
     """Record a review. Returns what still blocks the merge.
-    head_sha: the PR head the reviewer read (shown by get_diff); refused when it is no longer the head."""
+    head_sha: the PR head the reviewer read (shown by get_diff, at least MIN_SHA_PREFIX_LENGTH characters);
+    refused when it is no longer the head."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review:
         raise WorkflowError(f"Task #{task.id} is {task.status.value}, not waiting for review", code=ErrorCode.TASK_WRONG_STATUS)
     if task.assignee_id == reviewer.id:
         raise WorkflowError("You cannot review your own task", code=ErrorCode.CANNOT_REVIEW_OWN_TASK)
-    if head_sha and task.reviewed_head and not task.reviewed_head.startswith(head_sha):
+    if len(head_sha) < MIN_SHA_PREFIX_LENGTH:
+        raise WorkflowError(
+            f"head_sha must be the `Head:` commit shown by get_diff (at least {MIN_SHA_PREFIX_LENGTH} characters)",
+            code=ErrorCode.INVALID_HEAD_SHA,
+        )
+    if task.reviewed_head and not task.reviewed_head.startswith(head_sha):
         raise WorkflowError(
             f"Your review is on commit {head_sha[:SHORT_SHA_LENGTH]}, but the PR head is now "
             f"{task.reviewed_head[:SHORT_SHA_LENGTH]}: read the new diff with get_diff and review again",
-            code=ErrorCode.TASK_WRONG_STATUS,
+            code=ErrorCode.STALE_REVIEW_HEAD,
         )
 
     review = Review(
@@ -601,7 +608,7 @@ async def remind_merge(s: AsyncSession, task: Task) -> None:
 
 def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: Task) -> list[Review]:
     """Last opinion of each reviewer who has not given one on the current head since."""
-    outdated = _latest_verdicts([r for r in reviews if is_stale(r, task)])
+    outdated = _latest_verdicts([r for r in reviews if _is_stale(r, task)])
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
@@ -610,7 +617,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     process = mode_process(project.mode)
     reviews = await _task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
-    latest = _latest_verdicts([r for r in reviews if not is_stale(r, task)])
+    latest = _latest_verdicts([r for r in reviews if not _is_stale(r, task)])
     approvers = [r.reviewer for r in latest.values() if r.verdict == Verdict.approve]
 
     blockers = [

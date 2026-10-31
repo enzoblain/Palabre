@@ -45,6 +45,8 @@ class ErrorCode(StrEnum):
     BRANCH_ALREADY_USED = "branch_already_used"
     NO_NAME_LEFT = "no_name_left"
     TASK_WRONG_STATUS = "task_wrong_status"
+    STALE_REVIEW_HEAD = "stale_review_head"
+    INVALID_HEAD_SHA = "invalid_head_sha"
     TASK_NOT_YOURS = "task_not_yours"
     TASK_WAITING_FOR_DEPENDENCIES = "task_waiting_for_dependencies"
     TASK_NO_BRANCH = "task_no_branch"

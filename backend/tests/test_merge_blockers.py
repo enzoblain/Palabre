@@ -3,7 +3,7 @@
 import pytest
 
 from app import workflow
-from app.errors import WorkflowError
+from app.errors import ErrorCode, WorkflowError
 from app.models import Verdict
 
 from .conftest import FakeSession, make_employee, make_project, make_review, make_task
@@ -254,3 +254,74 @@ async def test_review_on_an_old_head_is_refused(reviewer, monkeypatch):
     monkeypatch.setattr(workflow, "get_task", get_task)
     with pytest.raises(WorkflowError, match="PR head is now"):
         await workflow.review_task(Sess(), 1, task.id, reviewer, "changes", "x", head_sha="a" * 8)
+
+
+class RecordingSession:
+    def __init__(self):
+        self.added = []
+
+    async def get(self, *_):
+        return make_project()
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        pass
+
+    async def commit(self):
+        pass
+
+
+def patch_review_flow(monkeypatch, task):
+    async def get_task(*_):
+        return task
+
+    async def noop(*_, **__):
+        pass
+
+    async def no_blockers(*_):
+        return []
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "wake_lead", lambda *_: None)
+    monkeypatch.setattr(workflow, "wake_dev", noop)
+    monkeypatch.setattr(workflow, "mark_merge_ready", noop)
+    monkeypatch.setattr(workflow, "merge_blockers", no_blockers)
+
+
+async def test_review_with_a_matching_short_sha_is_recorded(reviewer, monkeypatch):
+    task = make_task(reviewed_head="abcdef0123456789" * 2 + "abcdef01", pr_number=None)
+    patch_review_flow(monkeypatch, task)
+    session = RecordingSession()
+    assert await workflow.review_task(session, 1, task.id, reviewer, "approve", "ok", head_sha="abcdef01") == []
+    assert session.added[0].head_sha == task.reviewed_head
+
+
+async def test_review_with_a_too_short_sha_is_refused(reviewer, monkeypatch):
+    task = make_task(reviewed_head="abcdef0123456789", pr_number=None)
+    patch_review_flow(monkeypatch, task)
+    with pytest.raises(WorkflowError) as error:
+        await workflow.review_task(RecordingSession(), 1, task.id, reviewer, "approve", "ok", head_sha="a")
+    assert error.value.code == ErrorCode.INVALID_HEAD_SHA
+
+
+async def test_review_on_an_old_head_has_a_dedicated_code(reviewer, monkeypatch):
+    task = make_task(reviewed_head="b" * 40, pr_number=None)
+    patch_review_flow(monkeypatch, task)
+    with pytest.raises(WorkflowError) as error:
+        await workflow.review_task(RecordingSession(), 1, task.id, reviewer, "changes", "x", head_sha="a" * 8)
+    assert error.value.code == ErrorCode.STALE_REVIEW_HEAD
+
+
+async def test_changes_pending_ignores_a_stale_changes_request(reviewer):
+    task = make_task(reviewed_head="new")
+    stale = make_review(reviewer, Verdict.changes, head_sha="old")
+    assert not await workflow._changes_pending(FakeSession([stale]), task)
+
+
+async def test_changes_pending_sees_a_current_changes_request(reviewer):
+    task = make_task(reviewed_head="new")
+    current = make_review(reviewer, Verdict.changes, head_sha="new")
+    assert await workflow._changes_pending(FakeSession([current]), task)

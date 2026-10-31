@@ -342,11 +342,15 @@ async def get_diff(ctx: Context, task_id: int) -> str:
 
 @tool
 async def review_task(
-    ctx: Context, task_id: int, verdict: Literal["approve", "changes", "comment"], body: str, head_sha: str = ""
+    ctx: Context,
+    task_id: int,
+    verdict: Literal["approve", "changes", "comment"],
+    body: str,
+    head_sha: str,
 ) -> dict:
     """Review a task waiting for review. Reference files and lines in the body
     (e.g. `src/app.py:42 — ...`). The body is posted on the GitHub PR: write it in English.
-    head_sha: the `Head:` commit shown by get_diff; the review is refused if the PR moved since.
+    head_sha: the `Head:` commit shown by get_diff (required); the review is refused if the PR moved since.
     Returns what still blocks the merge."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
