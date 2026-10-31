@@ -8,4 +8,4 @@ responsibilities = ["Define and check the access controls and encryption", "Revi
 forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Data security controls", "Security findings"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
-success = "No known vulnerability in production."
+success = "Sensitive data is protected at rest and in transit, and access is controlled and audited."

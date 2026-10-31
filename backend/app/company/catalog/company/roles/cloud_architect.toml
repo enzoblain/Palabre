@@ -8,4 +8,4 @@ responsibilities = ["Choose the cloud services and their layout", "Plan for cost
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Cloud architecture documents", "Cost and resilience notes"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Cloud systems are resilient, secure and cost-aware."

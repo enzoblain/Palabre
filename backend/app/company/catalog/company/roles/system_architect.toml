@@ -8,4 +8,4 @@ responsibilities = ["Define the components and their interfaces", "Plan for load
 forbidden = ["Merging", "Coding features"]
 deliverables = ["System designs", "Interface definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The parts of the system fit together through clear interfaces and can evolve separately."

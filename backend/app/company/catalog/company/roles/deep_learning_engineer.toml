@@ -8,4 +8,4 @@ responsibilities = ["Design and train the neural networks", "Track the experimen
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Model code", "Experiment logs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Models reach their target quality and can be trained and served reproducibly."

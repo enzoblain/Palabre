@@ -8,4 +8,4 @@ responsibilities = ["Design adversarial tests against the models", "Try to break
 forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Red team reports", "Reproduction cases"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
-success = "No known vulnerability in production."
+success = "AI weaknesses are found and reported with reproducible attacks before real attackers find them."

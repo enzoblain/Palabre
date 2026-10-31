@@ -8,4 +8,4 @@ responsibilities = ["Choose the stack and the tooling", "Set the technical conve
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Technical guidelines", "Stack decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The technical foundations are clear, documented and adopted by the team."

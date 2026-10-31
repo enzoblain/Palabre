@@ -8,4 +8,4 @@ responsibilities = ["Fix defects and update the dependencies", "Keep the changes
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Maintenance patches", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Existing software keeps working, with dependencies up to date and regressions caught by tests."

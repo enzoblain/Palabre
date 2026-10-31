@@ -8,4 +8,4 @@ responsibilities = ["Watch the technology landscape", "Compare options against t
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Technology recommendations", "Trade-off analyses"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Technology choices are justified, compared on evidence and revisited when they stop fitting."

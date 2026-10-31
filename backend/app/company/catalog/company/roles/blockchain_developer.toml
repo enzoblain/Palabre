@@ -8,4 +8,4 @@ responsibilities = ["Implement the chain-facing logic and integrations", "Handle
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Blockchain code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "On-chain and off-chain code behaves correctly and is covered by tests."

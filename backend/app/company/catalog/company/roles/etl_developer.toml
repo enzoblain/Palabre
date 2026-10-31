@@ -8,4 +8,4 @@ responsibilities = ["Build the extraction, transformation and loading jobs", "Ha
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["ETL jobs", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Data moves between systems completely and correctly, and failed loads can be replayed."

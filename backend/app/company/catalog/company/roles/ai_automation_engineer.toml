@@ -8,4 +8,4 @@ responsibilities = ["Implement the AI-assisted workflows", "Keep a human check w
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Automation code", "Impact measurements", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Automations save measurable work and fail safely when the AI is wrong."

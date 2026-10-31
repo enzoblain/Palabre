@@ -8,4 +8,4 @@ responsibilities = ["Organize the storage zones and formats", "Control the inges
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Data lake layout", "Ingestion jobs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Raw data lands in the lake reliably and stays findable and usable."

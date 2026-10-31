@@ -8,4 +8,4 @@ responsibilities = ["Implement the software for the target hardware", "Keep memo
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Embedded code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Device software meets its timing and resource limits and is tested on the target hardware."

@@ -8,4 +8,4 @@ responsibilities = ["Design the graph models and queries", "Tune the performance
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Graph models", "Query code", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Connected data is modeled correctly and queries stay fast as the graph grows."

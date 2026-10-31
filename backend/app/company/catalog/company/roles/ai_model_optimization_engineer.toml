@@ -8,4 +8,4 @@ responsibilities = ["Apply quantization, pruning and distillation", "Measure the
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Optimized models", "Benchmark reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Models are measurably faster or cheaper with no meaningful loss of quality."

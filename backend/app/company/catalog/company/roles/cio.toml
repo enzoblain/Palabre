@@ -8,4 +8,4 @@ responsibilities = ["Define the information systems strategy", "Arbitrate betwee
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Systems strategy", "Technology roadmap"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Information systems support the company's goals and remain reliable, secure and affordable."

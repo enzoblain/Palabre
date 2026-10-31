@@ -8,4 +8,4 @@ responsibilities = ["Automate training, deployment and rollback", "Monitor the m
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Pipeline code", "Monitoring dashboards", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Models are deployed repeatably, monitored in production and rolled back safely."

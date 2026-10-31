@@ -8,4 +8,4 @@ responsibilities = ["Gather the needs of the data users", "Prioritize the data p
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Data product plans", "Prioritized backlog"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Data products have identified users, clear quality targets and measured adoption."

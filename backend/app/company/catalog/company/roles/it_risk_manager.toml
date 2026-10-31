@@ -8,4 +8,4 @@ responsibilities = ["Maintain the register of IT risks", "Rate the risks by impa
 forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Risk register", "Mitigation plans"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
-success = "No known vulnerability in production."
+success = "IT risks are identified, rated and owned, with mitigations tracked to completion."

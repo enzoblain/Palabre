@@ -8,4 +8,4 @@ responsibilities = ["Implement performance-critical system components", "Manage 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Systems code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Low-level code is correct, efficient and safe for the layers that depend on it."

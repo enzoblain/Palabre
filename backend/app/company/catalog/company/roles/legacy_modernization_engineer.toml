@@ -8,4 +8,4 @@ responsibilities = ["Understand the existing behavior and cover it with tests", 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Migration code", "Characterization tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Legacy systems are migrated step by step with their behavior preserved and verified."

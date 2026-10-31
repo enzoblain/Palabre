@@ -8,4 +8,4 @@ responsibilities = ["Define the network topology and segmentation", "Plan routin
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Network designs", "Topology diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Networks are fast, resilient and segmented so that failures and attacks stay contained."

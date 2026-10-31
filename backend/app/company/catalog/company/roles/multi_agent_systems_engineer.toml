@@ -8,4 +8,4 @@ responsibilities = ["Implement the roles and communication between agents", "Pre
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Multi-agent system code", "Scenario tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Agents cooperate predictably, conflicts are handled and the whole system stays observable."

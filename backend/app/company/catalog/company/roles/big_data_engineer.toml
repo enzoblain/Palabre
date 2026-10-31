@@ -8,4 +8,4 @@ responsibilities = ["Build the distributed processing jobs", "Tune them for cost
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Processing jobs", "Performance notes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Large workloads complete within their time and cost limits and can be rerun safely."

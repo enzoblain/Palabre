@@ -8,4 +8,4 @@ responsibilities = ["Choose the chain, the protocol and the on-chain and off-cha
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Blockchain architecture documents", "Integration designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Blockchain systems are designed with their trust, cost and security trade-offs made explicit."

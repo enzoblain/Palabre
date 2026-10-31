@@ -8,4 +8,4 @@ responsibilities = ["Implement ingestion, chunking and retrieval", "Measure the 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["RAG pipeline code", "Retrieval evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Answers are grounded in the right documents, and retrieval quality is measured."

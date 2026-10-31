@@ -8,4 +8,4 @@ responsibilities = ["Threat-model the AI components", "Review the risks of promp
 forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["AI threat models", "Security findings"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
-success = "No known vulnerability in production."
+success = "AI systems resist the known attacks, and their security controls are tested."

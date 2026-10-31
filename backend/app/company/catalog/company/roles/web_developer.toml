@@ -8,4 +8,4 @@ responsibilities = ["Build the pages and their interactions", "Keep them accessi
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Web code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A faithful, accessible UI with no regressions."
+success = "Pages work in every supported browser, are accessible and are tested."

@@ -8,4 +8,4 @@ responsibilities = ["Implement the federated training setup", "Protect the priva
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Federated learning code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Models improve through distributed training while raw data never leaves its owner."

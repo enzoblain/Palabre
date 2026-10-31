@@ -8,4 +8,4 @@ responsibilities = ["Define the integration patterns and protocols", "Plan error
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Integration designs", "Interface contracts"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Systems exchange data through clear contracts, and failures are contained and visible."

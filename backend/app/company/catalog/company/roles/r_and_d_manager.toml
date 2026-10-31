@@ -8,4 +8,4 @@ responsibilities = ["Define the research questions and their priorities", "Follo
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Research plans", "Findings summaries"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Research efforts end in usable results or in a clear decision to stop."

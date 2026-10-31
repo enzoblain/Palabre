@@ -8,4 +8,4 @@ responsibilities = ["Implement the extension and its permissions", "Keep it work
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Extension code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A faithful, accessible UI with no regressions."
+success = "Extensions work across the supported browsers, request minimal permissions and stay safe."

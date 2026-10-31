@@ -8,4 +8,4 @@ responsibilities = ["Map the systems and how they depend on each other", "Set th
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture map", "Standards and guidelines"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The company's systems stay coherent and aligned with its strategy."

@@ -8,4 +8,4 @@ responsibilities = ["Turn the need into a solution design", "Choose the componen
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Solution designs", "Component diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The designed solution answers the business need and can be built within its constraints."

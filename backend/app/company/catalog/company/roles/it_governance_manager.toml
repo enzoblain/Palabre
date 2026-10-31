@@ -8,4 +8,4 @@ responsibilities = ["Define the IT policies and decision rights", "Check that th
 forbidden = ["Merging", "Coding features"]
 deliverables = ["IT policies", "Compliance gap reports"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "IT decisions, policies and responsibilities are documented and followed."

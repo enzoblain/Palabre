@@ -8,4 +8,4 @@ responsibilities = ["Define the devices, gateways and cloud layers", "Plan conne
 forbidden = ["Merging", "Coding features"]
 deliverables = ["IoT architecture documents", "Device communication designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Connected-device systems are secure, scalable and updatable in the field."

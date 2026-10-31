@@ -8,4 +8,4 @@ responsibilities = ["Implement the automations and their triggers", "Handle erro
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Automation code", "Usage documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Automations run reliably, report their failures and replace real manual work."

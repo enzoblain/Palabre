@@ -8,4 +8,4 @@ responsibilities = ["Define the reporting architecture and the semantic layer", 
 forbidden = ["Merging", "Coding features"]
 deliverables = ["BI architecture documents", "Metric standards"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The BI platform delivers consistent metrics across reports and scales with the usage."

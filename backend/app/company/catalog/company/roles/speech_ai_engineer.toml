@@ -8,4 +8,4 @@ responsibilities = ["Implement the speech recognition or synthesis pipeline", "E
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Speech pipeline code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Speech systems meet their accuracy and latency targets across speakers and conditions."

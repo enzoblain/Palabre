@@ -8,4 +8,4 @@ responsibilities = ["Model the domain and its boundaries", "Define the interface
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Domain models", "Boundary definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "The domain model and its boundaries stay clear, and teams can evolve it independently."

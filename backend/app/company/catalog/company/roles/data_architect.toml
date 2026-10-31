@@ -8,4 +8,4 @@ responsibilities = ["Define the data models and flows", "Choose the storage tech
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Data architecture documents", "Data flow diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Data is stored and shared in a consistent, secure and scalable way."

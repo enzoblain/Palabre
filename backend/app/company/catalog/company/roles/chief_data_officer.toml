@@ -8,4 +8,4 @@ responsibilities = ["Define the data strategy and ownership", "Set the standards
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Data strategy", "Data standards"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Data is accurate, governed and available to those who need it."

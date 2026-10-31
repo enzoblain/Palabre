@@ -8,4 +8,4 @@ responsibilities = ["Implement and schedule the pipelines", "Add monitoring and 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Pipeline code", "Pipeline monitoring", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Pipelines run on schedule, recover from failures and never silently drop data."

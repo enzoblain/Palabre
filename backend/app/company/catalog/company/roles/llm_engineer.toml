@@ -8,4 +8,4 @@ responsibilities = ["Design the prompts, context and tool use", "Evaluate answer
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["LLM feature code", "Evaluation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "LLM-based features are accurate, safe and affordable, and their quality is measured."

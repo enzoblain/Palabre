@@ -8,4 +8,4 @@ responsibilities = ["Define how models fit into the system", "Plan the data, ser
 forbidden = ["Merging", "Coding features"]
 deliverables = ["AI architecture documents", "Model integration designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "AI components fit the system cleanly, with their cost, risk and limits understood."

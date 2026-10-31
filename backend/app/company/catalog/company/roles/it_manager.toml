@@ -8,4 +8,4 @@ responsibilities = ["Organize the IT tasks and their owners", "Follow the incide
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Task plans", "IT status reports"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Daily IT work flows, priorities are clear and incidents are handled promptly."

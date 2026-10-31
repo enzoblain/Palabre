@@ -8,4 +8,4 @@ responsibilities = ["Integrate models into the product", "Evaluate the quality o
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["AI feature code", "Evaluation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "AI features reach users with measured quality and a controlled cost."

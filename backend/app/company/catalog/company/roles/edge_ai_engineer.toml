@@ -8,4 +8,4 @@ responsibilities = ["Adapt the models to the device constraints", "Measure laten
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Edge AI code", "Device benchmarks", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Models run within the memory, power and latency limits of the target devices."

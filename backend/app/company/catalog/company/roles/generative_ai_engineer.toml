@@ -8,4 +8,4 @@ responsibilities = ["Integrate generative models into the product", "Filter and 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Generative feature code", "Quality evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Generated content meets quality and safety standards at an acceptable cost."

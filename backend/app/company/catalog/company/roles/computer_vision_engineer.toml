@@ -8,4 +8,4 @@ responsibilities = ["Implement the vision models and pipelines", "Evaluate them 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Vision code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Vision models meet their accuracy and latency targets on real-world images."

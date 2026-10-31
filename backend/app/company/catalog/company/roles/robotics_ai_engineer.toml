@@ -8,4 +8,4 @@ responsibilities = ["Implement perception and decision models", "Test them in si
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Robotics AI code", "Simulation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Robots perceive and act reliably, and behaviors are validated in simulation before real use."

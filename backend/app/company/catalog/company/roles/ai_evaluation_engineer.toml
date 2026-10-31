@@ -8,4 +8,4 @@ responsibilities = ["Build the evaluation datasets and metrics", "Run the evalua
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Evaluation suites", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Evaluations are reproducible and tell the team whether a change really improves the system."

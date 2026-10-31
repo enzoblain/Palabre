@@ -8,4 +8,4 @@ responsibilities = ["Implement the recommendation models and pipelines", "Evalua
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Recommender code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Recommendations measurably improve user engagement without harming fairness or trust."

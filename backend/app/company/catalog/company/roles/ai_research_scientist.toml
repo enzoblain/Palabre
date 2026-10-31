@@ -8,4 +8,4 @@ responsibilities = ["Read the literature and frame the experiments", "Run and co
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Experiment reports", "Prototype code", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Findings are reproducible, honestly measured and clearly separated from what is ready to ship."

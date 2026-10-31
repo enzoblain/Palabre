@@ -8,4 +8,4 @@ responsibilities = ["Define the AI strategy and its priorities", "Pick the use c
 forbidden = ["Merging", "Coding features"]
 deliverables = ["AI strategy", "AI use-case priorities"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "AI is adopted where it brings value, with its risks owned and its results measured."

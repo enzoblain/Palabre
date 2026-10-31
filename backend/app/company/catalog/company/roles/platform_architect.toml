@@ -8,4 +8,4 @@ responsibilities = ["Define the platform capabilities and boundaries", "Plan ext
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Platform designs", "Platform guidelines"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Other teams build on the platform without having to understand its internals."

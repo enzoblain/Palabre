@@ -8,4 +8,4 @@ responsibilities = ["Define servers, storage and environments", "Plan capacity a
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Infrastructure designs", "Capacity plans"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Infrastructure is resilient, secure and simple enough to operate."

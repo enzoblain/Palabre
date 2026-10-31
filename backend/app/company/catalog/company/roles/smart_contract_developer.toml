@@ -8,4 +8,4 @@ responsibilities = ["Implement the contracts and their tests", "Optimize for gas
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Contract code", "Test suites", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Contracts behave as specified, are fully tested and have no known vulnerability."

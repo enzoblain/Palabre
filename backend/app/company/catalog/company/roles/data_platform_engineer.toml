@@ -8,4 +8,4 @@ responsibilities = ["Provide the storage, compute and orchestration", "Make the 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Platform code", "Platform documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Data teams ship on a stable, self-service platform."

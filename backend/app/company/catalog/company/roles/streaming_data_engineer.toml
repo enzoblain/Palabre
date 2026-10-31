@@ -8,4 +8,4 @@ responsibilities = ["Build the real-time processing jobs", "Handle ordering, dup
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Streaming jobs", "Throughput reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Events are processed in order, with low latency and without loss or duplication."

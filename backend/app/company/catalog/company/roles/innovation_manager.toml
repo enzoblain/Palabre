@@ -8,4 +8,4 @@ responsibilities = ["Collect and sort new ideas", "Frame small experiments with 
 forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Experiment briefs", "Experiment results"]
 escalation = "Unclear or contradictory need → ask the boss."
-success = "Every task has a clear, verifiable goal."
+success = "Ideas are tested cheaply, and each bet ends with a clear decision backed by evidence."

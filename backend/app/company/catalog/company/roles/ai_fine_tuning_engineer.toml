@@ -8,4 +8,4 @@ responsibilities = ["Prepare and clean the training data", "Run and compare the 
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Fine-tuning code", "Comparison reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Fine-tuned models beat the baseline on the target task, with results that can be reproduced."

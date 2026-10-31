@@ -8,4 +8,4 @@ responsibilities = ["Define the security controls of the design", "Review the de
 forbidden = ["Merging", "Coding features"]
 deliverables = ["Security architecture documents", "Threat-aware designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
-success = "The code stays consistent, understandable and easy to evolve."
+success = "Security controls are designed in from the start and known threats are covered."

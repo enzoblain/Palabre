@@ -8,4 +8,4 @@ responsibilities = ["Write and version the prompts", "Test them on varied and ad
 forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
 deliverables = ["Prompt library", "Prompt test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
-success = "A reliable, tested API."
+success = "Prompts give consistent results on the evaluation set, and changes are tested before use."

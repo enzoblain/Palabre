@@ -8,4 +8,4 @@ responsibilities = ["Define the security strategy and priorities", "Report the s
 forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Security strategy", "Risk reports"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
-success = "No known vulnerability in production."
+success = "The company's information and systems are protected, and security risks are known and owned."

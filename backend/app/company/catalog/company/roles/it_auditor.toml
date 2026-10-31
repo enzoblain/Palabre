@@ -8,4 +8,4 @@ responsibilities = ["Audit the systems against policies and standards", "Report 
 forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
 deliverables = ["Audit reports", "Corrective action follow-ups"]
 escalation = "Persistent disagreement with a developer → the lead arbitrates."
-success = "The bugs you catch before main, not the number of PRs you approve."
+success = "Audit findings are evidence-based, reproducible and lead to tracked corrective actions."
