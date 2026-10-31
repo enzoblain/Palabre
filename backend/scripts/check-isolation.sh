@@ -160,7 +160,13 @@ cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
 # The prompt arrives on stdin: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
 prev=
-for arg in "$@"; do [ "$prev" = --mcp-config ] && mcp=$arg; prev=$arg; done
+for arg in "$@"; do
+  [ "$prev" = --mcp-config ] && mcp=$arg
+  [ "$prev" = --append-system-prompt-file ] && sysfile=$arg
+  prev=$arg
+done
+# The prompt must travel on stdin only (#276): "probe" is the first word of the probe prompt
+case "$*" in *probe*) argv=leaked ;; *) argv=clean ;; esac
 prompt=$(cat)
 set -- $prompt
 mode=$1
@@ -170,7 +176,7 @@ case $mode in
     cwd=$2; ref=$3; shift 3
     environ=denied
     for pid in "$@"; do cat "/proc/$pid/environ" >/dev/null 2>&1 && environ=allowed; done
-    out="uid=$(id -u)\npath=$PATH\nhome=$HOME\nenviron=$environ"
+    out="uid=$(id -u)\nargv=$argv\npath=$PATH\nhome=$HOME\nenviron=$environ"
     out="$out\nsecrets=$(env | grep -c -E 'GITHUB_TOKEN|ADMIN_TOKEN|DATABASE_URL|POSTGRES_PASSWORD|CLAUDE_CODE_OAUTH_TOKENS')"
     out="$out\nreference=$(denied ls "$ref")\nruntime=$(denied ls /data/runtime)"
     out="$out\nsecretsdir=$(denied cat /run/palabre-secrets/github_token)"
@@ -186,14 +192,16 @@ case $mode in
   pair)
     # Two runs alive together: each looks at the other's process and MCP config. $2 dir, $3 me, $4 peer
     dir=$2; me=$3; peer=$4
-    echo $$ > "$dir/$me.pid"; echo "$mcp" > "$dir/$me.mcp"
+    echo $$ > "$dir/$me.pid"; echo "$mcp" > "$dir/$me.mcp"; echo "$sysfile" > "$dir/$me.sys"
     i=0; while [ ! -s "$dir/$peer.mcp" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
     if [ -s "$dir/$peer.mcp" ]; then found=found; else found=missing; fi
     other=$(cat "$dir/$peer.pid" 2>/dev/null); othermcp=$(cat "$dir/$peer.mcp" 2>/dev/null)
     # A refusal must come from the permissions, not from a file that is not there
     if [ -e "$othermcp" ]; then mcpthere=yes; else mcpthere=missing; fi
+    othersys=$(cat "$dir/$peer.sys" 2>/dev/null)
+    if [ -e "$othersys" ]; then systhere=yes; else systhere=missing; fi
     out="uid=$(id -u)\npeer=$found"
-    out="$out\nenviron=$(denied cat "/proc/$other/environ")\nmcpconfig=$(denied cat "$othermcp")\nmcpthere=$mcpthere"
+    out="$out\nenviron=$(denied cat "/proc/$other/environ")\nmcpconfig=$(denied cat "$othermcp")\nmcpthere=$mcpthere\nsystemprompt=$(denied cat "$othersys")\nsysthere=$systhere\nownsystemprompt=$(if cat "$sysfile" >/dev/null 2>&1; then echo ok; else echo denied; fi)"
     out="$out\nownenviron=$(if cat "/proc/$$/environ" >/dev/null 2>&1; then echo allowed; else echo denied; fi)"
     out="$out\nownmcp=$(if cat "$mcp" >/dev/null 2>&1; then echo ok; else echo denied; fi)"
     touch "$dir/$me.done"
