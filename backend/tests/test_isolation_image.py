@@ -363,6 +363,19 @@ def test_claim_clone_copies_internal_hard_links(claim_env):
 
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
+def test_claim_clone_copy_drops_special_bits(claim_env):
+    tmp_path, root, clone = claim_env
+    (clone / "f").write_bytes(b"x")
+    (clone / "f").chmod(0o6755)
+    os.link(clone / "f", clone / "g")
+    result = _claim(tmp_path, clone, root)
+    assert result.returncode == 0, result.stderr
+    for f in (clone / "f", clone / "g"):
+        assert f.stat().st_mode & 0o7777 == 0o755
+        assert f.stat().st_nlink == 1
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
 def test_claim_clone_refuses_a_hard_link_to_outside_the_clone(claim_env):
     tmp_path, root, clone = claim_env
     outside = tmp_path / "secret"

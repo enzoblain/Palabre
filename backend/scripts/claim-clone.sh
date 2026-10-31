@@ -37,13 +37,16 @@ if [ "$2" != palabre ]; then
   external=$(/usr/bin/find -P "$1" -type f -links +1 -printf '%D:%i %n\n' | /usr/bin/sort | /usr/bin/uniq -c \
     | /usr/bin/awk '$1 != $3 { print "x"; exit }')
   [ -z "$external" ] || { echo "refusing to claim: hard link to a file outside the tree" >&2; exit 3; }
-  # Copy next to the file then rename over it (atomic), keeping the mode. -execdir works from the file's own
+  # Copy next to the file then rename over it (atomic), keeping the permission bits (no special bits). -execdir works from the file's own
   # directory (fchdir), -P never reads through a symlink swapped in meanwhile.
   /usr/bin/find -P "$1" -type f -links +1 -execdir /bin/sh -c '
     set -eu
     for f; do
       tmp=$(/usr/bin/mktemp ./.claim-copy.XXXXXX)
-      /bin/cp -P --preserve=mode -- "$f" "$tmp" || { /bin/rm -f -- "$tmp"; exit 1; }
+      # The copy is root-owned until the chown below: never give it setuid/setgid, only the permission bits.
+      mode=$(/usr/bin/stat -c %a -- "$f")
+      /bin/cp -P -- "$f" "$tmp" && /bin/chmod -- "$(printf %o $((0$mode & 0777)))" "$tmp" \
+        || { /bin/rm -f -- "$tmp"; exit 1; }
       /bin/mv -f -- "$tmp" "$f"
     done' sh {} + || { echo "refusing to claim: could not copy a hard-linked file" >&2; exit 3; }
   # Nothing may stay hard-linked (also catches a link made while we copied)
