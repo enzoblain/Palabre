@@ -325,3 +325,66 @@ async def test_changes_pending_sees_a_current_changes_request(reviewer):
     task = make_task(reviewed_head="new")
     current = make_review(reviewer, Verdict.changes, head_sha="new")
     assert await workflow._changes_pending(FakeSession([current]), task)
+
+
+# --- One approver, one gate; the assignee approves nothing (decision #48) ------------
+
+
+@pytest.fixture
+def extended_jobs(monkeypatch):
+    """The three extended jobs of the tests, as role files would define them (their files come with the content tasks)."""
+    roles = dict(workflow.load_catalog()["roles"])
+    for job, archetype in (("it_auditor", "reviewer"), ("qa_engineer", "qa"), ("ciso", "security")):
+        roles[job] = roles[archetype].model_copy(update={"key": job, "archetype": archetype})
+    monkeypatch.setattr(workflow, "load_catalog", lambda: {"roles": roles})
+
+
+async def test_one_approver_cannot_fill_two_gates(project, task, process, fake_github):
+    process(qa_gate=True)
+    both = make_employee("Zoé", "reviewer", "qa")
+    assert await blockers(project, task, make_review(both, Verdict.approve)) == ["0/1 reviewer approval(s)"]
+
+
+async def test_one_employee_with_three_jobs_cannot_clear_every_gate(project, task, process, fake_github):
+    process(qa_gate=True, security_gate=True)
+    task.sensitive = True
+    everything = make_employee("Zoé", "reviewer", "qa", "security")
+    result = await blockers(project, task, make_review(everything, Verdict.approve))
+    assert result == ["0/1 reviewer approval(s)", "QA has not approved"]
+
+
+async def test_two_multi_role_approvers_can_split_the_gates(project, task, process, fake_github):
+    process(qa_gate=True)
+    reviews = [make_review(make_employee("Zoé", "reviewer", "qa"), Verdict.approve) for _ in range(2)]
+    assert await blockers(project, task, *reviews) == []
+
+
+async def test_assignee_approval_counts_for_no_gate(project, task, reviewer, process, fake_github):
+    process()
+    task.assignee_id = reviewer.id
+    assert await blockers(project, task, make_review(reviewer, Verdict.approve)) == ["0/1 reviewer approval(s)"]
+
+
+@pytest.mark.parametrize(
+    ("job", "gate", "expected"),
+    [
+        ("it_auditor", "reviewer", []),
+        ("qa_engineer", "qa", []),
+        ("ciso", "security", []),
+    ],
+)
+async def test_extended_job_fills_the_gate_of_its_archetype(
+    project, task, process, fake_github, extended_jobs, job, gate, expected
+):
+    process(qa_gate=True, security_gate=True)
+    task.sensitive = True
+    others = {"reviewer": "reviewer", "qa": "qa", "security": "security"} | {gate: job}
+    reviews = [make_review(make_employee(name, role), Verdict.approve) for name, role in others.items()]
+    assert await blockers(project, task, *reviews) == expected
+
+
+async def test_removed_job_keeps_the_gate_closed(project, task, process, fake_github):
+    process(qa_gate=True)
+    gone = make_employee("Zoé", "job_removed_from_the_catalog")
+    reviews = [make_review(make_employee("Karim", "reviewer"), Verdict.approve), make_review(gone, Verdict.approve)]
+    assert await blockers(project, task, *reviews) == ["QA has not approved"]

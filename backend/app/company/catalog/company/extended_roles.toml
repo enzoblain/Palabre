@@ -1,0 +1,2414 @@
+# Extended jobs: English name → unique key, category and archetype (the existing role whose permissions and workflow place the job inherits).
+# Keys: the lowercase name in snake_case; a leading digit moves after the noun (5G Network Engineer -> network_5g_engineer). `lead` is never an archetype (only the CTO line, `existing`, is the lead itself).
+# A name appearing in several categories keeps the first one. `existing = true` links a name to a role that already has its own file.
+
+[lead]
+name = "CTO"
+category = "direction_strategy"
+archetype = "lead"
+existing = true
+
+[cio]
+name = "CIO"
+category = "direction_strategy"
+archetype = "architect"
+
+[ciso]
+name = "CISO"
+category = "direction_strategy"
+archetype = "security"
+
+[chief_ai_officer]
+name = "Chief AI Officer"
+category = "direction_strategy"
+archetype = "architect"
+
+[chief_data_officer]
+name = "Chief Data Officer"
+category = "direction_strategy"
+archetype = "architect"
+
+[engineering_director]
+name = "Engineering Director"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[it_director]
+name = "IT Director"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[engineering_manager]
+name = "Engineering Manager"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[it_manager]
+name = "IT Manager"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[innovation_manager]
+name = "Innovation Manager"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[r_and_d_manager]
+name = "R&D Manager"
+category = "direction_strategy"
+archetype = "product_owner"
+
+[technology_strategist]
+name = "Technology Strategist"
+category = "direction_strategy"
+archetype = "architect"
+
+[it_governance_manager]
+name = "IT Governance Manager"
+category = "direction_strategy"
+archetype = "architect"
+
+[it_auditor]
+name = "IT Auditor"
+category = "direction_strategy"
+archetype = "reviewer"
+
+[it_risk_manager]
+name = "IT Risk Manager"
+category = "direction_strategy"
+archetype = "security"
+
+[software_architect]
+name = "Software Architect"
+category = "architecture"
+archetype = "architect"
+
+[solution_architect]
+name = "Solution Architect"
+category = "architecture"
+archetype = "architect"
+
+[enterprise_architect]
+name = "Enterprise Architect"
+category = "architecture"
+archetype = "architect"
+
+[system_architect]
+name = "System Architect"
+category = "architecture"
+archetype = "architect"
+
+[technical_architect]
+name = "Technical Architect"
+category = "architecture"
+archetype = "architect"
+
+[application_architect]
+name = "Application Architect"
+category = "architecture"
+archetype = "architect"
+
+[cloud_architect]
+name = "Cloud Architect"
+category = "architecture"
+archetype = "architect"
+
+[infrastructure_architect]
+name = "Infrastructure Architect"
+category = "architecture"
+archetype = "architect"
+
+[network_architect]
+name = "Network Architect"
+category = "architecture"
+archetype = "architect"
+
+[data_architect]
+name = "Data Architect"
+category = "architecture"
+archetype = "architect"
+
+[ai_architect]
+name = "AI Architect"
+category = "architecture"
+archetype = "architect"
+
+[blockchain_architect]
+name = "Blockchain Architect"
+category = "architecture"
+archetype = "architect"
+
+[security_architect]
+name = "Security Architect"
+category = "architecture"
+archetype = "architect"
+
+[database_architect]
+name = "Database Architect"
+category = "architecture"
+archetype = "architect"
+
+[api_architect]
+name = "API Architect"
+category = "architecture"
+archetype = "architect"
+
+[integration_architect]
+name = "Integration Architect"
+category = "architecture"
+archetype = "architect"
+
+[platform_architect]
+name = "Platform Architect"
+category = "architecture"
+archetype = "architect"
+
+[iot_architect]
+name = "IoT Architect"
+category = "architecture"
+archetype = "architect"
+
+[business_architect]
+name = "Business Architect"
+category = "architecture"
+archetype = "architect"
+
+[domain_architect]
+name = "Domain Architect"
+category = "architecture"
+archetype = "architect"
+
+[dev_backend]
+name = "Backend Developer"
+category = "software_development"
+archetype = "dev_backend"
+existing = true
+
+[dev_frontend]
+name = "Frontend Developer"
+category = "software_development"
+archetype = "dev_frontend"
+existing = true
+
+[full_stack_developer]
+name = "Full Stack Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[mobile_developer]
+name = "Mobile Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[ios_developer]
+name = "iOS Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[android_developer]
+name = "Android Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[desktop_developer]
+name = "Desktop Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[web_developer]
+name = "Web Developer"
+category = "software_development"
+archetype = "dev_frontend"
+
+[game_developer]
+name = "Game Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[game_engine_developer]
+name = "Game Engine Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[gameplay_programmer]
+name = "Gameplay Programmer"
+category = "software_development"
+archetype = "dev_backend"
+
+[graphics_programmer]
+name = "Graphics Programmer"
+category = "software_development"
+archetype = "dev_backend"
+
+[blockchain_developer]
+name = "Blockchain Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[smart_contract_developer]
+name = "Smart Contract Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[web3_developer]
+name = "Web3 Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[embedded_software_developer]
+name = "Embedded Software Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[firmware_developer]
+name = "Firmware Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[systems_programmer]
+name = "Systems Programmer"
+category = "software_development"
+archetype = "dev_backend"
+
+[kernel_developer]
+name = "Kernel Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[compiler_engineer]
+name = "Compiler Engineer"
+category = "software_development"
+archetype = "dev_backend"
+
+[api_developer]
+name = "API Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[integration_developer]
+name = "Integration Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[plugin_developer]
+name = "Plugin Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[browser_extension_developer]
+name = "Browser Extension Developer"
+category = "software_development"
+archetype = "dev_frontend"
+
+[automation_developer]
+name = "Automation Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[e_commerce_developer]
+name = "E-commerce Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[cms_developer]
+name = "CMS Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[legacy_modernization_engineer]
+name = "Legacy Modernization Engineer"
+category = "software_development"
+archetype = "dev_backend"
+
+[application_developer]
+name = "Application Developer"
+category = "software_development"
+archetype = "dev_backend"
+
+[software_maintenance_engineer]
+name = "Software Maintenance Engineer"
+category = "software_development"
+archetype = "dev_backend"
+
+[ai_engineer]
+name = "AI Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_research_scientist]
+name = "AI Research Scientist"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_agent_developer]
+name = "AI Agent Developer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[multi_agent_systems_engineer]
+name = "Multi-Agent Systems Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[machine_learning_engineer]
+name = "Machine Learning Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[deep_learning_engineer]
+name = "Deep Learning Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[llm_engineer]
+name = "LLM Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[generative_ai_engineer]
+name = "Generative AI Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[nlp_engineer]
+name = "NLP Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[computer_vision_engineer]
+name = "Computer Vision Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[speech_ai_engineer]
+name = "Speech AI Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[rag_engineer]
+name = "RAG Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[prompt_engineer]
+name = "Prompt Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_fine_tuning_engineer]
+name = "AI Fine-Tuning Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[mlops_engineer]
+name = "MLOps Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[llmops_engineer]
+name = "LLMOps Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_evaluation_engineer]
+name = "AI Evaluation Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_safety_engineer]
+name = "AI Safety Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_security_engineer]
+name = "AI Security Engineer"
+category = "artificial_intelligence"
+archetype = "security"
+
+[ai_red_team_specialist]
+name = "AI Red Team Specialist"
+category = "artificial_intelligence"
+archetype = "security"
+
+[ai_infrastructure_engineer]
+name = "AI Infrastructure Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_automation_engineer]
+name = "AI Automation Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_integration_engineer]
+name = "AI Integration Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_model_optimization_engineer]
+name = "AI Model Optimization Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[knowledge_engineer]
+name = "Knowledge Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[recommendation_systems_engineer]
+name = "Recommendation Systems Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[robotics_ai_engineer]
+name = "Robotics AI Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[edge_ai_engineer]
+name = "Edge AI Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[federated_learning_engineer]
+name = "Federated Learning Engineer"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[explainable_ai_specialist]
+name = "Explainable AI Specialist"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[ai_governance_specialist]
+name = "AI Governance Specialist"
+category = "artificial_intelligence"
+archetype = "dev_backend"
+
+[data_engineer]
+name = "Data Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_scientist]
+name = "Data Scientist"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_analyst]
+name = "Data Analyst"
+category = "data_databases"
+archetype = "dev_backend"
+
+[analytics_engineer]
+name = "Analytics Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[big_data_engineer]
+name = "Big Data Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[database_administrator]
+name = "Database Administrator"
+category = "data_databases"
+archetype = "dev_backend"
+
+[database_engineer]
+name = "Database Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_warehouse_engineer]
+name = "Data Warehouse Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_lake_engineer]
+name = "Data Lake Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[etl_developer]
+name = "ETL Developer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_pipeline_engineer]
+name = "Data Pipeline Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[streaming_data_engineer]
+name = "Streaming Data Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_quality_engineer]
+name = "Data Quality Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_governance_specialist]
+name = "Data Governance Specialist"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_steward]
+name = "Data Steward"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_visualization_specialist]
+name = "Data Visualization Specialist"
+category = "data_databases"
+archetype = "dev_backend"
+
+[business_intelligence_developer]
+name = "Business Intelligence Developer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[bi_analyst]
+name = "BI Analyst"
+category = "data_databases"
+archetype = "dev_backend"
+
+[bi_architect]
+name = "BI Architect"
+category = "data_databases"
+archetype = "architect"
+
+[dataops_engineer]
+name = "DataOps Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_platform_engineer]
+name = "Data Platform Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_security_engineer]
+name = "Data Security Engineer"
+category = "data_databases"
+archetype = "security"
+
+[data_privacy_specialist]
+name = "Data Privacy Specialist"
+category = "data_databases"
+archetype = "security"
+
+[search_engineer]
+name = "Search Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[graph_database_engineer]
+name = "Graph Database Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[vector_database_engineer]
+name = "Vector Database Engineer"
+category = "data_databases"
+archetype = "dev_backend"
+
+[data_product_manager]
+name = "Data Product Manager"
+category = "data_databases"
+archetype = "product_owner"
+
+[cybersecurity_engineer]
+name = "Cybersecurity Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[security_analyst]
+name = "Security Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[penetration_tester]
+name = "Penetration Tester"
+category = "cybersecurity"
+archetype = "security"
+
+[ethical_hacker]
+name = "Ethical Hacker"
+category = "cybersecurity"
+archetype = "security"
+
+[red_team_operator]
+name = "Red Team Operator"
+category = "cybersecurity"
+archetype = "security"
+
+[blue_team_analyst]
+name = "Blue Team Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[purple_team_specialist]
+name = "Purple Team Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[soc_analyst]
+name = "SOC Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[soc_engineer]
+name = "SOC Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[threat_intelligence_analyst]
+name = "Threat Intelligence Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[threat_hunter]
+name = "Threat Hunter"
+category = "cybersecurity"
+archetype = "security"
+
+[vulnerability_researcher]
+name = "Vulnerability Researcher"
+category = "cybersecurity"
+archetype = "security"
+
+[vulnerability_manager]
+name = "Vulnerability Manager"
+category = "cybersecurity"
+archetype = "security"
+
+[application_security_engineer]
+name = "Application Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[product_security_engineer]
+name = "Product Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[cloud_security_engineer]
+name = "Cloud Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[network_security_engineer]
+name = "Network Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[infrastructure_security_engineer]
+name = "Infrastructure Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[devsecops_engineer]
+name = "DevSecOps Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[security_auditor]
+name = "Security Auditor"
+category = "cybersecurity"
+archetype = "reviewer"
+
+[security_consultant]
+name = "Security Consultant"
+category = "cybersecurity"
+archetype = "security"
+
+[incident_response_specialist]
+name = "Incident Response Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[digital_forensics_analyst]
+name = "Digital Forensics Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[malware_analyst]
+name = "Malware Analyst"
+category = "cybersecurity"
+archetype = "security"
+
+[reverse_engineer]
+name = "Reverse Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[cryptography_engineer]
+name = "Cryptography Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[pki_engineer]
+name = "PKI Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[iam_engineer]
+name = "IAM Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[identity_security_specialist]
+name = "Identity Security Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[zero_trust_architect]
+name = "Zero Trust Architect"
+category = "cybersecurity"
+archetype = "architect"
+
+[security_operations_engineer]
+name = "Security Operations Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[security_automation_engineer]
+name = "Security Automation Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[privacy_engineer]
+name = "Privacy Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[grc_specialist]
+name = "GRC Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[security_compliance_officer]
+name = "Security Compliance Officer"
+category = "cybersecurity"
+archetype = "security"
+
+[blockchain_security_auditor]
+name = "Blockchain Security Auditor"
+category = "cybersecurity"
+archetype = "reviewer"
+
+[smart_contract_security_auditor]
+name = "Smart Contract Security Auditor"
+category = "cybersecurity"
+archetype = "reviewer"
+
+[iot_security_specialist]
+name = "IoT Security Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[hardware_security_engineer]
+name = "Hardware Security Engineer"
+category = "cybersecurity"
+archetype = "security"
+
+[ot_security_specialist]
+name = "OT Security Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[security_researcher]
+name = "Security Researcher"
+category = "cybersecurity"
+archetype = "security"
+
+[bug_bounty_specialist]
+name = "Bug Bounty Specialist"
+category = "cybersecurity"
+archetype = "security"
+
+[devops]
+name = "DevOps Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+existing = true
+
+[cloud_engineer]
+name = "Cloud Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[platform_engineer]
+name = "Platform Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[site_reliability_engineer]
+name = "Site Reliability Engineer (SRE)"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[infrastructure_engineer]
+name = "Infrastructure Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[infrastructure_automation_engineer]
+name = "Infrastructure Automation Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[infrastructure_as_code_engineer]
+name = "Infrastructure as Code Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[kubernetes_engineer]
+name = "Kubernetes Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[container_engineer]
+name = "Container Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[systems_administrator]
+name = "Systems Administrator"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[systems_engineer]
+name = "Systems Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[linux_administrator]
+name = "Linux Administrator"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[windows_systems_administrator]
+name = "Windows Systems Administrator"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[virtualization_engineer]
+name = "Virtualization Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[storage_engineer]
+name = "Storage Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[backup_and_disaster_recovery_engineer]
+name = "Backup and Disaster Recovery Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[cloud_operations_engineer]
+name = "Cloud Operations Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[cloud_migration_engineer]
+name = "Cloud Migration Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[finops_engineer]
+name = "FinOps Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[observability_engineer]
+name = "Observability Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[monitoring_engineer]
+name = "Monitoring Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[release_engineer]
+name = "Release Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[build_engineer]
+name = "Build Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[ci_cd_engineer]
+name = "CI/CD Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[configuration_management_engineer]
+name = "Configuration Management Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[capacity_planning_engineer]
+name = "Capacity Planning Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[data_center_engineer]
+name = "Data Center Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[edge_computing_engineer]
+name = "Edge Computing Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[serverless_engineer]
+name = "Serverless Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[it_operations_engineer]
+name = "IT Operations Engineer"
+category = "cloud_devops_infrastructure"
+archetype = "devops"
+
+[network_engineer]
+name = "Network Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_administrator]
+name = "Network Administrator"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_operations_engineer]
+name = "Network Operations Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_automation_engineer]
+name = "Network Automation Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_protocol_engineer]
+name = "Network Protocol Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[telecommunications_engineer]
+name = "Telecommunications Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[voip_engineer]
+name = "VoIP Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[wireless_network_engineer]
+name = "Wireless Network Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_5g_engineer]
+name = "5G Network Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[sdn_engineer]
+name = "SDN Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[sd_wan_engineer]
+name = "SD-WAN Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[dns_engineer]
+name = "DNS Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[cdn_engineer]
+name = "CDN Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[load_balancing_engineer]
+name = "Load Balancing Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_performance_engineer]
+name = "Network Performance Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[fiber_optic_engineer]
+name = "Fiber Optic Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[satellite_communications_engineer]
+name = "Satellite Communications Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[network_reliability_engineer]
+name = "Network Reliability Engineer"
+category = "networks_telecom"
+archetype = "devops"
+
+[blockchain_engineer]
+name = "Blockchain Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[smart_contract_engineer]
+name = "Smart Contract Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[defi_engineer]
+name = "DeFi Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[nft_developer]
+name = "NFT Developer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[tokenomics_specialist]
+name = "Tokenomics Specialist"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[dao_developer]
+name = "DAO Developer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[blockchain_protocol_engineer]
+name = "Blockchain Protocol Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[consensus_protocol_engineer]
+name = "Consensus Protocol Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[zero_knowledge_proof_engineer]
+name = "Zero-Knowledge Proof Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[wallet_developer]
+name = "Wallet Developer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[cross_chain_engineer]
+name = "Cross-Chain Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[layer_2_engineer]
+name = "Layer 2 Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[rollup_engineer]
+name = "Rollup Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[blockchain_infrastructure_engineer]
+name = "Blockchain Infrastructure Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[blockchain_data_engineer]
+name = "Blockchain Data Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[blockchain_devops_engineer]
+name = "Blockchain DevOps Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[web3_product_engineer]
+name = "Web3 Product Engineer"
+category = "blockchain_web3"
+archetype = "dev_backend"
+
+[qa_engineer]
+name = "QA Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[qa_automation_engineer]
+name = "QA Automation Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[qa_architect]
+name = "QA Architect"
+category = "quality_testing"
+archetype = "architect"
+
+[qa_analyst]
+name = "QA Analyst"
+category = "quality_testing"
+archetype = "qa"
+
+[manual_tester]
+name = "Manual Tester"
+category = "quality_testing"
+archetype = "qa"
+
+[software_test_engineer]
+name = "Software Test Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[test_architect]
+name = "Test Architect"
+category = "quality_testing"
+archetype = "architect"
+
+[test_automation_engineer]
+name = "Test Automation Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[api_testing_engineer]
+name = "API Testing Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[performance_testing_engineer]
+name = "Performance Testing Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[load_testing_engineer]
+name = "Load Testing Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[security_testing_engineer]
+name = "Security Testing Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[accessibility_tester]
+name = "Accessibility Tester"
+category = "quality_testing"
+archetype = "qa"
+
+[mobile_qa_engineer]
+name = "Mobile QA Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[game_qa_tester]
+name = "Game QA Tester"
+category = "quality_testing"
+archetype = "qa"
+
+[regression_testing_specialist]
+name = "Regression Testing Specialist"
+category = "quality_testing"
+archetype = "qa"
+
+[test_data_engineer]
+name = "Test Data Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[test_infrastructure_engineer]
+name = "Test Infrastructure Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[chaos_engineering_specialist]
+name = "Chaos Engineering Specialist"
+category = "quality_testing"
+archetype = "qa"
+
+[software_verification_engineer]
+name = "Software Verification Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[formal_verification_engineer]
+name = "Formal Verification Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[software_validation_engineer]
+name = "Software Validation Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[reliability_engineer]
+name = "Reliability Engineer"
+category = "quality_testing"
+archetype = "qa"
+
+[quality_engineering_manager]
+name = "Quality Engineering Manager"
+category = "quality_testing"
+archetype = "qa"
+
+[performance_engineer]
+name = "Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[software_performance_engineer]
+name = "Software Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[application_performance_engineer]
+name = "Application Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[database_performance_engineer]
+name = "Database Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[frontend_performance_engineer]
+name = "Frontend Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_frontend"
+
+[backend_performance_engineer]
+name = "Backend Performance Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[scalability_engineer]
+name = "Scalability Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[optimization_engineer]
+name = "Optimization Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[chaos_engineer]
+name = "Chaos Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[high_availability_engineer]
+name = "High Availability Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[latency_optimization_engineer]
+name = "Latency Optimization Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[cost_optimization_engineer]
+name = "Cost Optimization Engineer"
+category = "performance_reliability"
+archetype = "dev_backend"
+
+[product_owner]
+name = "Product Owner"
+category = "product_project_management"
+archetype = "product_owner"
+existing = true
+
+[product_manager]
+name = "Product Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[technical_product_manager]
+name = "Technical Product Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[product_operations_manager]
+name = "Product Operations Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[product_analyst]
+name = "Product Analyst"
+category = "product_project_management"
+archetype = "product_owner"
+
+[product_strategist]
+name = "Product Strategist"
+category = "product_project_management"
+archetype = "product_owner"
+
+[project_manager]
+name = "Project Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[technical_project_manager]
+name = "Technical Project Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[program_manager]
+name = "Program Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[portfolio_manager]
+name = "Portfolio Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[delivery_manager]
+name = "Delivery Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[scrum_master]
+name = "Scrum Master"
+category = "product_project_management"
+archetype = "product_owner"
+
+[agile_coach]
+name = "Agile Coach"
+category = "product_project_management"
+archetype = "product_owner"
+
+[release_manager]
+name = "Release Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[change_manager]
+name = "Change Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[business_analyst]
+name = "Business Analyst"
+category = "product_project_management"
+archetype = "product_owner"
+
+[technical_business_analyst]
+name = "Technical Business Analyst"
+category = "product_project_management"
+archetype = "product_owner"
+
+[functional_analyst]
+name = "Functional Analyst"
+category = "product_project_management"
+archetype = "product_owner"
+
+[requirements_engineer]
+name = "Requirements Engineer"
+category = "product_project_management"
+archetype = "product_owner"
+
+[business_process_analyst]
+name = "Business Process Analyst"
+category = "product_project_management"
+archetype = "product_owner"
+
+[service_delivery_manager]
+name = "Service Delivery Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[technical_consultant]
+name = "Technical Consultant"
+category = "product_project_management"
+archetype = "product_owner"
+
+[it_consultant]
+name = "IT Consultant"
+category = "product_project_management"
+archetype = "product_owner"
+
+[digital_transformation_consultant]
+name = "Digital Transformation Consultant"
+category = "product_project_management"
+archetype = "product_owner"
+
+[stakeholder_manager]
+name = "Stakeholder Manager"
+category = "product_project_management"
+archetype = "product_owner"
+
+[ux_designer]
+name = "UX Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[ui_designer]
+name = "UI Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[designer]
+name = "UX/UI Designer"
+category = "ux_ui_design"
+archetype = "designer"
+existing = true
+
+[product_designer]
+name = "Product Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[ux_researcher]
+name = "UX Researcher"
+category = "ux_ui_design"
+archetype = "designer"
+
+[user_researcher]
+name = "User Researcher"
+category = "ux_ui_design"
+archetype = "designer"
+
+[interaction_designer]
+name = "Interaction Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[visual_designer]
+name = "Visual Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[graphic_designer]
+name = "Graphic Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[motion_designer]
+name = "Motion Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[designer_3d]
+name = "3D Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[design_system_designer]
+name = "Design System Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[design_system_engineer]
+name = "Design System Engineer"
+category = "ux_ui_design"
+archetype = "dev_frontend"
+
+[information_architect]
+name = "Information Architect"
+category = "ux_ui_design"
+archetype = "architect"
+
+[service_designer]
+name = "Service Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[content_designer]
+name = "Content Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[ux_writer]
+name = "UX Writer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[accessibility_designer]
+name = "Accessibility Designer"
+category = "ux_ui_design"
+archetype = "designer"
+
+[accessibility_specialist]
+name = "Accessibility Specialist"
+category = "ux_ui_design"
+archetype = "designer"
+
+[prototyping_specialist]
+name = "Prototyping Specialist"
+category = "ux_ui_design"
+archetype = "designer"
+
+[usability_specialist]
+name = "Usability Specialist"
+category = "ux_ui_design"
+archetype = "designer"
+
+[human_computer_interaction_specialist]
+name = "Human-Computer Interaction Specialist"
+category = "ux_ui_design"
+archetype = "designer"
+
+[creative_technologist]
+name = "Creative Technologist"
+category = "ux_ui_design"
+archetype = "designer"
+
+[design_operations_manager]
+name = "Design Operations Manager"
+category = "ux_ui_design"
+archetype = "designer"
+
+[iot_engineer]
+name = "IoT Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[embedded_systems_engineer]
+name = "Embedded Systems Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[embedded_systems_architect]
+name = "Embedded Systems Architect"
+category = "iot_robotics_embedded"
+archetype = "architect"
+
+[firmware_engineer]
+name = "Firmware Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[hardware_engineer]
+name = "Hardware Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[hardware_architect]
+name = "Hardware Architect"
+category = "iot_robotics_embedded"
+archetype = "architect"
+
+[electronics_engineer]
+name = "Electronics Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[fpga_engineer]
+name = "FPGA Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[asic_engineer]
+name = "ASIC Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[device_driver_developer]
+name = "Device Driver Developer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[real_time_systems_engineer]
+name = "Real-Time Systems Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[industrial_iot_engineer]
+name = "Industrial IoT Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[automotive_software_engineer]
+name = "Automotive Software Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[robotics_engineer]
+name = "Robotics Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[robotics_software_engineer]
+name = "Robotics Software Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[ros_developer]
+name = "ROS Developer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[autonomous_systems_engineer]
+name = "Autonomous Systems Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[plc_programmer]
+name = "PLC Programmer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[industrial_automation_engineer]
+name = "Industrial Automation Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[scada_engineer]
+name = "SCADA Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[control_systems_engineer]
+name = "Control Systems Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[mechatronics_engineer]
+name = "Mechatronics Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[drone_software_engineer]
+name = "Drone Software Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[sensor_engineer]
+name = "Sensor Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[digital_twin_engineer]
+name = "Digital Twin Engineer"
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+
+[game_designer]
+name = "Game Designer"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[game_programmer]
+name = "Game Programmer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[rendering_engineer]
+name = "Rendering Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[game_ai_programmer]
+name = "Game AI Programmer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[multiplayer_engineer]
+name = "Multiplayer Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[game_backend_developer]
+name = "Game Backend Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[game_server_engineer]
+name = "Game Server Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[game_tools_developer]
+name = "Game Tools Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[technical_artist]
+name = "Technical Artist"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[artist_3d]
+name = "3D Artist"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[character_artist]
+name = "Character Artist"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[environment_artist]
+name = "Environment Artist"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[vfx_artist]
+name = "VFX Artist"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[technical_animator]
+name = "Technical Animator"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[sound_designer]
+name = "Sound Designer"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[game_producer]
+name = "Game Producer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[level_designer]
+name = "Level Designer"
+category = "games_3d_multimedia"
+archetype = "designer"
+
+[vr_developer]
+name = "VR Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[ar_developer]
+name = "AR Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[xr_developer]
+name = "XR Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[graphics_engineer_3d]
+name = "3D Graphics Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[shader_developer]
+name = "Shader Developer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[simulation_engineer]
+name = "Simulation Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[spatial_computing_engineer]
+name = "Spatial Computing Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[virtual_production_engineer]
+name = "Virtual Production Engineer"
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+
+[computer_scientist]
+name = "Computer Scientist"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[research_scientist]
+name = "Research Scientist"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[research_engineer]
+name = "Research Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[algorithm_engineer]
+name = "Algorithm Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[distributed_systems_engineer]
+name = "Distributed Systems Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[parallel_computing_engineer]
+name = "Parallel Computing Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[high_performance_computing_engineer]
+name = "High Performance Computing Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[quantum_computing_engineer]
+name = "Quantum Computing Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[quantum_software_developer]
+name = "Quantum Software Developer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[computational_scientist]
+name = "Computational Scientist"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[scientific_software_developer]
+name = "Scientific Software Developer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[numerical_computing_engineer]
+name = "Numerical Computing Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[bioinformatics_engineer]
+name = "Bioinformatics Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[computational_biologist]
+name = "Computational Biologist"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[formal_methods_engineer]
+name = "Formal Methods Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[programming_language_researcher]
+name = "Programming Language Researcher"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[operating_systems_engineer]
+name = "Operating Systems Engineer"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[cryptography_researcher]
+name = "Cryptography Researcher"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[computer_vision_researcher]
+name = "Computer Vision Researcher"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[robotics_researcher]
+name = "Robotics Researcher"
+category = "advanced_research"
+archetype = "dev_backend"
+
+[e_commerce_architect]
+name = "E-commerce Architect"
+category = "ecommerce_fintech_business"
+archetype = "architect"
+
+[crm_developer]
+name = "CRM Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[crm_architect]
+name = "CRM Architect"
+category = "ecommerce_fintech_business"
+archetype = "architect"
+
+[salesforce_developer]
+name = "Salesforce Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[salesforce_architect]
+name = "Salesforce Architect"
+category = "ecommerce_fintech_business"
+archetype = "architect"
+
+[marketing_automation_engineer]
+name = "Marketing Automation Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[martech_engineer]
+name = "MarTech Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[growth_engineer]
+name = "Growth Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[seo_technical_specialist]
+name = "SEO Technical Specialist"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[cro_specialist]
+name = "CRO Specialist"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[web_analytics_engineer]
+name = "Web Analytics Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[tracking_engineer]
+name = "Tracking Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[personalization_engineer]
+name = "Personalization Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[payment_systems_engineer]
+name = "Payment Systems Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[payment_integration_engineer]
+name = "Payment Integration Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[fraud_detection_engineer]
+name = "Fraud Detection Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[fintech_developer]
+name = "FinTech Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[financial_software_engineer]
+name = "Financial Software Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[banking_software_developer]
+name = "Banking Software Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[trading_systems_developer]
+name = "Trading Systems Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[quantitative_developer]
+name = "Quantitative Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[quantitative_engineer]
+name = "Quantitative Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[financial_data_engineer]
+name = "Financial Data Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[erp_developer]
+name = "ERP Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[erp_consultant]
+name = "ERP Consultant"
+category = "ecommerce_fintech_business"
+archetype = "product_owner"
+
+[erp_architect]
+name = "ERP Architect"
+category = "ecommerce_fintech_business"
+archetype = "architect"
+
+[business_applications_developer]
+name = "Business Applications Developer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[workflow_automation_engineer]
+name = "Workflow Automation Engineer"
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+
+[it_support_engineer]
+name = "IT Support Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[it_helpdesk_specialist]
+name = "IT Helpdesk Specialist"
+category = "support_operations"
+archetype = "devops"
+
+[technical_support_specialist]
+name = "Technical Support Specialist"
+category = "support_operations"
+archetype = "devops"
+
+[application_support_engineer]
+name = "Application Support Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[service_desk_manager]
+name = "Service Desk Manager"
+category = "support_operations"
+archetype = "devops"
+
+[it_service_manager]
+name = "IT Service Manager"
+category = "support_operations"
+archetype = "devops"
+
+[itsm_specialist]
+name = "ITSM Specialist"
+category = "support_operations"
+archetype = "devops"
+
+[incident_manager]
+name = "Incident Manager"
+category = "support_operations"
+archetype = "devops"
+
+[problem_manager]
+name = "Problem Manager"
+category = "support_operations"
+archetype = "devops"
+
+[configuration_manager]
+name = "Configuration Manager"
+category = "support_operations"
+archetype = "devops"
+
+[it_asset_manager]
+name = "IT Asset Manager"
+category = "support_operations"
+archetype = "devops"
+
+[it_license_manager]
+name = "IT License Manager"
+category = "support_operations"
+archetype = "devops"
+
+[it_procurement_specialist]
+name = "IT Procurement Specialist"
+category = "support_operations"
+archetype = "devops"
+
+[business_continuity_specialist]
+name = "Business Continuity Specialist"
+category = "support_operations"
+archetype = "devops"
+
+[disaster_recovery_manager]
+name = "Disaster Recovery Manager"
+category = "support_operations"
+archetype = "devops"
+
+[application_operations_engineer]
+name = "Application Operations Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[production_engineer]
+name = "Production Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[production_support_engineer]
+name = "Production Support Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[systems_support_engineer]
+name = "Systems Support Engineer"
+category = "support_operations"
+archetype = "devops"
+
+[technical_operations_manager]
+name = "Technical Operations Manager"
+category = "support_operations"
+archetype = "devops"
+
+[technical_writer]
+name = "Technical Writer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[technical_documentation_engineer]
+name = "Technical Documentation Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[api_documentation_specialist]
+name = "API Documentation Specialist"
+category = "technical_documentation"
+archetype = "scribe"
+
+[documentation_engineer]
+name = "Documentation Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[knowledge_manager]
+name = "Knowledge Manager"
+category = "technical_documentation"
+archetype = "scribe"
+
+[knowledge_base_engineer]
+name = "Knowledge Base Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[developer_advocate]
+name = "Developer Advocate"
+category = "technical_documentation"
+archetype = "scribe"
+
+[developer_relations_engineer]
+name = "Developer Relations Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[technical_trainer]
+name = "Technical Trainer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[it_trainer]
+name = "IT Trainer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[technical_editor]
+name = "Technical Editor"
+category = "technical_documentation"
+archetype = "reviewer"
+
+[specification_writer]
+name = "Specification Writer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[localization_engineer]
+name = "Localization Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[technical_translator]
+name = "Technical Translator"
+category = "technical_documentation"
+archetype = "scribe"
+
+[open_source_program_manager]
+name = "Open Source Program Manager"
+category = "technical_documentation"
+archetype = "product_owner"
+
+[developer_experience_engineer]
+name = "Developer Experience Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[developer_productivity_engineer]
+name = "Developer Productivity Engineer"
+category = "technical_documentation"
+archetype = "scribe"
+
+[software_supply_chain_security_engineer]
+name = "Software Supply Chain Security Engineer"
+category = "specialized_roles"
+archetype = "security"
+
+[software_licensing_specialist]
+name = "Software Licensing Specialist"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[open_source_compliance_specialist]
+name = "Open Source Compliance Specialist"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[technical_debt_manager]
+name = "Technical Debt Manager"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[migration_engineer]
+name = "Migration Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[interoperability_engineer]
+name = "Interoperability Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[digital_identity_engineer]
+name = "Digital Identity Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[green_it_engineer]
+name = "Green IT Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[sustainability_engineer]
+name = "Sustainability Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[accessibility_engineer]
+name = "Accessibility Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[digital_forensics_specialist]
+name = "Digital Forensics Specialist"
+category = "specialized_roles"
+archetype = "security"
+
+[digital_preservation_specialist]
+name = "Digital Preservation Specialist"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[geospatial_software_engineer]
+name = "Geospatial Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[gis_developer]
+name = "GIS Developer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[geographic_information_systems_specialist]
+name = "Geographic Information Systems Specialist"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[bioinformatics_software_engineer]
+name = "Bioinformatics Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[health_informatics_engineer]
+name = "Health Informatics Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[medical_software_engineer]
+name = "Medical Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[aerospace_software_engineer]
+name = "Aerospace Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[aviation_systems_engineer]
+name = "Aviation Systems Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[automotive_systems_engineer]
+name = "Automotive Systems Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[defence_systems_engineer]
+name = "Defence Systems Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[maritime_software_engineer]
+name = "Maritime Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[satellite_software_engineer]
+name = "Satellite Software Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[space_systems_engineer]
+name = "Space Systems Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[digital_twin_specialist]
+name = "Digital Twin Specialist"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[smart_city_engineer]
+name = "Smart City Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[geospatial_data_engineer]
+name = "Geospatial Data Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[computational_geometry_engineer]
+name = "Computational Geometry Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[search_and_recommendation_engineer]
+name = "Search and Recommendation Engineer"
+category = "specialized_roles"
+archetype = "dev_backend"
+
+[workflow_automation_architect]
+name = "Workflow Automation Architect"
+category = "specialized_roles"
+archetype = "architect"
