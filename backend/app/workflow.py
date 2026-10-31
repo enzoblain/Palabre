@@ -612,9 +612,9 @@ def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: T
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
-async def merge_blockers(s: AsyncSession, project: Project, task: Task, head: str | None = None) -> list[str]:
+async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head: str | None = None) -> list[str]:
     """Everything that prevents merging this task under the company's mode.
-    head: the PR head the CI is checked on (default: the PR's current head)."""
+    ci_head: the PR head the CI is checked on (default: the PR's current head)."""
     process = mode_process(project.mode)
     reviews = await _task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
@@ -636,7 +636,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, head: st
     if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in e.roles for e in approvers):
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
-        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, head):
+        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, ci_head):
             blockers.append(ci)
     if process["docs_required"]:
         repo, head = _task_checkout(project, task)

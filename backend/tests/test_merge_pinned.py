@@ -1,5 +1,7 @@
 """The merge is pinned to the PR head the merge rules were checked on."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from app import github, workflow
@@ -13,8 +15,6 @@ HEAD = "a" * 40
 @pytest.fixture
 def merge(monkeypatch):
     """merge_task with GitHub mocked: `state.merged_with` records the sha, `state.refuse` makes GitHub answer 409."""
-    from types import SimpleNamespace
-
     state = SimpleNamespace(merged_with=None, ci_sha=None, refuse=False)
     task = make_task(
         project_id=1, depends_on=[], title="T", conversation_id=1, pr_url=None, pr_title="feat: x",
@@ -23,6 +23,9 @@ def merge(monkeypatch):
 
     async def nothing(*_, **__):
         pass
+
+    async def task_reviews(*_):
+        return []
 
     async def get_task(*_):
         return task
@@ -45,16 +48,12 @@ def merge(monkeypatch):
     monkeypatch.setattr(workflow, "mode_process", lambda _mode: {
         "required_approvals": 0, "qa_gate": False, "security_gate": False, "ci_required": True, "docs_required": False,
     })
-    monkeypatch.setattr(workflow, "_task_reviews", lambda *_: _empty())
+    monkeypatch.setattr(workflow, "_task_reviews", task_reviews)
     monkeypatch.setattr(github, "pull_request_head", pull_request_head)
     monkeypatch.setattr(github, "checks_status", checks_status)
     monkeypatch.setattr(github, "merge_pull_request", merge_pull_request)
     state.task = task
     return state
-
-
-async def _empty():
-    return []
 
 
 async def test_the_merge_is_pinned_to_the_head_the_ci_was_checked_on(merge):
