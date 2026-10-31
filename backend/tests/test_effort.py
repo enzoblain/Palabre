@@ -6,13 +6,14 @@ from pathlib import Path
 import pytest
 
 from app import runner
-from app.company.team import EFFORT_LEVELS, effort_for, load_catalog
+from app.company.catalog import load_catalog
+from app.company.team import EFFORT_LEVELS, effort_for
 from app.config import Settings
 
 
 def test_catalog_efforts_are_valid_levels():
     for key, role in load_catalog()["roles"].items():
-        assert role.get("effort", "low") in EFFORT_LEVELS, key
+        assert (role.effort or "low") in EFFORT_LEVELS, key
 
 
 @pytest.mark.parametrize("role", ["product_owner", "designer", "scribe"])
@@ -21,7 +22,7 @@ def test_light_company_roles_run_at_low_effort(role):
 
 
 def test_research_roles_run_at_low_effort():
-    research = [k for k, r in load_catalog()["roles"].items() if r["kind"] == "research" and k != "rapporteur"]
+    research = [k for k, r in load_catalog()["roles"].items() if r.kind == "research" and k != "rapporteur"]
     assert research and all(effort_for([k]) == "low" for k in research)
 
 

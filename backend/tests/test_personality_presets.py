@@ -34,7 +34,7 @@ def test_every_kind_has_valid_presets(kind):
     assert all(p.style.verbosity in personality["style"]["verbosity"] for p in presets.values())
 
 
-def test_facade_exposes_the_presets_by_kind_in_file_order():
+def test_catalog_exposes_the_presets_by_kind_in_file_order():
     presets = load_catalog()["personalities"]
     assert list(presets["company"])[:2] == ["pragmatic", "perfectionist"]
     assert {"label", "description", "traits", "quirks", "style", "kind"} <= set(presets["company"]["pragmatic"])

@@ -147,7 +147,7 @@ names = [
 # ===================================================================================
 # Research groups: peers of equal standing who investigate a topic given by the boss,
 # search the web and debate until they reach well-sourced conclusions.
-# Roles and modes below are merged into the ones above (see team.load_catalog), with
+# Roles and modes below are merged into the ones above (see catalog.load_catalog), with
 # kind = "research"; the personalities are their own files.
 # ===================================================================================
 

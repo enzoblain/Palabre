@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import runner
+from app.company.catalog import load_catalog
 from app.models import Event, Wakeup
 from app.orchestrator import events
 from app.orchestrator.events import expand_events, wakes_on
@@ -285,4 +286,4 @@ async def test_no_real_claude_run_in_tests():
 
 
 def test_events_module_uses_the_catalog_not_the_network():
-    assert events.load_catalog()["roles"]["lead"]["permissions"]
+    assert load_catalog()["roles"]["lead"].permissions

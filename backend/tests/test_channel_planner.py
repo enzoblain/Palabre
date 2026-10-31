@@ -9,7 +9,8 @@ import pytest
 from app import projects
 from app.company import channel_planner as planner
 from app.models import Employee, Project, Room
-from app.company.team import generate_team, load_catalog
+from app.company.catalog import load_catalog
+from app.company.team import generate_team
 from app.runner import ClaudeRunError, RunResult
 
 MEMBERS = [
@@ -238,5 +239,5 @@ async def test_plan_runs_in_an_empty_dir_of_its_own(planned, tmp_path):
 
 
 def test_catalog_has_no_generic_channel():
-    names = {c["name"] for c in projects.load_catalog()["channels"]}
+    names = {c["name"] for c in load_catalog()["channels"]}
     assert not {"general", "engineering", "product"} & names

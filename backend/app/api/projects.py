@@ -20,7 +20,8 @@ from app.api.schemas import (
     ProjectOut,
 )
 from app.company.catalog import team_permission_error
-from app.company.team import kind_of_mode, load_catalog, render_system_prompt
+from app.company.catalog import load_catalog
+from app.company.team import kind_of_mode, render_system_prompt
 from app.models import Employee, Project
 from app.orchestrator.dispatcher import orchestrator
 from app.worktrees import remove_project_files
@@ -90,7 +91,7 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
     """A team built by hand: valid roles and personalities, unique names, for a company a
     lead (they organize the work and merge), and the permission rules of the catalog."""
     catalog = load_catalog()
-    roles = {k for k, r in catalog["roles"].items() if r["kind"] == kind}
+    roles = {k for k, r in catalog["roles"].items() if r.kind == kind}
     presets = catalog["personalities"][kind]
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):

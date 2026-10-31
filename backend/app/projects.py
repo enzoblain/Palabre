@@ -20,9 +20,10 @@ from sqlalchemy.orm import selectinload
 from app import github, release, services
 from app.accounts import assign_accounts, token_for
 from app.company import channel_planner
+from app.company.catalog import load_catalog
 from app.company.team import Employee as TeamMember
 from app.company.team import (
-    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, load_catalog, personality_for,
+    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, personality_for,
     reroll_employee,
 )  # fmt: skip
 from app.models import (
@@ -881,7 +882,7 @@ async def refresh_permissions(s: AsyncSession) -> None:
     in the catalog applies to existing teams too."""
     roles = load_catalog()["roles"]
     for employee in await s.scalars(select(Employee)):
-        permissions = sorted({p for r in employee.roles if r in roles for p in roles[r]["permissions"]})
+        permissions = sorted({p for r in employee.roles if r in roles for p in roles[r].permissions})
         if permissions != employee.permissions:
             employee.permissions = permissions
     await s.commit()
