@@ -85,6 +85,14 @@ def refused_remote_source(body: object) -> str | None:
     return _find_remote_source([body.get("messages"), body.get("system")])
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Refuse duplicated keys: parsers disagree on which value wins, so the checks could be bypassed."""
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate key")
+    return dict(pairs)
+
+
 def _bearer(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     return auth[7:].strip() if auth.lower().startswith("bearer ") else ""
@@ -129,9 +137,9 @@ async def proxy(path: str, request: Request) -> Response:
         return _refuse(413, "Request too large")
     if body:
         try:
-            parsed = json.loads(body)
+            parsed = json.loads(body, object_pairs_hook=_reject_duplicate_keys)
         except ValueError:
-            return _refuse(400, "The body is not JSON")
+            return _refuse(400, "The body is not valid JSON without duplicated keys")
         if (refused := refused_server_tool(parsed)) is not None:
             log.warning("anthropic proxy: refused server tool %s", refused)
             return _refuse(403, f"Server tool {refused!r} is not available to agents")

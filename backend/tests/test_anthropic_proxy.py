@@ -120,6 +120,19 @@ async def test_non_json_body_is_refused(upstream, run_token):
     assert upstream == []
 
 
+@pytest.mark.parametrize(
+    "raw_body",
+    [
+        b'{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"https://x.example","type":"base64"}}]}]}',
+        b'{"tools":[{"type":"web_fetch_20250910","name":"web_fetch","type":"custom"}]}',
+        b'{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url"},"source":{"type":"base64"}}]}]}',
+    ],
+)
+async def test_duplicated_json_keys_are_refused(upstream, run_token, raw_body):
+    assert (await _send("v1/messages", run_token, content=raw_body)).status_code == 400
+    assert upstream == []
+
+
 async def test_encoded_request_body_is_refused(upstream, run_token):
     response = await _send("v1/messages", run_token, content=b"{}", headers={"content-encoding": "gzip"})
     assert response.status_code == 415
