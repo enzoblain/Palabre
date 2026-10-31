@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 /** Claude account of an agent: automatic (spread evenly) or a fixed one. */
 export function AccountSelect({ value, effective, count, onChange }: {
   value: number | null;
@@ -5,12 +7,13 @@ export function AccountSelect({ value, effective, count, onChange }: {
   count: number;
   onChange: (account: number | null) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <select className="account-select" value={value ?? ""} title="Claude account this agent runs on"
+    <select className="account-select" value={value ?? ""} title={t("account.title")}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-      <option value="">Auto (account {effective})</option>
+      <option value="">{t("account.auto", { account: effective })}</option>
       {Array.from({ length: count }, (_, i) => (
-        <option key={i + 1} value={i + 1}>Account {i + 1}</option>
+        <option key={i + 1} value={i + 1}>{t("account.n", { account: i + 1 })}</option>
       ))}
     </select>
   );

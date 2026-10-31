@@ -280,6 +280,15 @@ To reach it away from home, put the server on a private network such as
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
+**Interface language**: the interface speaks the team language set in the settings (the one
+your agents write in), and the login screen uses the last language seen, else the browser's.
+French and English are translated; the other team languages show the interface in English.
+Texts live in `frontend/src/i18n/` (`en.ts` is the reference, `fr.ts` must have the same keys:
+a missing key fails `npm run check`). Names, titles and rules that come from the server's
+catalog (roles, company sizes, personalities) and the server's error messages are not translated.
+
+**API errors**: every error of the REST API returns `{"detail": "<English text>", "code": "<snake_case code>"}` with the usual HTTP status. The codes are the values of `ErrorCode` in `backend/app/errors.py` and never change (the text may); `detail` is the fallback when a client has no translation. Request validation errors (422) use `validation_error` with FastAPI's list in `detail`. Domain errors from the workflow and GitHub layers use `workflow_error` (409) and `github_error` (502) unless the raising code names a more specific `ErrorCode` (`WorkflowError(..., code=...)`, `GitHubError(..., code)`); `GitHubError` messages are scrubbed of the token and URL credentials. Unmapped lookups use `not_found`. `code` is absent on Starlette's own 404/405 (unknown route or method): clients must treat it as optional.
+
 **Account quota**: `GET /settings/quota` returns, for each Claude account, what `/usage`
 shows in Claude Code: the 5-hour session, the week (all models) and the week per model,
 each with the percentage used and its reset time. It is read from Claude's OAuth usage

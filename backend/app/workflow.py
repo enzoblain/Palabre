@@ -14,6 +14,7 @@ from app import github
 from app.config import settings
 from app.company.team import load_catalog
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
+from app.errors import ErrorCode
 from app.sensitive_paths import touches_sensitive_paths
 from app.services import WorkflowError, emit_event, post_message, post_system_message
 from app.worktrees import (
@@ -209,7 +210,7 @@ async def create_task(
 async def assign_task(s: AsyncSession, project_id: int, task_id: int, assignee: str) -> Task:
     task = await get_task(s, project_id, task_id)
     if task.status not in {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}:
-        raise WorkflowError(f"Task #{task_id} is {task.status.value} and can no longer be reassigned")
+        raise WorkflowError(f"Task #{task_id} is {task.status.value} and can no longer be reassigned", code=ErrorCode.TASK_WRONG_STATUS)
     employee = await find_employee(s, project_id, assignee)
     changed = task.assignee_id != employee.id
     task.assignee, task.assignee_id = employee, employee.id  # The relationship too: it is what get_task shows
@@ -245,7 +246,7 @@ async def update_task(
     if status is not None:
         new_status = TaskStatus(status)
         if new_status not in EDITABLE_STATUSES:
-            raise WorkflowError("Status can only be set to 'todo' or 'cancelled'; the rest follows the workflow")
+            raise WorkflowError("Status can only be set to 'todo' or 'cancelled'; the rest follows the workflow", code=ErrorCode.TASK_WRONG_STATUS)
         was_cancelled = task.status == TaskStatus.cancelled
         task.status = new_status
         if new_status == TaskStatus.cancelled and not was_cancelled:
@@ -365,13 +366,13 @@ async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: E
     happens in a task run, in the task's worktree."""
     task = await get_task(s, project_id, task_id)
     if task.assignee_id != employee.id:
-        raise WorkflowError(f"Task #{task.id} is not assigned to you")
+        raise WorkflowError(f"Task #{task.id} is not assigned to you", code=ErrorCode.TASK_NOT_YOURS)
     if task.status not in {TaskStatus.todo, TaskStatus.in_progress, TaskStatus.changes_requested}:
-        raise WorkflowError(f"Task #{task.id} is {task.status.value}: there is nothing to work on")
+        raise WorkflowError(f"Task #{task.id} is {task.status.value}: there is nothing to work on", code=ErrorCode.TASK_WRONG_STATUS)
     if task.depends_on:
         statuses = await s.scalars(select(Task.status).where(Task.id.in_(task.depends_on)))
         if any(st != TaskStatus.done for st in statuses):
-            raise WorkflowError(f"Task #{task.id} is still waiting for tasks {task.depends_on}")
+            raise WorkflowError(f"Task #{task.id} is still waiting for tasks {task.depends_on}", code=ErrorCode.TASK_WAITING_FOR_DEPENDENCIES)
     task.idle_alert_sha = None  # Back at work: a new stall deserves a new alert
     emit_event(s, project_id, "task_resume", {"task_id": task.id}, employee_id=employee.id)
     await s.commit()
@@ -394,7 +395,8 @@ def conventional_title(title: str, pr_number: int | None = None) -> str:
             f"Invalid title {title!r}: use an English Conventional Commits title of at most 100 ASCII characters, "
             "`type(scope): description` with type among feat, fix, chore, docs, refactor, test, ci, perf, build, "
             "style, revert; for example `feat(usage): show real Claude usage per model`. "
-            "The PR number is added for you."
+            "The PR number is added for you.",
+            code=ErrorCode.INVALID_PR_TITLE,
         )
     return title if pr_number is None else f"{title} (#{pr_number})"
 
@@ -408,17 +410,17 @@ async def submit_for_review(
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.assignee_id != author.id:
-        raise WorkflowError("Only the assignee can submit this task for review")
+        raise WorkflowError("Only the assignee can submit this task for review", code=ErrorCode.TASK_NOT_YOURS)
     if task.status not in {TaskStatus.in_progress, TaskStatus.changes_requested}:
-        raise WorkflowError(f"Task #{task.id} is {task.status.value}, it cannot be submitted")
+        raise WorkflowError(f"Task #{task.id} is {task.status.value}, it cannot be submitted", code=ErrorCode.TASK_WRONG_STATUS)
     if not task.branch or not task.worktree_path:
-        raise WorkflowError("This task has no branch yet")
+        raise WorkflowError("This task has no branch yet", code=ErrorCode.TASK_NO_BRANCH)
     bare_title = conventional_title(title)
     if task.pr_number is None and github.is_task_branch_name(task.branch):
         # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
         await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
-        raise WorkflowError("No commits on your branch: commit your work before submitting")
+        raise WorkflowError("No commits on your branch: commit your work before submitting", code=ErrorCode.NO_COMMITS)
 
     repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
@@ -499,7 +501,7 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if not task.branch:
-        raise WorkflowError(f"Task #{task.id} has no branch yet")
+        raise WorkflowError(f"Task #{task.id} has no branch yet", code=ErrorCode.TASK_NO_BRANCH)
     repo, head = _task_checkout(project, task)
     if repo != repo_dir(project):
         await refresh_clone(project, repo)  # Diff against the last fetched state if GitHub fails
@@ -524,9 +526,9 @@ async def review_task(
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review:
-        raise WorkflowError(f"Task #{task.id} is {task.status.value}, not waiting for review")
+        raise WorkflowError(f"Task #{task.id} is {task.status.value}, not waiting for review", code=ErrorCode.TASK_WRONG_STATUS)
     if task.assignee_id == reviewer.id:
-        raise WorkflowError("You cannot review your own task")
+        raise WorkflowError("You cannot review your own task", code=ErrorCode.CANNOT_REVIEW_OWN_TASK)
 
     review = Review(
         task_id=task.id, reviewer_id=reviewer.id, verdict=Verdict(verdict), body=body, round=task.review_round
@@ -664,12 +666,12 @@ async def merge_task(
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review or task.pr_number is None:
-        raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged")
+        raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged", code=ErrorCode.TASK_NO_PULL_REQUEST)
     if not force and (blockers := await merge_blockers(s, project, task)):
         if any(b.startswith("CI still running") for b in blockers):
             task.merge_retry_at = datetime.now(UTC)  # The watcher wakes the lead when the CI is over
             await s.commit()
-        raise WorkflowError("Cannot merge yet: " + "; ".join(blockers))
+        raise WorkflowError("Cannot merge yet: " + "; ".join(blockers), code=ErrorCode.MERGE_BLOCKED)
 
     repo = github.repo_slug(project.repo_url)
     await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")

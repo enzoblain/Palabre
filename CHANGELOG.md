@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-31
+
+### Added
+
+- i18n: make the interface follow the team language (#224)
+- ui: put the project document first in the menu as a collapsible summary (#225)
+- i18n: add stable error codes to API error responses (#227)
+- i18n: show API errors in the project language (#228)
+- i18n: add optional error codes to WorkflowError and GitHubError (#229)
+- i18n: translate all backend error codes and drop raw English from errors (#231)
+
+### Changed
+
+- document: make room updated_at non-nullable and test the document endpoint (#226)
+- errors: move ErrorCode out of the API layer and code the production branch refusal (#230)
+
+### Fixed
+
+- ui: fix plural, mode label and duplicated title found by the i18n browser pass (#232)
+
 ## [0.15.0] - 2026-10-31
 
 ### Added
@@ -429,7 +449,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/enzoblain/Palabre/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/enzoblain/Palabre/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/enzoblain/Palabre/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/enzoblain/Palabre/compare/v0.14.0...v0.14.1

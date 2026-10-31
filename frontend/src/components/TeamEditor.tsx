@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MemberIn, Personality, Role } from "../api";
+import { useI18n, translate } from "../i18n";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
@@ -47,15 +48,15 @@ function freeName(names: string[], taken: string[]): string {
  * needsLead: a company needs one (they organize the work and merge). */
 export function teamProblems(members: MemberIn[], needsLead: boolean): string[] {
   const problems: string[] = [];
-  if (!members.length) problems.push("Add at least one agent.");
+  if (!members.length) problems.push(translate("editor.problemNone"));
   if (needsLead && members.length && !members.some((m) => m.roles.includes("lead"))) {
-    problems.push("The team needs a lead: they organize the work and merge.");
+    problems.push(translate("editor.problemLead"));
   }
   const names = members.map((m) => m.name.toLowerCase());
-  if (new Set(names).size !== names.length) problems.push("Two agents have the same name.");
-  if (members.some((m) => !m.name)) problems.push("Every agent needs a name.");
-  if (members.some((m) => m.name && !NAME_RE.test(m.name))) problems.push("Names are one word (letters, digits, - or _), so the team can @mention them.");
-  if (members.some((m) => !m.roles.length)) problems.push("Every agent needs at least one role.");
+  if (new Set(names).size !== names.length) problems.push(translate("editor.problemDuplicate"));
+  if (members.some((m) => !m.name)) problems.push(translate("editor.problemNoName"));
+  if (members.some((m) => m.name && !NAME_RE.test(m.name))) problems.push(translate("editor.problemBadName"));
+  if (members.some((m) => !m.roles.length)) problems.push(translate("editor.problemNoRole"));
   return problems;
 }
 
@@ -71,6 +72,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
   names: string[];
   claudeAccounts: number;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState<number | null>(null);
   const effective = spreadAccounts(members.map((m) => m.account), claudeAccounts);
 
@@ -89,34 +91,34 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
   return (
     <div className="team-editor">
       <label className="narrow">
-        Number of agents
+        {t("editor.count")}
         <input type="number" min={0} max={MAX_AGENTS} value={members.length}
           onChange={(e) => resize(Number(e.target.value))} />
       </label>
 
-      {members.length === 0 && <p className="muted">No agent yet: add them one by one, or set their number.</p>}
+      {members.length === 0 && <p className="muted">{t("editor.empty")}</p>}
       <ul className="editor-list">
         {members.map((m, i) => (
           <li key={i} className="editor-card">
             <div className="editor-head">
               <Avatar name={m.name || "?"} size={32} />
-              <input className="editor-name" value={m.name} maxLength={40} aria-label="Nom" placeholder="Name"
+              <input className="editor-name" value={m.name} maxLength={40} aria-label={t("editor.nameAria")} placeholder={t("editor.namePlaceholder")}
                 onChange={(e) => update(i, { name: e.target.value.replace(/\s/g, "") })} />
-              <button type="button" className="icon-btn" title="Pick a first name"
+              <button type="button" className="icon-btn" title={t("editor.pickName")}
                 onClick={() => update(i, { name: freeName(names, members.map((x) => x.name)) })}>
                 <ShuffleIcon size={14} />
               </button>
               <span className="muted truncate editor-summary">
-                {m.roles.map((r) => roles[r]?.title ?? r).join(" + ") || "No role"}
+                {m.roles.map((r) => roles[r]?.title ?? r).join(" + ") || t("editor.noRole")}
               </span>
               <button type="button" className="btn btn-small" onClick={() => setOpen(open === i ? null : i)}>
-                {open === i ? "Close" : "Edit"}
+                {open === i ? t("common.close") : t("common.edit")}
               </button>
               <button type="button" className="btn btn-small"
                 onClick={() => {
                   onChange(members.filter((_, j) => j !== i));
                   setOpen(null);
-                }}>Remove</button>
+                }}>{t("common.remove")}</button>
             </div>
 
             <div className="role-chips">
@@ -135,9 +137,9 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
               <div className="editor-details">
                 <div className="row">
                   <label>
-                    Model
+                    {t("editor.model")}
                     <select value={m.model ?? ""} onChange={(e) => update(i, { model: e.target.value || null })}>
-                      <option value="">Auto (from the roles)</option>
+                      <option value="">{t("editor.modelAuto")}</option>
                       {MODELS.map((model) => <option key={model} value={model}>{model}</option>)}
                     </select>
                   </label>
@@ -151,14 +153,14 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
                   ))}
                   {claudeAccounts > 1 && (
                     <label>
-                      Claude account
+                      {t("editor.account")}
                       <AccountSelect value={m.account} effective={effective[i]} count={claudeAccounts}
                         onChange={(account) => update(i, { account })} />
                     </label>
                   )}
                   <button type="button" className="btn btn-small randomize"
                     onClick={() => update(i, randomPersonality(personality))}>
-                    <ShuffleIcon size={14} /> Random personality
+                    <ShuffleIcon size={14} /> {t("editor.randomPersonality")}
                   </button>
                 </div>
 
@@ -175,7 +177,7 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
                 </div>
 
                 <div className="quirks">
-                  <span className="muted">Quirks (up to 5)</span>
+                  <span className="muted">{t("editor.quirks")}</span>
                   {[...new Set([...personality.quirks, ...m.quirks])].map((q) => (
                     <label key={q} className="quirk">
                       <input type="checkbox" checked={m.quirks.includes(q)}
@@ -194,12 +196,13 @@ export function TeamEditor({ members, onChange, roles, personality, names, claud
       </ul>
 
       <button type="button" className="btn btn-small" disabled={members.length >= MAX_AGENTS}
-        onClick={() => resize(members.length + 1)}>+ Add an agent</button>
+        onClick={() => resize(members.length + 1)}>{t("editor.addAgent")}</button>
     </div>
   );
 }
 
 function CustomQuirk({ disabled, onAdd }: { disabled: boolean; onAdd: (quirk: string) => void }) {
+  const { t } = useI18n();
   const [text, setText] = useState("");
   const add = () => {
     if (text.trim()) onAdd(text.trim().slice(0, 200));
@@ -207,7 +210,7 @@ function CustomQuirk({ disabled, onAdd }: { disabled: boolean; onAdd: (quirk: st
   };
   return (
     <div className="row custom-quirk">
-      <input value={text} disabled={disabled} maxLength={200} placeholder="Your own quirk, e.g. You quote Linus Torvalds in every review."
+      <input value={text} disabled={disabled} maxLength={200} placeholder={t("editor.quirkPlaceholder")}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -215,7 +218,7 @@ function CustomQuirk({ disabled, onAdd }: { disabled: boolean; onAdd: (quirk: st
             add();
           }
         }} />
-      <button type="button" className="btn btn-small" disabled={disabled || !text.trim()} onClick={add}>Add</button>
+      <button type="button" className="btn btn-small" disabled={disabled || !text.trim()} onClick={add}>{t("common.add")}</button>
     </div>
   );
 }

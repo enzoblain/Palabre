@@ -1,4 +1,5 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { translate } from "./i18n";
 
 // In the desktop app, requests go through Rust (no CORS / mixed-content limits).
 // In a plain browser (`npm run dev`), the regular fetch is used.
@@ -51,6 +52,7 @@ export type Room = {
   objective: string;
   summary: string;
   created_at: string;
+  updated_at: string;
   members: EmployeeBrief[];
 };
 
@@ -236,13 +238,79 @@ export function normalizeServer(input: string): string {
   return server.replace(/\/api$/, "");
 }
 
+/** Codes of the backend's error responses (backend/app/errors.py); each has an `error.<code>` message. */
+export const ERROR_CODES = [
+  "auth_invalid_token",
+  "auth_locked",
+  "validation_error",
+  "workflow_error",
+  "github_error",
+  "github_merge_refused",
+  "project_not_found",
+  "room_not_found",
+  "task_not_found",
+  "conversation_not_found",
+  "decision_not_found",
+  "employee_not_found",
+  "message_not_found",
+  "question_not_found",
+  "mode_not_found",
+  "unknown_mode",
+  "research_topic_required",
+  "invalid_repository",
+  "duplicate_employee_name",
+  "unknown_roles",
+  "lead_required",
+  "invalid_account",
+  "research_has_no_repository",
+  "direction_room_immutable",
+  "dm_immutable",
+  "boss_direction_only",
+  "boss_read_only_room",
+  "members_not_in_project",
+  "employee_other_project",
+  "direction_room_reserved",
+  "conversation_not_in_room",
+  "invalid_language",
+  "not_found",
+  "invalid_personality",
+  "invalid_branch_name",
+  "branch_already_used",
+  "no_name_left",
+  "task_wrong_status",
+  "task_not_yours",
+  "task_waiting_for_dependencies",
+  "task_no_branch",
+  "task_no_pull_request",
+  "invalid_pr_title",
+  "cannot_review_own_task",
+  "merge_blocked",
+  "no_commits",
+  "github_not_configured",
+  "invalid_github_url",
+  "github_branch_missing",
+  "production_branch_boss_only",
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+const isErrorCode = (code: unknown): code is ErrorCode => ERROR_CODES.includes(code as ErrorCode);
+
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The backend's own text (English), kept for logs and debugging, never shown as is. */
+    public detail?: string,
+    public code?: ErrorCode,
   ) {
     super(message);
   }
+}
+
+/** The message in the project's language: by code, else a generic one with the status. */
+function errorMessage(status: number, code: unknown): string {
+  if (!isErrorCode(code)) return translate("api.error", { status });
+  return translate(`error.${code}`);
 }
 
 async function request<T>(conn: Connection, path: string, method = "GET", body?: unknown): Promise<T> {
@@ -256,25 +324,27 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch (err) {
-    throw new ApiError(0, `Cannot reach the server at ${conn.server} (${err instanceof Error ? err.message : String(err)})`);
+  } catch {
+    throw new ApiError(0, translate("api.unreachable", { server: conn.server }));
   }
   if (!res.ok) {
     let detail = res.statusText || `HTTP ${res.status}`;
+    let code: unknown;
     try {
       const data = await res.json();
+      code = data.code;
       if (typeof data.detail === "string") detail = data.detail;
       else if (Array.isArray(data.detail)) detail = data.detail.map((d: { msg: string }) => d.msg).join(", ");
     } catch {
       // Not JSON: keep the status text
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, errorMessage(res.status, code), detail, isErrorCode(code) ? code : undefined);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
 function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-  if (!current) return Promise.reject(new ApiError(401, "Not connected"));
+  if (!current) return Promise.reject(new ApiError(401, translate("api.notConnected")));
   return request<T>(current, path, method, body).catch((err) => {
     if (err instanceof ApiError && err.status === 401) onUnauthorized();
     throw err;
@@ -286,8 +356,8 @@ export async function testConnection(conn: Connection): Promise<void> {
   try {
     await request(conn, "/settings");
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) throw new ApiError(401, "Wrong access token");
-    if (err instanceof ApiError && err.status === 404) throw new ApiError(404, "This is not a Palabre server");
+    if (err instanceof ApiError && err.status === 401) throw new ApiError(401, translate("api.wrongToken"));
+    if (err instanceof ApiError && err.status === 404) throw new ApiError(404, translate("api.notPalabre"));
     throw err;
   }
 }

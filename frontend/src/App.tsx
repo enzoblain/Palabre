@@ -8,6 +8,7 @@ import { MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { Settings } from "./components/Settings";
 import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
+import { I18nProvider, useI18n } from "./i18n";
 import { go, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -15,6 +16,14 @@ const STATUS_POLL_MS = 3000;
 const CREDITS_POLL_MS = 15000;
 
 export default function App() {
+  return (
+    <I18nProvider>
+      <Session />
+    </I18nProvider>
+  );
+}
+
+function Session() {
   const [conn, setConn] = useState<Connection | null>(getConnection);
   const disconnect = useCallback(() => {
     saveConnection(null);
@@ -57,12 +66,17 @@ function useProject(projectId: number | null) {
 }
 
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
+  const { t, language, setLanguage } = useI18n();
   const route = useRoute();
   const [projects, setProjects] = useState<Project[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
-    boss_name: "", language: "French", languages: {}, claude_accounts: 1,
+    boss_name: "", language, languages: {}, claude_accounts: 1,
   });
   const bossName = settings.boss_name;
+  // The whole interface speaks the language set for the team
+  useEffect(() => {
+    setLanguage(settings.language);
+  }, [settings.language, setLanguage]);
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
@@ -129,7 +143,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   } else if (route.name === "report") {
     if (error) main = <p className="error center">{error}</p>;
     else if (project) main = <DocumentView project={project} />;
-    else main = <p className="muted center">Loading…</p>;
+    else main = <p className="muted center">{t("common.loading")}</p>;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
@@ -138,9 +152,9 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
         projects={projects} route={route} statuses={statuses} bossName={bossName} />;
     } else if (project && conversationId !== null) {
-      main = <p className="muted center">This conversation does not exist.</p>;
+      main = <p className="muted center">{t("app.conversationMissing")}</p>;
     } else {
-      main = <p className="muted center">Loading…</p>;
+      main = <p className="muted center">{t("common.loading")}</p>;
     }
   } else {
     main = <Home hasProjects={projects.length > 0} />;
@@ -150,12 +164,12 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   return (
     <div className={`shell${navOpen ? " nav-open" : ""}`}>
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-      <TeamPanel project={inProject ? project : null} noProject={!inProject} presence={presence} open={navOpen}
+      <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} presence={presence} open={navOpen}
         onClose={() => setNavOpen(false)} />
       <main className="main">
         {inProject ? (
           <header className="mobile-bar">
-            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Ouvrir le panneau Équipe"
+            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
               aria-expanded={navOpen}>
               <MenuIcon />
             </button>
@@ -163,7 +177,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
           </header>
         ) : (
           <header className="topbar">
-            <button className="icon-btn topbar-nav" onClick={() => setNavOpen(true)} aria-label="Ouvrir le panneau Équipe"
+            <button className="icon-btn topbar-nav" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
               aria-expanded={navOpen}>
               <MenuIcon />
             </button>
@@ -183,13 +197,16 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
 }
 
 function CreditsBanner({ accounts, showAccount }: { accounts: ExhaustedAccount[]; showAccount: boolean }) {
+  const { t } = useI18n();
   return (
     <div className="credits-banner" role="status">
-      <strong>Claude credits exhausted, the team is paused.</strong>
+      <strong>{t("credits.title")}</strong>
       <ul>
         {accounts.map((a) => (
           <li key={a.account}>
-            {showAccount && `Account ${a.account}: `}back {a.estimated ? "around " : "at "}{formatTime(a.resets_at)}
+            {showAccount
+              ? t(a.estimated ? "credits.backAroundAccount" : "credits.backAtAccount", { account: a.account, time: formatTime(a.resets_at) })
+              : t(a.estimated ? "credits.backAround" : "credits.backAt", { time: formatTime(a.resets_at) })}
           </li>
         ))}
       </ul>

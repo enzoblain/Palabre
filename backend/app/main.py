@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -12,6 +13,7 @@ from app import agent_pool, services
 from app.projects import drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
+from app.api.errors import ApiError, api_error, validation_error
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
@@ -78,14 +80,18 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+app.add_exception_handler(ApiError, api_error)
+app.add_exception_handler(RequestValidationError, validation_error)
+
+
 @app.exception_handler(WorkflowError)
 async def workflow_error(_: Request, exc: WorkflowError) -> JSONResponse:
-    return JSONResponse({"detail": str(exc)}, status_code=409)
+    return JSONResponse({"detail": str(exc), "code": exc.code.value}, status_code=409)
 
 
 @app.exception_handler(GitHubError)
 async def github_error(_: Request, exc: GitHubError) -> JSONResponse:
-    return JSONResponse({"detail": str(exc)}, status_code=502)
+    return JSONResponse({"detail": str(exc), "code": exc.code.value}, status_code=502)
 
 
 # REST API for the boss

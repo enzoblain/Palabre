@@ -2,8 +2,9 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
+from app.api.errors import ApiError, ErrorCode
 from app.company.team import generate_team, load_catalog, personality_for
 
 Kind = Literal["company", "research"]
@@ -32,7 +33,7 @@ async def personality_options(kind: Kind = "company") -> dict:
 async def preview_team(mode: str, seed: int | None = None) -> dict:
     """Draw a team without saving it. Create the project with the same seed to keep it."""
     if mode not in load_catalog()["modes"]:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode: {mode}")
+        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.MODE_NOT_FOUND, f"Unknown mode: {mode}")
     return generate_team(mode, seed).to_dict()
 
 

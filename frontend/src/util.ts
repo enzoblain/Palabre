@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { locale } from "./i18n";
 
 /** Calls `fn` now, then `ms` after each completion, until the deps change. */
 export function usePolling(fn: (() => Promise<unknown>) | null, ms: number, deps: unknown[]): void {
@@ -33,7 +34,17 @@ export function parseDate(value: string): Date {
 export function formatTime(value: string): string {
   const date = parseDate(value);
   const today = new Date().toDateString() === date.toDateString();
-  return date.toLocaleString(undefined, today ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString(locale(), today ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** "2 hours ago", in the interface language. */
+export function formatAgo(value: string): string {
+  const seconds = Math.round((parseDate(value).getTime() - Date.now()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: "auto" });
+  for (const [unit, size] of [["day", 86400], ["hour", 3600], ["minute", 60]] as const) {
+    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
+  }
+  return rtf.format(0, "second");
 }
 
 const AVATAR_HUES = [12, 32, 145, 175, 200, 230, 262, 290, 320, 350];

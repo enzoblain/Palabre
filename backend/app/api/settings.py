@@ -3,13 +3,14 @@
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
 from sqlalchemy import select
 
 from app import claude_usage, services, usage
 from app.accounts import account_count
 from app.api.deps import SessionDep
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     AccountQuotaOut,
     AppSettingsIn,
@@ -44,8 +45,10 @@ async def get_settings():
 async def update_settings(body: AppSettingsIn, s: SessionDep):
     """Your name (every employee knows you by it, as the CEO) and the team's language."""
     if body.language is not None and body.language not in services.LANGUAGES:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, f"Language must be one of: {', '.join(services.LANGUAGES)}"
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.INVALID_LANGUAGE,
+            f"Language must be one of: {', '.join(services.LANGUAGES)}",
         )
     if body.boss_name is not None:
         await services.set_app_setting(s, "boss_name", body.boss_name.strip())
