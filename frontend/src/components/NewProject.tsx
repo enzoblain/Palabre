@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, type MemberIn, type Mode, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
@@ -56,6 +56,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [error, setError] = useState<string | null>(null);
   const [presetsFailed, setPresetsFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Identifies the latest presets request: a late answer from an earlier one is ignored
+  const presetsRequest = useRef(0);
 
   useEffect(() => {
     api.names().then(setNames).catch(() => {});
@@ -78,8 +80,13 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
   // A failure is shown with a retry: the "build my own" tab cannot work without the presets
   function loadPresets(forKind: ProjectKind) {
+    const request = ++presetsRequest.current;
+    const isLatest = () => request === presetsRequest.current;
+    setPresets(null);
     setPresetsFailed(false);
-    api.personalities(forKind).then(setPresets).catch(() => setPresetsFailed(true));
+    api.personalities(forKind)
+      .then((loaded) => { if (isLatest()) setPresets(loaded); })
+      .catch(() => { if (isLatest()) setPresetsFailed(true); });
   }
 
   // Building by hand starts from an empty team
