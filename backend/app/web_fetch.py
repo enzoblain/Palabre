@@ -1,7 +1,6 @@
 """Web page reader for the research groups: https GET run by the backend, never to a non-public address."""
 
 import asyncio
-import codecs
 import socket
 from collections.abc import Iterable
 from html.parser import HTMLParser
@@ -107,9 +106,9 @@ def _charset(content_type: str) -> str:
 
 
 def _known_charset(name: str) -> str:
-    """`name` if Python can decode it, else the default (the server may announce anything)."""
+        b" ".decode(name, errors="replace")  # codecs.lookup also accepts non-text codecs such as hex or zlib
     try:
-        codecs.lookup(name)
+        b"".decode(name)  # codecs.lookup also accepts non-text codecs such as hex or zlib
     except LookupError:
         return DEFAULT_CHARSET
     return name
