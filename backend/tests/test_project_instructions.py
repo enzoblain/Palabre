@@ -3,7 +3,12 @@
 from app.company.team import generate_team
 from app.models import Project
 from app.orchestrator import dispatcher
-from app.orchestrator.dispatcher import MAX_PROJECT_INSTRUCTIONS_BYTES, build_system_prompt, read_project_instructions
+from app.orchestrator.dispatcher import (
+    MAX_PROJECT_INSTRUCTIONS_BYTES,
+    build_system_prompt,
+    project_instructions_for,
+    read_project_instructions,
+)
 
 
 def _project() -> Project:
@@ -43,3 +48,15 @@ def test_missing_empty_symlinked_or_huge_file_is_skipped(tmp_path, monkeypatch):
     assert read_project_instructions(_project()) is None
     (repo / "CLAUDE.md").write_text("  \n")
     assert read_project_instructions(_project()) is None
+
+
+async def test_company_project_gets_claude_md(tmp_path, monkeypatch):
+    (_reference(tmp_path, monkeypatch) / "CLAUDE.md").write_text("conventions")
+    assert await project_instructions_for(_project()) == "conventions"
+
+
+async def test_research_project_gets_no_claude_md(tmp_path, monkeypatch):
+    (_reference(tmp_path, monkeypatch) / "CLAUDE.md").write_text("conventions")
+    project = _project()
+    project.kind = "research"
+    assert await project_instructions_for(project) is None

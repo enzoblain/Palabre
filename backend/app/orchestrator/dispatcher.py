@@ -25,11 +25,11 @@ from app.orchestrator.prompts import (
     CHAT_RULES,
     RESEARCH_RULES,
     code_standards_rule,
-    project_instructions_rule,
     language_rule,
     lead_boss_rule,
     operating_rules,
     orientation_rule,
+    project_instructions_rule,
     task_rules,
     version_rule,
     wake_prompt,
@@ -60,6 +60,13 @@ def read_project_instructions(project: Project) -> str | None:
     except (OSError, UnicodeDecodeError):
         log.warning("Cannot read %s of project %s", PROJECT_INSTRUCTIONS_FILE, project.id)
         return None
+
+
+async def project_instructions_for(project: Project) -> str | None:
+    """CLAUDE.md for the agents of a company project; research projects have none."""
+    if project.kind != "company":
+        return None
+    return await asyncio.to_thread(read_project_instructions, project)
 
 
 def build_system_prompt(
@@ -339,7 +346,7 @@ class Orchestrator:
         )
         team = team_of(project)
         member = next(m for m in team.employees if m.name == employee.name)
-        instructions = await asyncio.to_thread(read_project_instructions, project) if project.kind == "company" else None
+        instructions = await project_instructions_for(project)
         system_prompt = build_system_prompt(
             team, member, project, services.boss_display_name(), await self._is_first_run(s, employee, run_id), instructions
         )
