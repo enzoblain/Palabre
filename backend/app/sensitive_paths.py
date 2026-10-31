@@ -11,7 +11,7 @@ SENSITIVE_NAMES = {
     # Container, entrypoint, privileges, secrets
     "dockerfile", "entrypoint.sh", "docker-entrypoint.sh", "sudoers", ".env",
     # Settings and agent runner
-    "config.py", "runner.py", "auth.py", "deps.py", "github.py", "worktrees.py",
+    "config.py", "runner.py", "egress_proxy.py", "auth.py", "deps.py", "github.py", "worktrees.py",
     # The gate itself, the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
     "sensitive_paths.py", "workflow.py", "catalog.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
 }

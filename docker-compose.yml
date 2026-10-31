@@ -35,6 +35,8 @@ services:
       MERGE_REMINDER_MINUTES: ${MERGE_REMINDER_MINUTES:-10}
       RELEASE_WAIT_MINUTES: ${RELEASE_WAIT_MINUTES:-5}
       MAX_CONCURRENT_AGENTS: ${MAX_CONCURRENT_AGENTS:-3}
+    # The entrypoint sets up the agents' egress firewall with it, then drops it for good
+    cap_add: [NET_ADMIN]
     depends_on:
       db:
         condition: service_healthy

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401 (registers tables)
-from app import agent_pool, services
+from app import agent_pool, egress_proxy, services
 from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
@@ -61,6 +61,7 @@ async def lifespan(_: FastAPI):
         await normalize_repo_urls(s)
         await backfill_relayed_escalations(s)
     await remove_stale_desks()
+    proxy = await egress_proxy.start() if settings.agent_user else None
     async with mcp.session_manager.run():
         if settings.orchestrator_enabled:
             await orchestrator.start()
@@ -68,6 +69,8 @@ async def lifespan(_: FastAPI):
             yield
         finally:
             await orchestrator.stop()
+            if proxy:
+                proxy.close()
     await engine.dispose()
 
 

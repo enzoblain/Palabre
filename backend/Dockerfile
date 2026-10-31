@@ -12,7 +12,7 @@ ARG CLAUDE_CODE_SHA256_X64=356733f185fa988e6bf3aa9a555269fdd167982a2e2a80d3c8a78
 ARG CLAUDE_CODE_SHA256_ARM64=fdd22e6cbb734d580f5664c48df4294eeec850218ff07f186f9af30426396ee1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git procps sudo tini tzdata ${EXTRA_APT_PACKAGES} \
+    && apt-get install -y --no-install-recommends ca-certificates curl git iptables procps sudo tini tzdata ${EXTRA_APT_PACKAGES} \
     && rm -rf /var/lib/apt/lists/*
 
 # palabre runs the backend (database, GitHub token, Claude tokens). The agents' `claude` processes run

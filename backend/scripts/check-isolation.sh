@@ -32,6 +32,13 @@ denied() {
 [ "$(as_agent id -un 2>/dev/null)" = agent ] && echo "ok   as_agent really runs as agent" \
   || { echo "FAIL as_agent really runs as agent"; echo "::error::as_agent really runs as agent: expected id -un = agent; got: $(as_agent id 2>&1 | tr '\n' ' ')"; fail=1; }
 
+# Egress firewall: an agent reaches neither the Internet nor the database, only loopback (MCP, proxy)
+if [ "${EGRESS_FILTER:-on}" != off ]; then
+  connect() { as_agent python3 -c 'import socket,sys; socket.create_connection((sys.argv[1], int(sys.argv[2])), 3)' "$@"; }
+  denied "agent cannot reach the database" connect db 5432
+  denied "agent cannot reach the Internet directly" connect 1.1.1.1 443
+fi
+
 backend_pid=$(pgrep -u palabre -f uvicorn | head -n 1)
 if [ -n "$backend_pid" ]; then
   denied "agent cannot read the backend's environ" as_agent cat "/proc/$backend_pid/environ"
