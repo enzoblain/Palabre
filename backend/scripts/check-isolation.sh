@@ -192,6 +192,7 @@ case $mode in
   pair)
     # Two runs alive together: each looks at the other's process and MCP config. $2 dir, $3 me, $4 peer
     dir=$2; me=$3; peer=$4
+    # The peer waits on .mcp only, so it must be written last: .pid and .sys are already there by then
     echo $$ > "$dir/$me.pid"; echo "$sysfile" > "$dir/$me.sys"; echo "$mcp" > "$dir/$me.mcp"
     i=0; while [ ! -s "$dir/$peer.mcp" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
     if [ -s "$dir/$peer.mcp" ]; then found=found; else found=missing; fi
