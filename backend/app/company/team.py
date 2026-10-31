@@ -1,4 +1,4 @@
-"""Random generation of a project's team from catalog.toml.
+"""Random generation of a project's team from the catalog (company/catalog.py).
 
 When a project is created: `team = generate_team("startup")`, store `team.to_dict()`,
 then `render_system_prompt(team, employee, boss_name)` gives each employee's prompt.
@@ -9,37 +9,20 @@ Two kinds of projects: "company" (a software company working on a repository) an
 """
 
 import random
-import tomllib
 from dataclasses import asdict, dataclass
-from functools import cache
-from pathlib import Path
 
-CATALOG_PATH = Path(__file__).with_name("catalog.toml")
+from app.company.catalog import Role, load_catalog
+
 MODEL_RANK = {"haiku": 0, "sonnet": 1, "opus": 2}
 EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 DIVERSITY_ATTEMPTS = 1000
-
-
-KINDS = ("company", "research")
-
-
-@cache
-def load_catalog() -> dict:
-    """The catalog, with the research roles and modes merged into `roles` and `modes`."""
-    with CATALOG_PATH.open("rb") as f:
-        catalog = tomllib.load(f)
-    research = catalog["research"]
-    for section in ("roles", "modes"):
-        catalog[section] = {k: {**v, "kind": "company"} for k, v in catalog[section].items()}
-        catalog[section] |= {k: {**v, "kind": "research"} for k, v in research[section].items()}
-    return catalog
 
 
 def effort_for(role_keys: list[str]) -> str | None:
     """The claude --effort level of an employee: the highest of their roles, None (claude's
     default) as soon as one role sets none."""
     roles = load_catalog()["roles"]
-    levels = [roles[k].get("effort") for k in role_keys]
+    levels = [roles[k].effort for k in role_keys]
     if not levels or None in levels:
         return None
     return max(levels, key=EFFORT_LEVELS.index)
@@ -52,6 +35,14 @@ def kind_of_mode(mode: str) -> str:
 def personality_for(kind: str) -> dict:
     catalog = load_catalog()
     return catalog["research"]["personality"] if kind == "research" else catalog["personality"]
+
+
+def personality_preset(kind: str, key: str) -> dict:
+    """A personality preset of this kind of project; ValueError when it does not exist."""
+    presets = load_catalog()["personalities"][kind]
+    if key not in presets:
+        raise ValueError(f"Unknown personality: {key} (choices: {', '.join(presets)})")
+    return presets[key]
 
 
 def boss_for(kind: str) -> dict:
@@ -113,22 +104,28 @@ def custom_employee(
     traits: dict[str, int] | None = None,
     quirks: list[str] | None = None,
     style: dict[str, str] | None = None,
+    preset: str | None = None,
     model: str | None = None,
     seed: int | None = None,
     kind: str = "company",
 ) -> Employee:
     """An employee chosen by the boss. The roles (of this kind of project) set the title,
-    permissions and default model; whatever part of the personality is left out is drawn
-    at random."""
+    permissions and default model. The personality preset applies first, then the explicit
+    traits, quirks and style override it; whatever is still left out is drawn at random."""
     catalog = load_catalog()
     roles = list(dict.fromkeys(roles))
-    unknown = [r for r in roles if catalog["roles"].get(r, {}).get("kind") != kind]
+    unknown = [r for r in roles if (role := catalog["roles"].get(r)) is None or role.kind != kind]
     if not roles or unknown:
         raise ValueError(f"Unknown roles: {', '.join(unknown)}" if unknown else "An employee needs a role")
+    preset_data = personality_preset(kind, preset) if preset is not None else None
     rng = random.Random(seed)
     personality = personality_for(kind)
     drawn = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
-    member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **(traits or {})})
+    preset_traits = {a["key"]: preset_data["traits"].get(a["key"], 0) for a in personality["axes"]} if preset_data else {}
+    member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **preset_traits, **(traits or {})})
+    if preset_data:
+        member.quirks = list(preset_data["quirks"])
+        member.style = dict(preset_data["style"])
     if quirks is not None:
         member.quirks = list(quirks)
     if style is not None:
@@ -165,8 +162,8 @@ def _set_roles(employee: Employee, role_keys: list[str]) -> None:
     """New roles, with the title and permissions they give (personality and model kept)."""
     roles = [load_catalog()["roles"][k] for k in role_keys]
     employee.roles = list(role_keys)
-    employee.title = " + ".join(r["title"] for r in roles)
-    employee.permissions = sorted({p for r in roles for p in r["permissions"]})
+    employee.title = " + ".join(r.title for r in roles)
+    employee.permissions = sorted({p for r in roles for p in r.permissions})
 
 
 def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee:
@@ -210,9 +207,9 @@ def _make_employee(
     return Employee(
         name=name,
         roles=list(role_keys),
-        title=" + ".join(r["title"] for r in roles),
-        model=max((r["model"] for r in roles), key=MODEL_RANK.__getitem__),
-        permissions=sorted({p for r in roles for p in r["permissions"]}),
+        title=" + ".join(r.title for r in roles),
+        model=max((r.model for r in roles), key=MODEL_RANK.__getitem__),
+        permissions=sorted({p for r in roles for p in r.permissions}),
         traits=traits,
         quirks=rng.sample(personality["quirks"], rng.randint(1, 2)),
         style={k: rng.choice(v) for k, v in personality["style"].items()},
@@ -254,16 +251,16 @@ def _render_roster(team: Team, me: Employee, boss: dict) -> str:
     return "\n".join(lines)
 
 
-def _render_role(role: dict) -> str:
+def _render_role(role: Role) -> str:
     bullets = lambda items: "\n".join(f"- {i}" for i in items)  # noqa: E731
     return (
-        f"## Position: {role['title']}\n"
-        f"Mission: {role['mission']}\n\n"
-        f"Responsibilities:\n{bullets(role['responsibilities'])}\n\n"
-        f"You do NOT:\n{bullets(role['forbidden'])}\n\n"
-        f"Deliverables: {', '.join(role['deliverables'])}\n"
-        f"Escalation: {role['escalation']}\n"
-        f"Success criterion: {role['success']}"
+        f"## Position: {role.title}\n"
+        f"Mission: {role.mission}\n\n"
+        f"Responsibilities:\n{bullets(role.responsibilities)}\n\n"
+        f"You do NOT:\n{bullets(role.forbidden)}\n\n"
+        f"Deliverables: {', '.join(role.deliverables)}\n"
+        f"Escalation: {role.escalation}\n"
+        f"Success criterion: {role.success}"
     )
 
 

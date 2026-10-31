@@ -324,6 +324,7 @@ class Review(Base):
     verdict: Mapped[Verdict] = mapped_column(str_enum(Verdict))
     round: Mapped[int]
     body: Mapped[str] = mapped_column(Text)
+    head_sha: Mapped[str | None] = mapped_column(String(64), default=None)  # PR head the opinion was given on
     created_at: Mapped[datetime] = created_at_column()
 
     reviewer: Mapped[Employee] = relationship()

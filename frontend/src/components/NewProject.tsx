@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ApiError, type MemberIn, type Mode, type Personality, type ProjectDetail, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { ApiError, type MemberIn, type Mode, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
 import { spreadAccounts } from "../util";
@@ -37,6 +37,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [kind, setKind] = useState<ProjectKind>("company");
   const [modes, setModes] = useState<Record<string, Mode> | null>(null);
   const [personality, setPersonality] = useState<Personality | null>(null);
+  const [presets, setPresets] = useState<Record<string, PersonalityPreset> | null>(null);
   const [name, setName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [topic, setTopic] = useState("");
@@ -47,15 +48,20 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [custom, setCustom] = useState<MemberIn[] | null>(null);
   const [roles, setRoles] = useState<Record<string, Role> | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  const [limits, setLimits] = useState<CatalogLimits | null>(null);
   // First name → Claude account chosen by hand; the others are spread automatically
   const [accounts, setAccounts] = useState<Record<string, number>>({});
   // Research: the peer who writes the report (null: drawn at random)
   const [rapporteur, setRapporteur] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [presetsFailed, setPresetsFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Identifies the latest presets request: a late answer from an earlier one is ignored
+  const presetsRequest = useRef(0);
 
   useEffect(() => {
     api.names().then(setNames).catch(() => {});
+    api.limits().then(setLimits).catch(() => {});
   }, []);
 
   // Each kind of project has its own modes, roles and personality axes
@@ -63,12 +69,25 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setModes(null);
     setRoles(null);
     setPersonality(null);
+    setPresets(null);
     setCustom(null);
     setMode(DEFAULT_MODE[kind]);
     api.modes(kind).then(setModes).catch((err) => setError(String(err.message ?? err)));
     api.personality(kind).then(setPersonality).catch(() => {});
+    loadPresets(kind);
     api.roles(kind).then(setRoles).catch(() => {});
   }, [kind]);
+
+  // A failure is shown with a retry: the "build my own" tab cannot work without the presets
+  function loadPresets(forKind: ProjectKind) {
+    const request = ++presetsRequest.current;
+    const isLatest = () => request === presetsRequest.current;
+    setPresets(null);
+    setPresetsFailed(false);
+    api.personalities(forKind)
+      .then((loaded) => { if (isLatest()) setPresets(loaded); })
+      .catch(() => { if (isLatest()) setPresetsFailed(true); });
+  }
 
   // Building by hand starts from an empty team
   function buildByHand() {
@@ -159,9 +178,15 @@ export function NewProject({ claudeAccounts, onCreated }: {
             <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
               onClick={() => setCustom(null)}>{t("new.random")}</button>
             <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
-              disabled={!roles || !personality} onClick={buildByHand}>{t("new.buildOwn")}</button>
+              disabled={!roles || !personality || !presets || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
           </div>
         </div>
+        {presetsFailed && (
+          <p className="error" role="alert">
+            {t("new.presetsFailed")}{" "}
+            <button type="button" onClick={() => loadPresets(kind)}>{t("new.presetsRetry")}</button>
+          </p>
+        )}
         <p className="muted">
           {research
             ? custom ? t("new.introResearchCustom") : t("new.introResearch")
@@ -179,9 +204,9 @@ export function NewProject({ claudeAccounts, onCreated }: {
             ))}
         </div>
 
-        {custom && roles && personality ? (
-          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} names={names}
-            claudeAccounts={claudeAccounts} />
+        {custom && roles && personality && presets && limits ? (
+          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} presets={presets} names={names}
+            claudeAccounts={claudeAccounts} limits={limits} />
         ) : (
           <>
         <div className="team-head">

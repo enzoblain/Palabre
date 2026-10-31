@@ -35,3 +35,19 @@ def test_moved_file_lists_both_sides():
 def test_scripts_and_non_ascii():
     assert is_sensitive_path("backend/scripts/rm-clone.sh")
     assert not is_sensitive_path("backend/é.py")
+
+
+@pytest.mark.parametrize("path", [
+    "backend/app/company/catalog/company/roles/qa.toml", "backend/app/company/catalog/research/roles/new_angle.toml",
+    "backend/app/mcp_server/permissions.py",
+    "backend/app/company/catalog/company/personalities/guardian.toml",
+    "backend/app/company/catalog/research/personalities/new_preset.toml",
+    "backend/app/company/catalog/company/personality_pool.toml",
+    "backend/app/company/catalog/research/personality_pool.toml",
+])
+def test_role_files_and_permissions_are_sensitive_by_path(path):
+    assert is_sensitive_path(path)
+
+
+def test_catalog_module_is_sensitive():
+    assert is_sensitive_path("backend/app/company/catalog.py")

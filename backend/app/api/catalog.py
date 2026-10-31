@@ -5,11 +5,22 @@ from typing import Literal
 from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
-from app.company.team import generate_team, load_catalog, personality_for
+from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RoleOut, RoleToolsOut
+from app.company.catalog import MAX_TEAM_SIZE, MODELS, Role, load_catalog
+from app.company.team import generate_team, personality_for
+from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
 Kind = Literal["company", "research"]
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
+
+
+def _role_out(role: Role) -> RoleOut:
+    permissions = role.permissions
+    tools = RoleToolsOut(
+        mcp=sorted(mcp_tools_for(permissions, task_run=True)), claude=claude_tools_for(permissions)
+    )
+    return RoleOut(**role.model_dump(exclude_none=True), tools=tools)
 
 
 @router.get("/modes")
@@ -19,14 +30,27 @@ async def list_modes(kind: Kind = "company") -> dict:
 
 
 @router.get("/roles")
-async def list_roles(kind: Kind = "company") -> dict:
-    return {k: r for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
+async def list_roles(kind: Kind = "company") -> dict[str, RoleOut]:
+    """Jobs of a kind, with the MCP and Claude tools their permissions give."""
+    return {k: _role_out(r) for k, r in load_catalog()["roles"].items() if r.kind == kind}
+
+
+@router.get("/limits")
+async def team_limits() -> CatalogLimitsOut:
+    """Models an employee can run on and the biggest custom team."""
+    return CatalogLimitsOut(models=list(MODELS), max_agents=MAX_TEAM_SIZE)
 
 
 @router.get("/personality")
 async def personality_options(kind: Kind = "company") -> dict:
     """Axes, levels, quirks and styles an employee's personality is made of."""
     return personality_for(kind)
+
+
+@router.get("/personalities", response_model=dict[str, PersonalityPresetOut])
+async def list_personalities(kind: Kind = "company") -> dict:
+    """Personality presets of a kind of project, to pick from and tweak."""
+    return load_catalog()["personalities"][kind]
 
 
 @router.get("/modes/{mode}/team")

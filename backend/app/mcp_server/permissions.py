@@ -1,4 +1,4 @@
-"""Which tools each catalog permission (catalog.toml → roles.*.permissions) unlocks."""
+"""Which tools each catalog permission (catalog role files → permissions) unlocks."""
 
 from app.orchestrator.research import DRAFTS_GLOB
 

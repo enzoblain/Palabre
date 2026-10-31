@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 
+from app import github
 from app.api import deps
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode, api_error, validation_error
 from app.config import settings
@@ -206,3 +207,13 @@ async def test_real_app_production_branch_code(real_client, monkeypatch):
     r = await real_client.put("/api/projects/1/branch", json={"branch": "main"})
     assert r.status_code == 409
     assert r.json() == {"detail": "main is the production branch", "code": "production_branch_boss_only"}
+
+
+async def test_real_app_custom_team_with_two_leads_is_refused(real_client, monkeypatch):
+    async def reachable_branch(*_args):
+        return "main"
+
+    monkeypatch.setattr(github, "resolve_branch", reachable_branch)
+    team = [{"name": "Ada", "roles": ["lead"]}, {"name": "Bob", "roles": ["lead"]}]
+    r = await real_client.post("/api/projects", json={"name": "P", "repo_url": "https://github.com/o/r", "employees": team})
+    assert r.status_code == 422 and r.json()["code"] == "invalid_team_permissions"

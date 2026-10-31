@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import github, projects, worktrees
+from app.company.catalog import load_catalog
 
 
 @pytest.fixture
@@ -109,7 +110,7 @@ async def test_research_project_is_untouched(repo, monkeypatch):
 
     monkeypatch.setattr(projects, "_open_channels", no_channels)
     monkeypatch.setattr(projects, "_kick_off_research", no_kickoff)
-    mode = next(m for m in projects.load_catalog()["modes"] if projects.kind_of_mode(m) == "research")
+    mode = next(m for m in load_catalog()["modes"] if projects.kind_of_mode(m) == "research")
     project = await projects.create_project(Session(), name="R", repo_url="", mode=mode, topic="x")
     assert project.default_branch == "main"
     assert repo.created == []

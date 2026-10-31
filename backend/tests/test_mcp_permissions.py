@@ -6,7 +6,7 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult, ListToolsResult, Tool
 
-from app.company.team import load_catalog
+from app.company.catalog import load_catalog
 from app.mcp_server import auth, server
 from app.mcp_server.auth import AgentAuthMiddleware, Caller
 from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_for, mcp_tools_for
@@ -20,7 +20,7 @@ REVIEW_TOOLS = {"review_task"}
 
 
 def tools_of(role: str, task_run: bool = False) -> frozenset[str]:
-    return mcp_tools_for(load_catalog()["roles"][role]["permissions"], task_run)
+    return mcp_tools_for(load_catalog()["roles"][role].permissions, task_run)
 
 
 # --- What each position gets ----------------------------------------------------------
@@ -28,7 +28,7 @@ def tools_of(role: str, task_run: bool = False) -> frozenset[str]:
 
 def test_every_position_can_talk():
     for role, cfg in load_catalog()["roles"].items():
-        assert CONVERSATION_TOOLS <= mcp_tools_for(cfg["permissions"], False), role
+        assert CONVERSATION_TOOLS <= mcp_tools_for(cfg.permissions, False), role
 
 
 def test_lead_manages_tasks_and_merges():
@@ -63,13 +63,13 @@ def test_security_audits_and_reports_bugs_but_cannot_merge():
 
 
 def test_security_runs_audits_but_cannot_edit_code():
-    permissions = load_catalog()["roles"]["security"]["permissions"]
+    permissions = load_catalog()["roles"]["security"].permissions
     assert claude_tools_for(permissions) == ["Bash", "Glob", "Grep", "Read"]
 
 
 def test_only_the_lead_can_merge():
     for role, cfg in load_catalog()["roles"].items():
-        has_merge = bool(MERGE_TOOLS & mcp_tools_for(cfg["permissions"], True))
+        has_merge = bool(MERGE_TOOLS & mcp_tools_for(cfg.permissions, True))
         assert has_merge == (role == "lead"), role
 
 
@@ -95,7 +95,7 @@ def test_unknown_permission_grants_nothing():
 
 
 def test_every_mcp_tool_is_held_by_someone():
-    held = {p for cfg in load_catalog()["roles"].values() for p in cfg["permissions"]}
+    held = {p for cfg in load_catalog()["roles"].values() for p in cfg.permissions}
     for name, required in MCP_TOOLS.items():
         assert required & held, name
 
@@ -240,13 +240,13 @@ async def test_middleware_passes_the_resolved_caller(monkeypatch):
 
 def test_only_the_lead_can_create_channels():
     for role, cfg in load_catalog()["roles"].items():
-        has_it = "create_channel" in mcp_tools_for(cfg["permissions"], False)
+        has_it = "create_channel" in mcp_tools_for(cfg.permissions, False)
         assert has_it == (role == "lead"), role
 
 
 def test_only_the_lead_can_ship_releases():
     for role, cfg in load_catalog()["roles"].items():
-        has_it = SHIP_TOOLS <= mcp_tools_for(cfg["permissions"], True)
+        has_it = SHIP_TOOLS <= mcp_tools_for(cfg.permissions, True)
         assert has_it == (role == "lead"), role
     assert "propose_release" in tools_of("lead")
 

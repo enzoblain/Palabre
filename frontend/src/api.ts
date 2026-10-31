@@ -183,7 +183,47 @@ export type Personality = {
   style: Record<string, string[]>;
 };
 
-export type Role = { title: string; mission: string; model: string; permissions: string[] };
+/** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
+export type PersonalityPreset = {
+  key: string;
+  kind: ProjectKind;
+  label: string;
+  description: string;
+  traits: Record<string, number>;
+  quirks: string[];
+  style: Record<string, string>;
+};
+
+export type Model = "haiku" | "sonnet" | "opus";
+export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type RoleCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+
+/** The tools the permissions of a job give (RoleToolsOut on the server). */
+export type RoleTools = { mcp: string[]; claude: string[] };
+
+/** A job of the catalog (RoleOut on the server). */
+export type Role = {
+  key: string;
+  kind: ProjectKind;
+  title: string;
+  description: string;
+  category: RoleCategory;
+  order: number;
+  model: Model;
+  effort: Effort | null;
+  mission: string;
+  responsibilities: string[];
+  forbidden: string[];
+  deliverables: string[];
+  escalation: string;
+  success: string;
+  permissions: string[];
+  wakes_on: string[];
+  tools: RoleTools;
+};
+
+/** Models an employee can run on and the biggest custom team (CatalogLimitsOut on the server). */
+export type CatalogLimits = { models: Model[]; max_agents: number };
 
 /** An agent of a team built by hand (MemberIn on the server). */
 export type MemberIn = {
@@ -193,6 +233,8 @@ export type MemberIn = {
   traits: Record<string, number>;
   quirks: string[];
   style: Record<string, string>;
+  // Key of the preset the personality started from (the fields above override it)
+  personality?: string | null;
   account: number | null;
 };
 
@@ -267,7 +309,9 @@ export const ERROR_CODES = [
   "invalid_repository",
   "duplicate_employee_name",
   "unknown_roles",
+  "unknown_personality",
   "lead_required",
+  "invalid_team_permissions",
   "invalid_account",
   "research_has_no_repository",
   "direction_room_immutable",
@@ -285,6 +329,9 @@ export const ERROR_CODES = [
   "branch_already_used",
   "no_name_left",
   "task_wrong_status",
+  "stale_review_head",
+  "pr_head_moved",
+  "invalid_head_sha",
   "task_not_yours",
   "task_waiting_for_dependencies",
   "task_no_branch",
@@ -382,7 +429,9 @@ export const api = {
 
   modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
   personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
+  personalities: (kind: ProjectKind) => call<Record<string, PersonalityPreset>>(`/catalog/personalities?kind=${kind}`),
   roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
+  limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),
   previewTeam: (mode: string, seed?: number) =>
     call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),

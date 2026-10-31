@@ -138,7 +138,11 @@ async def test_refused_merge_while_ci_runs_is_remembered(flow, monkeypatch):
     async def blockers(*_):
         return ["CI still running: tests"]
 
+    async def get_pull_request(*_):
+        return {"head": {"sha": "a" * 40}}
+
     monkeypatch.setattr(workflow, "merge_blockers", blockers)
+    monkeypatch.setattr(github, "get_pull_request", get_pull_request)
     s = Session()
     with pytest.raises(WorkflowError):
         await workflow.merge_task(s, 1, flow.task.id, None)

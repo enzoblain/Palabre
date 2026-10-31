@@ -12,12 +12,16 @@ SENSITIVE_NAMES = {
     "dockerfile", "entrypoint.sh", "docker-entrypoint.sh", "sudoers", ".env",
     # Settings and agent runner
     "config.py", "runner.py", "egress_proxy.py", "auth.py", "deps.py", "github.py", "worktrees.py",
-    # The gate itself, the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
-    "sensitive_paths.py", "workflow.py", "catalog.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
+    # The gate itself (catalog.py holds its role keys and team checks), the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
+    "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
 }
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
 SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
+# Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
+SENSITIVE_ROLE_DIRS = (
+    "catalog/company/roles/", "catalog/research/roles/", "catalog/company/personalities/", "catalog/research/personalities/",
+)
 
 
 def is_sensitive_path(path: str) -> bool:
@@ -31,7 +35,7 @@ def is_sensitive_path(path: str) -> bool:
     if name.startswith(".env.") or name.endswith((".pem", ".key")):
         return True
     posix = p.as_posix()
-    return any(f"/{d}" in f"/{posix}" for d in SENSITIVE_DIRS)
+    return any(f"/{d}" in f"/{posix}" for d in SENSITIVE_DIRS + SENSITIVE_ROLE_DIRS)
 
 
 def touches_sensitive_paths(paths: list[str]) -> bool:

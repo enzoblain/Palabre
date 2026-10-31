@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, Kind, Model, Permission
 from app.github import BRANCH_PATTERN
 from app.models import RequestStatus
 
@@ -32,6 +33,41 @@ class AppSettingsOut(BaseModel):
     languages: dict[str, str]
     # Claude accounts configured in CLAUDE_CODE_OAUTH_TOKENS
     claude_accounts: int
+
+
+# --- Catalog -----------------------------------------------------------------------
+
+
+class RoleToolsOut(BaseModel):
+    mcp: list[str]
+    claude: list[str]
+
+
+class RoleOut(BaseModel):
+    """A job of the catalog, with the tools its permissions give."""
+
+    key: str
+    kind: Kind
+    title: str
+    description: str
+    category: Category
+    order: int
+    model: Model
+    effort: Effort | None = None
+    mission: str
+    responsibilities: list[str]
+    forbidden: list[str]
+    deliverables: list[str]
+    escalation: str
+    success: str
+    permissions: list[Permission]
+    wakes_on: list[str]
+    tools: RoleToolsOut
+
+
+class CatalogLimitsOut(BaseModel):
+    models: list[str]
+    max_agents: int
 
 
 # --- Employees ---------------------------------------------------------------------
@@ -85,6 +121,9 @@ class EmployeePatch(BaseModel):
 # --- Projects ----------------------------------------------------------------------
 
 
+PERSONALITY_KEY_MAX_LENGTH = 40
+
+
 class MemberIn(BaseModel):
     """An agent of a team built by hand. Personality parts left out are drawn at random."""
 
@@ -95,7 +134,21 @@ class MemberIn(BaseModel):
     traits: dict[str, int] | None = None
     quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
     style: dict[str, str] | None = None
+    # Key of a personality preset of the project's kind; traits, quirks and style given here override it
+    personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     account: int | None = Field(default=None, ge=1)
+
+
+class PersonalityPresetOut(BaseModel):
+    """A named personality: the axes it leans on (the others are neutral), quirks and style."""
+
+    key: str
+    kind: Literal["company", "research"]
+    label: str
+    description: str
+    traits: dict[str, int]
+    quirks: list[str]
+    style: dict[str, str]
 
 
 class ProjectIn(BaseModel):
@@ -113,7 +166,7 @@ class ProjectIn(BaseModel):
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
     # Team built by hand (instead of drawn at random for the mode)
-    employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=30)
+    employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=MAX_TEAM_SIZE)
 
 
 class ProjectOut(ORM):
