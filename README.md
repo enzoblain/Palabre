@@ -41,15 +41,17 @@ the team, and posts in direction only what needs your attention. Employees also 
 (`@Name`, one per pair, never with you as a participant): a DM is for an exchange between two people, a channel
 for anything that concerns several, and decisions never stay in a DM. At each wakeup an
 employee is told which channels and DMs they are in. DMs stay forever: nothing deletes or
-expires them, and the admin API refuses to delete one. Existing projects get their `#direction`
-channel at startup. There is no catch-all channel. A team
-you build by hand starts with only `#direction`; a single Claude call
-(`company/channel_planner.py`, in the background) then proposes its channels, and the
-catalog's channels are used if that fails. At startup, existing projects lose their old
-generic channels (`#general`, `#engineering`, `#product`, `#equipe`, `#couts-claude`) with
-their messages; a channel is only removed if it has the name and the exact membership of the
-old default, and no task. `#direction`, targeted channels and all DMs are kept, and the
-`#general` of a research project becomes `#research`.
+expires them, and the admin API refuses to delete one. Existing projects get their
+`#direction` channel at startup. There is no catch-all channel. A team you build by hand
+starts with only `#direction`; a single Claude call (`company/channel_planner.py`, in the
+background) then proposes its channels, and the catalog's channels are used if that fails.
+
+At startup, existing projects lose their old generic channels (`#general`, `#engineering`,
+`#product`, `#equipe`, `#couts-claude`) with their messages. The rule is the kind (a channel,
+never a DM or `#direction`) and the name, unless the catalog targets that name; membership
+does not matter. Their tasks, decisions (releases included) and open questions move to
+`#direction` first. `#direction`, targeted channels and all DMs are kept, and the `#general`
+of a research project becomes `#research`.
 
 From there the team works on its own:
 

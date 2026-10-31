@@ -1,18 +1,23 @@
 """Rooms: no generic channel at creation, and the startup migration that removes the old ones."""
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import projects
 from app.company.team import generate_team
-from app.models import Base, Conversation, Employee, Message, Project, Room, Task
+from app.models import Base, Conversation, Decision, Employee, Message, OpenQuestion, Project, Room, Task
 from app.projects import RESEARCH_ROOM, drop_generic_rooms, load_project
 
 
 @pytest.fixture
 async def db():
     engine = create_async_engine("sqlite+aiosqlite://")
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def enforce_foreign_keys(conn, _):  # SQLite ignores ON DELETE CASCADE otherwise, as Postgres does not
+        conn.execute("PRAGMA foreign_keys=ON")
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with async_sessionmaker(engine, expire_on_commit=False)() as session:
@@ -65,23 +70,48 @@ async def test_generic_rooms_go_with_their_messages_and_the_rest_stays(db):
     everyone, emps = list(project.employees), project.employees
     await add_room(db, project, "general", everyone)
     await add_room(db, project, "equipe", everyone)
+    await add_room(db, project, "engineering", emps[:3])  # it gained or lost members since: still generic
     await add_room(db, project, "dev", emps[:2])
     await add_room(db, project, "direction", [emps[0]], kind="direction")
     await add_room(db, project, "Malik-Nathan", emps[:2], kind="dm", messages=3)
-    # same name as a generic room, but not its composition: someone's own channel
-    await add_room(db, project, "product", emps[:2])
+    await add_room(db, project, "general", emps[:2], kind="dm", messages=2)  # a DM is never touched
     await db.commit()
 
     await drop_generic_rooms(db)
-    assert await names(db) == {"dev", "direction", "Malik-Nathan", "product"}
+    assert await names(db) == {"dev", "direction", "Malik-Nathan", "general"}
+    assert await db.scalar(select(Room.kind).where(Room.name == "general")) == "dm"
     kept = await db.scalar(select(func.count()).select_from(Message))
-    assert kept == 1 + 3 + 1 + 1  # dev, dm, direction, product; none of the deleted rooms' messages
+    assert kept == 1 + 1 + 3 + 2  # dev, direction, both DMs; none of the deleted rooms' messages
 
     await drop_generic_rooms(db)  # idempotent
-    assert await names(db) == {"dev", "direction", "Malik-Nathan", "product"}
+    assert await names(db) == {"dev", "direction", "Malik-Nathan", "general"}
+    assert await db.scalar(select(func.count()).select_from(Message)) == kept
 
 
-async def test_a_generic_room_with_tasks_is_kept(db):
+async def test_tasks_decisions_and_questions_move_to_direction(db):
+    project = await make_project(db)
+    emps = project.employees
+    general = await add_room(db, project, "general", list(emps))
+    direction = await add_room(db, project, "direction", [emps[0]], kind="direction")
+    general_conversation = await db.scalar(select(Conversation.id).where(Conversation.room_id == general.id))
+    direction_conversation = await db.scalar(select(Conversation.id).where(Conversation.room_id == direction.id))
+    task = Task(project_id=project.id, room_id=general.id, conversation_id=general_conversation, title="t")
+    decision = Decision(room_id=general.id, title="Release 1.0", proposed_by="Élise", pr_number=7)
+    question = OpenQuestion(room_id=general.id, question="why?", asked_by="Élise")
+    db.add_all([task, decision, question])
+    await db.commit()
+
+    await drop_generic_rooms(db)
+    await db.refresh(task)
+    await db.refresh(decision)
+    await db.refresh(question)
+    assert await names(db) == {"direction"}
+    assert (task.room_id, task.conversation_id) == (direction.id, direction_conversation)
+    assert decision.room_id == direction.id and decision.pr_number == 7
+    assert question.room_id == direction.id
+
+
+async def test_a_generic_room_holding_tasks_is_kept_without_a_direction_room(db):
     project = await make_project(db)
     room = await add_room(db, project, "general", list(project.employees))
     db.add(Task(project_id=project.id, room_id=room.id, conversation_id=1, title="t"))

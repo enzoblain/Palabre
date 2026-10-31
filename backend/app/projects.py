@@ -26,7 +26,8 @@ from app.company.team import (
     reroll_employee,
 )  # fmt: skip
 from app.models import (
-    Conversation, Decision, DecisionStatus, Employee, Event, Message, Project, RequestAnswer, Room, Task, TaskStatus,
+    Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, Room, Task,
+    TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
 from app.services import WorkflowError
@@ -118,7 +119,9 @@ async def create_project(
 async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
     """The topic becomes the objective of the research room and the boss's first message,
     which starts the research (phase 1)."""
-    room = next(r for r in project.rooms if r.name == RESEARCH_ROOM)
+    room = next((r for r in project.rooms if r.name == RESEARCH_ROOM), None)
+    if room is None:
+        raise WorkflowError(f"The {RESEARCH_ROOM} room of project {project.id} is missing")
     room.objective = topic
     conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
     message = await services.post_message(s, project.id, conversation_id, topic, None)
@@ -228,28 +231,22 @@ async def ensure_all_directions(s: AsyncSession) -> None:
     await s.commit()
 
 
-# Rooms every company used to get. Matched by name AND membership (the exact roles of the old
-# catalog entry, None = everyone), so a room someone made on purpose under the same name stays.
-_ENGINEERING = ["lead", "architect", "dev", "dev_backend", "dev_frontend", "reviewer", "devops", "security", "scribe"]
-_PRODUCT = ["lead", "product_owner", "designer", "qa", "tech_writer", "scribe"]
-_GENERIC_ROOMS = {
-    "general": None, "equipe": None, "couts-claude": None, "engineering": _ENGINEERING, "product": _PRODUCT,
-}
+# Names of the channels every company used to get. A channel (kind "team") with one of them is
+# generic unless the catalog targets that name; a channel an AI plan or a user named the same
+# cannot be told apart, so it goes too (the plan never proposes these names).
+_GENERIC_ROOMS = {"general", "equipe", "couts-claude", "engineering", "product"}
 
 
-def _is_generic_room(room: Room, employees: list[Employee]) -> bool:
-    if room.kind != "team" or room.name not in _GENERIC_ROOMS:
-        return False
-    roles = _GENERIC_ROOMS[room.name]
-    expected = employees if roles is None else _channel_members({"roles": roles}, employees)
-    return {m.id for m in room.members} == {e.id for e in expected}
+def _is_generic_room(room: Room, targeted: set[str]) -> bool:
+    return room.kind == "team" and room.name in _GENERIC_ROOMS and room.name not in targeted
 
 
 async def drop_generic_rooms(s: AsyncSession) -> None:
     """There are no generic channels anymore: delete the old ones with their messages, and give
-    the "general" room of a research project its new name. Direction, targeted channels and DMs
-    are never touched, nor a generic room that still holds tasks (they would go with it).
-    Safe to run at every startup."""
+    the "general" room of a research project its new name. Their tasks, decisions and open
+    questions move to the project's direction room first (they would cascade with the room).
+    Direction, targeted channels and DMs are never touched. Safe to run at every startup."""
+    targeted = {c["name"] for c in load_catalog()["channels"]}
     for project_id in list(await s.scalars(select(Project.id))):
         project = await load_project(s, project_id)
         if project.kind == "research":
@@ -257,11 +254,25 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
             if general is not None and not any(r.name == RESEARCH_ROOM for r in project.rooms):
                 general.name = RESEARCH_ROOM
             continue
+        direction = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
+        direction_conversation = None
+        if direction is not None:
+            direction_conversation = await s.scalar(
+                select(Conversation.id).where(Conversation.room_id == direction.id).order_by(Conversation.id).limit(1)
+            )
         for room in project.rooms:
-            if not _is_generic_room(room, project.employees):
+            if not _is_generic_room(room, targeted):
                 continue
-            if await s.scalar(select(Task.id).where(Task.room_id == room.id).limit(1)) is not None:
-                continue
+            if direction is not None and direction_conversation is not None:
+                await s.execute(update(Task).where(Task.room_id == room.id).values(
+                    room_id=direction.id, conversation_id=direction_conversation))
+                await s.execute(update(Decision).where(Decision.room_id == room.id).values(room_id=direction.id))
+                await s.execute(update(OpenQuestion).where(OpenQuestion.room_id == room.id).values(room_id=direction.id))
+            else:
+                # Nowhere to move them to: keep the room rather than lose them
+                held = [Task.room_id, Decision.room_id, OpenQuestion.room_id]
+                if any([await s.scalar(select(col).where(col == room.id).limit(1)) is not None for col in held]):
+                    continue
             conversations = select(Conversation.id).where(Conversation.room_id == room.id)
             await s.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
             await s.execute(delete(Conversation).where(Conversation.room_id == room.id))
