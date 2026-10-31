@@ -98,7 +98,7 @@ async def real_client(monkeypatch):
     transport = ASGITransport(app=app, client=("3.3.3.3", 1))
     async with AsyncClient(transport=transport, base_url="http://t", headers=headers) as c:
         yield c
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_session, None)
     deps._failures.clear()
 
 
@@ -120,7 +120,12 @@ async def test_real_app_validation_error(real_client):
 
 @pytest.mark.parametrize(
     ("exc", "status", "code"),
-    [(WorkflowError("nope"), 409, "workflow_error"), (GitHubError("boom"), 502, "github_error")],
+    [
+        (WorkflowError("nope"), 409, "workflow_error"),
+        (GitHubError("boom"), 502, "github_error"),
+        (WorkflowError("blocked", code=ErrorCode.MERGE_BLOCKED), 409, "merge_blocked"),
+        (GitHubError("no token", ErrorCode.GITHUB_NOT_CONFIGURED), 502, "github_not_configured"),
+    ],
 )
 async def test_real_app_domain_errors(real_client, monkeypatch, exc, status, code):
     from app.api import tasks
@@ -145,3 +150,26 @@ async def test_get_or_404_falls_back_to_generic_code():
     with pytest.raises(ApiError) as e:
         await deps.get_or_404(_NoRows(), Unmapped, 1)
     assert e.value.status_code == 404 and e.value.code == ErrorCode.NOT_FOUND
+
+
+async def test_real_app_personality_code(real_client, monkeypatch):
+    from app.api import projects as api_projects
+
+    async def get_or_404(_s, _model, _id):
+        return SimpleNamespace(id=1, project_id=1, kind="company")
+
+    monkeypatch.setattr(api_projects, "get_or_404", get_or_404)
+    r = await real_client.patch("/api/employees/1", json={"traits": {"nope": 1}})
+    assert r.status_code == 409
+    assert r.json()["code"] == "invalid_personality"
+
+
+def test_github_error_never_leaks_credentials(monkeypatch):
+    import base64
+
+    monkeypatch.setattr(settings, "github_token", "ghp_secret123")
+    basic = base64.b64encode(b"x-access-token:ghp_secret123").decode()
+    err = GitHubError(f"fatal: https://x-access-token:ghp_secret123@github.com/o/r failed AUTHORIZATION: basic {basic}")
+    assert "ghp_secret123" not in str(err) and basic not in str(err)
+    assert "https://***@github.com/o/r" in str(err)
+    assert GitHubError("x").code == ErrorCode.GITHUB_ERROR
