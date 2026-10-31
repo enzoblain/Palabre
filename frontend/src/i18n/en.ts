@@ -107,6 +107,8 @@ export const en = {
   "menu.projects": "Projects",
   "menu.report": "Report",
   "menu.document": "Document",
+  "menu.conversation": "Conversation",
+  "menu.viewSwitch": "View",
   "menu.newProject": "New project",
 
   "settings.title": "Settings",
