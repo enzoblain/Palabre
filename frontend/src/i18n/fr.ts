@@ -107,9 +107,9 @@ export const fr: Messages = {
   "menu.changeProject": "{name} : changer de projet",
   "menu.projects": "Projets",
   "menu.report": "Rapport",
+  "menu.project": "Projet",
   "menu.document": "Document",
   "menu.conversation": "Conversation",
-  "menu.viewSwitch": "Affichage",
   "menu.newProject": "Nouveau projet",
 
   "settings.title": "Paramètres",
@@ -296,7 +296,6 @@ export const fr: Messages = {
   "doc.resolvedCount": "{count} résolue(s)",
   "doc.whoDoesWhat": "Qui fait quoi",
   "doc.unassigned": "non assignée",
-  "doc.summaryMeta": "Document mis à jour {ago}",
   "doc.nothing": "Rien pour l’instant",
   "doc.statsLabel": "Aller à une section",
   "doc.statDecisions": "{count} à valider",

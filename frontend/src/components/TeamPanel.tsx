@@ -3,7 +3,7 @@ import type { Conversation, Presence, Project, ProjectDetail } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { Avatar } from "./Avatar";
-import { DocumentIcon, GearIcon, PlusIcon } from "./Icons";
+import { ConversationIcon, DocumentIcon, GearIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
@@ -123,6 +123,11 @@ export function TeamPanel({ project, route, presence, open, onClose, noProject }
     return lead || busy || a.name.localeCompare(b.name);
   });
 
+  // The main conversation: direction, or the first room of a research group
+  const homeRoom = project?.detail.rooms.find((r) => r.kind === "direction") ?? project?.detail.rooms[0];
+  const homeConversationId = homeRoom && project?.conversations[homeRoom.id]?.[0]?.id;
+  const isHomeConversation = route.name === "project" && route.conversationId === homeConversationId;
+
   return (
     <aside className={`team-panel${open ? " open" : ""}`} aria-label={t("team.title")} onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="panel-head">
@@ -130,7 +135,13 @@ export function TeamPanel({ project, route, presence, open, onClose, noProject }
       </header>
       {noProject ? <div className="panel-empty" /> : !project ? <p className="muted panel-empty">{t("common.loading")}</p> : (
         <div className="panel-body">
-          <nav aria-label={t("menu.document")}>
+          <nav aria-label={t("menu.project")}>
+            {homeConversationId !== undefined && (
+              <a className={`nav-item${isHomeConversation ? " active" : ""}`} href={`#/p/${project.detail.id}/c/${homeConversationId}`}
+                aria-current={isHomeConversation ? "page" : undefined} onClick={onClose}>
+                <ConversationIcon size={15} /> {t("menu.conversation")}
+              </a>
+            )}
             <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${project.detail.id}/report`}
               aria-current={route.name === "report" ? "page" : undefined} onClick={onClose}>
               <DocumentIcon size={15} /> {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
