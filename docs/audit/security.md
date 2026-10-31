@@ -4,8 +4,8 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 
 ## Fixed since the first audit
 
-- H1. Shared `agent` uid: fixed, one uid per run from a pool, per-run tokens and `/proc` isolation checked by `check-isolation.sh`.
-- H2. Shared `/data/claude`: fixed, one Claude config directory per run.
+- H1. Shared `agent` uid: one uid per run from a pool, per-run tokens and `/proc` isolation. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
+- H2. Shared `/data/claude`: one Claude config directory per run. Verified in a container by `check-isolation.sh` and `check-migration.sh`, run by the "Compose smoke test" job of `ci.yml` (via `.github/scripts/compose-smoke.sh`), see #162 and #172.
 - M2. `ADMIN_TOKEN` length and rate limit: fixed, 32 characters minimum (same for `POSTGRES_PASSWORD`), `429` after 10 failures in 5 minutes.
 - M3. Unpinned supply chain: fixed, Claude Code pinned with checksums and images pinned.
 - L3. `compare_digest` on non-ASCII input: fixed.
