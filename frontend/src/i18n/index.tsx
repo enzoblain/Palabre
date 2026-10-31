@@ -17,13 +17,15 @@ const DICTIONARIES: Record<string, Messages> = { French: fr, English: en };
 const LOCALES: Record<string, string> = {
   French: "fr", English: "en", Spanish: "es", German: "de", Italian: "it", Portuguese: "pt", Dutch: "nl",
 };
+/** Own-property check: a stored or remote value like "__proto__" or "toString" is not a language. */
+const known = (language: string): boolean => Object.prototype.hasOwnProperty.call(LOCALES, language);
 const STORAGE_KEY = "palabre.language";
 export const DEFAULT_LANGUAGE = "French";
 
 /** Before the settings are known (login screen): the last language seen, else the browser's. */
 function initialLanguage(): string {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved && saved in LOCALES) return saved;
+  if (saved && known(saved)) return saved;
   const browser = navigator.language.slice(0, 2);
   return Object.keys(LOCALES).find((k) => LOCALES[k] === browser) ?? DEFAULT_LANGUAGE;
 }
@@ -31,11 +33,17 @@ function initialLanguage(): string {
 let current = initialLanguage();
 
 export function locale(): string {
-  return LOCALES[current] ?? LOCALES[DEFAULT_LANGUAGE];
+  return known(current) ? LOCALES[current] : LOCALES[DEFAULT_LANGUAGE];
 }
 
+function dictionary(): Messages {
+  return Object.prototype.hasOwnProperty.call(DICTIONARIES, current) ? DICTIONARIES[current] : en;
+}
+
+// Plurals: no ICU. A message that depends on a count gets one key per form (conv.member / conv.members),
+// picked by the caller; wording that reads badly for 1 should be phrased neutrally.
 function template(key: Key, vars: Record<string, string | number> = {}): string {
-  const text = (DICTIONARIES[current] ?? en)[key];
+  const text = dictionary()[key];
   return text.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? `{${name}}`));
 }
 
@@ -44,8 +52,9 @@ export function translate<K extends Key>(key: K, ...[vars]: Params<K>): string {
   return template(key, vars as Record<string, string | number> | undefined);
 }
 
+// Builds React nodes by splitting the template, never HTML strings: values are rendered as text or elements.
 function rich(key: Key, vars: Record<string, ReactNode> = {}): ReactNode {
-  const text = (DICTIONARIES[current] ?? en)[key];
+  const text = dictionary()[key];
   return text.split(/(\{\w+\})/).map((part, i) => {
     const name = /^\{(\w+)\}$/.exec(part)?.[1];
     return <Fragment key={i}>{name ? vars[name] : part}</Fragment>;
@@ -71,7 +80,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [language]);
   const value = useMemo<I18n>(() => ({
     language,
-    setLanguage: (l) => setLanguageState(l in LOCALES ? l : DEFAULT_LANGUAGE),
+    setLanguage: (l) => setLanguageState(known(l) ? l : DEFAULT_LANGUAGE),
     t: translate,
     tr: (key, ...[vars]) => rich(key, vars as Record<string, ReactNode> | undefined),
   }), [language]);

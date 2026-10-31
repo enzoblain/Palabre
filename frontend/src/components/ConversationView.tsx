@@ -364,7 +364,7 @@ export function ConversationView({ conversation, room, project, projects, route,
             <p className="muted">
               {research
                 ? t("conv.introResearch")
-                : `${t("conv.intro")} ${lead ? t("conv.introLead", { name: lead.name, title: lead.title }) : ""}`}
+                : [t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
             </p>
           </div>
         )}

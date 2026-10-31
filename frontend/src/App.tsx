@@ -74,7 +74,9 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   });
   const bossName = settings.boss_name;
   // The whole interface speaks the language set for the team
-  useEffect(() => setLanguage(settings.language), [settings.language, setLanguage]);
+  useEffect(() => {
+    setLanguage(settings.language);
+  }, [settings.language, setLanguage]);
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);

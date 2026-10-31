@@ -40,7 +40,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
 
   if (!doc) return <p className="muted center">{t("common.loading")}</p>;
   const taskStatus = (status: string) =>
-    (TASK_STATUSES as readonly string[]).includes(status) ? t(`task.${status as (typeof TASK_STATUSES)[number]}`) : status.replace("_", " ");
+    (TASK_STATUSES as readonly string[]).includes(status) ? t(`task.${status as (typeof TASK_STATUSES)[number]}`) : status.replaceAll("_", " ");
   const conclusions = research ? t("doc.conclusions") : t("doc.decisions");
   const byStatus = (status: Decision["status"]) => doc.decisions.filter((d) => d.status === status);
   const open = doc.questions.filter((q) => !q.resolved);
