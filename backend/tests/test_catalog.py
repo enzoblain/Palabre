@@ -315,6 +315,14 @@ def test_extended_job_inherits_the_archetype_permissions(catalog_copy):
     assert roles["kernel_developer"].model == roles["dev_backend"].model
 
 
+@pytest.mark.parametrize("field", ["permissions", "wakes_on"])
+def test_extended_job_cannot_set_archetype_only_fields(catalog_copy, field):
+    value = '["merge"]' if field == "permissions" else '["task_created"]'
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(f"{EXTENDED_JOB}\n{field} = {value}\n")
+    with pytest.raises(CatalogError, match=rf"kernel_developer.toml.*cannot set {field}"):
+        load_roles()
+
+
 def test_extended_job_acts_as_its_archetype(catalog_copy):
     (catalog_copy / "company/roles/unlisted_job.toml").write_text(EXTENDED_JOB.replace("dev_backend", "reviewer"))
     catalog_module.load_catalog.cache_clear()
