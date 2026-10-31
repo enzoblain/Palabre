@@ -26,6 +26,7 @@ from app.orchestrator.prompts import (
     RESEARCH_RULES,
     code_standards_rule,
     language_rule,
+    lead_boss_rule,
     operating_rules,
     orientation_rule,
     task_rules,
@@ -47,12 +48,14 @@ CHATTER_EVENTS = {"mention", "conversation_idle", "daily"}
 
 def build_system_prompt(team: Team, member: TeamMember, project: Project, boss_name: str, first_run: bool) -> str:
     """Assemble the system prompt of an agent run from its role and project."""
+    language = services.team_language()
     return "\n\n".join(p for p in [
         render_system_prompt(team, member, boss_name),
         RESEARCH_RULES if project.kind == "research" else operating_rules(),
         CHAT_RULES,
         orientation_rule(project.default_branch, first_run) if project.kind == "company" else None,
-        language_rule(services.team_language()),
+        language_rule(language),
+        lead_boss_rule(member.roles, language),
         version_rule(member.roles),
         code_standards_rule(member.roles),
     ] if p)  # fmt: skip
