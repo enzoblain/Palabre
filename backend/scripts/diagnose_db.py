@@ -2,11 +2,12 @@
 
     docker compose exec backend python -m scripts.diagnose_db
 
-Reads DATABASE_URL like the app does. Two parts:
+Reads DATABASE_URL like the app does. Three parts:
 1. conversation_throttled events of the last 24 h, per hour and per conversation (read only).
 2. messages.request_status values outside the RequestStatus enum (read only), then
    _add_missing_checks (the only write: it adds the missing CHECK constraints, NOT VALID), then
    whether ck_messages_request_status exists.
+3. whether a FOREIGN KEY still covers messages.request_author_id (read only; it must be gone, #285).
 """
 
 import asyncio
@@ -76,6 +77,22 @@ async def request_status(conn: AsyncConnection) -> None:
         print(f"{REQUEST_STATUS_CHECK}: present ({'validated' if found[0] else 'NOT VALID: new writes checked, old rows not'})")
 
 
+async def request_author_fk(conn: AsyncConnection) -> None:
+    print("\n== 3. messages.request_author_id foreign key ==")
+    names = (
+        await conn.execute(
+            text(
+                "SELECT c.conname FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)"
+                " WHERE c.contype = 'f' AND c.conrelid = 'messages'::regclass AND a.attname = 'request_author_id' ORDER BY 1"
+            )
+        )
+    ).scalars().all()
+    if names:
+        print(f"FK request_author_id: present (KO), constraint {', '.join(names)}")
+    else:
+        print("FK request_author_id: absent (OK)")
+
+
 async def main() -> None:
     # One transaction, committed at the end: part 1 and the checks only read, _add_missing_checks may add constraints
     try:
@@ -84,6 +101,7 @@ async def main() -> None:
             await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
             await throttling(conn)
             await request_status(conn)
+            await request_author_fk(conn)
     except DBAPIError as exc:
         if getattr(exc.orig, "sqlstate", None) != "55P03":
             raise

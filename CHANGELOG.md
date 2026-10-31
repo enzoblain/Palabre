@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-31
+
+### Fixed
+
+- ui: move Conversation into the left menu above Document (#254)
+- document: make the scribe summary a project summary (#255)
+
 ## [0.17.0] - 2026-10-31
 
 ### Added
@@ -473,7 +480,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/enzoblain/Palabre/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/enzoblain/Palabre/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/enzoblain/Palabre/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/enzoblain/Palabre/compare/v0.14.2...v0.15.0

@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { ApiError, type Decision, type Room, api } from "../api";
 import { useI18n } from "../i18n";
-import { formatAgo, formatTime, usePolling } from "../util";
+import { formatTime, usePolling } from "../util";
 import { Markdown } from "./Markdown";
 import type { ProjectState } from "./TeamPanel";
 
@@ -11,7 +11,7 @@ const TASK_STATUSES = ["todo", "in_progress", "review", "changes_requested", "do
 type Question = { id: number; question: string; asked_by: string; answer: string | null; resolved: boolean };
 type Task = { id: number; title: string; status: string; assignee: string | null; pr_url: string | null };
 type RoomDocument = {
-  room: Pick<Room, "id" | "name" | "objective" | "summary" | "updated_at" | "members">;
+  room: Pick<Room, "id" | "name" | "objective" | "summary" | "members">;
   decisions: Decision[];
   questions: Question[];
   tasks: Task[];
@@ -160,9 +160,6 @@ export function DocumentView({ project }: { project: ProjectState }) {
     <div className="page document">
       <header className="doc-head">
         <h1>{project.detail.name}</h1>
-        <p className="muted doc-meta">
-          {t("doc.summaryMeta", { ago: formatAgo(doc.room.updated_at) })}
-        </p>
       </header>
       {error && <p className="error" role="alert">{error}</p>}
 

@@ -131,10 +131,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }
   }, [route.name, project, conversationId]);
 
-  // The general conversation, so the document always has a way back
-  const homeRoom = project?.detail.rooms.find((r) => r.kind === "direction") ?? project?.detail.rooms[0];
-  const homeConversationId = homeRoom && project?.conversations[homeRoom.id]?.[0]?.id;
-
   let main: React.ReactNode;
   if (route.name === "new") {
     main = <NewProject claudeAccounts={claudeAccounts} onCreated={(p) => {
@@ -192,16 +188,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
           <header className="topbar report-bar">
             <ProjectMenu route={route} projects={projects} project={project} />
           </header>
-        )}
-        {inProject && route.name === "report" && project && (
-          <nav className="doc-tabs" aria-label={t("menu.viewSwitch")}>
-            {homeConversationId !== undefined && (
-              <a className="doc-tab" href={`#/p/${project.detail.id}/c/${homeConversationId}`}>{t("menu.conversation")}</a>
-            )}
-            <a className="doc-tab active" href={`#/p/${project.detail.id}/report`} aria-current="page">
-              {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
-            </a>
-          </nav>
         )}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
