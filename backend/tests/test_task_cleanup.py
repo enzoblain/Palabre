@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app import github, workflow
@@ -74,7 +75,7 @@ async def test_only_task_branches_are_deleted(gh, branch):
 
 
 async def test_github_error_is_logged_not_raised(gh):
-    gh.fail_delete = github.GitHubError("GitHub DELETE: 500")
+    gh.fail_delete = github.GitHubError("GitHub DELETE: 500", status=500)
     task = make_task(status=TaskStatus.cancelled, worktree_path="/w")
     await workflow.clean_up_task(make_project(), task)  # must not raise
     assert task.worktree_path == "/w"
@@ -115,7 +116,29 @@ async def test_backlog_visits_finished_tasks_only_with_known_branches(gh):
 
 async def test_missing_pull_request_counts_as_not_open(monkeypatch):
     async def api(*_args, **_kwargs):
-        raise github.GitHubError("GitHub GET /repos/a/b/pulls/9: 404 Not Found")
+        raise github.GitHubError("GitHub GET /repos/a/b/pulls/9: 404 Not Found", status=404)
 
     monkeypatch.setattr(github, "_api", api)
     assert await github.is_pull_request_open("a/b", 9) is False
+
+
+async def test_non_404_error_on_pull_request_is_raised(monkeypatch):
+    async def api(*_args, **_kwargs):
+        raise github.GitHubError("GitHub GET /repos/a/b/pulls/9: 500 boom", status=500)
+
+    monkeypatch.setattr(github, "_api", api)
+    with pytest.raises(github.GitHubError) as caught:
+        await github.is_pull_request_open("a/b", 9)
+    assert caught.value.status == 500
+
+
+@pytest.mark.parametrize("status", [404, 500])
+async def test_api_error_carries_the_http_status(monkeypatch, status):
+    real_client = httpx.AsyncClient
+    transport = httpx.MockTransport(lambda _request: httpx.Response(status, text="nope"))
+    monkeypatch.setattr(github.settings, "github_token", "t")
+    monkeypatch.setattr(github.httpx, "AsyncClient", lambda **kw: real_client(transport=transport, **kw))
+    with pytest.raises(github.GitHubError) as caught:
+        await github._api("GET", "/repos/a/b")
+    assert caught.value.status == status
+    assert github.GitHubError("git failed").status is None
