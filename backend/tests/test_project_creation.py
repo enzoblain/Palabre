@@ -213,7 +213,7 @@ def test_branch_change_rejects_trailing_newline():
 
 async def test_lead_cannot_move_the_team_to_production(repo):
     from app.errors import ErrorCode
-    from app.services import WorkflowError
+    from app.errors import WorkflowError
 
     project = SimpleNamespace(repo_url=URL, default_branch="dev")
     with pytest.raises(WorkflowError) as e:

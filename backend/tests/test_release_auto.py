@@ -8,7 +8,7 @@ import pytest
 
 from app import github, projects, release, worktrees
 from app.orchestrator import merge_watch
-from app.services import WorkflowError
+from app.errors import WorkflowError
 
 from .conftest import make_project
 from .test_merge_watch import WatchSession, events_of

@@ -12,7 +12,7 @@ from app.api import deps
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode, api_error, validation_error
 from app.config import settings
 from app.github import GitHubError
-from app.services import WorkflowError
+from app.errors import WorkflowError
 from fastapi.exceptions import RequestValidationError
 
 
