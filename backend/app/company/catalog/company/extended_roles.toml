@@ -1,4 +1,5 @@
 # Extended jobs: English name → unique key, category and archetype (the existing role whose permissions and workflow place the job inherits).
+# Keys: the lowercase name in snake_case; a leading digit moves after the noun (5G Network Engineer -> network_5g_engineer). `lead` is never an archetype (only the CTO line, `existing`, is the lead itself).
 # A name appearing in several categories keeps the first one. `existing = true` links a name to a role that already has its own file.
 
 [lead]
@@ -10,62 +11,62 @@ existing = true
 [cio]
 name = "CIO"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "architect"
 
 [ciso]
 name = "CISO"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "security"
 
 [chief_ai_officer]
 name = "Chief AI Officer"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "architect"
 
 [chief_data_officer]
 name = "Chief Data Officer"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "architect"
 
 [engineering_director]
 name = "Engineering Director"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [it_director]
 name = "IT Director"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [engineering_manager]
 name = "Engineering Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [it_manager]
 name = "IT Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [innovation_manager]
 name = "Innovation Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [r_and_d_manager]
 name = "R&D Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "product_owner"
 
 [technology_strategist]
 name = "Technology Strategist"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "architect"
 
 [it_governance_manager]
 name = "IT Governance Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "architect"
 
 [it_auditor]
 name = "IT Auditor"
@@ -75,7 +76,7 @@ archetype = "reviewer"
 [it_risk_manager]
 name = "IT Risk Manager"
 category = "direction_strategy"
-archetype = "lead"
+archetype = "security"
 
 [software_architect]
 name = "Software Architect"
@@ -1020,7 +1021,7 @@ name = "Wireless Network Engineer"
 category = "networks_telecom"
 archetype = "devops"
 
-[r_5g_network_engineer]
+[network_5g_engineer]
 name = "5G Network Engineer"
 category = "networks_telecom"
 archetype = "devops"
@@ -1512,7 +1513,7 @@ name = "Motion Designer"
 category = "ux_ui_design"
 archetype = "designer"
 
-[r_3d_designer]
+[designer_3d]
 name = "3D Designer"
 category = "ux_ui_design"
 archetype = "designer"
@@ -1752,7 +1753,7 @@ name = "Technical Artist"
 category = "games_3d_multimedia"
 archetype = "designer"
 
-[r_3d_artist]
+[artist_3d]
 name = "3D Artist"
 category = "games_3d_multimedia"
 archetype = "designer"
@@ -1807,7 +1808,7 @@ name = "XR Developer"
 category = "games_3d_multimedia"
 archetype = "dev_backend"
 
-[r_3d_graphics_engineer]
+[graphics_engineer_3d]
 name = "3D Graphics Engineer"
 category = "games_3d_multimedia"
 archetype = "dev_backend"

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import shutil
+import tomllib
 from typing import get_args
 
 import pytest
@@ -273,6 +274,34 @@ def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
         assert entry.existing == (entry.key in roles)
 
 
+def test_no_extended_job_uses_the_lead_or_its_own_permissions():
+    roles = load_roles()
+    for entry in load_extended_index().values():
+        assert entry.archetype != "lead" or entry.existing, entry.key
+    extended = [r for r in roles.values() if r.archetype is not None]
+    for role in extended:
+        assert role.archetype != "lead", role.key
+        assert roles[role.archetype].kind == "company" and roles[role.archetype].archetype is None, role.key
+        assert (role.permissions, role.wakes_on) == (roles[role.archetype].permissions, roles[role.archetype].wakes_on)
+    for path in CATALOG_DIR.glob("*/roles/*.toml"):
+        raw = tomllib.loads(path.read_text())
+        if "archetype" in raw:
+            assert not {"permissions", "wakes_on"} & raw.keys(), path.name
+
+
+def test_extended_job_cannot_have_the_lead_as_archetype(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "lead"))
+    with pytest.raises(CatalogError, match="lead cannot be an archetype"):
+        load_roles()
+
+
+def test_index_entry_pointing_to_the_lead_is_refused_unless_existing(catalog_copy):
+    index = catalog_copy / "company/extended_roles.toml"
+    index.write_text(index.read_text().replace('archetype = "architect"', 'archetype = "lead"', 1))
+    with pytest.raises(CatalogError, match="lead cannot be an archetype"):
+        load_extended_index()
+
+
 def test_extended_index_has_unique_names():
     names = [e.name.casefold() for e in load_extended_index().values()]
     assert len(names) == len(set(names))
@@ -290,8 +319,10 @@ def test_extended_job_acts_as_its_archetype(catalog_copy):
     (catalog_copy / "company/roles/unlisted_job.toml").write_text(EXTENDED_JOB.replace("dev_backend", "reviewer"))
     catalog_module.load_catalog.cache_clear()
     try:
-        assert held_role_keys(["unlisted_job"]) == {"unlisted_job", "reviewer"}
-        assert held_role_keys(["qa"]) == {"qa"}
+        roles = load_catalog()["roles"]
+        assert held_role_keys(["unlisted_job"], roles) == {"unlisted_job", "reviewer"}
+        assert held_role_keys(["qa"], roles) == {"qa"}
+        assert held_role_keys(["removed_job"], roles) == {"removed_job"}
     finally:
         catalog_module.load_catalog.cache_clear()
 

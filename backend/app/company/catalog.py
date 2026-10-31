@@ -5,7 +5,7 @@ from functools import cache
 from pathlib import Path
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from app.orchestrator.event_types import EventType
 
@@ -86,6 +86,13 @@ class Role(BaseModel):
     permissions: tuple[Permission, ...]
     wakes_on: tuple[EventType, ...]
 
+    @field_validator("archetype")
+    @classmethod
+    def _archetype_is_not_lead(cls, archetype: str | None) -> str | None:
+        if archetype == LEAD_KEY:
+            raise ValueError("the lead cannot be an archetype (it holds unique permissions)")
+        return archetype
+
 
 class ExtendedRoleEntry(BaseModel):
     """One line of the extended jobs index: an English name, its category and the role it behaves like."""
@@ -97,6 +104,12 @@ class ExtendedRoleEntry(BaseModel):
     category: Category | ExtendedCategory
     archetype: str = Field(pattern=KEY_PATTERN)
     existing: bool = False  # the job is an already existing role, which keeps its own file
+
+    @model_validator(mode="after")
+    def _only_the_existing_lead_points_to_the_lead(self) -> "ExtendedRoleEntry":
+        if self.archetype == LEAD_KEY and not self.existing:
+            raise ValueError("the lead cannot be an archetype (only the existing lead entry points to it)")
+        return self
 
 
 class PersonalityAxis(BaseModel):
@@ -341,10 +354,10 @@ def load_catalog() -> dict:
     return catalog
 
 
-def held_role_keys(role_keys: list[str]) -> set[str]:
+def held_role_keys(role_keys: list[str], roles: dict[str, Role]) -> set[str]:
     """The roles an employee acts as: their own and the archetypes of their extended jobs, so an
-    extended job takes the workflow place (gates, events) of its archetype."""
-    roles = load_catalog()["roles"]
+    extended job takes the workflow place (gates, events) of its archetype. A key missing from the
+    catalog (a removed job) grants nothing."""
     return {*role_keys, *(roles[k].archetype for k in role_keys if k in roles and roles[k].archetype)}
 
 

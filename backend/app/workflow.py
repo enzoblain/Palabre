@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
-from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, held_role_keys, load_catalog
+from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
 from app.config import settings
 from app.errors import ErrorCode, WorkflowError
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
@@ -612,6 +612,21 @@ def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: T
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
+def _approval_seats(approvers: list[Employee], task: Task, roles: dict[str, Role]) -> dict[str, int]:
+    """How many approvals each gate gets: an approver fills a single gate (the scarcest first, so one
+    employee with several jobs cannot clear them all) and the task's assignee fills none (decision #48)."""
+    seats = dict.fromkeys((SECURITY_KEY, QA_KEY, REVIEWER_KEY), 0)
+    free = [(e, held_role_keys(e.roles, roles)) for e in approvers if e.id != task.assignee_id]
+    for gate in seats:
+        # Take first the approvers who cannot serve a later gate
+        free.sort(key=lambda held: len(held[1] & seats.keys()))
+        matching = [entry for entry in free if gate in entry[1]]
+        picked = matching if gate == REVIEWER_KEY else matching[:1]
+        seats[gate] = len(picked)
+        free = [entry for entry in free if entry not in picked]
+    return seats
+
+
 async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head: str | None = None) -> list[str]:
     """Everything that prevents merging this task under the company's mode.
     ci_head: the commit whose CI is checked (the one about to be merged); default, the PR's current head."""
@@ -628,12 +643,12 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
         f"{r.reviewer.name}'s opinion ({r.verdict.value}) is on an outdated commit: {r.reviewer.name} must review the new version"
         for r in _outdated_opinions(reviews, latest, task)
     ]
-    reviewer_approvals = sum(REVIEWER_KEY in held_role_keys(e.roles) for e in approvers)
-    if reviewer_approvals < process["required_approvals"]:
-        blockers.append(f"{reviewer_approvals}/{process['required_approvals']} reviewer approval(s)")
-    if process["qa_gate"] and not any(QA_KEY in held_role_keys(e.roles) for e in approvers):
+    seats = _approval_seats(approvers, task, load_catalog()["roles"])
+    if seats[REVIEWER_KEY] < process["required_approvals"]:
+        blockers.append(f"{seats[REVIEWER_KEY]}/{process['required_approvals']} reviewer approval(s)")
+    if process["qa_gate"] and not seats[QA_KEY]:
         blockers.append("QA has not approved")
-    if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in held_role_keys(e.roles) for e in approvers):
+    if process["security_gate"] and task.sensitive and not seats[SECURITY_KEY]:
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, sha=ci_head):
