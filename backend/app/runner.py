@@ -20,7 +20,7 @@ from app.mcp_server.server import SERVER_NAME
 log = logging.getLogger(__name__)
 
 # Only these variables reach the agent: no database URL, GitHub token, API key, or the
-# other accounts' tokens (its own is added as CLAUDE_CODE_OAUTH_TOKEN).
+# other accounts' tokens (its run token stands in for its own as CLAUDE_CODE_OAUTH_TOKEN).
 ENV_ALLOWLIST = (
     "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR",
     "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
@@ -91,7 +91,7 @@ def _agent_account(user: str) -> pwd.struct_passwd:
         raise ClaudeRunError(f"Agent user {user!r} does not exist on this machine (AGENT_USER / AGENT_POOL_SIZE)") from None
 
 
-def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path | None = None, user: str | None = None, employee_id: int = 0) -> dict[str, str]:
+def _env(author_name: str, run_token: str, cwd: Path, config_dir: Path | None = None, user: str | None = None, employee_id: int = 0) -> dict[str, str]:
     user = settings.agent_user if user is None else user
     env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     if config_dir:
@@ -107,9 +107,8 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
         if config_dir and user != settings.agent_user:
             env["TMPDIR"] = str(config_dir / "tmp")
         env |= {"HOME": home, "USER": account.pw_name, "LOGNAME": account.pw_name, "PATH": AGENT_PATH}
-    if not oauth_token:
-        raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
-    env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+    # The agent only holds its run token: the Anthropic proxy swaps it for the account's real token
+    env |= {"CLAUDE_CODE_OAUTH_TOKEN": run_token, "ANTHROPIC_BASE_URL": settings.anthropic_proxy_url}
     if user:
         # The firewall only lets this account reach the egress proxy and the MCP server (loopback)
         proxy = f"http://127.0.0.1:{settings.egress_proxy_port}"
@@ -257,6 +256,9 @@ async def _take_back(owned: list[Path], user: str, dead: bool) -> None:
 
 
 async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
+    if not spec.oauth_token:
+        raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
+    run_tokens.bind_credential(token, spec.oauth_token)
     mcp_config = _write_mcp_config(spec.mcp_headers | {"Authorization": f"Bearer {token}"}, user)
     run_tokens.attach_config(token, mcp_config)
     allowed = [f"mcp__{SERVER_NAME}__{t}" for t in spec.mcp_tools] + spec.claude_tools
@@ -289,7 +291,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
                 config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id, user)
             if pooled:
                 await _claim(owned, user)
-            env = _env(spec.author_name, spec.oauth_token, spec.cwd, config_dir, user, spec.employee_id)
+            env = _env(spec.author_name, token, spec.cwd, config_dir, user, spec.employee_id)
             proc = await asyncio.create_subprocess_exec(
                 *_command(cmd, env, user),
                 cwd=spec.cwd,

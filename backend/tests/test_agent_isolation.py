@@ -48,15 +48,17 @@ def spec(tmp_path):
 
 
 def test_env_is_explicit_and_the_agents(as_agent):
-    env = runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
+    env = runner._env("Mehdi", "run-token", Path("/data/projects/1/desks/employee-3"))
     assert env["HOME"] == "/root"  # the agent account's, not the backend's
     assert "/home/palabre" not in env["PATH"]
-    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    # The agent holds its run token, never the account's: the Anthropic proxy adds the real one
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "run-token" and TOKEN not in env.values()
+    assert env["ANTHROPIC_BASE_URL"] == runner.settings.anthropic_proxy_url
     # Outbound traffic goes through the allowlisting proxy; the MCP server on loopback is not proxied
     assert env["HTTPS_PROXY"] == f"http://127.0.0.1:{runner.settings.egress_proxy_port}"
     assert "127.0.0.1" in env["NO_PROXY"]
     assert set(env) <= set(runner.ENV_ALLOWLIST) | {
-        "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
+        "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_BASE_URL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
         "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
         "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0",
     }  # fmt: skip
@@ -69,12 +71,12 @@ def test_env_is_explicit_and_the_agents(as_agent):
 def test_unknown_agent_user_is_refused(as_agent, monkeypatch):
     monkeypatch.setattr(settings, "agent_user", "no-such-user-xyz")
     with pytest.raises(ClaudeRunError, match="does not exist"):
-        runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
+        runner._env("Mehdi", "run-token", Path("/data/projects/1/desks/employee-3"))
 
 
 def test_command_goes_through_sudo_without_secrets_in_argv(as_agent, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda name: f"/home/palabre/.local/bin/{name}")
-    env = runner._env("Mehdi", TOKEN, Path("/data/projects/1/desks/employee-3"))
+    env = runner._env("Mehdi", "run-token", Path("/data/projects/1/desks/employee-3"))
     cmd = runner._command(["claude", "-p", "do it"], env)
     assert cmd[:5] == ["sudo", "-n", "-u", "root", cmd[4]] and cmd[4].startswith("--preserve-env=")
     assert cmd[5:] == ["--", "/home/palabre/.local/bin/claude", "-p", "do it"]
@@ -114,7 +116,7 @@ async def test_run_launches_sudo_and_cleans_up(as_agent, monkeypatch, tmp_path):
     assert result.session_id == "s"
     assert seen["argv"][0] == "sudo" and seen["start_new_session"] is True
     assert TOKEN not in " ".join(seen["argv"]) and HEADER not in " ".join(seen["argv"])
-    assert seen["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    assert seen["env"]["CLAUDE_CODE_OAUTH_TOKEN"] != TOKEN and TOKEN not in seen["env"].values()
     assert "DATABASE_URL" not in seen["env"] and "GITHUB_TOKEN" not in seen["env"]
     assert list((tmp_path / "run").iterdir()) == []
 
@@ -177,7 +179,7 @@ async def test_sudo_run_uses_a_per_run_token_in_the_agent_dir_and_revokes_it(as_
     await runner.run_claude(run_spec)
 
     assert seen["argv"][:4] == ("sudo", "-n", "-u", "root")  # #104
-    assert "DATABASE_URL" not in seen["env"] and seen["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    assert "DATABASE_URL" not in seen["env"] and TOKEN not in seen["env"].values()
     assert seen["path"].parent == tmp_path / "run" and seen["mode"] == 0o640  # #104 dir, #108 rights
     headers = seen["config"]["mcpServers"][runner.SERVER_NAME]["headers"]
     assert seen["token"] and headers["Authorization"] != HEADER  # per-run token, not the caller's header
@@ -191,7 +193,7 @@ def test_agent_env_lets_git_work_in_a_foreign_owned_clone(as_agent, tmp_path):
     clone = tmp_path / "desk"
     clone.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
-    env = runner._env("Mehdi", TOKEN, clone)
+    env = runner._env("Mehdi", "run-token", clone)
     # The agent account's HOME is not ours to read here
     env = {**env, "HOME": str(tmp_path), "GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "XDG_CONFIG_HOME": str(tmp_path),
            "GIT_CONFIG_NOSYSTEM": "1"}  # the runner image trusts every directory system-wide
@@ -239,7 +241,7 @@ def test_run_config_dir_is_throwaway_and_sessions_stay_private(as_agent, monkeyp
 
 
 def env_dir(path):
-    return runner._env("Mehdi", TOKEN, Path("/x"), path)["CLAUDE_CONFIG_DIR"]
+    return runner._env("Mehdi", "run-token", Path("/x"), path)["CLAUDE_CONFIG_DIR"]
 
 
 def test_resume_id_cannot_escape_the_store(as_agent, monkeypatch, tmp_path):
@@ -524,10 +526,10 @@ def test_pool_user_gets_a_fresh_home_in_its_run_dir(as_agent, monkeypatch, tmp_p
     monkeypatch.setattr(runner, "_agent_account", lambda user: pw)
     run_dir = claude_store.prepare_run_dir(1, None, "agent3")
     assert (run_dir / "home").is_dir()
-    env = runner._env("Mehdi", TOKEN, tmp_path, run_dir, "agent3")
+    env = runner._env("Mehdi", "run-token", tmp_path, run_dir, "agent3")
     assert env["HOME"] == str(run_dir / "home")
     # The legacy single user keeps its persistent home
-    assert runner._env("Mehdi", TOKEN, tmp_path, run_dir, "root")["HOME"] == "/root"
+    assert runner._env("Mehdi", "run-token", tmp_path, run_dir, "root")["HOME"] == "/root"
 
 
 # Follow-ups of #152
@@ -540,9 +542,9 @@ def test_pool_user_gets_a_tmpdir_in_its_run_dir(as_agent, monkeypatch, tmp_path)
     monkeypatch.setattr(runner, "_agent_account", lambda user: runner.pwd.getpwnam("root"))
     run_dir = claude_store.prepare_run_dir(1, None, "agent3")
     assert (run_dir / "tmp").is_dir()
-    assert runner._env("Mehdi", TOKEN, tmp_path, run_dir, "agent3")["TMPDIR"] == str(run_dir / "tmp")
+    assert runner._env("Mehdi", "run-token", tmp_path, run_dir, "agent3")["TMPDIR"] == str(run_dir / "tmp")
     # The legacy single user shares its uid between runs: no per-run tmp
-    assert "TMPDIR" not in runner._env("Mehdi", TOKEN, tmp_path, run_dir, "root")
+    assert "TMPDIR" not in runner._env("Mehdi", "run-token", tmp_path, run_dir, "root")
 
 
 async def test_uid_is_killed_before_the_run_dir_is_collected(as_agent, monkeypatch, tmp_path):
@@ -820,8 +822,8 @@ async def test_clone_is_released_when_the_run_times_out(as_agent, pooled, monkey
 
 
 def test_go_cache_is_per_employee(as_agent):
-    a = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 1)
-    b = runner._env("Mehdi", TOKEN, Path("/x"), None, None, 2)
+    a = runner._env("Mehdi", "run-token", Path("/x"), None, None, 1)
+    b = runner._env("Mehdi", "run-token", Path("/x"), None, None, 2)
     assert a["GOPATH"] != b["GOPATH"] and a["GOMODCACHE"].startswith(a["GOPATH"])
 
 
