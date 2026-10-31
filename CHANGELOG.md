@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-31
+
+### Added
+
+- security: set a strict CSP in the Tauri config (#264)
+- security: restrict agents' outbound network to an allowlisting proxy (#263)
+- security: proxy agents' Anthropic API calls and keep the Claude token server-side (#268)
+- research: add a backend-run fetch_page MCP tool (#266)
+- auth: issue short-lived session tokens from the ADMIN_TOKEN (#281)
+
+### Fixed
+
+- worktrees: delete leftover stale-desk folders at startup (#262)
+- deploy: bind the backend port to 127.0.0.1 by default (#265)
+- deploy: bind the web port to 127.0.0.1 by default (#267)
+- security: refuse url and file content sources in the Anthropic proxy (#271)
+- research: fall back to the default charset when Content-Type announces an unknown one (#272)
+- research: fall back to the default charset when decoding raises UnicodeError (#274)
+- api: restrict CORS to the app origins instead of "*" (#275)
+- orchestrator: frame commit messages as untrusted in release_pending (#278)
+- egress: refuse IPv4-compatible and NAT64 addresses in is_public_address (#282)
+- runner: stop passing prompts in argv (#276)
+
 ## [0.18.0] - 2026-10-31
 
 ### Added
@@ -492,7 +515,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/enzoblain/Palabre/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/enzoblain/Palabre/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/enzoblain/Palabre/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/enzoblain/Palabre/compare/v0.16.0...v0.17.0
