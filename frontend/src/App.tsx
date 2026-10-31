@@ -240,13 +240,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
 
   const inProject = projectId !== null && route.name !== "settings" && route.name !== "new";
   return (
-    <div className={`shell${inProject ? "" : " no-panel"}${navOpen ? " nav-open" : ""}`}>
-      {inProject && (
-        <>
-          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-          <TeamPanel project={project} presence={presence} open={navOpen} onClose={() => setNavOpen(false)} />
-        </>
-      )}
+    <div className={`shell${navOpen ? " nav-open" : ""}`}>
+      <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+      <TeamPanel project={inProject ? project : null} noProject={!inProject} presence={presence} open={navOpen}
+        onClose={() => setNavOpen(false)} />
       <main className="main">
         {inProject ? (
           <header className="mobile-bar">
@@ -262,6 +259,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
         ) : (
           <header className="topbar">
             <ProjectMenu route={route} projects={projects} project={null} />
+            <button className="icon-btn topbar-menu" onClick={() => setNavOpen(true)} aria-label="Ouvrir le panneau Équipe"
+              aria-expanded={navOpen}>
+              <MenuIcon />
+            </button>
           </header>
         )}
         {inProject && route.name === "report" && (
