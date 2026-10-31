@@ -53,6 +53,8 @@ PERSONALITY_POOL_FILE = "personality_pool.toml"
 EXTENDED_INDEX_FILE = "extended_roles.toml"
 # Fields an extended job takes from its archetype when its file leaves them out
 INHERITED_FIELDS = ("permissions", "wakes_on", "model", "effort")
+# Inherited fields a file may never set: an extended job's rights come only from its archetype
+ARCHETYPE_ONLY_FIELDS = ("permissions", "wakes_on")
 KEY_PATTERN = r"^[a-z][a-z0-9_]*$"
 MAX_QUIRKS = 5
 MAX_QUIRK_LENGTH = 200
@@ -194,11 +196,16 @@ def _load_entry[T: BaseModel](model: type[T], path: Path, kind: str) -> T:
 
 
 def _inherit(data: dict, archetypes: dict[str, Role], path: Path) -> dict:
-    """The fields of an extended job's file, completed from its archetype (what the file sets wins)."""
+    """The fields of an extended job's file, completed from its archetype (model and effort set by the file win)."""
     archetype = archetypes.get(data["archetype"])
     if archetype is None:
         raise CatalogError(
             f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: archetype '{data['archetype']}' is not a base role"
+        )
+    if forbidden := [f for f in ARCHETYPE_ONLY_FIELDS if f in data]:
+        raise CatalogError(
+            f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: an extended job cannot set "
+            f"{', '.join(forbidden)}, it inherits them from its archetype '{data['archetype']}'"
         )
     inherited = {f: getattr(archetype, f) for f in INHERITED_FIELDS if getattr(archetype, f) is not None}
     return {**inherited, **data}
