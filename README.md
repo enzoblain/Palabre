@@ -326,13 +326,14 @@ palabre.example.com {
 ```
 
 Or keep it on a private network such as [Tailscale](https://tailscale.com) and set `PALABRE_BIND`
-to the machine's private address in `.env`. Avoid `PALABRE_BIND=0.0.0.0` unless a firewall limits
-who can reach the port.
+to the machine's private address in `.env`. Avoid `PALABRE_BIND=0.0.0.0`: Docker writes its own
+iptables rules for published ports, so a port published on `0.0.0.0` bypasses `ufw` and `firewalld`
+and a host firewall will not protect it. Use the TLS reverse proxy or a private network instead.
 
 The web app on port `2810` also passes `/api` on to the server, so it is bound to `127.0.0.1` too
 (`PALABRE_WEB_BIND`). Reach it from a phone through the TLS reverse proxy (point it at `127.0.0.1:2810`)
 or a private network. **Warning**: `PALABRE_WEB_BIND=0.0.0.0` sends the `ADMIN_TOKEN` in clear HTTP
-to anyone on the network.
+to anyone on the network, and `ufw`/`firewalld` will not block it (ports published by Docker bypass them).
 
 To rotate the `ADMIN_TOKEN` (regularly, or as soon as it may have leaked), generate a new one with
 `openssl rand -hex 32`, replace it in `.env`, run `docker compose up -d`, then enter the new one
