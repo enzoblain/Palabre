@@ -382,7 +382,7 @@ details summary { cursor: pointer; margin-top: 6px; }
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
   .mobile-bar {
-    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px 0 12px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 8px; flex-shrink: 0;
     background: var(--sidebar); border-bottom: 1px solid var(--border);
   }
   .mobile-bar .sidebar-title { flex: 1; }
