@@ -176,7 +176,7 @@ async def _claim(paths: list[Path], user: str) -> None:
             raise ClaudeRunError(f"Cannot prepare {path} for {user}: {exc}") from exc
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "/usr/local/bin/palabre-claim-clone", str(path), user,
-            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
         )  # fmt: skip
         _, stderr = await proc.communicate()
         if proc.returncode:
@@ -206,7 +206,7 @@ async def _terminate(proc: asyncio.subprocess.Process, user: str | None = None) 
         return
     killer = await asyncio.create_subprocess_exec(
         "sudo", "-n", "-u", user, "/usr/bin/kill", "-KILL", "--", f"-{proc.pid}",
-        stdin=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )  # fmt: skip
@@ -268,7 +268,6 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
     run_tokens.attach_config(token, mcp_config)
     # Prompts never go in argv, which `ps` shows to every account: the prompt travels on stdin,
     # the system prompt in a private file
-    system_prompt_file = _write_private_file("system-prompt", ".txt", spec.system_prompt, user)
     allowed = [f"mcp__{SERVER_NAME}__{t}" for t in spec.mcp_tools] + spec.claude_tools
     cmd = [
         settings.claude_bin,
@@ -280,7 +279,6 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         # Only these built-in tools exist for the agent; the others cannot even be asked for
         "--tools", ",".join(spec.claude_tools),
         "--allowedTools", ",".join(allowed),
-        "--append-system-prompt-file", str(system_prompt_file),
         "--max-turns", str(spec.max_turns or settings.claude_max_turns),
         "--model", spec.model,
     ]  # fmt: skip
@@ -290,11 +288,14 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         cmd += ["--resume", spec.resume_session_id]
 
     config_dir = None
+    system_prompt_file: Path | None = None
     # The legacy shared user has no private group: its clones stay the backend's
     pooled = bool(user) and user != settings.agent_user
     owned = [spec.cwd, toolchains.gopath(spec.employee_id)]
     try:
         try:
+            system_prompt_file = _write_private_file("system-prompt", ".txt", spec.system_prompt, user)
+            cmd += ["--append-system-prompt-file", str(system_prompt_file)]
             if user:
                 config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, spec.employee_id, spec.resume_session_id, user)
             if pooled:
@@ -322,7 +323,8 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
             raise
     finally:
         mcp_config.unlink(missing_ok=True)
-        system_prompt_file.unlink(missing_ok=True)
+        if system_prompt_file:
+            system_prompt_file.unlink(missing_ok=True)
         # Nothing of the run may still write in its dir or clone while they are collected or handed
         # back (a lease's kill comes too late for that). Not for the shared legacy user: it would kill other runs.
         dead = pooled and await agent_pool.kill_all(user)
