@@ -265,7 +265,7 @@ def test_32_character_secrets_are_accepted(tmp_path, monkeypatch):
 
 def test_tini_runs_after_the_privilege_drop():
     script = ENTRYPOINT.read_text()
-    assert "--init-groups tini -s -- " in script
+    assert "--init-groups --bounding-set=-net_admin tini -s -- " in script
     assert 'exec tini -s -- "$@"' in script
     assert 'ENTRYPOINT ["docker-entrypoint.sh"]' in (BACKEND / "Dockerfile").read_text()
 

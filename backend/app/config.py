@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     claude_store_dir: Path | None = None
     # Holds the MCP configs of runs when the agent user must read them (runtime_dir is the backend's only)
     agent_run_dir: Path = Path("/data/run")
+    # Agents reach the Internet only through this local CONNECT proxy (the entrypoint's firewall
+    # drops their other connections): the Anthropic API and the package registries of the toolchains
+    egress_proxy_port: int = 3128
+    egress_allowed_ports: list[int] = [443]
+    egress_allowed_hosts: list[str] = [
+        "api.anthropic.com", "statsig.anthropic.com", "registry.npmjs.org", "pypi.org",
+        "files.pythonhosted.org", "proxy.golang.org", "sum.golang.org", "storage.googleapis.com",
+    ]
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")
 

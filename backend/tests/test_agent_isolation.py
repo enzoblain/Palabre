@@ -52,8 +52,11 @@ def test_env_is_explicit_and_the_agents(as_agent):
     assert env["HOME"] == "/root"  # the agent account's, not the backend's
     assert "/home/palabre" not in env["PATH"]
     assert env["CLAUDE_CODE_OAUTH_TOKEN"] == TOKEN
+    # Outbound traffic goes through the allowlisting proxy; the MCP server on loopback is not proxied
+    assert env["HTTPS_PROXY"] == f"http://127.0.0.1:{runner.settings.egress_proxy_port}"
+    assert "127.0.0.1" in env["NO_PROXY"]
     assert set(env) <= set(runner.ENV_ALLOWLIST) | {
-        "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
+        "LOGNAME", "CLAUDE_CODE_OAUTH_TOKEN", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "MCP_TOOL_TIMEOUT", "GOPATH", "GOMODCACHE", "CGO_ENABLED",
         "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
         "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0",
     }  # fmt: skip

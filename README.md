@@ -423,6 +423,14 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   none, so the healthcheck and every child process (git, `claude`) start without them. The
   entrypoint closes `/run/secrets` and gives the server a private copy in
   `/run/palabre-secrets` (read by `pydantic-settings`' `secrets_dir`).
+- Agents have no free network. The entrypoint (root, `NET_ADMIN` from the compose file, dropped from the
+  server's capabilities right after) adds `iptables` rules that only let the agents' uids connect to
+  `127.0.0.1:8000` (MCP) and to the egress proxy (`127.0.0.1:3128`, `app/egress_proxy.py`, an HTTP `CONNECT`
+  tunnel in the server). The proxy only opens port 443 of the hosts in `EGRESS_ALLOWED_HOSTS` (the Anthropic API
+  and the npm, PyPI and Go registries by default; set a JSON list to change it) and never to a non-public
+  address. So an agent cannot send its Claude token elsewhere, and cannot reach `db:5432`. Runs get
+  `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
+  `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,

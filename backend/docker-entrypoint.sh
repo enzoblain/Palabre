@@ -173,6 +173,39 @@ if [ -d /run/secrets ]; then
   chmod 700 /run/secrets
 fi
 
+# Egress firewall: the agents' uids may only reach the MCP server and the egress proxy (both on loopback), so a
+# prompt-injected agent can neither send its Claude token to the Internet nor reach the database. Everything
+# else they need goes through the proxy, which holds the allowlist of hosts (app/egress_proxy.py).
+# Needs the NET_ADMIN capability (compose adds it); without it the start fails rather than run agents unfiltered.
+# EGRESS_FILTER=off opts out (an explicit choice, e.g. a host that cannot grant the capability).
+firewall_agents() {
+  [ -n "${AGENT_USER:-}" ] || return 0
+  if [ "${EGRESS_FILTER:-on}" = off ]; then
+    echo "WARNING: EGRESS_FILTER=off: agents can reach the Internet and the database" >&2
+    return 0
+  fi
+  ports_mcp=8000
+  ports_proxy=${EGRESS_PROXY_PORT:-3128}
+  uids=$(id -u "$AGENT_USER")
+  pool=${AGENT_POOL_SIZE:-0}
+  if [ "$pool" -gt 0 ] 2>/dev/null; then
+    uids="$uids $(id -u "${AGENT_USER}1")-$(id -u "${AGENT_USER}${pool}")"
+  fi
+  for ipt in iptables ip6tables; do
+    loopback=127.0.0.1; [ "$ipt" = ip6tables ] && loopback=::1
+    chain=PALABRE_AGENTS
+    "$ipt" -N "$chain" 2>/dev/null || "$ipt" -F "$chain" || return 1
+    "$ipt" -A "$chain" -o lo -d "$loopback" -p tcp -m multiport --dports "$ports_mcp,$ports_proxy" -j ACCEPT || return 1
+    "$ipt" -A "$chain" -j REJECT || return 1
+    for range in $uids; do
+      while "$ipt" -D OUTPUT -m owner --uid-owner "$range" -j "$chain" 2>/dev/null; do :; done
+      "$ipt" -I OUTPUT -m owner --uid-owner "$range" -j "$chain" || return 1
+    done
+  done
+}
+firewall_agents || { echo "Cannot set up the agents' egress firewall (NET_ADMIN missing?): refusing to start. Set EGRESS_FILTER=off to run without it." >&2; exit 1; }
+
 umask 002
+# NET_ADMIN is dropped from the bounding set too: a root helper run through sudo cannot reopen the firewall
 # tini after the drop: PID 1 stays palabre and reaps the orphans of killed agent runs
-exec setpriv --reuid=palabre --regid=palabre --init-groups tini -s -- "$@"
+exec setpriv --reuid=palabre --regid=palabre --init-groups --bounding-set=-net_admin tini -s -- "$@"

@@ -110,6 +110,10 @@ def _env(author_name: str, oauth_token: str | None, cwd: Path, config_dir: Path 
     if not oauth_token:
         raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
     env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+    if user:
+        # The firewall only lets this account reach the egress proxy and the MCP server (loopback)
+        proxy = f"http://127.0.0.1:{settings.egress_proxy_port}"
+        env |= {"HTTPS_PROXY": proxy, "HTTP_PROXY": proxy, "NO_PROXY": "127.0.0.1,localhost"}
     # Toolchains the team installed (install_toolchain) come first in PATH
     env["PATH"] = f"{toolchains.bin_dir()}:{env.get('PATH', os.defpath)}"
     env |= toolchains.agent_env(employee_id)
