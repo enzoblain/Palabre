@@ -350,3 +350,19 @@ async def test_boss_cannot_create_a_room_in_a_company():
     with pytest.raises(HTTPException) as exc:
         await rooms_api.create_room(3, RoomIn(name="side"), S("direction"))
     assert exc.value.status_code == 403
+
+
+def test_conversation_idle_asks_for_a_project_summary() -> None:
+    from app.orchestrator.prompts import reason_for
+
+    reason = reason_for("conversation_idle", {})
+    assert "summary of the project" in reason
+    assert "not of the conversation" in reason
+    assert "team's language" in reason
+
+
+def test_scribe_summary_responsibility_targets_the_project() -> None:
+    from app.company.team import load_catalog
+
+    scribe = load_catalog()["roles"]["scribe"]
+    assert any("summary of the project" in item for item in scribe["responsibilities"])

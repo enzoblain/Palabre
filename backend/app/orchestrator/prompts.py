@@ -41,7 +41,7 @@ REASONS: dict[str, str] = {
     "research_debate": "Phase 2, debate. Everyone has posted their first findings. Read them all. Challenge what looks weak or contradicts your sources, confirm what you could check, search again where it matters, and answer the people concerned with @Name.",
     "research_conclude": "Phase 3, conclusion. The debate has settled. In one short message, give your final answer to the boss's question, how sure you are, and the source that convinced you most. If you still disagree with someone, say on what.",
     "research_report": "Phase 4, report. Write the final report with update_summary: the question, the short answer, the key findings with their sources, the disagreements that remain, the open questions. Propose the main conclusion with add_decision. Then give the boss the answer in the chat, in one or two sentences, and tell them the report is ready.",
-    "conversation_idle": "The conversation has gone quiet. Update the room document (summary, open questions) with what was said and decided.",
+    "conversation_idle": "The conversation has gone quiet. Update the room document. The summary (update_summary) is a short summary of the project, not of the conversation: what it is, its goal, where it stands, what was delivered and decided, in the team's language. Rewrite it only if the project moved (delivery, validated decision); keep it to a few lines. Update the open questions too.",
 }
 
 

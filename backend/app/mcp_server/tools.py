@@ -390,7 +390,8 @@ async def report_bug(
 
 @tool
 async def update_summary(ctx: Context, summary: str) -> dict:
-    """Replace the room's summary."""
+    """Replace the room's summary: a short summary of the project (what it is, its goal, where it stands,
+    what was delivered), in the team's language, not a recap of the conversation."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await services.update_summary(s, c.room_id, summary)

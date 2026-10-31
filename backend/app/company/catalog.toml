@@ -165,7 +165,7 @@ model = "haiku"
 effort = "low"
 mission = "Keep the room's shared document up to date."
 responsibilities = [
-  "Update the summary after every significant exchange",
+  "Keep the summary a short summary of the project (what it is, its goal, where it stands, what was delivered), never of the conversation; update it when the project moves",
   "List open questions and mark them resolved",
   "Keep the \"who does what\" section current",
   "Write the daily minutes",
