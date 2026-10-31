@@ -1,6 +1,7 @@
 """Conversation, room document, notes and events. Shared by the MCP server and the API."""
 
 import re
+from datetime import UTC, datetime
 from typing import TypeVar
 
 from sqlalchemy import Select, func, or_, select
@@ -18,6 +19,7 @@ from app.models import (
     Note,
     OpenQuestion,
     Project,
+    RequestStatus,
     Room,
     Task,
     TaskStatus,
@@ -210,7 +212,7 @@ async def post_message(
         author_name=author.name if author else boss_display_name(),
         content=content,
         request_kind=request_kind,
-        request_status="pending" if request_kind else None,
+        request_status=RequestStatus.pending.value if request_kind else None,
         request_decision_id=request_decision_id,
     )
     s.add(msg)
@@ -298,6 +300,88 @@ async def ask_boss(
     return await post_message(
         s, project_id, conversation_id, content, author, request_kind=kind, request_decision_id=decision_id
     )
+
+
+def _pending_requests_query(project_id: int, author: Employee) -> Select:
+    return (
+        select(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(
+            Room.project_id == project_id,
+            Room.kind == DIRECTION,
+            Message.employee_id == author.id,
+            Message.request_kind.is_not(None),
+            Message.request_status == RequestStatus.pending.value,
+        )
+        .order_by(Message.id)
+    )
+
+
+async def list_pending_requests(s: AsyncSession, project_id: int, author: Employee) -> list[Message]:
+    """The requests `author` made to the boss that wait for an answer, oldest first."""
+    return list(await s.scalars(_pending_requests_query(project_id, author)))
+
+
+async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employee, ids: list[int]) -> list[Message]:
+    """The requests `ids`, locked, or a WorkflowError naming the first one that is not yours and pending."""
+    found = {
+        m.id: m
+        for m in await s.scalars(
+            select(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .join(Room, Room.id == Conversation.room_id)
+            .where(Message.id.in_(ids), Room.project_id == project_id, Message.request_kind.is_not(None))
+            .with_for_update()  # the boss answering at the same time: one of the two wins
+        )
+    }
+    for request_id in ids:
+        message = found.get(request_id)
+        if message is None:
+            raise WorkflowError(f"Request #{request_id} does not exist")
+        if message.employee_id != author.id:
+            raise WorkflowError(f"Request #{request_id} is not yours")
+        if message.request_status != RequestStatus.pending.value:
+            raise WorkflowError(f"Request #{request_id} is no longer pending ({message.request_status})")
+    return [found[i] for i in ids]
+
+
+def _close_request(message: Message, status: RequestStatus, comment: str, merged_into: int | None = None) -> None:
+    message.request_status = status.value
+    message.request_comment = comment or None
+    message.request_merged_into = merged_into
+    message.request_answered_at = datetime.now(UTC)
+
+
+async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:
+    """The lead drops one of their pending requests (obsolete, done otherwise): the boss no longer sees it as open."""
+    reason = reason.strip()
+    if not reason:
+        raise WorkflowError("A withdrawn request needs a reason")
+    (message,) = await _own_pending_requests(s, project_id, author, [request_id])
+    _close_request(message, RequestStatus.withdrawn, reason)
+    await s.commit()
+    return message
+
+
+async def merge_requests(
+    s: AsyncSession, project_id: int, author: Employee, request_ids: list[int], content: str
+) -> Message:
+    """Replace several pending requests of the lead by one new request, which the old ones point to."""
+    ids = list(dict.fromkeys(request_ids))
+    if not ids:
+        raise WorkflowError("Name the requests to merge")
+    olds = await _own_pending_requests(s, project_id, author, ids)
+    kinds = {m.request_kind for m in olds}
+    # Several kinds of request become a question: it is the one that asks for no side effect
+    kind = kinds.pop() if len(kinds) == 1 else "question"
+    new = await ask_boss(s, project_id, author, content, kind)
+    if new is None:
+        raise WorkflowError("This project has no direction channel to ask the boss in")
+    for old in olds:
+        _close_request(old, RequestStatus.merged, f"Merged into request #{new.id}", merged_into=new.id)
+    await s.commit()
+    return new
 
 
 # --- Channels ----------------------------------------------------------------------

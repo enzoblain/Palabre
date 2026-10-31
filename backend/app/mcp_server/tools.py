@@ -93,6 +93,43 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
 
 
 @tool
+async def list_pending_requests(ctx: Context) -> list[dict]:
+    """Your requests to the boss (ask_ceo, decisions, releases...) that still wait for an
+    answer, oldest first: id, content, kind and date. Use it to tidy up with withdraw_request
+    and merge_requests."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        me = await s.get(Employee, c.employee_id)
+        found = await services.list_pending_requests(s, c.project_id, me)
+    return [{"id": m.id, "kind": m.request_kind, "content": m.content, "created_at": m.created_at.isoformat()} for m in found]
+
+
+@tool
+async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
+    """Withdraw one of your pending requests to the boss that became useless (obsolete, done
+    another way). It leaves their open requests and they can no longer answer it. A request
+    already answered is refused. reason: why, in a sentence."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        me = await s.get(Employee, c.employee_id)
+        msg = await services.withdraw_request(s, c.project_id, me, request_id, reason)
+    return {"id": msg.id, "status": msg.request_status}
+
+
+@tool
+async def merge_requests(ctx: Context, request_ids: list[int], content: str) -> dict:
+    """Replace several of your pending requests to the boss (duplicates, same topic) by a single
+    new one with the given content. The old ones are marked merged and point to it. A request
+    already answered is refused. content: the new request, short and self-contained, with your recommendation."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await _check_chat(s, c.project_id, content)
+        me = await s.get(Employee, c.employee_id)
+        msg = await services.merge_requests(s, c.project_id, me, request_ids, content)
+    return {"message_id": msg.id, "merged": request_ids, "status": "waiting for the boss"}
+
+
+@tool
 async def get_room_context(ctx: Context) -> dict:
     """The room's shared document: objective, members, decisions (proposed / validated /
     rejected), open questions, who does what, and summary."""
