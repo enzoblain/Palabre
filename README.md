@@ -307,6 +307,16 @@ and a run succeeds, the lead is woken with a `credits_back` event (tasks in prog
 queued wakeups) and the boss is told in #direction. The state is kept in memory: after a
 restart, the first run that hits the limit rebuilds it.
 
+## Database diagnostic
+
+One command, from the folder with `docker-compose.yml`, prints the `conversation_throttled` events of the last 24 h
+(per hour and conversation) and checks the `request_status` CHECK constraint (rows outside the enum, then adds the
+constraint if missing). It only writes that constraint:
+
+```sh
+docker compose exec backend python -m scripts.diagnose_db
+```
+
 ## Tests
 
 Backend tests (pytest, no database or network needed):
