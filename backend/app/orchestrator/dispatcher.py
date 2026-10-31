@@ -24,6 +24,7 @@ from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
     RESEARCH_RULES,
+    code_standards_rule,
     language_rule,
     operating_rules,
     orientation_rule,
@@ -311,6 +312,7 @@ class Orchestrator:
             if project.kind == "company" else None,
             language_rule(services.team_language()),
             version_rule(member.roles),
+            code_standards_rule(member.roles),
         ] if p)  # fmt: skip
         oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
