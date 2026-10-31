@@ -314,6 +314,7 @@ def _claim_script(tmp_path, root):
     conf = tmp_path / "projects-root.conf"
     conf.write_text(str(root))
     text = CLAIM.read_text().replace("/etc/palabre/projects-root.conf", str(conf)).replace("-user palabre", f"-user {me}")
+    text = text.replace('-user "$2"', f"-user {me}")
     text = text.replace('/usr/bin/setpriv --reuid="$2" --regid="$group" --init-groups ', "")
     text = text.replace("/usr/bin/chown -R -h", "true").replace("/usr/bin/chmod -R", "true")
     text = text.replace('/usr/bin/find -P "$1" -type d -exec /usr/bin/chmod g+s {} +', "true")
