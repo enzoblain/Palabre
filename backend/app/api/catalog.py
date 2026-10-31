@@ -5,11 +5,22 @@ from typing import Literal
 from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
+from app.api.schemas import CatalogLimitsOut, RoleOut, RoleToolsOut
+from app.company.catalog import MAX_TEAM_SIZE, MODELS
 from app.company.team import generate_team, load_catalog, personality_for
+from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
 Kind = Literal["company", "research"]
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
+
+
+def _role_out(role: dict) -> RoleOut:
+    permissions = role["permissions"]
+    tools = RoleToolsOut(
+        mcp=sorted(mcp_tools_for(permissions, task_run=True)), claude=claude_tools_for(permissions)
+    )
+    return RoleOut(**role, tools=tools)
 
 
 @router.get("/modes")
@@ -19,8 +30,15 @@ async def list_modes(kind: Kind = "company") -> dict:
 
 
 @router.get("/roles")
-async def list_roles(kind: Kind = "company") -> dict:
-    return {k: r for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
+async def list_roles(kind: Kind = "company") -> dict[str, RoleOut]:
+    """Jobs of a kind, with the MCP and Claude tools their permissions give."""
+    return {k: _role_out(r) for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
+
+
+@router.get("/limits")
+async def team_limits() -> CatalogLimitsOut:
+    """Models an employee can run on and the biggest custom team."""
+    return CatalogLimitsOut(models=list(MODELS), max_agents=MAX_TEAM_SIZE)
 
 
 @router.get("/personality")

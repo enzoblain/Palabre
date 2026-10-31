@@ -3,7 +3,7 @@
 import tomllib
 from functools import cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -36,6 +36,10 @@ MERGE = "merge"
 CODE = "code"
 # Permissions carried by exactly one employee of a custom team
 UNIQUE_PERMISSIONS = ("ship_release", "manage_channels")
+
+# Biggest team a custom project can have (the API refuses more, the front reads it from /catalog/limits)
+MAX_TEAM_SIZE = 30
+MODELS = get_args(Model)
 
 KEY_PATTERN = r"^[a-z][a-z0-9_]*$"
 
