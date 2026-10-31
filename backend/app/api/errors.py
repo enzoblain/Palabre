@@ -44,6 +44,22 @@ class ErrorCode(StrEnum):
     CONVERSATION_NOT_IN_ROOM = "conversation_not_in_room"
     INVALID_LANGUAGE = "invalid_language"
     NOT_FOUND = "not_found"
+    INVALID_PERSONALITY = "invalid_personality"
+    INVALID_BRANCH_NAME = "invalid_branch_name"
+    BRANCH_ALREADY_USED = "branch_already_used"
+    NO_NAME_LEFT = "no_name_left"
+    TASK_WRONG_STATUS = "task_wrong_status"
+    TASK_NOT_YOURS = "task_not_yours"
+    TASK_WAITING_FOR_DEPENDENCIES = "task_waiting_for_dependencies"
+    TASK_NO_BRANCH = "task_no_branch"
+    TASK_NO_PULL_REQUEST = "task_no_pull_request"
+    INVALID_PR_TITLE = "invalid_pr_title"
+    CANNOT_REVIEW_OWN_TASK = "cannot_review_own_task"
+    MERGE_BLOCKED = "merge_blocked"
+    NO_COMMITS = "no_commits"
+    GITHUB_NOT_CONFIGURED = "github_not_configured"
+    INVALID_GITHUB_URL = "invalid_github_url"
+    GITHUB_BRANCH_MISSING = "github_branch_missing"
 
 
 class ApiError(HTTPException):

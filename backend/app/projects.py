@@ -30,6 +30,7 @@ from app.models import (
     TaskStatus,
 )  # fmt: skip
 from app.orchestrator.research import start_question
+from app.api.errors import ErrorCode
 from app.services import WorkflowError
 from app import worktrees
 from app.worktrees import sync_repo
@@ -361,16 +362,16 @@ def validate_personality(
     if traits is not None:
         axes = {a["key"] for a in personality["axes"]}
         if (not set(traits) <= axes) if partial else (set(traits) != axes):
-            raise WorkflowError(f"traits must define {'only' if partial else 'exactly'} these axes: {', '.join(sorted(axes))}")
+            raise WorkflowError(f"traits must define {'only' if partial else 'exactly'} these axes: {', '.join(sorted(axes))}", code=ErrorCode.INVALID_PERSONALITY)
         if any(v not in personality["levels"] for v in traits.values()):
-            raise WorkflowError(f"trait levels must be one of {personality['levels']}")
+            raise WorkflowError(f"trait levels must be one of {personality['levels']}", code=ErrorCode.INVALID_PERSONALITY)
     if style is not None:
         keys = set(personality["style"])
         if (not set(style) <= keys) if partial else (set(style) != keys):
-            raise WorkflowError(f"style must define {'only' if partial else 'exactly'}: {', '.join(sorted(keys))}")
+            raise WorkflowError(f"style must define {'only' if partial else 'exactly'}: {', '.join(sorted(keys))}", code=ErrorCode.INVALID_PERSONALITY)
         for key, value in style.items():
             if value not in personality["style"][key]:
-                raise WorkflowError(f"style {key} must be one of: {', '.join(personality['style'][key])}")
+                raise WorkflowError(f"style {key} must be one of: {', '.join(personality['style'][key])}", code=ErrorCode.INVALID_PERSONALITY)
 
 
 async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
@@ -392,7 +393,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         if member.name in taken:
             free = sorted(names - taken)
             if not free:
-                raise WorkflowError("No first name left in the catalog for a new employee")
+                raise WorkflowError("No first name left in the catalog for a new employee", code=ErrorCode.NO_NAME_LEFT)
             member.name = free[0]
         taken.add(member.name)
         hired.append(Employee(**asdict(member), mcp_token=secrets.token_urlsafe(32)))
@@ -424,9 +425,9 @@ async def change_branch(s: AsyncSession, project: Project, branch: str, by: Empl
     by: the lead doing it. They cannot pick the repository's default branch (production):
     only the boss sends the team's merges there."""
     if not re.match(github.BRANCH_PATTERN, branch):
-        raise WorkflowError(f"Not a valid branch name: {branch}")
+        raise WorkflowError(f"Not a valid branch name: {branch}", code=ErrorCode.INVALID_BRANCH_NAME)
     if branch == project.default_branch:
-        raise WorkflowError(f"The team already works on {branch}")
+        raise WorkflowError(f"The team already works on {branch}", code=ErrorCode.BRANCH_ALREADY_USED)
     repo = github.repo_slug(project.repo_url)
     if by is not None and branch == await github.resolve_branch(repo, ""):
         raise WorkflowError(f"{branch} is the production branch: only the boss can send the team's merges there")

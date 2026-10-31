@@ -10,10 +10,12 @@ from urllib.parse import quote
 
 import httpx
 
+from app.api.errors import ErrorCode
 from app.config import settings
 
 API_URL = "https://api.github.com"
 REPO_URL_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?/?$")
+URL_CREDENTIALS_RE = re.compile(r"(https?://)[^/@\s]+@")
 OK_CONCLUSIONS = {"success", "neutral", "skipped"}
 FAILURE_ANNOTATIONS_MAX = 20
 FAILURE_DETAILS_MAX_CHARS = 4000
@@ -32,14 +34,27 @@ def is_task_branch_name(branch: str | None) -> bool:
 
 
 class GitHubError(RuntimeError):
-    pass
+    """A git or GitHub operation failed. `code` names it for the API (falls back to `github_error`).
+    The message ends up in API responses and agent prompts: secrets are scrubbed from it."""
+
+    def __init__(self, message: str = "", code: ErrorCode | None = None):
+        super().__init__(_scrub(message))
+        self.code = code or ErrorCode.GITHUB_ERROR
+
+
+def _scrub(text: str) -> str:
+    """Hide the token, its basic-auth encoding and any `user:password@` part of a URL."""
+    if token := settings.github_token:
+        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+        text = text.replace(basic, "***").replace(token, "***")
+    return URL_CREDENTIALS_RE.sub(r"\1***@", text)
 
 
 def repo_slug(repo_url: str) -> str:
     """`https://github.com/owner/repo(.git)` or `git@github.com:owner/repo.git` → `owner/repo`."""
     match = REPO_URL_RE.match(repo_url)
     if match is None:
-        raise GitHubError(f"Not a GitHub repository URL: {repo_url}")
+        raise GitHubError(f"Not a GitHub repository URL: {repo_url}", ErrorCode.INVALID_GITHUB_URL)
     return match.group(1)
 
 
@@ -141,7 +156,7 @@ async def git(
 
 async def _api(method: str, path: str, **kwargs) -> dict:
     if not settings.github_token:
-        raise GitHubError("GITHUB_TOKEN is not configured")
+        raise GitHubError("GITHUB_TOKEN is not configured", ErrorCode.GITHUB_NOT_CONFIGURED)
     headers = {
         "Authorization": f"Bearer {settings.github_token}",
         "Accept": "application/vnd.github+json",
@@ -181,7 +196,7 @@ async def resolve_branch(repo: str, branch: str) -> str:
     if not await has_commits(repo):
         return branch
     if not await branch_exists(repo, branch):
-        raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')")
+        raise GitHubError(f"The branch '{branch}' does not exist on {repo} (its default branch is '{default}')", ErrorCode.GITHUB_BRANCH_MISSING)
     return branch
 
 

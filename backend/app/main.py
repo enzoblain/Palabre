@@ -13,7 +13,7 @@ from app import agent_pool, services
 from app.projects import drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
-from app.api.errors import ApiError, ErrorCode, api_error, validation_error
+from app.api.errors import ApiError, api_error, validation_error
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
@@ -86,12 +86,12 @@ app.add_exception_handler(RequestValidationError, validation_error)
 
 @app.exception_handler(WorkflowError)
 async def workflow_error(_: Request, exc: WorkflowError) -> JSONResponse:
-    return JSONResponse({"detail": str(exc), "code": ErrorCode.WORKFLOW_ERROR.value}, status_code=409)
+    return JSONResponse({"detail": str(exc), "code": exc.code.value}, status_code=409)
 
 
 @app.exception_handler(GitHubError)
 async def github_error(_: Request, exc: GitHubError) -> JSONResponse:
-    return JSONResponse({"detail": str(exc), "code": ErrorCode.GITHUB_ERROR.value}, status_code=502)
+    return JSONResponse({"detail": str(exc), "code": exc.code.value}, status_code=502)
 
 
 # REST API for the boss
