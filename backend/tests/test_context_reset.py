@@ -143,10 +143,14 @@ def lead_flow(monkeypatch):
     for name in ("clean_up_task", "announce", "merge_blockers"):
         monkeypatch.setattr(workflow, name, nothing)
 
-    async def merge_pull_request(*_):
+    async def merge_pull_request(*_, **__):
         pass
 
+    async def pull_request_head(*_):
+        return "a" * 40
+
     monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow.github, "pull_request_head", pull_request_head)
     monkeypatch.setattr(workflow.github, "merge_pull_request", merge_pull_request)
     return task, lead
 

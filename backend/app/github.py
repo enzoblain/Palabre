@@ -37,6 +37,7 @@ def is_task_branch_name(branch: str | None) -> bool:
 
 HTTP_NOT_FOUND = 404
 HTTP_UNPROCESSABLE = 422
+HTTP_CONFLICT = 409
 
 
 class GitHubError(RuntimeError):
@@ -294,10 +295,14 @@ async def is_pull_request_open(repo: str, number: int) -> bool:
         return False
 
 
-async def checks_status(repo: str, number: int) -> str | None:
-    """None if CI passed on the PR's head commit, otherwise the reason it did not."""
-    pr = await _api("GET", f"/repos/{repo}/pulls/{number}")
-    return await commit_checks(repo, pr["head"]["sha"])
+async def pull_request_head(repo: str, number: int) -> str:
+    """SHA of the PR's current head commit."""
+    return (await get_pull_request(repo, number))["head"]["sha"]
+
+
+async def checks_status(repo: str, number: int, sha: str | None = None) -> str | None:
+    """None if CI passed on `sha` (default: the PR's head commit), otherwise the reason it did not."""
+    return await commit_checks(repo, sha or await pull_request_head(repo, number))
 
 
 async def commit_checks(repo: str, sha: str) -> str | None:

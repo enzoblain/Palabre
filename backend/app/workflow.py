@@ -612,8 +612,9 @@ def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: T
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
-async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[str]:
-    """Everything that prevents merging this task under the company's mode."""
+async def merge_blockers(s: AsyncSession, project: Project, task: Task, head: str | None = None) -> list[str]:
+    """Everything that prevents merging this task under the company's mode.
+    head: the PR head the CI is checked on (default: the PR's current head)."""
     process = mode_process(project.mode)
     reviews = await _task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
@@ -635,7 +636,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[
     if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in e.roles for e in approvers):
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
-        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number):
+        if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, head):
             blockers.append(ci)
     if process["docs_required"]:
         repo, head = _task_checkout(project, task)
@@ -695,6 +696,20 @@ async def clean_up_finished_tasks(s: AsyncSession) -> int:
     return len(tasks)
 
 
+async def _merge_pinned(repo: str, task: Task, head: str) -> None:
+    """Merge the PR only if its head is still `head`: GitHub answers 409 when it moved since the gates."""
+    try:
+        await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}", sha=head)
+    except github.GitHubError as exc:
+        if exc.status != github.HTTP_CONFLICT:
+            raise
+        raise WorkflowError(
+            f"Cannot merge: the PR head moved after the merge rules were checked (expected {head[:SHORT_SHA_LENGTH]}): "
+            "check the new head and try again",
+            code=ErrorCode.MERGE_BLOCKED,
+        ) from exc
+
+
 async def merge_task(
     s: AsyncSession, project_id: int, task_id: int, author: Employee | None, force: bool = False, message: str = ""
 ) -> Task:
@@ -704,14 +719,17 @@ async def merge_task(
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review or task.pr_number is None:
         raise WorkflowError(f"Task #{task.id} has no pull request waiting to be merged", code=ErrorCode.TASK_NO_PULL_REQUEST)
-    if not force and (blockers := await merge_blockers(s, project, task)):
+    repo = github.repo_slug(project.repo_url)
+    # One head for the whole check: the CI is verified on it and the merge is pinned to it. After a
+    # pure rebase it is not the reviewed head, but the content is the reviewed one and the CI ran on it
+    head = await github.pull_request_head(repo, task.pr_number)
+    if not force and (blockers := await merge_blockers(s, project, task, head)):
         if any(b.startswith("CI still running") for b in blockers):
             task.merge_retry_at = datetime.now(UTC)  # The watcher wakes the lead when the CI is over
             await s.commit()
         raise WorkflowError("Cannot merge yet: " + "; ".join(blockers), code=ErrorCode.MERGE_BLOCKED)
 
-    repo = github.repo_slug(project.repo_url)
-    await github.merge_pull_request(repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}")
+    await _merge_pinned(repo, task, head)
     task.status = TaskStatus.done
     task.closed_by_id = author.id if author else None
     task.closed_at = datetime.now(UTC)
