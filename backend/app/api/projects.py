@@ -4,9 +4,9 @@ from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from app import github, presence, projects
-from app.api.errors import ApiError, ErrorCode
 from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     EmployeeDetail,
     EmployeeOut,
@@ -32,7 +32,9 @@ router = APIRouter(tags=["projects"])
 async def _project(s, project_id: int) -> Project:
     project = await projects.load_project(s, project_id)
     if project is None:
-        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, f"Project {project_id} not found")
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, f"Project {project_id} not found"
+        )
     return project
 
 
@@ -54,16 +56,26 @@ async def create_project(body: ProjectIn, s: SessionDep):
     """Create a project: a company on a GitHub repository, or a research group on a topic
     (the mode says which). The team is drawn at random for the mode, or built by hand."""
     if body.mode not in load_catalog()["modes"]:
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_MODE, f"Unknown mode: {body.mode}")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_MODE, f"Unknown mode: {body.mode}"
+        )
     kind = kind_of_mode(body.mode)
     if kind == "research":
         if not (body.topic or "").strip():
-            raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.RESEARCH_TOPIC_REQUIRED, "A research project needs a topic")
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.RESEARCH_TOPIC_REQUIRED,
+                "A research project needs a topic",
+            )
     else:
         try:
             await github.resolve_branch(github.repo_slug(body.repo_url), "")  # fail early on an unreachable repository
         except github.GitHubError as exc:
-            raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_REPOSITORY, str(exc)) from None
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.INVALID_REPOSITORY,
+                str(exc),
+            ) from None
     _check_accounts(body.accounts.values())
     if body.employees is not None:
         _check_team(body.employees, kind)
@@ -79,13 +91,25 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
     roles = {k for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.DUPLICATE_EMPLOYEE_NAME, "Two employees have the same name")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.DUPLICATE_EMPLOYEE_NAME,
+            "Two employees have the same name",
+        )
     for e in employees:
         if unknown := [r for r in e.roles if r not in roles]:
-            raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_ROLES, f"{e.name}: unknown roles {', '.join(unknown)}")
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.UNKNOWN_ROLES,
+                f"{e.name}: unknown roles {', '.join(unknown)}",
+            )
         projects.validate_personality(e.traits, e.style, partial=True, kind=kind)
     if kind == "company" and not any("lead" in e.roles for e in employees):
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.LEAD_REQUIRED, "The team needs a lead (they organize and merge)")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.LEAD_REQUIRED,
+            "The team needs a lead (they organize and merge)",
+        )
     _check_accounts([e.account for e in employees if e.account is not None])
 
 
@@ -93,7 +117,9 @@ def _check_accounts(accounts) -> None:
     n = account_count()
     if any(not 1 <= a <= n for a in accounts):
         raise ApiError(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_ACCOUNT, f"Account must be between 1 and {n} (CLAUDE_CODE_OAUTH_TOKENS)"
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.INVALID_ACCOUNT,
+            f"Account must be between 1 and {n} (CLAUDE_CODE_OAUTH_TOKENS)",
         )
 
 
@@ -120,7 +146,11 @@ async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     """Grow or shrink the company (e.g. startup → scaleup)."""
     project = await _project(s, project_id)
     if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_MODE, f"Unknown {project.kind} mode: {body.mode}")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.UNKNOWN_MODE,
+            f"Unknown {project.kind} mode: {body.mode}",
+        )
     return _detail(await projects.change_mode(s, project, body.mode))
 
 
@@ -130,7 +160,11 @@ async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
     """The branch the team works from and merges into (created on GitHub if missing)."""
     project = await _project(s, project_id)
     if project.kind != "company":
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.RESEARCH_HAS_NO_REPOSITORY, "A research project has no repository")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.RESEARCH_HAS_NO_REPOSITORY,
+            "A research project has no repository",
+        )
     if body.branch == project.default_branch:
         return _detail(project)
     return _detail(await projects.change_branch(s, project, body.branch))

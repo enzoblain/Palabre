@@ -5,9 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import github, projects, services
-from app.api.errors import ApiError, ErrorCode
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     DecisionOut,
     DecisionPatch,
@@ -34,13 +34,19 @@ async def load_room(s, room_id: int) -> Room:
 def check_not_direction(room: Room) -> None:
     """The direction channel is fixed: the boss and the lead, for as long as the project lives."""
     if room.kind == services.DIRECTION:
-        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.DIRECTION_ROOM_IMMUTABLE, "The direction channel cannot be changed this way")
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            ErrorCode.DIRECTION_ROOM_IMMUTABLE,
+            "The direction channel cannot be changed this way",
+        )
 
 
 def check_not_dm(room: Room) -> None:
     """A DM is exactly its two employees, named after them: no admin edit, no deletion."""
     if room.kind == services.DM:
-        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.DM_IMMUTABLE, "A direct message cannot be changed this way")
+        raise ApiError(
+            status.HTTP_409_CONFLICT, ErrorCode.DM_IMMUTABLE, "A direct message cannot be changed this way"
+        )
 
 
 @router.get("/projects/{project_id}/rooms", response_model=list[RoomOut])
@@ -55,15 +61,27 @@ async def create_room(project_id: int, body: RoomIn, s: SessionDep):
     """A room (like a channel), with its first conversation. Members default to everyone."""
     project = await get_or_404(s, Project, project_id)
     if project.kind != "research":
-        raise ApiError(status.HTTP_403_FORBIDDEN, ErrorCode.BOSS_DIRECTION_ONLY, "The boss only works through the direction channel")
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN,
+            ErrorCode.BOSS_DIRECTION_ONLY,
+            "The boss only works through the direction channel",
+        )
     q = select(Employee).where(Employee.project_id == project_id)
     if body.member_ids is not None:
         q = q.where(Employee.id.in_(body.member_ids))
     members = list(await s.scalars(q))
     if body.member_ids is not None and len(members) != len(set(body.member_ids)):
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.MEMBERS_NOT_IN_PROJECT, "Some members are not employees of this project")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.MEMBERS_NOT_IN_PROJECT,
+            "Some members are not employees of this project",
+        )
     if body.name.strip().lower() == services.DIRECTION:
-        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.DIRECTION_ROOM_RESERVED, "The direction channel is created with the project")
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            ErrorCode.DIRECTION_ROOM_RESERVED,
+            "The direction channel is created with the project",
+        )
     room = Room(project_id=project_id, name=body.name, objective=body.objective, summary="", members=members)
     s.add(room)
     await s.flush()
@@ -111,7 +129,11 @@ async def add_member(room_id: int, employee_id: int, s: SessionDep):
     check_not_dm(room)
     employee = await get_or_404(s, Employee, employee_id)
     if employee.project_id != room.project_id:
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.EMPLOYEE_OTHER_PROJECT, "This employee belongs to another project")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.EMPLOYEE_OTHER_PROJECT,
+            "This employee belongs to another project",
+        )
     if employee not in room.members:
         room.members.append(employee)
         await s.commit()
@@ -157,7 +179,11 @@ async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
     try:
         await projects.settle_decision(s, decision, RequestAnswer(body.status))
     except github.GitHubError as exc:
-        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.GITHUB_MERGE_REFUSED, f"GitHub refused the merge: {exc}") from None
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            ErrorCode.GITHUB_MERGE_REFUSED,
+            f"GitHub refused the merge: {exc}",
+        ) from None
     await s.commit()
     return decision
 

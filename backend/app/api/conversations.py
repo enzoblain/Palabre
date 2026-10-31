@@ -7,8 +7,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, services
-from app.api.errors import ApiError, ErrorCode
 from app.api.deps import SessionDep, get_or_404
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
 from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room, Wakeup
 from app.orchestrator.dispatcher import orchestrator
@@ -133,4 +133,8 @@ async def answer_request(message_id: int, body: RequestAnswerIn, s: SessionDep):
     try:
         return await projects.answer_request(s, message_id, RequestAnswer(body.answer), body.comment)
     except github.GitHubError as exc:
-        raise ApiError(status.HTTP_409_CONFLICT, ErrorCode.GITHUB_MERGE_REFUSED, f"GitHub refused the merge: {exc}") from None
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            ErrorCode.GITHUB_MERGE_REFUSED,
+            f"GitHub refused the merge: {exc}",
+        ) from None

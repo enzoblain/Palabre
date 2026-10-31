@@ -1,5 +1,8 @@
 """API errors carry a stable `code` next to the English `detail`, with unchanged statuses."""
 
+from types import SimpleNamespace
+
+import pytest
 import pytest_asyncio
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -8,6 +11,8 @@ from pydantic import BaseModel
 from app.api import deps
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode, api_error, validation_error
 from app.config import settings
+from app.github import GitHubError
+from app.services import WorkflowError
 from fastapi.exceptions import RequestValidationError
 
 
@@ -67,3 +72,76 @@ async def test_validation_error_code(client):
 def test_codes_are_snake_case_and_unique():
     assert all(c.value == c.name.lower() for c in ErrorCode)
     assert set(NOT_FOUND.values()) <= set(ErrorCode)
+
+
+class _NoRows:
+    """A session where every lookup misses."""
+
+    async def get(self, *_args, **_kwargs):
+        return None
+
+    async def scalar(self, *_args, **_kwargs):
+        return None
+
+
+@pytest_asyncio.fixture
+async def real_client(monkeypatch):
+    from app.db import get_session
+    from app.main import app
+
+    async def no_rows():
+        yield _NoRows()
+
+    deps._failures.clear()
+    app.dependency_overrides[get_session] = no_rows
+    headers = {"Authorization": f"Bearer {settings.admin_token}"}
+    transport = ASGITransport(app=app, client=("3.3.3.3", 1))
+    async with AsyncClient(transport=transport, base_url="http://t", headers=headers) as c:
+        yield c
+    app.dependency_overrides.clear()
+    deps._failures.clear()
+
+
+async def test_real_app_unknown_project(real_client):
+    r = await real_client.get("/api/projects/999")
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Project 999 not found", "code": "project_not_found"}
+
+
+async def test_real_app_requires_token(real_client):
+    r = await real_client.get("/api/projects/1", headers={"Authorization": "Bearer nope"})
+    assert r.status_code == 401 and r.json()["code"] == "auth_invalid_token"
+
+
+async def test_real_app_validation_error(real_client):
+    r = await real_client.put("/api/projects/1/mode", json={})
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    ("exc", "status", "code"),
+    [(WorkflowError("nope"), 409, "workflow_error"), (GitHubError("boom"), 502, "github_error")],
+)
+async def test_real_app_domain_errors(real_client, monkeypatch, exc, status, code):
+    from app.api import tasks
+
+    async def load_task(*_a, **_k):
+        return SimpleNamespace(id=1, project_id=1)
+
+    async def merge_task(*_a, **_k):
+        raise exc
+
+    monkeypatch.setattr(tasks, "load_task", load_task)
+    monkeypatch.setattr(tasks.workflow, "merge_task", merge_task)
+    r = await real_client.post("/api/tasks/1/merge", json={})
+    assert r.status_code == status
+    assert r.json() == {"detail": str(exc), "code": code}
+
+
+async def test_get_or_404_falls_back_to_generic_code():
+    class Unmapped:
+        pass
+
+    with pytest.raises(ApiError) as e:
+        await deps.get_or_404(_NoRows(), Unmapped, 1)
+    assert e.value.status_code == 404 and e.value.code == ErrorCode.NOT_FOUND

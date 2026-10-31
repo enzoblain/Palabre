@@ -5,9 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import workflow
-from app.api.errors import ApiError, ErrorCode
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import MergeIn, ReviewOut, TaskDetail, TaskIn, TaskOut, TaskPatch
 from app.models import Conversation, Project, Review, Task, TaskStatus
 
@@ -57,7 +57,11 @@ async def create_task(room_id: int, body: TaskIn, s: SessionDep):
     )
     conversation = await s.get(Conversation, conversation_id) if conversation_id else None
     if conversation is None or conversation.room_id != room_id:
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.CONVERSATION_NOT_IN_ROOM, "The room has no such conversation")
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.CONVERSATION_NOT_IN_ROOM,
+            "The room has no such conversation",
+        )
     task = await workflow.create_task(
         s,
         project_id=room.project_id,

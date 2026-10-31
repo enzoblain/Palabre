@@ -43,6 +43,7 @@ class ErrorCode(StrEnum):
     DIRECTION_ROOM_RESERVED = "direction_room_reserved"
     CONVERSATION_NOT_IN_ROOM = "conversation_not_in_room"
     INVALID_LANGUAGE = "invalid_language"
+    NOT_FOUND = "not_found"
 
 
 class ApiError(HTTPException):
@@ -54,7 +55,8 @@ class ApiError(HTTPException):
 
 
 async def api_error(_: Request, exc: ApiError) -> JSONResponse:
-    return JSONResponse({"detail": exc.detail, "code": exc.code.value}, status_code=exc.status_code, headers=exc.headers)
+    body = {"detail": exc.detail, "code": exc.code.value}
+    return JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
 
 
 async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:

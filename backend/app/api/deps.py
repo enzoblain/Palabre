@@ -76,7 +76,10 @@ async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | N
     if len(recent) >= settings.auth_max_failures:
         retry = max(1, int(settings.auth_fail_window_seconds - (now - recent[0])) + 1)
         raise ApiError(
-            status.HTTP_429_TOO_MANY_REQUESTS, ErrorCode.AUTH_LOCKED, "Too many failed authentications", headers={"Retry-After": str(retry)}
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            ErrorCode.AUTH_LOCKED,
+            "Too many failed authentications",
+            headers={"Retry-After": str(retry)},
         )
     if cred is None or not secrets.compare_digest(cred.credentials.encode(), settings.admin_token.encode()):
         if len(_failures) > _SWEEP_ABOVE:
@@ -92,5 +95,6 @@ async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | N
 async def get_or_404(s: AsyncSession, model: type[ModelT], id: int, **kwargs) -> ModelT:
     obj = await s.get(model, id, **kwargs)
     if obj is None:
-        raise ApiError(status.HTTP_404_NOT_FOUND, NOT_FOUND[model.__name__], f"{model.__name__} {id} not found")
+        code = NOT_FOUND.get(model.__name__, ErrorCode.NOT_FOUND)
+        raise ApiError(status.HTTP_404_NOT_FOUND, code, f"{model.__name__} {id} not found")
     return obj
