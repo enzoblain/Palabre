@@ -9,6 +9,7 @@ from mcp.types import CallToolResult, ListToolsResult, Tool
 from app.company.team import load_catalog
 from app.mcp_server import auth, server
 from app.mcp_server.auth import AgentAuthMiddleware, Caller
+from app.orchestrator.research import DRAFTS_GLOB
 from app.mcp_server.permissions import MCP_TOOLS, TASK_ONLY_TOOLS, claude_tools_for, mcp_tools_for
 
 CONVERSATION_TOOLS = {name for name, perms in MCP_TOOLS.items() if perms == {"conversation"}}
@@ -250,3 +251,10 @@ def test_only_the_lead_can_ship_releases():
 async def test_others_cannot_ship_releases(role, name):
     result, reached = await call_through_filter(role, name)
     assert result.is_error and reached == []
+
+
+def test_research_writes_only_in_drafts_folder():
+    tools = claude_tools_for(["research"])
+    assert f"Write({DRAFTS_GLOB})" in tools
+    assert f"Edit({DRAFTS_GLOB})" in tools
+    assert "Write" not in tools and "Edit" not in tools
