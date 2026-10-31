@@ -40,9 +40,9 @@ def make_employee(name: str = "Alice", *roles: str) -> SimpleNamespace:
     return SimpleNamespace(id=next(_ids), name=name, title=roles[0] if roles else "", roles=list(roles))
 
 
-def make_review(reviewer, verdict: Verdict, round: int = 1) -> SimpleNamespace:
+def make_review(reviewer, verdict: Verdict, round: int = 1, head_sha: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(
-        id=next(_ids), reviewer=reviewer, reviewer_id=reviewer.id, verdict=verdict, round=round,
+        id=next(_ids), reviewer=reviewer, reviewer_id=reviewer.id, verdict=verdict, round=round, head_sha=head_sha,
         created_at=datetime.now(UTC),
     )  # fmt: skip
 
@@ -55,7 +55,7 @@ def make_project(mode: str = "enterprise") -> SimpleNamespace:
 
 def make_task(**overrides) -> SimpleNamespace:
     fields = dict(
-        id=next(_ids), status=TaskStatus.review, review_round=1, sensitive=False,
+        id=next(_ids), status=TaskStatus.review, review_round=1, reviewed_head=None, sensitive=False,
         pr_number=42, branch="task/1-demo", assignee_id=None, merge_retry_at=None, unstarted_nudges=0,
         idle_alert_sha=None, project_id=1, depends_on=[], worktree_path=None,
     )  # fmt: skip

@@ -27,6 +27,8 @@ from app.worktrees import (
 )
 
 MAX_DIFF_CHARS = 100_000
+SHORT_SHA_LENGTH = 8
+MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
 TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -349,16 +351,33 @@ async def _keep_reviewed_head(project: Project, task: Task, head: str) -> None:
         log.warning("cannot keep reviewed head of task %s: %s", task.id, e)
 
 
-async def _changes_pending(s: AsyncSession, task: Task) -> bool:
-    """A reviewer's latest verdict of the current round is 'changes'."""
-    reviews = await s.scalars(
-        select(Review).where(Review.task_id == task.id, Review.round == task.review_round).order_by(Review.id)
-    )
-    latest: dict[int, Verdict] = {}
+def _is_stale(review: Review, task: Task) -> bool:
+    """The opinion was given on an earlier round or on a head that is no longer the PR's: it counts for nothing."""
+    if review.round != task.review_round:
+        return True
+    return bool(review.head_sha and task.reviewed_head and review.head_sha != task.reviewed_head)
+
+
+def _latest_verdicts(reviews: list[Review]) -> dict[int, Review]:
+    """The last approve/changes opinion of each reviewer (comments never count)."""
+    latest: dict[int, Review] = {}
     for r in reviews:
         if r.verdict != Verdict.comment:
-            latest[r.reviewer_id] = r.verdict
-    return Verdict.changes in latest.values()
+            latest[r.reviewer_id] = r
+    return latest
+
+
+async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
+    reviews = await s.scalars(
+        select(Review).where(Review.task_id == task.id).options(selectinload(Review.reviewer)).order_by(Review.id)
+    )
+    return list(reviews)
+
+
+async def _changes_pending(s: AsyncSession, task: Task) -> bool:
+    """A reviewer's latest verdict on the current head is 'changes'."""
+    current = [r for r in await _task_reviews(s, task) if not _is_stale(r, task)]
+    return any(r.verdict == Verdict.changes for r in _latest_verdicts(current).values())
 
 
 async def start_task(s: AsyncSession, project_id: int, task_id: int, employee: Employee) -> Task:
@@ -516,22 +535,38 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     diff = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", base)
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n\n[diff truncated: read the files directly for the rest]"
-    return f"{stat}\n{diff}"
+    head_line = f"Head: {task.reviewed_head}\n" if task.reviewed_head else ""
+    return f"{head_line}{stat}\n{diff}"
 
 
 async def review_task(
-    s: AsyncSession, project_id: int, task_id: int, reviewer: Employee, verdict: str, body: str
+    s: AsyncSession, project_id: int, task_id: int, reviewer: Employee, verdict: str, body: str,
+    head_sha: str,
 ) -> list[str]:
-    """Record a review. Returns what still blocks the merge."""
+    """Record a review. Returns what still blocks the merge.
+    head_sha: the PR head the reviewer read (shown by get_diff, at least MIN_SHA_PREFIX_LENGTH characters);
+    refused when it is no longer the head."""
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if task.status != TaskStatus.review:
         raise WorkflowError(f"Task #{task.id} is {task.status.value}, not waiting for review", code=ErrorCode.TASK_WRONG_STATUS)
     if task.assignee_id == reviewer.id:
         raise WorkflowError("You cannot review your own task", code=ErrorCode.CANNOT_REVIEW_OWN_TASK)
+    if len(head_sha) < MIN_SHA_PREFIX_LENGTH:
+        raise WorkflowError(
+            f"head_sha must be the `Head:` commit shown by get_diff (at least {MIN_SHA_PREFIX_LENGTH} characters)",
+            code=ErrorCode.INVALID_HEAD_SHA,
+        )
+    if task.reviewed_head and not task.reviewed_head.startswith(head_sha):
+        raise WorkflowError(
+            f"Your review is on commit {head_sha[:SHORT_SHA_LENGTH]}, but the PR head is now "
+            f"{task.reviewed_head[:SHORT_SHA_LENGTH]}: read the new diff with get_diff and review again",
+            code=ErrorCode.STALE_REVIEW_HEAD,
+        )
 
     review = Review(
-        task_id=task.id, reviewer_id=reviewer.id, verdict=Verdict(verdict), body=body, round=task.review_round
+        task_id=task.id, reviewer_id=reviewer.id, verdict=Verdict(verdict), body=body, round=task.review_round,
+        head_sha=task.reviewed_head,
     )
     s.add(review)
     await s.flush()
@@ -571,24 +606,26 @@ async def remind_merge(s: AsyncSession, task: Task) -> None:
     emit_event(s, task.project_id, "pr_approved", {"task_id": task.id, "reviewer": by}, role="lead")
 
 
+def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: Task) -> list[Review]:
+    """Last opinion of each reviewer who has not given one on the current head since."""
+    outdated = _latest_verdicts([r for r in reviews if _is_stale(r, task)])
+    return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
+
+
 async def merge_blockers(s: AsyncSession, project: Project, task: Task) -> list[str]:
     """Everything that prevents merging this task under the company's mode."""
     process = mode_process(project.mode)
-    reviews = await s.scalars(
-        select(Review)
-        .where(Review.task_id == task.id, Review.round == task.review_round)
-        .options(selectinload(Review.reviewer))
-        .order_by(Review.id)
-    )
-    # Latest approve/changes verdict of each reviewer since the last submission
-    latest: dict[int, Review] = {}
-    for r in reviews:
-        if r.verdict != Verdict.comment:
-            latest[r.reviewer_id] = r
+    reviews = await _task_reviews(s, task)
+    # Latest approve/changes verdict of each reviewer on the current head
+    latest = _latest_verdicts([r for r in reviews if not _is_stale(r, task)])
     approvers = [r.reviewer for r in latest.values() if r.verdict == Verdict.approve]
 
     blockers = [
         f"{r.reviewer.name} requested changes" for r in latest.values() if r.verdict == Verdict.changes
+    ]
+    blockers += [
+        f"{r.reviewer.name}'s opinion ({r.verdict.value}) is on an outdated commit: {r.reviewer.name} must review the new version"
+        for r in _outdated_opinions(reviews, latest, task)
     ]
     reviewer_approvals = sum(REVIEWER_KEY in e.roles for e in approvers)
     if reviewer_approvals < process["required_approvals"]:

@@ -57,6 +57,8 @@ export const en = {
   "error.branch_already_used": "This branch is already used by another task",
   "error.no_name_left": "No employee name left for this team",
   "error.task_wrong_status": "This task is not in the right status for this action",
+  "error.stale_review_head": "The pull request moved since this review was started",
+  "error.invalid_head_sha": "The reviewed commit is missing or too short",
   "error.task_not_yours": "This task is assigned to someone else",
   "error.task_waiting_for_dependencies": "This task is waiting for the tasks it depends on",
   "error.task_no_branch": "This task has no branch yet",

@@ -286,6 +286,8 @@ export const ERROR_CODES = [
   "branch_already_used",
   "no_name_left",
   "task_wrong_status",
+  "stale_review_head",
+  "invalid_head_sha",
   "task_not_yours",
   "task_waiting_for_dependencies",
   "task_no_branch",
