@@ -160,7 +160,11 @@ cat > "$CLAUDE" <<'STUB'
 #!/bin/sh
 # The prompt arrives on stdin: "probe <cwd> <reference> <pids...>", "commit <dir>" or "hang"
 prev=
-for arg in "$@"; do [ "$prev" = --mcp-config ] && mcp=$arg; prev=$arg; done
+for arg in "$@"; do
+  [ "$prev" = --mcp-config ] && mcp=$arg
+  [ "$prev" = --append-system-prompt-file ] && sysprompt=$arg
+  prev=$arg
+done
 prompt=$(cat)
 set -- $prompt
 mode=$1
@@ -184,15 +188,19 @@ case $mode in
   hang)
     sleep 600 & sleep 600 ;;
   pair)
-    # Two runs alive together: each looks at the other's process and MCP config. $2 dir, $3 me, $4 peer
+    # Two runs alive together: each looks at the other's process, MCP config and system prompt file. $2 dir, $3 me, $4 peer
     dir=$2; me=$3; peer=$4
-    echo $$ > "$dir/$me.pid"; echo "$mcp" > "$dir/$me.mcp"
+    echo $$ > "$dir/$me.pid"; echo "$mcp" > "$dir/$me.mcp"; echo "$sysprompt" > "$dir/$me.sysprompt"
     i=0; while [ ! -s "$dir/$peer.mcp" ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
     if [ -s "$dir/$peer.mcp" ]; then found=found; else found=missing; fi
     other=$(cat "$dir/$peer.pid" 2>/dev/null); othermcp=$(cat "$dir/$peer.mcp" 2>/dev/null)
     # A refusal must come from the permissions, not from a file that is not there
     if [ -e "$othermcp" ]; then mcpthere=yes; else mcpthere=missing; fi
+    othersysprompt=$(cat "$dir/$peer.sysprompt" 2>/dev/null)
+    if [ -e "$othersysprompt" ]; then syspromptthere=yes; else syspromptthere=missing; fi
     out="uid=$(id -u)\npeer=$found"
+    out="$out\nsysprompt=$(denied cat "$othersysprompt")\nsyspromptthere=$syspromptthere"
+    out="$out\nownsysprompt=$(if cat "$sysprompt" >/dev/null 2>&1; then echo ok; else echo denied; fi)"
     out="$out\nenviron=$(denied cat "/proc/$other/environ")\nmcpconfig=$(denied cat "$othermcp")\nmcpthere=$mcpthere"
     out="$out\nownenviron=$(if cat "/proc/$$/environ" >/dev/null 2>&1; then echo allowed; else echo denied; fi)"
     out="$out\nownmcp=$(if cat "$mcp" >/dev/null 2>&1; then echo ok; else echo denied; fi)"

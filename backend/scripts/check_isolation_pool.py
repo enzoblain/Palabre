@@ -62,7 +62,7 @@ def left_behind(uid: str) -> list[str]:
 
 
 async def concurrent_runs(clones: tuple[Path, Path]) -> None:
-    """Two live runs at once, each in its own clone: each tries to read the other's environment and MCP config."""
+    """Two live runs at once, each in its own clone: each tries to read the other's environment, MCP config and system prompt file."""
     settings.agent_pool_size = 2
     agent_pool.reset()
     # The runs meet in a directory open to both accounts (a claimed clone is closed to the other one)
@@ -81,6 +81,9 @@ async def concurrent_runs(clones: tuple[Path, Path]) -> None:
         report(got.get("peer") == "found", f"the {name} was alive together with the other (else the checks mean nothing), expected peer=found", got)
         report(got.get("mcpthere") == "yes", f"the {name} could see the other run's MCP config file (else 'denied' means 'missing'), expected mcpthere=yes", got)
         report(got.get("ownenviron") == "allowed" and got.get("ownmcp") == "ok", f"the {name} reads its own environ and MCP config, expected ownenviron=allowed ownmcp=ok", got)
+        report(got.get("syspromptthere") == "yes", f"the {name} could see the other run's system prompt file (else 'denied' means 'missing'), expected syspromptthere=yes", got)
+        report(got.get("ownsysprompt") == "ok", f"the {name} reads its own system prompt file, expected ownsysprompt=ok", got)
+        report(got.get("sysprompt") == "denied", f"the {name} cannot read the other run's system prompt file, expected sysprompt=denied", got)
         report(got.get("environ") == "denied", f"the {name} cannot read the other run's /proc/<pid>/environ, expected environ=denied", got)
         report(got.get("mcpconfig") == "denied", f"the {name} cannot read the other run's MCP config, expected mcpconfig=denied", got)
 
