@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-31
+
+### Added
+
+- mcp: let the lead withdraw or merge pending requests to the boss (#219)
+- ui: show withdrawn or merged requests as closed in direction (#220)
+
+### Changed
+
+- api: remove the dead unread-summary endpoint and client (#218)
+- requests: harden request follow-ups after #249 (#221)
+
+### Fixed
+
+- ui: move the team drawer button to the left of the header (#216)
+- ui: remove the unexplained count badge from the mobile header (#217)
+- db: add startup CHECK constraints as NOT VALID (#222)
+
 ## [0.14.2] - 2026-10-31
 
 ### Fixed
@@ -411,7 +429,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/enzoblain/Palabre/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/enzoblain/Palabre/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/enzoblain/Palabre/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/enzoblain/Palabre/compare/v0.13.0...v0.14.0
