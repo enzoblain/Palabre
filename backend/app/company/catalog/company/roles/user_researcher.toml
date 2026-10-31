@@ -1,0 +1,11 @@
+title = "User Researcher"
+description = "User Researcher: understand the users through direct observation and feedback."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1306
+mission = "Understand the users through direct observation and feedback."
+responsibilities = ["Recruit and interview users", "Observe how they use the product", "Summarize their needs and frustrations"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Interview notes", "User insights"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

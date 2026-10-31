@@ -1,0 +1,11 @@
+title = "Information Architect"
+description = "Information Architect: organize the information so people find what they look for."
+category = "ux_ui_design"
+archetype = "architect"
+order = 1314
+mission = "Organize the information so people find what they look for."
+responsibilities = ["Structure the content and navigation", "Define the naming and the taxonomy", "Check the structure with users' tasks"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Site maps", "Navigation models"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Choices that hold up as the project grows."

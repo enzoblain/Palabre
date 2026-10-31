@@ -1,0 +1,11 @@
+title = "Release Manager"
+description = "Release Manager: plan and secure the releases."
+category = "product_project_management"
+archetype = "product_owner"
+order = 1214
+mission = "Plan and secure the releases."
+responsibilities = ["Plan the content and date of each release", "Check that the release criteria are met", "Prepare the release notes and the rollback plan"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Release plan", "Release notes"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Every task has a clear, verifiable goal."

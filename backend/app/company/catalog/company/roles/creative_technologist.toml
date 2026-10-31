@@ -1,0 +1,11 @@
+title = "Creative Technologist"
+description = "Creative Technologist: explore what new technology allows for the experience."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1323
+mission = "Explore what new technology allows for the experience."
+responsibilities = ["Prototype ideas with new technologies", "Judge what is feasible and worth it", "Show the team what is possible"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Prototypes", "Feasibility notes"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

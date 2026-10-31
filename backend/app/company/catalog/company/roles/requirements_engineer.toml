@@ -1,0 +1,11 @@
+title = "Requirements Engineer"
+description = "Requirements Engineer: make sure the requirements are complete, consistent and testable."
+category = "product_project_management"
+archetype = "product_owner"
+order = 1219
+mission = "Make sure the requirements are complete, consistent and testable."
+responsibilities = ["Elicit and structure the requirements", "Check them for conflicts and gaps", "Keep them traceable to the tasks and tests"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Requirements document", "Traceability matrix"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Every task has a clear, verifiable goal."

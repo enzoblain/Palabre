@@ -1,0 +1,11 @@
+title = "Character Artist"
+description = "Character Artist: create characters that look good and animate well."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1511
+mission = "Create characters that look good and animate well."
+responsibilities = ["Model and texture characters", "Prepare them for animation", "Keep them in the game's style"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Character models", "Texture sets"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

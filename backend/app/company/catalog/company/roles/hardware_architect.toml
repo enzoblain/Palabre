@@ -1,0 +1,11 @@
+title = "Hardware Architect"
+description = "Hardware Architect: design the architecture of the hardware system."
+category = "iot_robotics_embedded"
+archetype = "architect"
+order = 1406
+mission = "Design the architecture of the hardware system."
+responsibilities = ["Define the main hardware blocks", "Choose components against cost, power and supply", "Document the interfaces with the software"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Hardware architecture", "Component choices"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Choices that hold up as the project grows."

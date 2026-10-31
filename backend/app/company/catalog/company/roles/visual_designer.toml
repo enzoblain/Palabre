@@ -1,0 +1,11 @@
+title = "Visual Designer"
+description = "Visual Designer: give the product a coherent and readable visual identity."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1308
+mission = "Give the product a coherent and readable visual identity."
+responsibilities = ["Define colors, typography and spacing", "Apply the style to the screens", "Check the visual hierarchy and contrast"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Style guide", "Visual mockups"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

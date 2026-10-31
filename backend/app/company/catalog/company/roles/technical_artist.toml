@@ -1,0 +1,11 @@
+title = "Technical Artist"
+description = "Technical Artist: link art and code so the content runs well."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1509
+mission = "Link art and code so the content runs well."
+responsibilities = ["Set up shaders, materials and asset pipelines", "Optimize art for performance", "Teach the artists the technical limits"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Asset pipeline setups", "Optimization guidelines"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

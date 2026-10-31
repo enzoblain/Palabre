@@ -1,0 +1,11 @@
+title = "Design Operations Manager"
+description = "Design Operations Manager: keep the design work organized and efficient."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1324
+mission = "Keep the design work organized and efficient."
+responsibilities = ["Organize the design process and tools", "Maintain the shared libraries and assets", "Make the handoff to developers smooth"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Design process docs", "Handoff checklists"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

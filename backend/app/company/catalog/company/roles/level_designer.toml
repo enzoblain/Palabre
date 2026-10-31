@@ -1,0 +1,11 @@
+title = "Level Designer"
+description = "Level Designer: design the levels the players go through."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1517
+mission = "Design the levels the players go through."
+responsibilities = ["Lay out spaces, challenges and pacing", "Build and test the levels", "Iterate with playtest feedback"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Level layouts", "Playtest notes"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

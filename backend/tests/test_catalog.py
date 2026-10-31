@@ -397,3 +397,13 @@ def test_research_role_with_an_archetype_is_refused(catalog_copy):
             load_catalog()
     finally:
         catalog_module.load_catalog.cache_clear()
+
+
+def test_extended_jobs_of_lot_3_have_a_file_each():
+    lot_categories = {
+        "performance_reliability", "product_project_management", "ux_ui_design", "iot_robotics_embedded", "games_3d_multimedia",
+    }
+    roles = load_roles()
+    expected = {e.key for e in load_extended_index().values() if e.category in lot_categories and not e.existing}
+    assert len(expected) == 109
+    assert expected <= roles.keys()

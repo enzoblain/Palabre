@@ -1,0 +1,11 @@
+title = "Product Designer"
+description = "Product Designer: design the product end to end, from the problem to the screen."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1304
+mission = "Design the product end to end, from the problem to the screen."
+responsibilities = ["Understand the user problem", "Design the solution from flow to interface", "Check with the team that it can be built"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Design proposals", "Interface specs"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

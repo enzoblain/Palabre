@@ -1,0 +1,11 @@
+title = "Embedded Systems Architect"
+description = "Embedded Systems Architect: design the architecture of embedded systems."
+category = "iot_robotics_embedded"
+archetype = "architect"
+order = 1403
+mission = "Design the architecture of embedded systems."
+responsibilities = ["Split the system into hardware and software parts", "Choose the platform, the OS and the interfaces", "Document the constraints and the trade-offs"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Architecture documents", "Interface definitions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Choices that hold up as the project grows."

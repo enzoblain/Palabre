@@ -1,0 +1,11 @@
+title = "Autonomous Systems Engineer"
+description = "Autonomous Systems Engineer: build systems that act on their own safely."
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+order = 1417
+mission = "Build systems that act on their own safely."
+responsibilities = ["Implement sensing, decision and control loops", "Handle failures and uncertainty", "Validate in simulation before the real world", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Autonomy software", "Validation reports", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Your PRs pass review and do what the task asks."

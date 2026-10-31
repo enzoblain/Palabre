@@ -1,0 +1,11 @@
+title = "ASIC Engineer"
+description = "ASIC Engineer: design custom integrated circuits."
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+order = 1409
+mission = "Design custom integrated circuits."
+responsibilities = ["Write and verify the digital design", "Follow the physical design flow", "Check power, area and timing", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Design files", "Verification reports", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Your PRs pass review and do what the task asks."

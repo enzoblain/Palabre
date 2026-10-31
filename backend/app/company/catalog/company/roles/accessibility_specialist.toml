@@ -1,0 +1,11 @@
+title = "Accessibility Specialist"
+description = "Accessibility Specialist: make sure the product meets accessibility standards."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1319
+mission = "Make sure the product meets accessibility standards."
+responsibilities = ["Audit the interface against WCAG", "Report the issues with their severity and a fix", "Advise the team on accessible patterns"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Accessibility audits", "Fix recommendations"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

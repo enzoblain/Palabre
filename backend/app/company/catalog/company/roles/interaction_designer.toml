@@ -1,0 +1,11 @@
+title = "Interaction Designer"
+description = "Interaction Designer: design how the interface reacts to what users do."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1307
+mission = "Design how the interface reacts to what users do."
+responsibilities = ["Define interactions, states and transitions", "Specify feedback and error handling", "Check the consistency of the behavior"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Interaction specs", "State diagrams"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."

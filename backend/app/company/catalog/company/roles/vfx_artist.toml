@@ -1,0 +1,11 @@
+title = "VFX Artist"
+description = "VFX Artist: create the visual effects that give impact to the game."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1513
+mission = "Create the visual effects that give impact to the game."
+responsibilities = ["Build particle and visual effects", "Tune them for clarity and cost", "Integrate them in the engine"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Visual effects", "Effect budgets"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Work people understand without explanation."
