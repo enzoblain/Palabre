@@ -1,6 +1,7 @@
 """Web page reader for the research groups: https GET run by the backend, never to a non-public address."""
 
 import asyncio
+import codecs
 import socket
 from collections.abc import Iterable
 from html.parser import HTMLParser
@@ -101,8 +102,17 @@ def _charset(content_type: str) -> str:
     for param in content_type.split(";")[1:]:
         key, _, value = param.strip().partition("=")
         if key.lower() == "charset" and value:
-            return value.strip("\"'")
+            return _known_charset(value.strip("\"'"))
     return DEFAULT_CHARSET
+
+
+def _known_charset(name: str) -> str:
+    """`name` if Python can decode it, else the default (the server may announce anything)."""
+    try:
+        codecs.lookup(name)
+    except LookupError:
+        return DEFAULT_CHARSET
+    return name
 
 
 def _header(response: httpcore.Response, name: bytes) -> str:
