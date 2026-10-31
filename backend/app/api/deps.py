@@ -7,10 +7,11 @@ import socket
 import time
 from typing import Annotated, TypeVar
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.errors import NOT_FOUND, ApiError, ErrorCode
 from app.config import settings
 from app.db import Base, get_session
 
@@ -74,7 +75,12 @@ async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | N
     recent = _recent_failures(ip, now)
     if len(recent) >= settings.auth_max_failures:
         retry = max(1, int(settings.auth_fail_window_seconds - (now - recent[0])) + 1)
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many failed authentications", headers={"Retry-After": str(retry)})
+        raise ApiError(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            ErrorCode.AUTH_LOCKED,
+            "Too many failed authentications",
+            headers={"Retry-After": str(retry)},
+        )
     if cred is None or not secrets.compare_digest(cred.credentials.encode(), settings.admin_token.encode()):
         if len(_failures) > _SWEEP_ABOVE:
             for known in list(_failures):
@@ -83,11 +89,12 @@ async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | N
         recent.append(now)
         if len(recent) == settings.auth_max_failures:
             log.warning("API auth: %s locked out after %d failed attempts", ip, len(recent))
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_TOKEN, "Invalid token")
 
 
 async def get_or_404(s: AsyncSession, model: type[ModelT], id: int, **kwargs) -> ModelT:
     obj = await s.get(model, id, **kwargs)
     if obj is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{model.__name__} {id} not found")
+        code = NOT_FOUND.get(model.__name__, ErrorCode.NOT_FOUND)
+        raise ApiError(status.HTTP_404_NOT_FOUND, code, f"{model.__name__} {id} not found")
     return obj
