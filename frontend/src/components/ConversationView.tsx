@@ -325,8 +325,7 @@ export function ConversationView({ conversation, room, project, projects, route,
       <header className="conv-head">
         {/* The boss's conversation carries the project's name; a click on it switches project */}
         {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
-        <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }}
-          bossName={bossName} asTitle />
+        <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }} asTitle />
         {!isDirectionTitle(room, conversation) && conversation.title && <span className="muted">· {conversation.title}</span>}
         <span className="conv-members muted">{room.members.length} membres</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />

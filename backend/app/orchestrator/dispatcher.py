@@ -56,6 +56,14 @@ class Throttled(Exception):
         self.until = until
 
 
+async def close_open_runs(s: AsyncSession, error: str) -> None:
+    """Close every run still open: at startup no run can be alive, its process died with the old backend."""
+    await s.execute(
+        update(AgentRun).where(AgentRun.finished_at.is_(None)).values(finished_at=datetime.now(UTC), ok=False, error=error)
+    )
+    await s.commit()
+
+
 class Orchestrator:
     def __init__(self) -> None:
         self._loops: list[asyncio.Task] = []
@@ -77,6 +85,7 @@ class Orchestrator:
                 .values(started_at=None)
             )
             await s.commit()
+            await close_open_runs(s, "interrupted: backend restarted")
         self._loops = [
             asyncio.create_task(self._loop(), name="orchestrator"),
             asyncio.create_task(run_scheduler(), name="scheduler"),
@@ -187,6 +196,9 @@ class Orchestrator:
                 log.error("%s: could not prepare the run: %s", employee.name, exc)
                 await self._finish(s, run_id, wakeup_ids, ok=False, error=str(exc))
                 return
+            except asyncio.CancelledError:
+                await self._close_interrupted(run_id)
+                raise
             except Exception as exc:
                 log.exception("%s: could not prepare the run", employee.name)
                 await self._finish(s, run_id, wakeup_ids, ok=False, error=repr(exc))
@@ -204,7 +216,9 @@ class Orchestrator:
                 spec.resume_session_id = None
                 result = await run_claude(spec)
         except asyncio.CancelledError:
-            raise  # Shutdown: the wakeups stay started-but-unfinished and are redone on restart
+            # Shutdown: the wakeups stay started-but-unfinished and are redone on restart, but the run is closed
+            await self._close_interrupted(run_id)
+            raise
         except UsageLimitReached as exc:
             await self._requeue(employee_id, run_id, wakeup_ids, exc.limit)
             return
@@ -225,6 +239,19 @@ class Orchestrator:
                 else:
                     await on_run_succeeded(s, self._run_accounts.get(employee_id, 1))
             await self._finish(s, run_id, wakeup_ids, ok=result is not None and not result.is_error, error=error, result=result)
+
+    async def _close_interrupted(self, run_id: int) -> None:
+        """A cancelled run must not stay open forever, or its employee would look busy."""
+        try:
+            async with SessionLocal() as s:
+                await s.execute(
+                    update(AgentRun)
+                    .where(AgentRun.id == run_id, AgentRun.finished_at.is_(None))
+                    .values(finished_at=datetime.now(UTC), ok=False, error="interrupted: run cancelled")
+                )
+                await s.commit()
+        except Exception:
+            log.exception("could not close the interrupted run %s", run_id)
 
     async def _defer(self, s: AsyncSession, run_id: int, wakeup_ids: list[int], exc: Throttled) -> None:
         """Throttled: the run is skipped but the wakeups go back in the queue, to be grouped later."""

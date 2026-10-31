@@ -1,16 +1,21 @@
 """Presence: open run, finished run, employee never launched."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.config import settings
+from app.orchestrator import dispatcher
+from app.orchestrator.dispatcher import close_open_runs
 from app.models import AgentRun, Base, Employee, Project
 from app.presence import team_presence
 
 T1 = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
 T2 = datetime(2026, 10, 30, 10, 0, tzinfo=UTC)
+NOW = datetime.now(UTC)
 
 
 class Result:
@@ -87,17 +92,76 @@ async def test_real_query_open_finished_and_never_launched(db):
     await db.flush()
     db.add_all([
         AgentRun(employee_id=ann.id, kind="conversation", started_at=T1, finished_at=T1),
-        AgentRun(employee_id=ann.id, kind="task", started_at=T2),
+        AgentRun(employee_id=ann.id, kind="task", started_at=NOW),
         AgentRun(employee_id=bob.id, kind="task", started_at=T1, finished_at=T2),
-        AgentRun(employee_id=zed.id, kind="task", started_at=T2),
+        AgentRun(employee_id=zed.id, kind="task", started_at=NOW),
     ])  # fmt: skip
     await db.flush()
     result = await team_presence(db, 1)
     assert [e["name"] for e in result] == ["Ann", "Bob", "Cy"]
     a, b, c = result
-    assert (a["state"], a["kind"], _utc(a["last_run_at"])) == ("working", "task", T2)
+    assert (a["state"], a["kind"], _utc(a["last_run_at"])) == ("working", "task", NOW)
     assert (b["state"], b["kind"], _utc(b["last_run_at"])) == ("idle", None, T1)
     assert (c["state"], c["last_run_at"]) == ("idle", None)
+
+
+async def _employee(db):
+    db.add(Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1))
+    await db.flush()
+    e = Employee(project_id=1, name="Ann", roles=["dev"], title="Dev", model="m", permissions=[], traits={},
+                 quirks=[], style={}, mcp_token="a")  # fmt: skip
+    db.add(e)
+    await db.flush()
+    return e
+
+
+async def test_orphan_run_older_than_timeout_is_not_busy(db):
+    e = await _employee(db)
+    stale = NOW - timedelta(seconds=settings.agent_timeout_s + 60)
+    db.add(AgentRun(employee_id=e.id, kind="task", started_at=stale))
+    await db.flush()
+    (ann,) = await team_presence(db, 1)
+    assert ann["state"] == "idle"
+
+
+async def test_close_open_runs_at_startup(db):
+    e = await _employee(db)
+    db.add_all([
+        AgentRun(employee_id=e.id, kind="task", started_at=NOW),
+        AgentRun(employee_id=e.id, kind="task", started_at=T1, finished_at=T2, ok=True),
+    ])  # fmt: skip
+    await db.flush()
+    await close_open_runs(db, "interrupted: backend restarted")
+    runs = list(await db.scalars(select(AgentRun).order_by(AgentRun.id)))
+    assert all(r.finished_at is not None for r in runs)
+    assert (runs[0].ok, runs[0].error) == (False, "interrupted: backend restarted")
+    assert (runs[1].ok, runs[1].error) == (True, None)
+    (ann,) = await team_presence(db, 1)
+    assert ann["state"] == "idle"
+
+
+async def test_cancelled_run_is_closed(db, monkeypatch):
+    e = await _employee(db)
+    run = AgentRun(employee_id=e.id, kind="task", started_at=NOW)
+    db.add(run)
+    await db.flush()
+    monkeypatch.setattr(dispatcher, "SessionLocal", lambda: _Same(db))
+    await dispatcher.Orchestrator()._close_interrupted(run.id)
+    await db.refresh(run)
+    assert run.finished_at is not None and run.ok is False and "cancelled" in run.error
+
+
+class _Same:
+    """Session context manager handing out the test session."""
+
+    def __init__(self, s):
+        self.s = s
+
+    async def __aenter__(self):
+        return self.s
+
+    async def __aexit__(self, *exc):
+        return False
 
 
 def _utc(d):

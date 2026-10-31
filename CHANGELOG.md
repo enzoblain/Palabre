@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-31
+
+### Fixed
+
+- ui: move team panel to the left, settings only at its bottom (#209)
+- presence: close orphan agent runs and ignore stale open ones (#210)
+- ui: keep Settings reachable when no project is selected (#212)
+- ui: hide the Team title in the panel when no project is selected (#213)
+- ui: hide the team panel title when no project is selected (#214)
+
 ## [0.14.1] - 2026-10-31
 
 ### Fixed
@@ -401,7 +411,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/enzoblain/Palabre/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/enzoblain/Palabre/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/enzoblain/Palabre/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/enzoblain/Palabre/compare/v0.12.0...v0.13.0
