@@ -1,5 +1,7 @@
 """Which tools each catalog permission (catalog.toml → roles.*.permissions) unlocks."""
 
+from app.orchestrator.research import DRAFTS_GLOB
+
 # MCP tools of this server. A tool is available if the employee holds any listed permission.
 MCP_TOOLS: dict[str, set[str]] = {
     "read_messages": {"conversation"},
@@ -49,7 +51,7 @@ CLAUDE_TOOLS: dict[str, list[str]] = {
     "read_code": ["Read", "Grep", "Glob"],
     "edit_docs": ["Read", "Grep", "Glob", "Edit(**/*.md)", "Write(**/*.md)"],
     # Research groups: the web, and drafts in their own folder
-    "research": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", "Write", "Edit"],
+    "research": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", f"Write({DRAFTS_GLOB})", f"Edit({DRAFTS_GLOB})"],
 }
 
 

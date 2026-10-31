@@ -14,6 +14,8 @@ from app.services import emit_event
 
 PHASES = ["research", "debate", "conclusion", "report", "done"]
 SETTLE = timedelta(seconds=20)
+# The drafts folder is each agent's working directory; claude resolves "./" against it
+DRAFTS_GLOB = "./**"
 # Event that starts each phase: everyone, except the report (the rapporteur)
 NEXT_EVENT = {"research": "research_debate", "debate": "research_conclude", "conclusion": "research_report"}
 
