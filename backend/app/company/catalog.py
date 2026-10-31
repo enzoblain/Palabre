@@ -70,8 +70,8 @@ class Role(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
-    permissions: list[Permission]
-    wakes_on: list[EventType]
+    permissions: tuple[Permission, ...]
+    wakes_on: tuple[EventType, ...]
 
 
 class PersonalityAxis(BaseModel):
