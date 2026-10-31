@@ -36,7 +36,7 @@ export function PersonalityPicker({ presets, personality, selected, onSelect }: 
 }) {
   const { t } = useI18n();
   const name = useId();
-  const sorted = Object.values(presets);
+  const presetList = Object.values(presets).sort((a, b) => a.label.localeCompare(b.label));
   const value = selected && presets[selected] ? selected : RANDOM_PRESET;
   const current = value === RANDOM_PRESET ? null : presets[value];
 
@@ -44,7 +44,7 @@ export function PersonalityPicker({ presets, personality, selected, onSelect }: 
     <fieldset className="preset-picker">
       <legend>{t("presets.title")}</legend>
       <div className="preset-options">
-        {[{ key: RANDOM_PRESET, label: t("presets.random") }, ...sorted].map(({ key, label }) => (
+        {[{ key: RANDOM_PRESET, label: t("presets.random") }, ...presetList].map(({ key, label }) => (
           <label key={key} className="preset-option">
             <input type="radio" name={name} value={key} checked={value === key}
               onChange={() => onSelect(key === RANDOM_PRESET ? null : key)} />
@@ -52,9 +52,9 @@ export function PersonalityPicker({ presets, personality, selected, onSelect }: 
           </label>
         ))}
       </div>
-      {sorted.length === 0 && <p className="muted">{t("presets.none")}</p>}
+      {presetList.length === 0 && <p className="muted">{t("presets.none")}</p>}
       {current ? <PresetCard preset={current} personality={personality} /> : (
-        sorted.length > 0 && <p className="muted">{t("presets.randomHelp")}</p>
+        presetList.length > 0 && <p className="muted">{t("presets.randomHelp")}</p>
       )}
     </fieldset>
   );
