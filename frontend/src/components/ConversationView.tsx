@@ -82,7 +82,7 @@ function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: 
   const nuance = mode === "nuance";
   return (
     <div className="request">
-      <div className="request-actions" role="group" aria-label="Your answer to this request">
+      <div className="request-actions" role="group" aria-label="Votre réponse à cette demande">
         <button className="btn btn-primary" disabled={busy} onClick={() => answer("validated")}>Validate</button>
         <button className="btn btn-danger-outline" disabled={busy}
           onClick={(e) => { triggerRef.current = e.currentTarget; setMode("reject"); }}>Reject</button>
@@ -188,11 +188,16 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
             send();
           }
         }} />
-      <button className="icon-btn send" onClick={send} disabled={!draft.trim() || sending} aria-label="Send">
+      <button className="icon-btn send" onClick={send} disabled={!draft.trim() || sending} aria-label="Envoyer">
         <SendIcon />
       </button>
     </div>
   );
+}
+
+// The direction room is the boss's own conversation: its title would only repeat the project name
+function isDirectionTitle(room: Pick<Room, "kind">, conversation: Pick<Conversation, "title">): boolean {
+  return room.kind === "direction" || conversation.title?.toLowerCase().replace(/^#/, "") === "direction";
 }
 
 /** True when the primary input is a touch screen (media query, not the user agent). */
@@ -322,7 +327,7 @@ export function ConversationView({ conversation, room, project, projects, route,
         {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
         <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }}
           bossName={bossName} asTitle />
-        {conversation.title && room.kind !== "direction" && conversation.title.toLowerCase().replace(/^#/, "") !== "direction" && <span className="muted">· {conversation.title}</span>}
+        {!isDirectionTitle(room, conversation) && conversation.title && <span className="muted">· {conversation.title}</span>}
         <span className="conv-members muted">{room.members.length} membres</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
