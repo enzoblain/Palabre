@@ -36,7 +36,7 @@ Personality   (•) Random  ( ) Pragmatic  ( ) Perfectionist  ( ) Challenger
 │ Rigor       ▓▓▓▓▓ +2                 │
 │ Speed       ▓▓░░░ -1                 │
 │ Style: concise · formal              │
-│ Quirks: 2 / 5  "Quotes his sources"  │
+│ Quirks: 2 / 5 "Quotes their sources" │
 └──────────────────────────────────────┘
 ```
 
