@@ -429,12 +429,13 @@ def test_upgrade_adds_missing_check_on_existing_postgres_table():
     from app.models import REQUEST_STATUS_CHECK
 
     ran = []
-    conn = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), exec_driver_sql=ran.append)
-    inspector = SimpleNamespace(get_check_constraints=lambda table: [])
-    orig = db.inspect
-    db.inspect = lambda _conn: inspector
-    try:
-        db._add_missing_checks(conn)
-    finally:
-        db.inspect = orig
-    assert len(ran) == 1 and REQUEST_STATUS_CHECK in ran[0] and "'withdrawn'" in ran[0]
+
+    def run(sql):
+        ran.append(sql)
+        return []  # no existing constraint
+
+    conn = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), exec_driver_sql=run)
+    db._add_missing_checks(conn)
+    alters = [sql for sql in ran if sql.startswith("ALTER")]
+    assert len(alters) == 1 and REQUEST_STATUS_CHECK in alters[0] and "'withdrawn'" in alters[0]
+    assert alters[0].endswith("NOT VALID")

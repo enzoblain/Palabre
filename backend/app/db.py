@@ -50,10 +50,11 @@ def _add_missing_checks(conn: Connection) -> None:
     alone). SQLite cannot add one afterwards, and only PostgreSQL runs in production."""
     if conn.dialect.name != "postgresql":
         return
+    have = {row[0] for row in conn.exec_driver_sql("SELECT conname FROM pg_constraint WHERE contype = 'c'")}
     for table in Base.metadata.sorted_tables:
-        have = {c["name"] for c in inspect(conn).get_check_constraints(table.name)}
         for constraint in table.constraints:
             if isinstance(constraint, CheckConstraint) and constraint.name not in have:
+                # NOT VALID: new writes are checked, rows that predate the constraint cannot block startup
                 conn.exec_driver_sql(
-                    f'ALTER TABLE {table.name} ADD CONSTRAINT {constraint.name} CHECK ({constraint.sqltext})'
+                    f'ALTER TABLE {table.name} ADD CONSTRAINT {constraint.name} CHECK ({constraint.sqltext}) NOT VALID'
                 )
