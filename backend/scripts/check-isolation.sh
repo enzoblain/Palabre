@@ -251,12 +251,20 @@ check "agent2 can write a hook in its claimed clone" as_pool_sh agent2 touch "$c
 denied "agent1 cannot write a hook in the clone now claimed by agent2" as_pool_sh agent1 touch "$claim_root/.git/hooks/post-rewrite"
 denied "agent1 cannot write the git config of agent2's clone" as_pool_sh agent1 sh -c "echo x >> '$claim_root/.git/config'"
 denied "agent1 cannot write in agent2's Go cache" as_pool_sh agent1 touch "$gocache/w"
-# A claim refuses a tree with a file of another account, or a hard link (#160)
+# A claim refuses a tree with a file of another account, or a hard link to the outside (#160)
 as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" palabre
 touch "$claim_root/foreign"; chown agent2:agent2 "$claim_root/foreign"
 denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
 chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
-denied "claim for agent1 refuses a hard-linked file" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+# Both links are inside the clone (npm install does this): copied, not refused
+check "claim for agent1 copies hard links that stay inside the clone" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+check "the copies of those links belong to agent1 and are no longer linked" \
+  sh -c "[ \"\$(stat -c '%U %h' '$claim_root/foreign')\" = 'agent1 1' ] && [ \"\$(stat -c '%U %h' '$claim_root/alias')\" = 'agent1 1' ]"
+as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" palabre
+outside_file=$DATA/outside-link; touch "$outside_file"; chown palabre:palabre "$outside_file"
+ln "$outside_file" "$claim_root/external"
+denied "claim for agent1 refuses a hard link to a file outside the clone" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+rm -f "$claim_root/external" "$outside_file"
 # The push fetch reads a task clone as the account owning it (#193): an alternates entry pointing at another
 # project's objects (private to palabre) gets nothing served, whatever the denylist would say
 victim=$DATA/projects/project-99996/repo
