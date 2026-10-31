@@ -160,9 +160,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
               <MenuIcon />
             </button>
             <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
-            {pending > 0
-              ? <span className="badge-count urgent" aria-label={`${pending} en attente de réponse`}>{pending}</span>
-              : unreadCount > 0 && <span className="badge-count" aria-label={`${unreadCount} nouveaux messages`}>{unreadCount}</span>}
           </header>
         ) : (
           <header className="topbar">
