@@ -54,6 +54,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   // Research: the peer who writes the report (null: drawn at random)
   const [rapporteur, setRapporteur] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [presetsFailed, setPresetsFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -71,9 +72,15 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setMode(DEFAULT_MODE[kind]);
     api.modes(kind).then(setModes).catch((err) => setError(String(err.message ?? err)));
     api.personality(kind).then(setPersonality).catch(() => {});
-    api.personalities(kind).then(setPresets).catch(() => {});
+    loadPresets(kind);
     api.roles(kind).then(setRoles).catch(() => {});
   }, [kind]);
+
+  // A failure is shown with a retry: the "build my own" tab cannot work without the presets
+  function loadPresets(forKind: ProjectKind) {
+    setPresetsFailed(false);
+    api.personalities(forKind).then(setPresets).catch(() => setPresetsFailed(true));
+  }
 
   // Building by hand starts from an empty team
   function buildByHand() {
@@ -167,6 +174,12 @@ export function NewProject({ claudeAccounts, onCreated }: {
               disabled={!roles || !personality || !presets || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
           </div>
         </div>
+        {presetsFailed && (
+          <p className="error" role="alert">
+            {t("new.presetsFailed")}{" "}
+            <button type="button" onClick={() => loadPresets(kind)}>{t("new.presetsRetry")}</button>
+          </p>
+        )}
         <p className="muted">
           {research
             ? custom ? t("new.introResearchCustom") : t("new.introResearch")
