@@ -185,7 +185,7 @@ or leave it to chance.
 - **Server** (`backend/`): Python, FastAPI, SQLAlchemy. It stores the projects, runs the
   orchestrator, clones the repositories and talks to GitHub.
 - **Agents**: each wake-up is a `claude -p` run with the employee's system prompt, built
-  from the role catalog (`backend/app/company/catalog.toml`) and, for company projects, the
+  from the role catalog (`backend/app/company/catalog/`) and, for company projects, the
   repository's `CLAUDE.md` (read by the backend from the reference clone, since runs only
   load the user settings). They act through an MCP
   server whose tools depend on their role: only a lead can merge, only reviewers, QA and
@@ -572,8 +572,22 @@ cd frontend && npm install && npm run tauri dev  # desktop app
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
 `frontend/`. No linter is configured yet.
 
-Roles, company sizes, research angles and personalities are all defined in
-[`backend/app/company/catalog.toml`](backend/app/company/catalog.toml).
+Roles live in [`backend/app/company/catalog/`](backend/app/company/catalog), one TOML file per role
+(`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). Company sizes, research
+angles' modes, channels and personalities are in
+[`backend/app/company/catalog.toml`](backend/app/company/catalog.toml). The backend validates every
+file at startup and refuses to start, naming the file and the field, if one is invalid.
+
+**Adding a job.** Copy an existing file (e.g. `catalog/company/roles/qa.toml`) to
+`catalog/<kind>/roles/<key>.toml`, fill in the fields (permissions come from
+`backend/app/mcp_server/permissions.py`; `order` sets the position in lists), optionally add the key to a
+mode's seats or a channel in `catalog.toml`, then run `python -m pytest tests/test_catalog.py` and restart
+the backend (existing teams get the new permissions). A new job gets no gate behavior: the keys `lead`,
+`reviewer`, `qa` and `security` are read by the workflow (`GATED_ROLE_KEYS`). Rules enforced at load: no
+role or seat combines `merge` and `code`, and a key cannot exist in both kinds. A custom team gets a 422
+`invalid_team_permissions` when one employee combines `merge` and `code`, or when it does not have exactly
+one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
+gate applies to them automatically.
 A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):

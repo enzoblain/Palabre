@@ -27,6 +27,7 @@ class ErrorCode(StrEnum):
     DUPLICATE_EMPLOYEE_NAME = "duplicate_employee_name"
     UNKNOWN_ROLES = "unknown_roles"
     LEAD_REQUIRED = "lead_required"
+    INVALID_TEAM_PERMISSIONS = "invalid_team_permissions"
     INVALID_ACCOUNT = "invalid_account"
     RESEARCH_HAS_NO_REPOSITORY = "research_has_no_repository"
     DIRECTION_ROOM_IMMUTABLE = "direction_room_immutable"

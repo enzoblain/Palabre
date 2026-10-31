@@ -40,6 +40,7 @@ export const en = {
   "error.duplicate_employee_name": "Two employees have the same name",
   "error.unknown_roles": "The team uses unknown roles",
   "error.lead_required": "The team needs a lead",
+  "error.invalid_team_permissions": "The team breaks the permission rules (merge and code are never combined; one employee ships releases and one manages channels)",
   "error.invalid_account": "This Claude account does not exist",
   "error.research_has_no_repository": "A research project has no repository",
   "error.direction_room_immutable": "The direction channel cannot be changed this way",

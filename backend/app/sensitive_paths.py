@@ -18,6 +18,8 @@ SENSITIVE_NAMES = {
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
 SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
+# Role files carry permissions: adding one cannot skip the gate, whatever its name
+SENSITIVE_ROLE_DIRS = ("catalog/company/roles/", "catalog/research/roles/")
 
 
 def is_sensitive_path(path: str) -> bool:
@@ -31,7 +33,7 @@ def is_sensitive_path(path: str) -> bool:
     if name.startswith(".env.") or name.endswith((".pem", ".key")):
         return True
     posix = p.as_posix()
-    return any(f"/{d}" in f"/{posix}" for d in SENSITIVE_DIRS)
+    return any(f"/{d}" in f"/{posix}" for d in SENSITIVE_DIRS + SENSITIVE_ROLE_DIRS)
 
 
 def touches_sensitive_paths(paths: list[str]) -> bool:

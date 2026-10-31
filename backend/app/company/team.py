@@ -1,4 +1,4 @@
-"""Random generation of a project's team from catalog.toml.
+"""Random generation of a project's team from the catalog (company/catalog.py).
 
 When a project is created: `team = generate_team("startup")`, store `team.to_dict()`,
 then `render_system_prompt(team, employee, boss_name)` gives each employee's prompt.
@@ -9,30 +9,13 @@ Two kinds of projects: "company" (a software company working on a repository) an
 """
 
 import random
-import tomllib
 from dataclasses import asdict, dataclass
-from functools import cache
-from pathlib import Path
 
-CATALOG_PATH = Path(__file__).with_name("catalog.toml")
+from app.company.catalog import load_catalog  # the façade callers import from here
+
 MODEL_RANK = {"haiku": 0, "sonnet": 1, "opus": 2}
 EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 DIVERSITY_ATTEMPTS = 1000
-
-
-KINDS = ("company", "research")
-
-
-@cache
-def load_catalog() -> dict:
-    """The catalog, with the research roles and modes merged into `roles` and `modes`."""
-    with CATALOG_PATH.open("rb") as f:
-        catalog = tomllib.load(f)
-    research = catalog["research"]
-    for section in ("roles", "modes"):
-        catalog[section] = {k: {**v, "kind": "company"} for k, v in catalog[section].items()}
-        catalog[section] |= {k: {**v, "kind": "research"} for k, v in research[section].items()}
-    return catalog
 
 
 def effort_for(role_keys: list[str]) -> str | None:
