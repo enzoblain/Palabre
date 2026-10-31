@@ -122,27 +122,30 @@ def version_rule(roles: list[str]) -> str | None:
     return VERSION_RULE if VERSION_ROLES & set(roles) else None
 
 
-CODE_STANDARDS = """## Code standards
-Everything the team ships is professional-grade and built to evolve. Full list in CLAUDE.md, Conventions.
-- Code, comments, docstrings and identifiers are in English.
-- Explicit names for variables and functions, no obscure abbreviations.
-- Strict typing: type hints in Python, no `any` in TypeScript.
-- Short functions with a single responsibility.
-- No magic values hardcoded: go through the config or named constants.
-- Follow the existing patterns of the module you touch.
-- Every new behavior has tests.
-- No dead code, no TODO without a ticket."""
+# (what a developer applies, what the reviewer checks): one list, rendered in both blocks
+CODE_STANDARDS_LIST: list[tuple[str, str]] = [
+    ("Code, comments, docstrings and identifiers are in English.", "Code, comments, docstrings and identifiers are in English."),
+    ("Explicit names for variables and functions, no obscure abbreviations.", "Variable and function names are explicit, with no obscure abbreviations."),
+    ("Strict typing: type hints in Python, no `any` in TypeScript.", "Typing is strict: type hints in Python, no `any` in TypeScript."),
+    ("Short functions with a single responsibility.", "Functions are short and have a single responsibility."),
+    ("No magic values hardcoded: go through the config or named constants.", "No magic values hardcoded: they go through the config or named constants."),
+    ("Follow the existing patterns of the module you touch.", "The existing patterns of the module are respected."),
+    ("Every new behavior has tests.", "Every new behavior has tests."),
+    ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
+]
 
-REVIEW_CHECKLIST = """## Review checklist
-Check every point of the code standards below against the diff. If any point is not respected, give the verdict changes_requested and name the point and the place in the code; approve only when all of them hold.
-- Code, comments, docstrings and identifiers are in English.
-- Variable and function names are explicit, with no obscure abbreviations.
-- Typing is strict: type hints in Python, no `any` in TypeScript.
-- Functions are short and have a single responsibility.
-- No magic values hardcoded: they go through the config or named constants.
-- The existing patterns of the module are respected.
-- Every new behavior has tests.
-- No dead code, no TODO without a ticket."""
+
+def _bullets(index: int) -> str:
+    return "\n".join(f"- {pair[index]}" for pair in CODE_STANDARDS_LIST)
+
+
+CODE_STANDARDS = f"""## Code standards
+Everything the team ships is professional-grade and built to evolve. Full list in CLAUDE.md, Conventions.
+{_bullets(0)}"""
+
+REVIEW_CHECKLIST = f"""## Review checklist
+Check every point of the code standards below against the diff. If any point is not respected, give the verdict `changes` (review_task) and name the point and the place in the code; approve only when all of them hold.
+{_bullets(1)}"""
 
 DEV_ROLES = {"dev", "dev_backend", "dev_frontend"}
 REVIEWER_ROLES = {"reviewer"}
