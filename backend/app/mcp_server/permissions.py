@@ -1,5 +1,7 @@
 """Which tools each catalog permission (catalog role files → permissions) unlocks."""
 
+from collections.abc import Iterable
+
 from app.orchestrator.research import DRAFTS_GLOB
 
 # MCP tools of this server. A tool is available if the employee holds any listed permission.
@@ -56,7 +58,7 @@ CLAUDE_TOOLS: dict[str, list[str]] = {
 }
 
 
-def mcp_tools_for(permissions: list[str], task_run: bool) -> frozenset[str]:
+def mcp_tools_for(permissions: Iterable[str], task_run: bool) -> frozenset[str]:
     held = set(permissions)
     return frozenset(
         tool
@@ -65,5 +67,5 @@ def mcp_tools_for(permissions: list[str], task_run: bool) -> frozenset[str]:
     )
 
 
-def claude_tools_for(permissions: list[str]) -> list[str]:
+def claude_tools_for(permissions: Iterable[str]) -> list[str]:
     return sorted({tool for p in permissions for tool in CLAUDE_TOOLS.get(p, [])})

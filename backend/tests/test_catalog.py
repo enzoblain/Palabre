@@ -6,6 +6,7 @@ import shutil
 from typing import get_args
 
 import pytest
+from pydantic import ValidationError
 
 from app.company import catalog as catalog_module
 from app.company.catalog import (
@@ -191,7 +192,7 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
             "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
             "claude": claude_tools_for(permissions),
         }
-        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key].model_dump(exclude_none=True)}
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key].model_dump(mode="json", exclude_none=True)}
 
 
 async def test_roles_endpoint_filters_by_kind(api_client):
@@ -233,3 +234,14 @@ def test_personality_pool_axis_typo_names_the_file_and_field(catalog_copy):
     path.write_text(path.read_text().replace('label = "Risk-taking"', 'lable = "Risk-taking"', 1))
     with pytest.raises(CatalogError, match=r"(?s)company/personality_pool\.toml.*axes\.0\.lable"):
         load_personality_pools()
+
+
+def test_loaded_role_permissions_and_wakes_on_are_immutable():
+    role = load_catalog()["roles"]["lead"]
+
+    assert isinstance(role.permissions, tuple)
+    assert isinstance(role.wakes_on, tuple)
+    with pytest.raises(AttributeError):
+        role.permissions.append("merge")
+    with pytest.raises(ValidationError):
+        role.permissions = ()
