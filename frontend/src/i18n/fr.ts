@@ -108,6 +108,8 @@ export const fr: Messages = {
   "menu.projects": "Projets",
   "menu.report": "Rapport",
   "menu.document": "Document",
+  "menu.conversation": "Conversation",
+  "menu.viewSwitch": "Affichage",
   "menu.newProject": "Nouveau projet",
 
   "settings.title": "Paramètres",

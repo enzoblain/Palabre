@@ -373,6 +373,11 @@ details summary { cursor: pointer; margin-top: 6px; }
 .panel-close { display: none; margin-left: auto; }
 .topbar-nav { display: none; }
 .report-bar { display: flex; }
+.doc-tabs { display: flex; gap: 4px; padding: 6px 12px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.doc-tab { padding: 8px 14px; min-height: 40px; box-sizing: border-box; border-bottom: 2px solid transparent; color: var(--muted); text-decoration: none; }
+.doc-tab:hover { background: var(--hover); }
+.doc-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+.doc-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 900px) {
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
