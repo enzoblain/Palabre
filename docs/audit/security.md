@@ -14,6 +14,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 - Egress and Claude token exfiltration (access-map R1, R4): fixed by #295 (PR #263), #301 (PR #268) and #306 (PR #271).
 - M1. Self-declared `sensitive` flag: fixed (#151), sensitivity is detected from the changed paths (`backend/app/sensitive_paths.py`, `workflow.py:453`), the flag can only add.
 - M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The admin token in `localStorage` remains, covered by M5 (access-map R3, R9).
+- L2. `cors_origins = ["*"]`: fixed (#311), the default is the Vite dev server and the Tauri webview origins, overridable with `CORS_ORIGINS`.
 - Stale desk permissions: fixed by #296 (PR #262).
 
 ## Open: medium
@@ -25,7 +26,6 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 
 ## Open: low
 
-- L2. `cors_origins = ["*"]` (`config.py:35`). Fix: restrict to the app origins. S.
 - L4. Prompts passed in argv (`runner.py:199`, `runner.py:206`), visible in `ps` to every agent. Fix: pass them on stdin. S.
 - L6. Shared `GOPATH` between agents (same class as the fixed H2, lower impact). S.
 - L7. Commit messages are injected into the lead's prompt (prompt injection, low). Fix: frame them as untrusted data, like CI output (#121). S.
@@ -43,4 +43,4 @@ Secrets as files on tmpfs, explicit env allowlist for git and runs, sudoers limi
 
 ## Suggested order
 
-M5 (access-map R3) first, then the low items L2, L4, L6, L7.
+M5 (access-map R3) first, then the low items L4, L6, L7.
