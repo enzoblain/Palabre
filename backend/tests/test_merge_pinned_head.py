@@ -86,3 +86,42 @@ async def test_another_github_error_is_not_masked(merge, monkeypatch):
     monkeypatch.setattr(github, "merge_pull_request", broken)
     with pytest.raises(github.GitHubError):
         await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
+
+
+async def test_the_blockers_are_checked_on_the_pinned_head(merge, monkeypatch):
+    task, lead, calls = merge
+    checked = []
+
+    async def blockers(_s, _project, _task, ci_head=None):
+        checked.append(ci_head)
+        return []
+
+    monkeypatch.setattr(workflow, "merge_blockers", blockers)
+    await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
+    assert checked == [HEAD] and calls == [HEAD]
+
+
+async def test_the_ci_status_is_read_on_the_given_commit(monkeypatch):
+    asked = []
+
+    async def commit_checks(_repo, sha):
+        asked.append(sha)
+
+    monkeypatch.setattr(github, "commit_checks", commit_checks)
+    assert await github.checks_status("o/r", 42, sha=HEAD) is None
+    assert asked == [HEAD]
+
+
+async def test_a_missing_reviewed_head_is_refused(merge):
+    task, lead, calls = merge
+    task.reviewed_head = None
+    with pytest.raises(WorkflowError) as error:
+        await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
+    assert error.value.code == ErrorCode.PR_HEAD_MOVED and "reviewed" in str(error.value) and not calls
+
+
+async def test_a_missing_reviewed_head_is_allowed_with_force(merge):
+    task, lead, calls = merge
+    task.reviewed_head = None
+    await workflow.merge_task(WorkflowDb(0), 1, task.id, lead, force=True)
+    assert calls == [HEAD]

@@ -295,8 +295,10 @@ async def is_pull_request_open(repo: str, number: int) -> bool:
         return False
 
 
-async def checks_status(repo: str, number: int) -> str | None:
-    """None if CI passed on the PR's head commit, otherwise the reason it did not."""
+async def checks_status(repo: str, number: int, sha: str | None = None) -> str | None:
+    """None if CI passed on `sha` (default: the PR's current head commit), otherwise the reason it did not."""
+    if sha:
+        return await commit_checks(repo, sha)
     pr = await _api("GET", f"/repos/{repo}/pulls/{number}")
     return await commit_checks(repo, pr["head"]["sha"])
 
