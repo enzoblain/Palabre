@@ -207,7 +207,7 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Audits", "Security tickets"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "No known vulnerability in production."
-permissions = ["conversation", "read_code", "review", "report_bug", "propose_decision"]
+permissions = ["conversation", "read_code", "run_tests", "review", "report_bug", "propose_decision"]
 wakes_on = ["sensitive_pr", "dependency_change", "mention"]
 
 [roles.designer]
