@@ -260,6 +260,7 @@ async def post_system_message(s: AsyncSession, conversation_id: int, content: st
 
 REQUEST_KINDS = {"decision", "release", "escalation", "question"}
 MAX_MERGED_REQUESTS = 50
+DECISION_REQUEST_RATIONALE_MAX_CHARS = 300  # what the boss reads in direction; the full text stays in the room document
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
@@ -294,12 +295,19 @@ async def ask_boss(
     commit: bool = True,
 ) -> Message | None:
     """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    Only the lead speaks in direction: a request from another member is signed by the lead, who names its author.
     Returns None where there is no direction (research groups): the boss reads the room instead."""
     if kind not in REQUEST_KINDS:
         raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
     conversation_id = await direction_conversation_id(s, project_id)
     if conversation_id is None:
         return None
+    if "lead" not in author.roles:
+        employees = await s.scalars(select(Employee).where(Employee.project_id == project_id))
+        lead = next((e for e in employees if "lead" in e.roles), None)
+        if lead is None:
+            raise WorkflowError("This project has no lead to relay the request to the boss")
+        content, author = f"{author.name}: {content}", lead
     return await post_message(
         s, project_id, conversation_id, content, author,
         request_kind=kind, request_decision_id=decision_id, commit=commit,
@@ -597,7 +605,10 @@ async def add_decision(
     s.add(decision)
     await s.flush()
     await s.commit()
-    text = f"Decision to validate: {title}" + (f"\n\n{rationale}" if rationale else "")
+    summary = rationale.strip()
+    if len(summary) > DECISION_REQUEST_RATIONALE_MAX_CHARS:
+        summary = summary[: DECISION_REQUEST_RATIONALE_MAX_CHARS - 1].rstrip() + "…"
+    text = title + (f"\n\n{summary}" if summary else "")
     await ask_boss(s, project_id, author, text, "decision", decision.id)
     return decision
 

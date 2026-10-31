@@ -203,11 +203,30 @@ async def test_add_decision_asks_the_boss_in_direction():
     assert decision.proposed_by == "Louise"
 
 
+async def test_a_decision_from_a_member_is_signed_by_the_lead_and_short():
+    dev = make_employee("Maya", "architect")
+    s = FakeSession()
+    long_rationale = "audit " * 500
+    await services.add_decision(s, 1, 2, "Use Redis", long_rationale, dev)
+    (message,) = [o for o in s.added if isinstance(o, Message)]
+    assert message.employee_id == LEAD.id and message.author_name == "Louise"
+    assert message.content.startswith("Maya: Use Redis")
+    assert len(message.content) < services.DECISION_REQUEST_RATIONALE_MAX_CHARS + 50
+    assert message.content.endswith("…")
+
+
+async def test_no_lead_means_no_request_from_a_member():
+    dev = make_employee("Maya", "architect")
+    with pytest.raises(services.WorkflowError, match="no lead"):
+        await services.ask_boss(FakeSession(team=()), 1, dev, "x", "question")
+
+
 async def test_escalating_to_the_boss_is_a_request_in_direction():
     dev = make_employee("Léa", "dev_backend")
     s = FakeSession()
     msg = await services.escalate(s, 1, 4, dev, "boss", "Cloud budget to decide")
     assert msg.conversation_id == 9 and msg.request_kind == "escalation" and msg.request_status == "pending"
+    assert msg.employee_id == LEAD.id and msg.content.startswith("Léa: ")
     assert s.events == []
 
 
@@ -264,7 +283,8 @@ async def _direction(s):
     s.add(project)
     await s.flush()
     lead = Employee(project_id=project.id, name="Louise", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="a")
-    dev = Employee(project_id=project.id, name="Mehdi", title="Dev", model="sonnet", permissions=[], traits={}, quirks=[], style={}, roles=["backend"], mcp_token="b")
+    # A second lead-role member: only leads sign requests, this one stands for "someone else's request"
+    dev = Employee(project_id=project.id, name="Mehdi", title="Dev", model="sonnet", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="b")
     room = Room(project_id=project.id, name="direction", kind="direction")
     s.add_all([lead, dev, room])
     await s.flush()
