@@ -20,7 +20,7 @@ const LOCALES: Record<string, string> = {
 /** Own-property check: a stored or remote value like "__proto__" or "toString" is not a language. */
 const known = (language: string): boolean => Object.prototype.hasOwnProperty.call(LOCALES, language);
 const STORAGE_KEY = "palabre.language";
-export const DEFAULT_LANGUAGE = "French";
+export const DEFAULT_LANGUAGE = "English";
 
 /** Before the settings are known (login screen): the last language seen, else the browser's. */
 function initialLanguage(): string {
