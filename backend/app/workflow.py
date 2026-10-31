@@ -368,7 +368,7 @@ def _latest_verdicts(reviews: list[Review]) -> dict[int, Review]:
     return latest
 
 
-async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
+async def task_reviews(s: AsyncSession, task: Task) -> list[Review]:
     reviews = await s.scalars(
         select(Review).where(Review.task_id == task.id).options(selectinload(Review.reviewer)).order_by(Review.id)
     )
@@ -377,7 +377,7 @@ async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
 
 async def _changes_pending(s: AsyncSession, task: Task) -> bool:
     """A reviewer's latest verdict on the current head is 'changes'."""
-    current = [r for r in await _task_reviews(s, task) if not _is_stale(r, task)]
+    current = [r for r in await task_reviews(s, task) if not _is_stale(r, task)]
     return any(r.verdict == Verdict.changes for r in _latest_verdicts(current).values())
 
 
@@ -582,11 +582,40 @@ async def review_task(
         await wake_dev(s, task, "changes_requested", payload)
     await s.commit()
 
+    await _wake_waiting_reviewers(s, task, reviewer)
     blockers = await merge_blockers(s, project, task) if task.status == TaskStatus.review else []
     if review.verdict == Verdict.approve and not blockers:
         await mark_merge_ready(s, task, reviewer.name)
         await s.commit()
     return blockers
+
+
+def _commenting_reviewers(reviews: list[Review], task: Task) -> list[Employee]:
+    """Reviewers whose last opinion on the current head is a comment: they may be waiting for something."""
+    last: dict[int, Review] = {r.reviewer_id: r for r in reviews if not _is_stale(r, task)}
+    return [r.reviewer for r in last.values() if r.verdict == Verdict.comment]
+
+
+def reviewer_gave_verdict(reviews: list[Review], task: Task, roles: dict[str, Role]) -> bool:
+    """Whether someone of the reviewer position approved or requested changes on the current head."""
+    return any(
+        r.verdict != Verdict.comment and REVIEWER_KEY in held_role_keys(r.reviewer.roles, roles)
+        for r in reviews
+        if not _is_stale(r, task)
+    )
+
+
+async def _wake_waiting_reviewers(s: AsyncSession, task: Task, author: Employee) -> None:
+    """A QA or security report is in: wake the reviewers who commented without a verdict, probably
+    waiting for it. A reviewer who already gave a verdict is not woken."""
+    roles = load_catalog()["roles"]
+    if not held_role_keys(author.roles, roles) & {QA_KEY, SECURITY_KEY}:
+        return
+    for waiting in _commenting_reviewers(await task_reviews(s, task), task):
+        if waiting.id != author.id:
+            payload = {"task_id": task.id, "by": author.name}
+            emit_event(s, task.project_id, "verification_done", payload, employee_id=waiting.id)
+    await s.commit()
 
 
 async def mark_merge_ready(s: AsyncSession, task: Task, by: str) -> None:
@@ -629,7 +658,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
     """Everything that prevents merging this task under the company's mode.
     ci_head: the commit whose CI is checked (the one about to be merged); default, the PR's current head."""
     process = mode_process(project.mode)
-    reviews = await _task_reviews(s, task)
+    reviews = await task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
     latest = _latest_verdicts([r for r in reviews if not _is_stale(r, task)])
     approvers = [r.reviewer for r in latest.values() if r.verdict == Verdict.approve]

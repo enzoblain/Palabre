@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, release, workflow
 from app.config import settings
-from app.models import AgentRun, Project, Task, TaskStatus, Wakeup
+from app.company.catalog import REVIEWER_KEY, held_role_keys, load_catalog
+from app.models import AgentRun, Employee, Event, Project, Review, Task, TaskStatus, Wakeup
 from app.services import emit_event, post_system_message, team_conversation_id
 
 # Seconds between two merge-rule checks of the same task (they ask GitHub about the CI)
@@ -160,6 +161,50 @@ async def watch_idle_tasks(s: AsyncSession) -> None:
         payload = {"task_id": task.id, "status": task.status.value, "minutes": settings.idle_task_minutes, "reason": reason}
         emit_event(s, task.project_id, "task_idle", payload, role="lead")
     await s.commit()
+
+
+async def watch_silent_reviews(s: AsyncSession) -> None:
+    """A task in review with no reviewer verdict for review_silence_minutes: wake the reviewers up
+    again (when none is busy) and tell the lead. Waits another delay before the next reminder."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.review_silence_minutes)
+    tasks = await s.scalars(select(Task).where(Task.status == TaskStatus.review, Task.pr_number.is_not(None)))
+    for task in list(tasks):
+        reviews = await workflow.task_reviews(s, task)
+        if await _review_silent_since(s, task, reviews) >= cutoff:
+            continue
+        if workflow.reviewer_gave_verdict(reviews, task, load_catalog()["roles"]):
+            continue
+        await _remind_reviewers(s, task)
+    await s.commit()
+
+
+async def _review_silent_since(s: AsyncSession, task: Task, reviews: list[Review]) -> datetime:
+    """The last sign of life of the review: submission, opinion or reminder."""
+    moments = [_aware(r.created_at) for r in reviews]
+    if task.submitted_at is not None:
+        moments.append(_aware(task.submitted_at))
+    reminders = await s.scalars(
+        select(Event.created_at).where(
+            Event.type == "review_overdue", Event.project_id == task.project_id,
+            Event.payload["task_id"].as_integer() == task.id,
+        )
+    )  # fmt: skip
+    moments += [_aware(m) for m in reminders]
+    return max(moments, default=datetime.min.replace(tzinfo=UTC))
+
+
+async def _remind_reviewers(s: AsyncSession, task: Task) -> None:
+    employees = await s.scalars(select(Employee).where(Employee.project_id == task.project_id))
+    roles = load_catalog()["roles"]
+    reviewers = [e for e in employees if REVIEWER_KEY in held_role_keys(e.roles, roles) and e.id != task.assignee_id]
+    busy = await s.scalar(
+        select(Wakeup.id).where(Wakeup.employee_id.in_([e.id for e in reviewers]), Wakeup.finished_at.is_(None)).limit(1)
+    )
+    if not reviewers or busy is not None:
+        return
+    payload = {"task_id": task.id, "pr_url": task.pr_url, "minutes": settings.review_silence_minutes}
+    emit_event(s, task.project_id, "review_overdue", payload, role=REVIEWER_KEY)
+    emit_event(s, task.project_id, "review_stalled", payload, role="lead")
 
 
 async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str | None]:
