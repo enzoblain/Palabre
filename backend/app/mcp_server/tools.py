@@ -6,6 +6,7 @@ from mcp.server.mcpserver import Context
 
 from app import projects, services, toolchains, workflow
 from app.db import SessionLocal
+from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
 from app.models import Employee, Project
 
@@ -88,7 +89,7 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
         me = await s.get(Employee, c.employee_id)
         msg = await services.ask_boss(s, c.project_id, me, content, kind)
     if msg is None:
-        raise services.WorkflowError("This project has no direction channel to ask the boss in")
+        raise WorkflowError("This project has no direction channel to ask the boss in")
     return {"message_id": msg.id, "status": "waiting for the boss"}
 
 

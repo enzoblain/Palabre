@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app import services
 from app.api import conversations
 from app.api.schemas import MessageIn
+from app.errors import WorkflowError
 from app.models import Conversation, Event, Project, Room
 
 from .conftest import make_employee
@@ -115,9 +116,9 @@ async def test_create_channel_always_includes_the_lead():
 
 
 async def test_create_channel_refuses_duplicates_and_unknown_members():
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await services.create_channel(FakeServiceSession(scalars=[[SimpleNamespace(name="Direction")]]), 1, "direction", [])
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await services.create_channel(FakeServiceSession(scalars=[[], _staff()]), 1, "front", ["Zoe"])
 
 
@@ -159,23 +160,23 @@ async def test_dm_is_unique_per_pair_whoever_writes_first():
 
 async def test_dm_with_the_boss_or_oneself_is_refused():
     me = make_employee("Malik", "dev_backend")
-    with pytest.raises(services.WorkflowError, match="boss"):
+    with pytest.raises(WorkflowError, match="boss"):
         await services.get_or_create_dm(FakeServiceSession(), 1, me, f"@{services.boss_display_name()}")
-    with pytest.raises(services.WorkflowError, match="yourself"):
+    with pytest.raises(WorkflowError, match="yourself"):
         await services.get_or_create_dm(FakeServiceSession(), 1, me, "@malik")
 
 
 async def test_dm_with_an_unknown_employee_is_refused():
-    with pytest.raises(services.WorkflowError, match="No employee"):
+    with pytest.raises(WorkflowError, match="No employee"):
         await services.get_or_create_dm(FakeServiceSession(scalar=[None]), 1, make_employee("Malik"), "@Zoe")
 
 
 async def test_member_posts_in_their_channel_not_in_others_nor_direction():
     me = make_employee("Malik", "dev_backend")
     assert await services.member_conversation_id(FakeServiceSession(scalar=[12, 3]), 1, me, "backend") == 12
-    with pytest.raises(services.WorkflowError, match="not a member"):
+    with pytest.raises(WorkflowError, match="not a member"):
         await services.member_conversation_id(FakeServiceSession(scalar=[12, None]), 1, me, "backend")
-    with pytest.raises(services.WorkflowError, match="direction"):
+    with pytest.raises(WorkflowError, match="direction"):
         await services.member_conversation_id(FakeServiceSession(), 1, me, "#Direction")
 
 
@@ -240,7 +241,7 @@ async def test_escalate_from_a_dm_goes_through_a_team_channel(monkeypatch):
 async def test_mentioning_a_third_party_in_a_dm_is_refused():
     me = make_employee("Malik", "dev_backend")
     s = FakeServiceSession(scalar=["dm"], scalars=[["Karim"]])
-    with pytest.raises(services.WorkflowError, match="@Karim"):
+    with pytest.raises(WorkflowError, match="@Karim"):
         await services.post_message(s, 1, 9, "regarde ça @karim", me)
     assert not s.added
 
@@ -315,7 +316,7 @@ async def test_lead_cannot_post_in_a_dm_by_its_name():
             S.query = str(q.compile(compile_kwargs={"literal_binds": True}))
             return None
 
-    with pytest.raises(services.WorkflowError):
+    with pytest.raises(WorkflowError):
         await services.channel_conversation_id(S(), 1, "a·b")
     assert "rooms.kind != 'dm'" in S.query
 
