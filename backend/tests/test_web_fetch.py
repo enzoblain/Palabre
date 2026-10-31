@@ -69,6 +69,12 @@ async def test_get_returns_decoded_body():
     assert await web_fetch._get(pool, "https://example.com/") == ("text/html; charset=utf-8", "café")
 
 
+@pytest.mark.parametrize("charset", ["foo-bar", "hex", "zlib"])
+async def test_get_falls_back_on_unknown_charset(charset: str):
+    pool = FakePool((200, {"Content-Type": f"text/html; charset={charset}"}, "café".encode()))
+    assert (await web_fetch._get(pool, "https://example.com/"))[1] == "café"
+
+
 async def test_get_follows_redirects_and_validates_each_hop():
     pool = FakePool((302, {"Location": "/next"}, b""), (200, HTML, b"ok"))
     await web_fetch._get(pool, "https://example.com/start")
