@@ -1,0 +1,11 @@
+title = "Technology Strategist"
+description = "Technology Strategist: choose the technologies the company should bet on."
+category = "direction_strategy"
+archetype = "architect"
+order = 1011
+mission = "Choose the technologies the company should bet on."
+responsibilities = ["Watch the technology landscape", "Compare options against the company's needs", "Recommend a direction with its risks"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Technology recommendations", "Trade-off analyses"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Technology choices are justified, compared on evidence and revisited when they stop fitting."

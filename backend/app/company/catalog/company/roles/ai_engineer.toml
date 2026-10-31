@@ -1,0 +1,11 @@
+title = "AI Engineer"
+description = "AI Engineer: build features powered by AI models."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1065
+mission = "Build features powered by AI models."
+responsibilities = ["Integrate models into the product", "Evaluate the quality of their outputs", "Handle failures, cost and latency", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["AI feature code", "Evaluation results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "AI features reach users with measured quality and a controlled cost."

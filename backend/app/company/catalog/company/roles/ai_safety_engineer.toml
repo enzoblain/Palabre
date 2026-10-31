@@ -1,0 +1,11 @@
+title = "AI Safety Engineer"
+description = "AI Safety Engineer: make AI systems behave safely and as intended."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1082
+mission = "Make AI systems behave safely and as intended."
+responsibilities = ["Identify the ways the system can cause harm", "Implement the guardrails and checks", "Test them against misuse", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Safety mechanisms", "Safety test results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Known unsafe behaviors are tested for, and safeguards hold under adversarial use."

@@ -1,0 +1,11 @@
+title = "IT Governance Manager"
+description = "IT Governance Manager: keep IT decisions, policies and responsibilities clear and followed."
+category = "direction_strategy"
+archetype = "architect"
+order = 1012
+mission = "Keep IT decisions, policies and responsibilities clear and followed."
+responsibilities = ["Define the IT policies and decision rights", "Check that the policies are followed", "Report the gaps and the fixes"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["IT policies", "Compliance gap reports"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "IT decisions, policies and responsibilities are documented and followed."

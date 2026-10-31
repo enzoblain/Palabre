@@ -1,0 +1,11 @@
+title = "Technical Architect"
+description = "Technical Architect: define the technical foundations the team builds on."
+category = "architecture"
+archetype = "architect"
+order = 1019
+mission = "Define the technical foundations the team builds on."
+responsibilities = ["Choose the stack and the tooling", "Set the technical conventions", "Check that the code follows the architecture"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Technical guidelines", "Stack decisions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The technical foundations are clear, documented and adopted by the team."

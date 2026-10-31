@@ -1,0 +1,11 @@
+title = "Database Architect"
+description = "Database Architect: design the databases so they stay fast and consistent."
+category = "architecture"
+archetype = "architect"
+order = 1028
+mission = "Design the databases so they stay fast and consistent."
+responsibilities = ["Define the schemas and the storage strategy", "Plan indexing, partitioning and migrations", "Document the data access patterns"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Database designs", "Migration strategies"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Schemas stay consistent and performant as the data and the usage grow."

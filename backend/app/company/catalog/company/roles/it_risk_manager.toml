@@ -1,0 +1,11 @@
+title = "IT Risk Manager"
+description = "IT Risk Manager: identify and reduce the risks that threaten the IT systems."
+category = "direction_strategy"
+archetype = "security"
+order = 1014
+mission = "Identify and reduce the risks that threaten the IT systems."
+responsibilities = ["Maintain the register of IT risks", "Rate the risks by impact and likelihood", "Propose mitigations and follow them"]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Risk register", "Mitigation plans"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "IT risks are identified, rated and owned, with mitigations tracked to completion."

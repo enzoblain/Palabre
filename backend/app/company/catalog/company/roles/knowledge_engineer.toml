@@ -1,0 +1,11 @@
+title = "Knowledge Engineer"
+description = "Knowledge Engineer: structure knowledge so that systems can reason with it."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1089
+mission = "Structure knowledge so that systems can reason with it."
+responsibilities = ["Model the concepts and relations of the domain", "Build and maintain the knowledge bases", "Check them with the domain experts", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Knowledge models", "Knowledge base content", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Knowledge is structured consistently so that systems can query and reason with it."

@@ -1,0 +1,11 @@
+title = "AI Security Engineer"
+description = "AI Security Engineer: protect AI systems against attacks."
+category = "artificial_intelligence"
+archetype = "security"
+order = 1083
+mission = "Protect AI systems against attacks."
+responsibilities = ["Threat-model the AI components", "Review the risks of prompt injection, data leaks and model abuse", "Recommend the protections"]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["AI threat models", "Security findings"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "AI systems resist the known attacks, and their security controls are tested."

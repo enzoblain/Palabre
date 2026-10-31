@@ -1,0 +1,11 @@
+title = "LLM Engineer"
+description = "LLM Engineer: build products on top of large language models."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1071
+mission = "Build products on top of large language models."
+responsibilities = ["Design the prompts, context and tool use", "Evaluate answers on representative cases", "Control the cost, latency and failure handling", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["LLM feature code", "Evaluation results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "LLM-based features are accurate, safe and affordable, and their quality is measured."

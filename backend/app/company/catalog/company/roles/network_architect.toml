@@ -1,0 +1,11 @@
+title = "Network Architect"
+description = "Network Architect: design networks that are fast, reliable and secure."
+category = "architecture"
+archetype = "architect"
+order = 1023
+mission = "Design networks that are fast, reliable and secure."
+responsibilities = ["Define the network topology and segmentation", "Plan routing, bandwidth and failover", "Document the network choices"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Network designs", "Topology diagrams"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Networks are fast, resilient and segmented so that failures and attacks stay contained."

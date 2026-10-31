@@ -1,0 +1,11 @@
+title = "Web Developer"
+description = "Web Developer: build web pages and applications that work in every browser."
+category = "software_development"
+archetype = "dev_frontend"
+order = 1042
+mission = "Build web pages and applications that work in every browser."
+responsibilities = ["Build the pages and their interactions", "Keep them accessible and responsive", "Test across the supported browsers", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Web code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Pages work in every supported browser, are accessible and are tested."

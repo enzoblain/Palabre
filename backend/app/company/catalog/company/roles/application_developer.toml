@@ -1,0 +1,11 @@
+title = "Application Developer"
+description = "Application Developer: build the business applications the company needs."
+category = "software_development"
+archetype = "dev_backend"
+order = 1063
+mission = "Build the business applications the company needs."
+responsibilities = ["Implement the application features from the requirements", "Keep the code readable and tested", "Fix the defects found in use", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Application code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "The business applications work as specified and are covered by tests."
