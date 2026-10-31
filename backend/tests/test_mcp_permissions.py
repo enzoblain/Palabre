@@ -62,6 +62,11 @@ def test_security_audits_and_reports_bugs_but_cannot_merge():
     assert not tools & (MERGE_TOOLS | MANAGE_TOOLS | {"submit_for_review"})
 
 
+def test_security_runs_audits_but_cannot_edit_code():
+    permissions = load_catalog()["roles"]["security"]["permissions"]
+    assert claude_tools_for(permissions) == ["Bash", "Glob", "Grep", "Read"]
+
+
 def test_only_the_lead_can_merge():
     for role, cfg in load_catalog()["roles"].items():
         has_merge = bool(MERGE_TOOLS & mcp_tools_for(cfg["permissions"], True))
