@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
-from app.api.errors import ErrorCode
+from app.errors import ErrorCode
 from app.config import settings
 
 API_URL = "https://api.github.com"
