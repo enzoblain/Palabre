@@ -258,6 +258,8 @@ denied "claim for agent1 refuses a file owned by agent2" as_palabre sudo -n /usr
 chown palabre:palabre "$claim_root/foreign"; ln "$claim_root/foreign" "$claim_root/alias"
 # Both links are inside the clone (npm install does this): copied, not refused
 check "claim for agent1 copies hard links that stay inside the clone" as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" agent1
+check "the copies of those links belong to agent1 and are no longer linked" \
+  sh -c "[ \$(stat -c '%U %h' '$claim_root/foreign') = 'agent1 1' ] && [ \$(stat -c '%U %h' '$claim_root/alias') = 'agent1 1' ]"
 as_palabre sudo -n /usr/local/bin/palabre-claim-clone "$claim_root" palabre
 outside_file=$DATA/outside-link; touch "$outside_file"; chown palabre:palabre "$outside_file"
 ln "$outside_file" "$claim_root/external"

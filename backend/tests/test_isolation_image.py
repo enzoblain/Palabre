@@ -314,6 +314,7 @@ def _claim_script(tmp_path, root):
     conf = tmp_path / "projects-root.conf"
     conf.write_text(str(root))
     text = CLAIM.read_text().replace("/etc/palabre/projects-root.conf", str(conf)).replace("-user palabre", f"-user {me}")
+    text = text.replace('/usr/bin/setpriv --reuid="$2" --regid="$group" --init-groups ', "")
     text = text.replace("/usr/bin/chown -R -h", "true").replace("/usr/bin/chmod -R", "true")
     text = text.replace('/usr/bin/find -P "$1" -type d -exec /usr/bin/chmod g+s {} +', "true")
     script = tmp_path / "claim.sh"
@@ -360,6 +361,14 @@ def test_claim_clone_copies_internal_hard_links(claim_env):
         assert f.stat().st_mode & 0o777 == 0o755
         assert f.stat().st_nlink == 1
     assert not list(clone.rglob(".claim-copy.*"))
+
+
+def test_claim_clone_copies_hard_links_as_the_account_not_as_root():
+    # A root copy would race with the tree's owner swapping names for symlinks; it must run after the chown, unprivileged
+    text = CLAIM.read_text()
+    copy = text.index('--reuid="$2" --regid="$group" --init-groups /usr/bin/find')
+    assert text.index("/usr/bin/chown -R -h") < copy
+    assert "mktemp" not in text[:copy]
 
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="needs sh")
