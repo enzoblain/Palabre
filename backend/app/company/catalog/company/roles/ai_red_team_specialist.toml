@@ -1,0 +1,11 @@
+title = "AI Red Team Specialist"
+description = "AI Red Team Specialist: attack AI systems on purpose to find their weaknesses."
+category = "artificial_intelligence"
+archetype = "security"
+order = 1084
+mission = "Attack AI systems on purpose to find their weaknesses."
+responsibilities = ["Design adversarial tests against the models", "Try to break the guardrails", "Report the successful attacks with how to reproduce them"]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Red team reports", "Reproduction cases"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No known vulnerability in production."

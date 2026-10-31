@@ -1,0 +1,11 @@
+title = "IoT Architect"
+description = "IoT Architect: design the architecture of connected-device systems."
+category = "architecture"
+archetype = "architect"
+order = 1032
+mission = "Design the architecture of connected-device systems."
+responsibilities = ["Define the devices, gateways and cloud layers", "Plan connectivity, updates and security", "Document the data flows"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["IoT architecture documents", "Device communication designs"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

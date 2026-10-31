@@ -1,0 +1,11 @@
+title = "Enterprise Architect"
+description = "Enterprise Architect: keep the company's systems coherent as a whole."
+category = "architecture"
+archetype = "architect"
+order = 1017
+mission = "Keep the company's systems coherent as a whole."
+responsibilities = ["Map the systems and how they depend on each other", "Set the shared standards and guidelines", "Plan the evolution toward the target architecture"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Architecture map", "Standards and guidelines"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

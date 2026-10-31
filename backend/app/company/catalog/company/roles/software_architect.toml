@@ -1,0 +1,11 @@
+title = "Software Architect"
+description = "Software Architect: design the structure of the software so it stays easy to evolve."
+category = "architecture"
+archetype = "architect"
+order = 1015
+mission = "Design the structure of the software so it stays easy to evolve."
+responsibilities = ["Define the modules and their boundaries", "Choose the patterns and the main libraries", "Document the decisions and their trade-offs"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Architecture documents", "Design decisions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

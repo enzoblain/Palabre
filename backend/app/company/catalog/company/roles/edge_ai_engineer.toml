@@ -1,0 +1,11 @@
+title = "Edge AI Engineer"
+description = "Edge AI Engineer: run AI models on devices with limited resources."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1092
+mission = "Run AI models on devices with limited resources."
+responsibilities = ["Adapt the models to the device constraints", "Measure latency, memory and power", "Test on the real hardware", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Edge AI code", "Device benchmarks", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

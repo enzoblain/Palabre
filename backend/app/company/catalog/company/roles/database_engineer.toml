@@ -1,0 +1,11 @@
+title = "Database Engineer"
+description = "Database Engineer: build the databases the applications depend on."
+category = "data_databases"
+archetype = "dev_backend"
+order = 1102
+mission = "Build the databases the applications depend on."
+responsibilities = ["Design the schemas, indexes and queries", "Write and test the migrations", "Optimize slow queries", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Schema and migration code", "Query optimizations", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

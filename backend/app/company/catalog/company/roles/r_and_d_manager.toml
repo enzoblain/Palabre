@@ -1,0 +1,11 @@
+title = "R&D Manager"
+description = "R&D Manager: steer the research and development work toward usable results."
+category = "direction_strategy"
+archetype = "product_owner"
+order = 1010
+mission = "Steer the research and development work toward usable results."
+responsibilities = ["Define the research questions and their priorities", "Follow the progress of the experiments", "Decide which results move to the product"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Research plans", "Findings summaries"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Every task has a clear, verifiable goal."

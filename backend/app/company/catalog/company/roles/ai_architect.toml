@@ -1,0 +1,11 @@
+title = "AI Architect"
+description = "AI Architect: design the architecture of AI-powered systems."
+category = "architecture"
+archetype = "architect"
+order = 1025
+mission = "Design the architecture of AI-powered systems."
+responsibilities = ["Define how models fit into the system", "Plan the data, serving and monitoring layers", "Document the trade-offs between cost, quality and latency"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["AI architecture documents", "Model integration designs"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

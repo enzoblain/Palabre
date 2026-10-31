@@ -1,0 +1,11 @@
+title = "CISO"
+description = "CISO: own the security of the company's information and systems."
+category = "direction_strategy"
+archetype = "security"
+order = 1002
+mission = "Own the security of the company's information and systems."
+responsibilities = ["Define the security strategy and priorities", "Report the security risks and posture to leadership", "Make sure incidents are handled and learned from"]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Security strategy", "Risk reports"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No known vulnerability in production."

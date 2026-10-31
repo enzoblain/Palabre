@@ -1,0 +1,11 @@
+title = "AI Integration Engineer"
+description = "AI Integration Engineer: integrate AI services into existing systems."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1087
+mission = "Integrate AI services into existing systems."
+responsibilities = ["Connect the AI services to the product and its data", "Handle quotas, errors and fallbacks", "Test the integration end to end", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Integration code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

@@ -1,0 +1,11 @@
+title = "Integration Architect"
+description = "Integration Architect: design how systems exchange data reliably."
+category = "architecture"
+archetype = "architect"
+order = 1030
+mission = "Design how systems exchange data reliably."
+responsibilities = ["Define the integration patterns and protocols", "Plan error handling and retries", "Document the contracts between systems"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Integration designs", "Interface contracts"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

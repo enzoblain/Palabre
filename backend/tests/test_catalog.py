@@ -274,6 +274,16 @@ def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
         assert entry.existing == (entry.key in roles and roles[entry.key].archetype is None), entry.key
 
 
+def test_extended_jobs_of_lot_1_have_a_file_each():
+    lot_categories = {
+        "direction_strategy", "architecture", "software_development", "artificial_intelligence", "data_databases",
+    }
+    roles = load_roles()
+    expected = {e.key for e in load_extended_index().values() if e.category in lot_categories and not e.existing}
+    assert len(expected) == 120
+    assert expected <= roles.keys()
+
+
 def test_no_extended_job_uses_the_lead_or_its_own_permissions():
     roles = load_roles()
     for entry in load_extended_index().values():

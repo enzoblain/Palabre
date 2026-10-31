@@ -1,0 +1,11 @@
+title = "API Developer"
+description = "API Developer: build APIs that other software depends on."
+category = "software_development"
+archetype = "dev_backend"
+order = 1055
+mission = "Build APIs that other software depends on."
+responsibilities = ["Implement the endpoints from the API contract", "Validate inputs and handle errors consistently", "Keep the API backward compatible", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["API code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

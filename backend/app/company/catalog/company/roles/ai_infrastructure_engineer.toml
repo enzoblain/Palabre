@@ -1,0 +1,11 @@
+title = "AI Infrastructure Engineer"
+description = "AI Infrastructure Engineer: build the infrastructure AI workloads run on."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1085
+mission = "Build the infrastructure AI workloads run on."
+responsibilities = ["Provision the compute for training and serving", "Optimize utilization and cost", "Keep the AI platform reliable", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Infrastructure code", "Capacity reports", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

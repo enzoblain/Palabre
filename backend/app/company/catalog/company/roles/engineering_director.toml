@@ -1,0 +1,11 @@
+title = "Engineering Director"
+description = "Engineering Director: make sure engineering delivers the product reliably."
+category = "direction_strategy"
+archetype = "product_owner"
+order = 1005
+mission = "Make sure engineering delivers the product reliably."
+responsibilities = ["Align the engineering work with the product goals", "Spot the delivery risks early", "Clarify priorities and ownership between teams"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Delivery overviews", "Priority decisions"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Every task has a clear, verifiable goal."

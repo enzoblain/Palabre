@@ -1,0 +1,11 @@
+title = "AI Automation Engineer"
+description = "AI Automation Engineer: automate business work with AI."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1086
+mission = "Automate business work with AI."
+responsibilities = ["Implement the AI-assisted workflows", "Keep a human check where mistakes are costly", "Measure the time and quality gained", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Automation code", "Impact measurements", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

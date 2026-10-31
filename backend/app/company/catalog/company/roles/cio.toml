@@ -1,0 +1,11 @@
+title = "CIO"
+description = "CIO: align the information systems with the company's goals."
+category = "direction_strategy"
+archetype = "architect"
+order = 1001
+mission = "Align the information systems with the company's goals."
+responsibilities = ["Define the information systems strategy", "Arbitrate between competing technology investments", "Keep the systems consistent, secure and affordable"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Systems strategy", "Technology roadmap"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

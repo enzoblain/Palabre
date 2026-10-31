@@ -1,0 +1,11 @@
+title = "E-commerce Developer"
+description = "E-commerce Developer: build the features of online shops."
+category = "software_development"
+archetype = "dev_backend"
+order = 1060
+mission = "Build the features of online shops."
+responsibilities = ["Implement catalog, cart and checkout features", "Handle payments, stock and orders safely", "Test the purchase flows", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["E-commerce code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

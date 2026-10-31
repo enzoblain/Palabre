@@ -1,0 +1,11 @@
+title = "BI Architect"
+description = "BI Architect: design the business intelligence platform and its models."
+category = "data_databases"
+archetype = "architect"
+order = 1114
+mission = "Design the business intelligence platform and its models."
+responsibilities = ["Define the reporting architecture and the semantic layer", "Set the standards for models and metrics", "Plan the evolution of the platform"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["BI architecture documents", "Metric standards"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

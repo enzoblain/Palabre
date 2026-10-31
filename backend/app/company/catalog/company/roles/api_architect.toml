@@ -1,0 +1,11 @@
+title = "API Architect"
+description = "API Architect: design APIs that are consistent, stable and easy to use."
+category = "architecture"
+archetype = "architect"
+order = 1029
+mission = "Design APIs that are consistent, stable and easy to use."
+responsibilities = ["Define the API style and conventions", "Design the contracts and the versioning", "Review new endpoints against the guidelines"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["API guidelines", "API contracts"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

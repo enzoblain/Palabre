@@ -1,0 +1,11 @@
+title = "AI Evaluation Engineer"
+description = "AI Evaluation Engineer: measure how good an AI system really is."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1081
+mission = "Measure how good an AI system really is."
+responsibilities = ["Build the evaluation datasets and metrics", "Run the evaluations on each change", "Report the regressions and their causes", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Evaluation suites", "Evaluation reports", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."

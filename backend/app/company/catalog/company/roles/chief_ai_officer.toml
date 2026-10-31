@@ -1,0 +1,11 @@
+title = "Chief AI Officer"
+description = "Chief AI Officer: steer how AI is adopted and used across the product."
+category = "direction_strategy"
+archetype = "architect"
+order = 1003
+mission = "Steer how AI is adopted and used across the product."
+responsibilities = ["Define the AI strategy and its priorities", "Pick the use cases worth building", "Set the rules for responsible AI use"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["AI strategy", "AI use-case priorities"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The code stays consistent, understandable and easy to evolve."

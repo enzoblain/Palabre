@@ -1,0 +1,11 @@
+title = "Database Administrator"
+description = "Database Administrator: keep the databases available, fast and safe."
+category = "data_databases"
+archetype = "dev_backend"
+order = 1101
+mission = "Keep the databases available, fast and safe."
+responsibilities = ["Monitor and tune the databases", "Manage backups and recovery tests", "Control the access and the upgrades", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Backup and recovery procedures", "Tuning reports", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A reliable, tested API."
