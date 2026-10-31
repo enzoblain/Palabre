@@ -31,7 +31,7 @@ def is_allowed(host: str, port: int) -> bool:
     return port in settings.egress_allowed_ports and host in settings.egress_allowed_hosts
 
 
-def _is_public(address: str) -> bool:
+def is_public_address(address: str) -> bool:
     return ipaddress.ip_address(address).is_global
 
 
@@ -40,7 +40,7 @@ async def _open(host: str, port: int) -> tuple[asyncio.StreamReader, asyncio.Str
     loop = asyncio.get_running_loop()
     infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     addresses = [info[4][0] for info in infos]
-    if not addresses or not all(_is_public(a) for a in addresses):
+    if not addresses or not all(is_public_address(a) for a in addresses):
         raise OSError(f"{host} does not resolve to a public address")
     return await asyncio.open_connection(addresses[0], port)
 
