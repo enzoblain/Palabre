@@ -246,9 +246,9 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
           <header className="mobile-bar">
             <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
             {pending > 0
-              ? <span className="badge-count urgent" aria-label={`${pending} waiting for you`}>{pending}</span>
-              : unreadCount > 0 && <span className="badge-count" aria-label={`${unreadCount} new messages`}>{unreadCount}</span>}
-            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Open the team panel"
+              ? <span className="badge-count urgent" aria-label={`${pending} en attente de réponse`}>{pending}</span>
+              : unreadCount > 0 && <span className="badge-count" aria-label={`${unreadCount} nouveaux messages`}>{unreadCount}</span>}
+            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Ouvrir le panneau Équipe"
               aria-expanded={navOpen}>
               <MenuIcon />
             </button>
