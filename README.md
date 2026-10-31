@@ -459,15 +459,22 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
 - Agents have no free network. The entrypoint (root, `NET_ADMIN` from the compose file, dropped from the
   server's capabilities right after) adds `iptables` rules that only let the agents' uids connect to
   `127.0.0.1:8000` (MCP) and to the egress proxy (`127.0.0.1:3128`, `app/egress_proxy.py`, an HTTP `CONNECT`
-  tunnel in the server). The proxy only opens port 443 of the hosts in `EGRESS_ALLOWED_HOSTS` (the Anthropic API
-  and the npm, PyPI and Go registries by default; set a JSON list to change it) and never to a non-public
+  tunnel in the server). The proxy only opens port 443 of the hosts in `EGRESS_ALLOWED_HOSTS` (the npm, PyPI and Go
+  registries by default, not the Anthropic API; set a JSON list to change it) and never to a non-public
   address. So an agent cannot send its Claude token elsewhere, and cannot reach `db:5432`. Runs get
   `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
   `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
   Consequences and residual risk: `WebFetch` is run client-side by Claude Code, so it is not available to the
   research role (`WebSearch` is served by Anthropic and still works). The proxy caps concurrent tunnels
-  (`EGRESS_MAX_TUNNELS`). A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an
-  `npm publish` with an attacker-supplied npm token: a known, accepted risk.
+  (`EGRESS_MAX_TUNNELS`). The Anthropic API is reached through a local reverse proxy
+  (`app/anthropic_proxy.py`, `/anthropic` on the server, `ANTHROPIC_BASE_URL`): the agent's
+  `CLAUDE_CODE_OAUTH_TOKEN` is only its run token (worthless outside the run), the server adds the account's real
+  token, so it is in neither the agent's environment nor `/proc/<pid>/environ`, and cannot be sent to the API with a
+  server-side tool. The proxy also refuses server tools other than `web_search` (`ANTHROPIC_ALLOWED_SERVER_TOOLS`,
+  so no `web_fetch` or `code_execution`), `mcp_servers`, and API paths outside `ANTHROPIC_ALLOWED_PATHS`.
+  Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
+  A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
+  with an attacker-supplied npm token: a known, accepted risk.
 - Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
   process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,

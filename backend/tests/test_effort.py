@@ -65,7 +65,7 @@ async def test_effort_flag_is_passed_only_when_set(monkeypatch, tmp_path, effort
     monkeypatch.setattr(runner.settings, "agent_user", "")
     spec = runner.RunSpec(
         author_name="Léa", system_prompt="", prompt="hi", cwd=Path(tmp_path), employee_id=1,
-        mcp_headers={}, mcp_tools=[], claude_tools=[], model="sonnet", effort=effort,
+        mcp_headers={}, mcp_tools=[], claude_tools=[], model="sonnet", effort=effort, oauth_token="t",
     )  # fmt: skip
     await runner._run_claude(spec, "tok", "")
     (args,) = seen
@@ -98,7 +98,7 @@ async def test_project_and_local_settings_are_not_loaded(monkeypatch, tmp_path):
     monkeypatch.setattr(runner.settings, "agent_user", "")
     spec = runner.RunSpec(
         author_name="Léa", system_prompt="", prompt="hi", cwd=Path(tmp_path), employee_id=1,
-        mcp_headers={}, mcp_tools=[], claude_tools=["Write"], model="sonnet",
+        mcp_headers={}, mcp_tools=[], claude_tools=["Write"], model="sonnet", oauth_token="t",
     )  # fmt: skip
     await runner._run_claude(spec, "tok", "")
     (args,) = seen

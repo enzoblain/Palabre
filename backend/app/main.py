@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401 (registers tables)
-from app import agent_pool, egress_proxy, services
+from app import agent_pool, anthropic_proxy, egress_proxy, services
 from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
 from app.api import catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
@@ -71,6 +71,7 @@ async def lifespan(_: FastAPI):
             await orchestrator.stop()
             if proxy:
                 proxy.close()
+    await anthropic_proxy.close_client()
     await engine.dispose()
 
 
@@ -107,6 +108,9 @@ for router in (
 ):
     app.include_router(router, prefix="/api", dependencies=[Depends(require_admin)])
 
+
+# Agents' Claude Code reaches the Anthropic API through it (ANTHROPIC_BASE_URL), authenticated by its run token
+app.include_router(anthropic_proxy.router)
 
 # Agents reach it at http://127.0.0.1:8000/mcp/ (written into each run's --mcp-config)
 app.mount("/mcp", AgentAuthMiddleware(mcp_app))
