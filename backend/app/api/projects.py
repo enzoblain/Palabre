@@ -89,7 +89,9 @@ async def create_project(body: ProjectIn, s: SessionDep):
 def _check_team(employees: list[MemberIn], kind: str) -> None:
     """A team built by hand: valid roles and personalities, unique names, for a company a
     lead (they organize the work and merge), and the permission rules of the catalog."""
-    roles = {k for k, r in load_catalog()["roles"].items() if r["kind"] == kind}
+    catalog = load_catalog()
+    roles = {k for k, r in catalog["roles"].items() if r["kind"] == kind}
+    presets = catalog["personalities"][kind]
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
         raise ApiError(
@@ -105,6 +107,12 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
                 f"{e.name}: unknown roles {', '.join(unknown)}",
             )
         projects.validate_personality(e.traits, e.style, partial=True, kind=kind)
+        if e.personality is not None and e.personality not in presets:
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.UNKNOWN_PERSONALITY,
+                f"{e.name}: unknown personality {e.personality}",
+            )
     if kind == "company" and not any("lead" in e.roles for e in employees):
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

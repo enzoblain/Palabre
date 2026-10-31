@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
-from app.api.schemas import CatalogLimitsOut, RoleOut, RoleToolsOut
+from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RoleOut, RoleToolsOut
 from app.company.catalog import MAX_TEAM_SIZE, MODELS
 from app.company.team import generate_team, load_catalog, personality_for
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
@@ -45,6 +45,12 @@ async def team_limits() -> CatalogLimitsOut:
 async def personality_options(kind: Kind = "company") -> dict:
     """Axes, levels, quirks and styles an employee's personality is made of."""
     return personality_for(kind)
+
+
+@router.get("/personalities", response_model=dict[str, PersonalityPresetOut])
+async def list_personalities(kind: Kind = "company") -> dict:
+    """Personality presets of a kind of project, to pick from and tweak."""
+    return load_catalog()["personalities"][kind]
 
 
 @router.get("/modes/{mode}/team")

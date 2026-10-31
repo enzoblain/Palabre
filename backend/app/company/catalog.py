@@ -1,9 +1,9 @@
-"""Typed catalog: every role is a TOML file under catalog/<kind>/roles/, validated when the backend starts."""
+"""Typed catalog: every role and personality preset is a TOML file under catalog/<kind>/, validated when the backend starts."""
 
 import tomllib
 from functools import cache
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -42,6 +42,10 @@ MAX_TEAM_SIZE = 30
 MODELS = get_args(Model)
 
 KEY_PATTERN = r"^[a-z][a-z0-9_]*$"
+MAX_QUIRKS = 5
+MAX_QUIRK_LENGTH = 200
+
+Level = Literal[-2, -1, 0, 1, 2]
 
 
 class CatalogError(Exception):
@@ -69,6 +73,28 @@ class Role(BaseModel):
     wakes_on: list[EventType]
 
 
+class PresetStyle(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    verbosity: str
+    tone: str
+
+
+class PersonalityPreset(BaseModel):
+    """A named personality the boss can pick; an axis left out of `traits` is neutral (0)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(pattern=KEY_PATTERN)
+    kind: Kind
+    label: str
+    description: str
+    order: int  # position in the list (the files have no natural order)
+    traits: dict[str, Level]
+    quirks: list[Annotated[str, Field(min_length=1, max_length=MAX_QUIRK_LENGTH)]] = Field(max_length=MAX_QUIRKS)
+    style: PresetStyle
+
+
 def merge_and_code_conflict(permissions: set[str] | list[str]) -> bool:
     """Whether a set of permissions combines merge and code (one employee must not review their own work)."""
     return {MERGE, CODE} <= set(permissions)
@@ -78,7 +104,8 @@ def merge_and_code_conflict(permissions: set[str] | list[str]) -> bool:
 RESERVED_ROLE_FIELDS = frozenset({"key", "kind"})
 
 
-def _load_role(path: Path, kind: str) -> Role:
+def _load_entry[T: BaseModel](model: type[T], path: Path, kind: str) -> T:
+    """One catalog file as a `model`; its key and kind come from the file name and folder."""
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
@@ -87,7 +114,7 @@ def _load_role(path: Path, kind: str) -> Role:
                 f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {', '.join(reserved)} "
                 "come from the file name and folder, not from the file"
             )
-        return Role(key=path.stem, kind=kind, **data)
+        return model(key=path.stem, kind=kind, **data)
     except (tomllib.TOMLDecodeError, ValidationError) as exc:
         raise CatalogError(f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {exc}") from exc
 
@@ -97,7 +124,7 @@ def load_roles() -> dict[str, Role]:
     roles: dict[str, Role] = {}
     for kind in KINDS:
         folder = sorted((CATALOG_DIR / kind / "roles").glob("*.toml"))
-        for role in sorted((_load_role(p, kind) for p in folder), key=lambda r: (r.order, r.key)):
+        for role in sorted((_load_entry(Role, p, kind) for p in folder), key=lambda r: (r.order, r.key)):
             if role.key in roles:
                 raise CatalogError(
                     f"Role key '{role.key}' exists in both company and research: gates are read by key, "
@@ -105,6 +132,30 @@ def load_roles() -> dict[str, Role]:
                 )
             roles[role.key] = role
     return roles
+
+
+def load_personalities() -> dict[str, dict[str, PersonalityPreset]]:
+    """Every personality preset by kind, each kind ordered by its `order` field."""
+    presets: dict[str, dict[str, PersonalityPreset]] = {}
+    for kind in KINDS:
+        folder = sorted((CATALOG_DIR / kind / "personalities").glob("*.toml"))
+        loaded = sorted((_load_entry(PersonalityPreset, p, kind) for p in folder), key=lambda x: (x.order, x.key))
+        presets[kind] = {preset.key: preset for preset in loaded}
+    return presets
+
+
+def _check_presets(presets: dict[str, dict[str, PersonalityPreset]], personalities: dict[str, dict]) -> None:
+    """A preset only uses the axes and the styles of its kind."""
+    for kind, by_key in presets.items():
+        axes = {a["key"] for a in personalities[kind]["axes"]}
+        styles = personalities[kind]["style"]
+        for preset in by_key.values():
+            where = f"Personality '{preset.key}' ({kind})"
+            if unknown := sorted(set(preset.traits) - axes):
+                raise CatalogError(f"{where} uses unknown axes: {', '.join(unknown)}")
+            for name, value in preset.style.model_dump().items():
+                if value not in styles[name]:
+                    raise CatalogError(f"{where} has an unknown {name}: {value}")
 
 
 def _check_roles(roles: dict[str, Role]) -> None:
@@ -157,6 +208,11 @@ def load_catalog() -> dict:
     roles = load_roles()
     catalog = _shared_catalog()
     validate_catalog(roles, catalog["modes"], catalog["channels"])
+    presets = load_personalities()
+    _check_presets(presets, {"company": catalog["personality"], "research": catalog["research"]["personality"]})
+    catalog["personalities"] = {
+        kind: {k: p.model_dump() for k, p in by_key.items()} for kind, by_key in presets.items()
+    }
     catalog["roles"] = {k: r.model_dump(exclude_none=True) for k, r in roles.items()}
     return catalog
 

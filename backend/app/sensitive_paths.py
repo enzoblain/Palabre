@@ -18,8 +18,10 @@ SENSITIVE_NAMES = {
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
 SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
-# Role files carry permissions: adding one cannot skip the gate, whatever its name
-SENSITIVE_ROLE_DIRS = ("catalog/company/roles/", "catalog/research/roles/")
+# Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
+SENSITIVE_ROLE_DIRS = (
+    "catalog/company/roles/", "catalog/research/roles/", "catalog/company/personalities/", "catalog/research/personalities/",
+)
 
 
 def is_sensitive_path(path: str) -> bool:
