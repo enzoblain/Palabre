@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - orchestrator: cap silent review reminders per head SHA (#322)
 - catalog: add the extended jobs of categories 11 to 15 (#313)
 - catalog: add "how it works" fields to role sheets (#328)
+- catalog: add method, watch points and deliverable format to categories 11 to 15 (#331)
+- catalog: write the working notes of the jobs of categories 6 to 10 (#332)
 
 ### Changed
 
