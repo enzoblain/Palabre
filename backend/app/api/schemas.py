@@ -61,6 +61,9 @@ class RoleOut(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
+    method: list[str] = []
+    watch_points: list[str] = []
+    deliverable_format: str | None = None
     permissions: list[Permission]
     wakes_on: list[str]
     tools: RoleToolsOut

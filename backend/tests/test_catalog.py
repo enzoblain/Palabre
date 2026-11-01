@@ -15,7 +15,7 @@ from app.company.catalog import (
     load_extended_index, load_personality_pools, load_roles, team_permission_error,
     validate_catalog,
 )
-from app.company.team import generate_team
+from app.company.team import _render_role, generate_team
 from app.mcp_server.permissions import CLAUDE_TOOLS, MCP_TOOLS
 from app.orchestrator import event_types
 
@@ -193,7 +193,7 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
             "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
             "claude": claude_tools_for(permissions),
         }
-        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, "archetype": None, **expected[key].model_dump(mode="json", exclude_none=True)}
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, "archetype": None, "deliverable_format": None, **expected[key].model_dump(mode="json", exclude_none=True)}
 
 
 async def test_roles_endpoint_filters_by_kind(api_client):
@@ -407,3 +407,35 @@ def test_extended_jobs_of_lot_3_have_a_file_each():
     expected = {e.key for e in load_extended_index().values() if e.category in lot_categories and not e.existing}
     assert len(expected) == 109
     assert expected <= roles.keys()
+
+
+def test_every_base_role_describes_how_it_works():
+    base_roles = [r for r in load_roles().values() if r.archetype is None]
+    assert base_roles
+    for role in base_roles:
+        assert role.method and role.watch_points and role.deliverable_format, role.key
+
+
+def test_working_notes_are_optional_and_validated(catalog_copy):
+    path = catalog_copy / "company/roles/scribe.toml"
+    path.write_text(path.read_text().replace("method = ", "method_ = ", 1))
+    with pytest.raises(CatalogError, match="method_"):
+        load_roles()
+    path.write_text(path.read_text().replace("method_ = [", "method = [", 1))
+    assert load_roles()["scribe"].method
+
+
+def test_working_notes_are_rendered_in_the_prompt():
+    role = load_roles()["dev_backend"]
+    prompt = _render_role(role)
+    assert f"1. {role.method[0]}" in prompt
+    assert f"- {role.watch_points[0]}" in prompt
+    assert f"A good deliverable: {role.deliverable_format}" in prompt
+
+
+def test_prompt_omits_absent_working_notes():
+    role = load_roles()["dev_backend"].model_copy(update={"method": [], "watch_points": [], "deliverable_format": None})
+    prompt = _render_role(role)
+    assert "How you work" not in prompt
+    assert "Watch points" not in prompt
+    assert "A good deliverable" not in prompt
