@@ -102,10 +102,8 @@ def _check_creation_mode(body: ProjectIn, kind: str) -> None:
     if kind != "company":
         raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "Manual and automatic creation are for companies")
     if body.creation_mode == "manual":
-        if not body.employees or not any(MANDATORY_ROLE in e.roles for e in body.employees):
-            raise _invalid_creation(
-                ErrorCode.LEAD_REQUIRED, f"A manual team needs its mandatory member (role {MANDATORY_ROLE})"
-            )
+        if body.employees is None:  # a listed team is checked by `_check_team`
+            raise _invalid_creation(ErrorCode.LEAD_REQUIRED, f"A manual team is listed and holds the {MANDATORY_ROLE}")
         return
     if body.employees is not None:
         raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "An automatic team is not listed by hand")
@@ -144,11 +142,11 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
                 ErrorCode.UNKNOWN_PERSONALITY,
                 f"{e.name}: unknown personality {e.personality}",
             )
-    if kind == "company" and not any("lead" in e.roles for e in employees):
+    if kind == "company" and not any(MANDATORY_ROLE in e.roles for e in employees):
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.LEAD_REQUIRED,
-            "The team needs a lead (they organize and merge)",
+            f"The team needs a {MANDATORY_ROLE} (they organize and merge)",
         )
     if problem := team_permission_error([e.roles for e in employees], kind):
         raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_TEAM_PERMISSIONS, problem)
