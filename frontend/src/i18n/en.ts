@@ -313,11 +313,8 @@ export const en = {
   "request.withdrawn": "Withdrawn by the lead",
 
   "doc.report": "Report",
-  "doc.document": "Document",
   "doc.topic": "Topic",
   "doc.reportEmpty": "The rapporteur has not written the report yet. It fills in as the group's research advances.",
-  "doc.conclusions": "Conclusions",
-  "doc.decisions": "Decisions",
   "doc.noneProposed": "None proposed yet.",
   "doc.proposedBy": "proposed by {name} · {time}",
   "doc.mergePr": "Merge PR #{number}",
