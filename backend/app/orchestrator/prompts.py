@@ -117,22 +117,19 @@ Write in {language}: your messages in the chat, tasks, decisions, questions, not
 Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Every tool field marked as going to GitHub (submit_for_review title and summary, review_task body, close_pull_request reason, propose_release and merge_release title and summary) is written in English, even when the task you are working from is in another language: never paste its text as it is, translate it. Titles and commit messages (not release notes, which list the changes by type and then keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
 BOSS_REQUESTS_RULE = """## Requests to the boss
-Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Keep them short and plain. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
+Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Follow the rule "Messages to the boss" below: the title and the reason of a decision, an escalation to the boss, an ask_ceo and a release request are read by the boss, not by a developer. Keep them short. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
 
-LEAD_BOSS_RULE = """## Messages to the boss
-In the direction channel, the boss is not a developer. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them."""
+BOSS_MESSAGES_RULE = """## Messages to the boss
+The boss is not a developer, in the direction channel and in every decision, escalation or request they read. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes, task or PR numbers) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them. The technical detail goes in the room document or the task."""
 
 PROJECT_INSTRUCTIONS_RULE = """## Project instructions (CLAUDE.md)
 The repository's CLAUDE.md, read from the reference clone. Follow it as the project's conventions and code map.
 
 {content}"""
 
-LEAD_ROLES = {"lead"}
-
-
-def lead_boss_rule(roles: list[str], language: str) -> str | None:
-    """Return the rule on messages to the boss, for the lead only."""
-    return LEAD_BOSS_RULE.format(language=language) if LEAD_ROLES & set(roles) else None
+def boss_messages_rule(language: str) -> str:
+    """Return the rule on messages to the boss, given to every role."""
+    return BOSS_MESSAGES_RULE.format(language=language)
 
 
 VERSION_RULE = """## Versions
