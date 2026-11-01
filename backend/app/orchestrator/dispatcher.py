@@ -24,9 +24,9 @@ from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
     RESEARCH_RULES,
+    boss_messages_rule,
     code_standards_rule,
     language_rule,
-    boss_messages_rule,
     operating_rules,
     orientation_rule,
     project_instructions_rule,

@@ -82,7 +82,9 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
     """Ask the boss something in the direction channel. They answer with Validate, Reject or
     Nuance (a free comment), and you are woken up with their answer. Use it when you need
     their go or arbitration; a plain update is a send_message with channel="direction".
-    content: what you ask, short and self-contained, with your recommendation. The boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
+    content: what you ask, short and self-contained, with your recommendation.
+    The boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical
+    detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
@@ -177,7 +179,9 @@ async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lea
     """Escalate a blocker or disagreement you cannot resolve at your level. With to="boss" the
     request reaches the boss through the lead's name: keep it short, in the team's language.
     `reason` is posted in the conversation as a message to them: write it as you would say it.
-    With to="boss",the boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
+    With to="boss", the boss is not a developer: write in plain sentences, with no jargon and no
+    code references (files, identifiers, task or PR numbers); the technical detail goes in the
+    room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, reason)

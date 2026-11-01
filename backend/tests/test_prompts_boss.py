@@ -4,7 +4,7 @@ from app.company.team import generate_team
 from app.mcp_server import tools
 from app.models import Project
 from app.orchestrator.dispatcher import build_system_prompt
-from app.orchestrator.prompts import language_rule, boss_messages_rule
+from app.orchestrator.prompts import boss_messages_rule, language_rule
 
 
 def test_language_rule_applies_project_language_to_boss_requests():
