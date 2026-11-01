@@ -208,8 +208,8 @@ async def write_notes(ctx: Context, content: str, append: bool = True) -> str:
 async def add_decision(ctx: Context, title: str, rationale: str = "") -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
     validates or rejects it. title: the decision in one short sentence; rationale: the why in
-    a few sentences (the boss only sees a truncated version, the detail belongs in the room
-    document). Write both in the team's language. The boss's request is signed by the lead."""
+    a few sentences (the boss reads it in full in direction, so keep it short and
+    plain). Write both in the team's language. The boss's request is signed by the lead."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
