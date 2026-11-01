@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["SDN policies", "Controller configurations"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The network behaves as programmed and is easy to change."
+method = ["Define the intent: what traffic may flow where", "Express it as policies in the controller", "Test the policies in an emulated network", "Deploy by stage and watch the flows", "Plan what the network does if the controller fails"]
+watch_points = ["A controller that is a single point of failure", "Policies tested only for what they allow and not for what they deny", "API access to the controller without strong authentication", "Policies that conflict with each other"]
+deliverable_format = "SDN policies and controller configuration in the repository, with the emulated tests that show what is allowed and what is blocked."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Virtualization platform configuration", "Capacity notes"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Virtual machines run with the resources they need and no more."
+method = ["Measure the load of each virtual machine and of the hosts", "Place the machines so that one host failing leaves enough capacity", "Right-size the machines on the measured use", "Take a snapshot before a change and delete it afterwards", "Test the migration of a machine between hosts"]
+watch_points = ["Overcommitted memory that causes swapping", "Snapshots left to pile up and slow the disks", "All redundant machines on one host", "Hypervisor updates with no migration plan"]
+deliverable_format = "A configuration of the virtualization platform in version control and capacity notes with placement and sizing."

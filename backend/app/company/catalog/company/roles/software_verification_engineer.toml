@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Verification plans", "Conformity evidence"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Every requirement is verified and the proof is on record."
+method = ["Take each statement of the specification", "Define the way to check it: inspection, analysis or test", "Run the checks on the build", "Record the evidence against each statement", "List the statements not met or not checked"]
+watch_points = ["Specification statements with no check", "Evidence that does not name the version checked", "Verifying the design and not the built product", "Treating an untested statement as met"]
+deliverable_format = "A verification plan and a conformity table with each statement, its method, its evidence, the version and the result."

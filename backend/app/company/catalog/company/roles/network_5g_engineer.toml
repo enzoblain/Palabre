@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["5G configurations", "Performance measurements"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The 5G network meets its coverage and latency targets."
+method = ["Take the target service levels for latency, throughput and coverage", "Configure the core and radio functions for the profile", "Define the slices and their isolation", "Run the test calls and traffic and record the measures", "Tune the parameters and compare with the targets"]
+watch_points = ["Testing only in lab conditions far from the real radio environment", "Slices that share a resource and break their isolation", "Parameters changed with no record of the previous value", "Interoperability with older networks left untested"]
+deliverable_format = "5G configuration files and a measurement report comparing latency, throughput and coverage with the targets."

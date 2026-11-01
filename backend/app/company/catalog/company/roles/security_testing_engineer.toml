@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Security test cases", "Weakness reports"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Common security flaws are caught by testing."
+method = ["Take the security test cases for the feature, from its abuse cases", "Test the access control, input handling and session behavior", "Run the automated dependency and web scanners", "Confirm each scanner finding by hand", "Send the confirmed weaknesses to the security owner with the steps"]
+watch_points = ["Sending raw scanner output as findings", "Testing as a user with admin rights only", "Testing a feature in isolation from its login and session", "Running scans against an environment that holds real data"]
+deliverable_format = "Security test cases and a weakness report with each confirmed weakness, the steps to reproduce it and the affected feature."

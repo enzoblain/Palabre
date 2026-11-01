@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Load test scenarios", "Breaking point reports"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "The limits of the system are known before users reach them."
+method = ["Take the real traffic mix from the logs", "Write the scenarios and ramp up the users in stages", "Run against an environment shaped like production", "Watch the system until it degrades or fails", "Report the breaking point and the first resource to run out"]
+watch_points = ["Testing an environment smaller than production", "Scenarios that every user runs in the same second", "Ignoring the test data that the load itself creates", "Reporting average times and hiding the slowest ones"]
+deliverable_format = "Load scenarios in the repository and a report with the load levels, the breaking point and the bottleneck found."

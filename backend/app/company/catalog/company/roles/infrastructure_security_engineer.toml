@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Hardening baselines", "Compliance checks"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "The infrastructure stays hardened and patched."
+method = ["Write the hardening baseline for each type of host and platform", "Scan the systems against it and list the differences", "Rank the differences by exposure and fix the worst first", "Track the patch level of each component and its end of support", "Re-scan to confirm each fix"]
+watch_points = ["Baselines copied from a standard without checking they fit", "Hardening that breaks the application and is then undone", "Components past their support date left in place", "Scanning once and not again after the fixes"]
+deliverable_format = "A hardening baseline and a compliance check result per system, listing each deviation, its risk and the fix."

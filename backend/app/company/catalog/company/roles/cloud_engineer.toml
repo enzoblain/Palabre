@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Cloud configuration", "Provisioning scripts"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The cloud environment is reproducible, reliable and affordable."
+method = ["Write down what the project needs from the cloud: compute, storage, network, access", "Provision it from versioned scripts, not by hand in the console", "Apply the least privilege rule to every account and role", "Tag the resources so their cost and owner are known", "Document the setup and how to rebuild it"]
+watch_points = ["Resources created by hand that no script can recreate", "Public storage and open ports left by default", "Orphaned resources that keep costing money", "Admin rights granted to avoid a permission error"]
+deliverable_format = "Versioned provisioning scripts and cloud configuration that rebuild the environment from scratch, with a short note on the resources and their cost."

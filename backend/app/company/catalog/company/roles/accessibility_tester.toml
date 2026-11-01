@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Accessibility test reports", "Barrier tickets"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "The product is usable by people with disabilities."
+method = ["List the user journeys to test and the assistive tools to use", "Complete each journey with a keyboard only", "Repeat with a screen reader and at 200 percent zoom", "Compare against the success criteria of the guidelines", "Report each barrier with the element, the criterion and a fix"]
+watch_points = ["Relying on an automated checker alone", "Testing with a mouse and then claiming keyboard support", "Reports that name the guideline but not the element", "Reporting after the release instead of while building"]
+deliverable_format = "A report listing each barrier with the page, the element, the failed criterion, the tool used and how to fix it."

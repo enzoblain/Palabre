@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Threat reports", "Indicators of compromise"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "The team knows the threats that matter before they hit."
+method = ["Choose the sources that cover the project's technologies", "Rate the reliability of each piece of information", "Match the threats to what the project exposes", "Write what to do and by whom, not only what is happening", "Feed the indicators to the tools that detect them"]
+watch_points = ["Reports that describe threats but give no action", "Indicators without expiry that fill the tools with noise", "Treating one source as certain", "Tracking threats that have nothing to do with the project"]
+deliverable_format = "A threat report with the confidence of each source, the exposure of the project and the actions to take, with a list of indicators of compromise."

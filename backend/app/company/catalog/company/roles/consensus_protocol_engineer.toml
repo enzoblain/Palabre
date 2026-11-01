@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Consensus implementation", "Fault-injection tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Nodes reach agreement even under faults."
+method = ["Write the safety and liveness properties that must hold", "Implement the protocol messages and the state machine", "Simulate delays, message loss and crashed nodes", "Add malicious nodes to the simulation", "Document the assumptions: how many faulty nodes, what network"]
+watch_points = ["Assuming a reliable network in the tests", "A proof of safety without liveness", "Nondeterminism in the state machine", "Timeouts tuned in the lab and wrong in production"]
+deliverable_format = "A consensus implementation with fault-injection tests, and a document of the safety and liveness assumptions."

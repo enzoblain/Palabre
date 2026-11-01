@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Network configurations", "Topology diagrams"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The network is reliable, documented and easy to evolve."
+method = ["Gather the requirements: services, volumes, availability", "Draw the topology and the addressing plan", "Configure the equipment from templates", "Test connectivity, redundancy and the failover", "Update the diagrams to match what was built"]
+watch_points = ["Address ranges that overlap when a site is added", "Redundancy never tested by pulling a link", "Diagrams that are out of date after the first change", "Configuration that exists only on the device"]
+deliverable_format = "Network configurations and a topology diagram with the addressing plan, matching what is deployed."

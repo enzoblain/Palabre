@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["PKI design", "Certificate automation"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Certificates never expire or leak unnoticed."
+method = ["Draw the hierarchy of authorities and the purpose of each certificate", "Keep the root offline and issue through an intermediate", "Automate the issuance and the renewal", "Define the revocation and test that clients respect it", "Monitor the expiry dates and alert well ahead"]
+watch_points = ["A private root key kept online", "Certificates that expire during the weekend", "Revocation that is configured but never tested", "Wildcard certificates copied across many systems"]
+deliverable_format = "A PKI design with the hierarchy and the policies, the renewal automation and the expiry monitoring configuration."

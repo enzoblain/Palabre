@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Risk register", "Control mappings"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Risks are known and compliance can be shown at any time."
+method = ["List the policies, standards and laws that apply to the project", "Break each requirement into a control the team can apply", "Match every control to its owner and to evidence that can be shown", "Score the risks by likelihood and impact in the register", "Prepare the evidence pack ahead of each audit"]
+watch_points = ["Policies written that the team does not actually follow", "Controls without an owner", "Evidence gathered the week of the audit", "A risk register that is never updated after an incident"]
+deliverable_format = "A risk register and a control mapping with the owner and the evidence for each control, kept up to date in the repository."

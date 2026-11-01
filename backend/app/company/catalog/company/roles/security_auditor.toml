@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Approving out of poli
 deliverables = ["Audit reports", "Verdicts with evidence"]
 escalation = "Persistent disagreement with a developer → the lead arbitrates."
 success = "Audit findings are precise, evidence-based and acted upon."
+method = ["Define the rules that the audit checks, and their source", "Look at the code and the configuration for each rule", "Gather evidence for every point, positive or negative", "State the verdict for each point and the overall one", "Verify the corrections when they are made"]
+watch_points = ["Auditing from documents without looking at the real system", "A verdict with no evidence", "Auditing work the auditor helped build", "Accepting a correction without checking it"]
+deliverable_format = "An audit report with the rules checked, a verdict and its evidence per rule, and a follow-up status for the corrections requested."

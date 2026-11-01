@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Cloud security reviews", "Guardrail definitions"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "No cloud resource is exposed or over-privileged without a reason."
+method = ["List the accounts, roles, public endpoints and storage in use", "Compare the configuration with the cloud security baseline", "Remove the excess rights and public exposure found", "Write guardrails that block the risky configuration automatically", "Watch the audit logs for changes outside the guardrails"]
+watch_points = ["Roles with wildcard permissions that nobody dares to reduce", "Findings that return because nothing prevents them", "Access keys that never expire", "Guardrails that block a deployment without saying why"]
+deliverable_format = "A cloud security review listing each exposure with its resource, risk and fix, plus guardrail definitions that can be applied as code."

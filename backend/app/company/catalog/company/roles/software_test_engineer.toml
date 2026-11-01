@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Test cases", "Test reports"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "The software is tested thoroughly and the results are trusted."
+method = ["Read the requirement and the code under test", "Pick the test cases: boundaries, errors and typical values", "Write the tests and run them", "Analyze each failure: bug in the code or in the test", "Keep the test descriptions up to date"]
+watch_points = ["Tests that copy the logic of the code they check", "Only typical values tested", "Fixing a failing test by changing its expectation", "Test descriptions that no longer match the tests"]
+deliverable_format = "Test cases with their expected results, and a test report with the failures analyzed as code bugs or test bugs."

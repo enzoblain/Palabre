@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Attack scenarios", "Red team reports"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "The defense gaps are exposed in exercises, not in real incidents."
+method = ["Build the threat model of a realistic adversary and its goal", "Set the rules of engagement, the scope and the stop conditions", "Run the scenario with the discretion that adversary would have", "Keep a log of each action with its time", "Debrief the defenders with what worked and what was seen"]
+watch_points = ["Actions outside the agreed scope", "No log of what was done, so the defenders cannot match their alerts", "Winning by a trick no real adversary would use", "Leaving access or tools in place after the exercise"]
+deliverable_format = "A red team report with the scenario, the timeline of the actions, the objectives reached, the gaps in the defense and what was detected."

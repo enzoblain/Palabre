@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["System designs", "Configuration standards"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The systems work together and are easy to operate."
+method = ["Map how the servers, services and tools depend on each other", "Find the points where a change in one breaks another", "Define the standard configuration and deployment method", "Test the design with a failure of one component", "Write the standard in a form teams can apply"]
+watch_points = ["A design that works only when every component is healthy", "Standards no team can follow in practice", "Dependencies found out during an outage", "Solving a cross-cutting issue in one team's corner"]
+deliverable_format = "A system design with a diagram of components and their dependencies, and configuration standards giving the required settings and the reason for each."

@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Detection improvements", "Investigation notes"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Attacks are detected early and contained quickly."
+method = ["Review the alerts and logs that came in since the last shift", "Check each suspicious signal against the normal behavior of the system", "Contain a confirmed attack with the smallest change that stops it", "Record what was seen, what was done and when", "Write or tune the detection that would have caught it sooner"]
+watch_points = ["Containment that breaks production more than the attack does", "Closing alerts as noise without checking the baseline", "Notes too thin for someone else to replay the investigation", "Detections added without testing them against normal traffic"]
+deliverable_format = "Investigation notes with a timeline, the evidence and the action taken, together with the detection rules or changes proposed after each case."

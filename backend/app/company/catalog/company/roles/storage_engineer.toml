@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Storage designs", "Capacity reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Data is stored durably and is available when needed."
+method = ["Measure the capacity, the throughput and the latency each workload needs", "Choose the storage type and the redundancy for each", "Monitor the health of the disks and the growth of the volumes", "Move the data to the new system in steps and verify the copy", "Apply the retention rules and delete what has expired"]
+watch_points = ["Rebuilds after a disk failure that take the system below its redundancy", "Volumes full before the alert fires", "Data migrated with no check that the copy is complete", "Retention rules that delete what the law requires to keep"]
+deliverable_format = "Storage designs with the sizing and redundancy, and a capacity report with the growth and the date each volume fills."

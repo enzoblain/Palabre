@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Infrastructure code", "Reusable modules"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The infrastructure can be rebuilt from the repository alone."
+method = ["Import what already exists into code before changing it", "Split the code into modules with clear inputs and outputs", "Run the plan and read it fully before every apply", "Test modules in a throwaway environment", "Schedule a drift check against the declared state"]
+watch_points = ["Applying a plan nobody read", "State files stored unprotected or edited by hand", "Modules so general that no one understands them", "Changes made in the console that the code then erases"]
+deliverable_format = "Reviewed infrastructure code with reusable modules, each change accompanied by the plan output and a test in a temporary environment."

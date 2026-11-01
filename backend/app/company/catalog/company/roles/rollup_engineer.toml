@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Rollup components", "State transition tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Rollup state is always provable and users can always exit."
+method = ["Define the batch format and the state root computed for each batch", "Implement the sequencer ordering and the batch submission", "Make the transaction data available to anyone who needs to rebuild the state", "Implement the proof or the fraud dispute", "Test the state transition and the exits under load"]
+watch_points = ["Data not available, so users cannot withdraw", "A sequencer that can censor with no escape path", "State transitions that differ between the prover and the contract", "Upgrade keys that allow a change without delay"]
+deliverable_format = "Rollup components with state transition tests, including the forced exit and the data availability cases."

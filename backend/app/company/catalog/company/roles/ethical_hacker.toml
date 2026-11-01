@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Findings reports", "Proofs of concept"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Every weakness reported is real, reproducible and explained."
+method = ["Confirm the scope, the rules and the time window in writing before any test", "Map the exposed surface and the technologies in use", "Test the weaknesses one by one, starting with the likeliest", "Stop at the proof of impact and do not take real data", "Write each finding with the steps, the impact and the fix"]
+watch_points = ["Testing outside the agreed scope", "Leaving test accounts or payloads behind", "Reporting a theoretical weakness as a proven one", "Reading or copying real user data to prove a point"]
+deliverable_format = "A findings report with the scope, and for each weakness the steps to reproduce it, the impact and the recommended fix, plus the proof of concept used."

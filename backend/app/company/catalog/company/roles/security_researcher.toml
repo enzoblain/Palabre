@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Research notes", "Proposals"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "The team benefits from new security knowledge before attackers do."
+method = ["State the technique and the question it answers for the project", "Reproduce it in an isolated lab", "Measure whether it works against the project's stack", "Compare its cost with the risk it addresses", "Write the result and propose what to adopt"]
+watch_points = ["Research for its own sake with no use for the project", "Testing on the live system", "Presenting a promising technique as proven", "Notes that omit the setup needed to repeat the result"]
+deliverable_format = "Research notes with the technique, the setup, the result and a proposal stating whether to adopt it, and why."

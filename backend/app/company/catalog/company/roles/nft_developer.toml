@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Token contracts", "Minting flow"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Digital assets are minted, stored and transferred correctly."
+method = ["Decide what is on-chain and what is stored off-chain for each token", "Write the token contract on a tested standard implementation", "Build the minting flow with supply and price limits", "Store the metadata in content-addressed storage", "Test transfers, royalties, permissions and the mint under load"]
+watch_points = ["Metadata at a URL that can change or disappear", "Minting that can be front-run or exceeds the supply", "Royalties that the transfer path does not enforce", "Owner functions that can change the token after sale"]
+deliverable_format = "Token contracts and a minting flow with tests for transfers, permissions and supply limits."

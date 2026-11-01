@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Data flow maps", "Privacy requirements"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Personal data is collected, kept and shared only when justified."
+method = ["List the personal data the product collects and why", "Draw how it moves between services and to third parties", "Remove what is not needed and set a retention period for the rest", "Check each change touching personal data against that map", "Check that deletion and export requests work end to end"]
+watch_points = ["Data kept forever because no one set a period", "Personal data in logs and analytics", "Backups that still contain deleted data", "A data map that ages after the first version"]
+deliverable_format = "A personal data flow map with the purpose and retention for each item, and privacy requirements attached to the changes reviewed."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Indexers", "Data schemas"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "On-chain data is complete, correct and fast to query."
+method = ["Choose the events and the contracts to index and the shape of the data", "Write the indexer so that it can be replayed from any block", "Handle a reorganization by rolling back the affected blocks", "Compare its output with the node for a sample of blocks", "Expose the data through a documented query"]
+watch_points = ["Treating a block as final too soon", "An indexer that cannot resume after a crash", "Amounts stored as floating point numbers", "Data that differs from the chain with no way to detect it"]
+deliverable_format = "A pull request with the indexer, the schema and migrations, and tests that replay a reorganization and compare the result with the chain."
