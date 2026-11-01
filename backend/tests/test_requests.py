@@ -203,16 +203,15 @@ async def test_add_decision_asks_the_boss_in_direction():
     assert decision.proposed_by == "Louise"
 
 
-async def test_a_decision_from_a_member_is_signed_by_the_lead_and_short():
+async def test_a_decision_from_a_member_is_signed_by_the_lead_and_in_full():
     dev = make_employee("Maya", "architect")
     s = FakeSession()
     long_rationale = "audit " * 500
     await services.add_decision(s, 1, 2, "Use Redis", long_rationale, dev)
     (message,) = [o for o in s.added if isinstance(o, Message)]
     assert message.employee_id == LEAD.id and message.author_name == "Louise"
-    assert message.content.startswith("Maya: Use Redis")
-    assert len(message.content) < services.DECISION_REQUEST_RATIONALE_MAX_CHARS + 50
-    assert message.content.endswith("…")
+    assert message.content == f"Use Redis\n\n{long_rationale.strip()}"
+    assert "Maya" not in message.content and message.request_author_id == dev.id
 
 
 async def test_no_lead_means_no_request_from_a_member():
@@ -226,7 +225,7 @@ async def test_escalating_to_the_boss_is_a_request_in_direction():
     s = FakeSession()
     msg = await services.escalate(s, 1, 4, dev, "boss", "Cloud budget to decide")
     assert msg.conversation_id == 9 and msg.request_kind == "escalation" and msg.request_status == "pending"
-    assert msg.employee_id == LEAD.id and msg.content.startswith("Léa: ")
+    assert msg.employee_id == LEAD.id and msg.content == "Cloud budget to decide" and msg.request_author_id == dev.id
     assert s.events == []
 
 
