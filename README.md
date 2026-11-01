@@ -446,6 +446,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
 | `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
 | `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
+| `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |
 | `MAX_REVIEW_ROUNDS` | `3` | Rounds of "changes requested" on a task before the lead has to step in |
 | `MAX_RUNS_PER_CONVERSATION_HOUR` | `20` | Chatter runs per employee per hour before their wakeups are held |
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
@@ -458,8 +459,13 @@ their default unless you add them to the `environment:` of the `backend` service
 | `EGRESS_ALLOWED_HOSTS` / `EGRESS_ALLOWED_PORTS` | npm, PyPI and Go registries, `statsig.anthropic.com` / `[443]` | JSON lists of what the agents' egress proxy may reach, see [Security](#security) |
 | `EGRESS_MAX_TUNNELS` | `64` | Concurrent tunnels of the egress proxy |
 | `ANTHROPIC_ALLOWED_PATHS` / `ANTHROPIC_ALLOWED_SERVER_TOOLS` | `v1/messages`, `v1/messages/count_tokens` / `web_search` | JSON lists of what the Anthropic reverse proxy forwards |
+| `ANTHROPIC_MAX_BODY_BYTES` / `ANTHROPIC_TIMEOUT_S` | `67108864` (64 MiB) / `600` | Largest request body (bytes) and seconds before a request to the Anthropic reverse proxy is cut |
 | `FETCH_TIMEOUT_S` / `FETCH_MAX_BYTES` / `FETCH_MAX_CHARS` / `FETCH_MAX_REDIRECTS` | `20` / `2000000` / `30000` / `3` | Bounds of the research groups' `fetch_page` tool |
 | `EGRESS_FILTER` | `on` | Read by the entrypoint, not by `config.py`: `off` runs without the agents' firewall |
+
+This list is not exhaustive: the settings that only wire the container (database URL and host, directories,
+proxy URLs and ports, `MCP_URL`, `CLAUDE_BIN`, `ORCHESTRATOR_ENABLED`, `POLL_INTERVAL_S`...) are set by the
+image and rarely need changing; read `config.py` for them.
 
 The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
 Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
