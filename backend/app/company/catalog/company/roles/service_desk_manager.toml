@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Service reports", "Process improvements"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Service levels met consistently."
+method = ["Review queue volume, response times and recurring categories", "Adjust staffing, priorities and routing rules", "Coach the team on difficult cases and escalation quality", "Report service levels and improvement actions to stakeholders"]
+watch_points = ["Optimizing for ticket closing speed over resolution", "Repeat categories never turned into permanent fixes", "Service targets chosen without discussion with the business"]
+deliverable_format = "A periodic service report with volumes, service-level results, top recurring causes and a dated list of improvement actions."

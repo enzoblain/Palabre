@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Interface specs"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Reliable data exchange between systems."
+method = ["Identify the systems exchanging data and the standards that apply", "Map the data fields between formats", "Implement the exchange and validate against the standard's conformance tests", "Handle version differences and malformed input"]
+watch_points = ["Fields mapped with different meaning on each side", "Dependence on behavior outside the standard", "Failure of one partner stopping the whole exchange"]
+deliverable_format = "A pull request with the adapters, a field mapping table and conformance test results."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Ticket updates", "Procedures"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Short response times and correct routing."
+method = ["Log the request with its category and urgency", "Verify the requester's identity for sensitive actions", "Solve from the known-solutions list or escalate with full context", "Follow up to confirm the user is working again"]
+watch_points = ["Urgent requests buried in the queue", "Escalations missing the steps already tried", "Passwords communicated in plain messages"]
+deliverable_format = "A ticket history giving the category, the steps taken, the resolution time and the escalation details when handed over."

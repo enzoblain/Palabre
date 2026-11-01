@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Validation reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Results whose accuracy is known and documented."
+method = ["State the physical or mathematical model and its parameters", "Choose the numerical method and justify its accuracy", "Run the simulation with convergence and sensitivity checks", "Compare outputs with analytical cases or measurements"]
+watch_points = ["A model validated only on the case it was tuned on", "Numerical results presented without error estimates", "Unrecorded parameters that make runs irreproducible"]
+deliverable_format = "A committed simulation code with a parameter file, convergence plots and a short report validating it against a reference case."

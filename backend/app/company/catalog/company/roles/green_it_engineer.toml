@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Footprint reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Measured reduction of the footprint."
+method = ["Measure the energy and carbon footprint of the service as it runs", "Find the largest consumers: compute, storage, transfer", "Reduce them through efficiency, right-sizing or scheduling", "Re-measure and report the change"]
+watch_points = ["Estimates presented as measurements", "Savings that move emissions elsewhere", "Efficiency work hurting reliability"]
+deliverable_format = "A footprint report with the measurement method, the reductions made and a pull request implementing them."

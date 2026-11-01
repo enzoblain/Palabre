@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["License reports", "Renewal notes"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "No license compliance surprise."
+method = ["Collect the license entitlements and the contracts", "Measure actual installations and usage", "Compare them to find shortfalls and unused licenses", "Plan renewals and harvest the surplus"]
+watch_points = ["Under-licensing found during a vendor audit", "Renewals auto-signed for unused seats", "License terms that differ for virtual environments"]
+deliverable_format = "A license position report per product showing entitlement, usage, gap and renewal date with a recommendation."

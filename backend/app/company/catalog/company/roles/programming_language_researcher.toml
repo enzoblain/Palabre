@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Prototypes", "Design write-ups"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Language ideas evaluated on real code."
+method = ["Define the language feature and the problem it addresses", "Specify its syntax and semantics precisely", "Build a small interpreter or compiler prototype", "Evaluate it on realistic programs against existing languages"]
+watch_points = ["Features whose interactions with others were never checked", "Semantics left informal and ambiguous", "Evaluation on toy programs only"]
+deliverable_format = "A committed language specification, a working prototype with a test suite of programs and a short evaluation report."

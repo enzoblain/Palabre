@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Validation results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Code that matches the model and runs in production."
+method = ["Read the quantitative model and its mathematical specification", "Implement it in production-grade code with unit tests on known prices", "Compare outputs with the quant's reference implementation", "Optimize the slow paths without altering results"]
+watch_points = ["A model implemented from an informal description", "Optimizations that shift results beyond tolerance", "Market data conventions such as day-count handled wrongly"]
+deliverable_format = "A pull request with the model implementation, regression tests against the reference values and performance figures."

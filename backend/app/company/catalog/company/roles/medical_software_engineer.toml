@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Traceability records"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Verified, traceable medical software."
+method = ["Classify the software under the applicable medical device rules", "Capture requirements and trace each to a test", "Implement under the documented development process with risk analysis", "Keep the verification records for audit"]
+watch_points = ["Requirements without traceable tests", "Safety risks without a documented mitigation", "Changes made outside the controlled process"]
+deliverable_format = "A pull request with the change, updated traceability from requirement to test and the risk analysis entries."

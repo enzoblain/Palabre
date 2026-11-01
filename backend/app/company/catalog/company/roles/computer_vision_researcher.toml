@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Experiments", "Evaluation reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Reproducible vision results with known failure cases."
+method = ["Define the task, the dataset and the evaluation metric", "Reproduce a strong published baseline first", "Test the new idea with ablations, one change at a time", "Evaluate on held-out and out-of-distribution images"]
+watch_points = ["Train and test images leaking into each other", "Gains within the noise of seed variance", "Overfitting to one benchmark"]
+deliverable_format = "A research report with committed training and evaluation code, ablation tables and example failure cases."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Quality checks"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Fast access to correct geospatial data."
+method = ["Inventory the spatial sources, their formats and projections", "Build pipelines converting them to indexed, standardized storage", "Validate geometries and attribute completeness", "Publish the datasets with metadata"]
+watch_points = ["Invalid geometries entering the store", "Mixed projections in one table", "Tiles stale after source updates"]
+deliverable_format = "A pull request with the pipelines, validation checks and dataset metadata, with a quality report on loaded data."

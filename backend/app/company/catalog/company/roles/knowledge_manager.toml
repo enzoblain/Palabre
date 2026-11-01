@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Knowledge base updates", "Lessons learned"]
 escalation = "Contradictory information → ask the lead."
 success = "Up-to-date, findable knowledge."
+method = ["Map where the team's knowledge lives and who owns it", "Capture decisions and lessons from completed work", "Merge duplicates and archive outdated entries", "Make the knowledge easy to find with consistent titles and links"]
+watch_points = ["Several conflicting versions of the same answer", "Knowledge captured but never reviewed again", "Entries impossible to find by the words people use"]
+deliverable_format = "Updated knowledge base entries with owner and review date, plus a list of what was merged or archived."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Experiments", "Reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Methods validated in simulation and in practice."
+method = ["Define the robot task and the success criteria", "Build the algorithm in simulation with a realistic sensor and actuator model", "Compare against a standard baseline over many trials", "Transfer to hardware and record the gap with simulation"]
+watch_points = ["Results that hold only in an idealized simulator", "Too few trials to separate luck from improvement", "Safety limits missing when moving to hardware"]
+deliverable_format = "A research report with the algorithm code, simulation scenarios and trial statistics, including the real-robot results."

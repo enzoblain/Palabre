@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Detection metrics"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Fraud caught with few false positives."
+method = ["Study the labeled fraud cases and the signals available", "Build rules and models and measure precision and recall", "Set decision thresholds with the cost of false declines", "Deploy in shadow mode before it blocks transactions"]
+watch_points = ["Blocking legitimate customers at scale", "Models trained on labels that arrive weeks late", "Fraudsters adapting to fixed rules"]
+deliverable_format = "A pull request with the detection logic, an evaluation on historical data and a shadow-mode result before activation."

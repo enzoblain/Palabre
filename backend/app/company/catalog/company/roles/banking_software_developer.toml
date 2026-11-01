@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Transactions that are consistent and traceable."
+method = ["Identify the accounts, ledgers and regulated processes touched", "Implement with double-entry integrity and transactional safety", "Check authorization and segregation of duties", "Test batch runs, cut-off times and recovery after failure"]
+watch_points = ["Partial postings leaving the ledger unbalanced", "Batch jobs that cannot be safely rerun", "Missing audit evidence for regulators"]
+deliverable_format = "A pull request with the change, ledger-balance tests, batch rerun tests and the audit entries produced."

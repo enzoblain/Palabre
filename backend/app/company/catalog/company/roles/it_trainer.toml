@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Training material", "Quick guides"]
 escalation = "Contradictory information → ask the lead."
 success = "Fewer support requests after training."
+method = ["Identify the tools and tasks the staff must master", "Prepare short, task-based lessons with a hands-on practice", "Deliver in small groups and answer real work questions", "Provide quick-reference guides for later"]
+watch_points = ["Technical vocabulary not suited to the audience", "Training given once with no follow-up material", "Skipping the tools staff actually use daily"]
+deliverable_format = "A set of step-by-step guides and exercises per tool, plus an attendance and follow-up list."

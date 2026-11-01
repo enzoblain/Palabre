@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Apex tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Salesforce code that is bulk-safe and tested."
+method = ["Read the org's objects, flows and existing automation", "Implement in Apex or declarative tools, bulk-safe", "Write tests with realistic data and the required coverage", "Deploy through a sandbox before production"]
+watch_points = ["Governor limits hit by non-bulkified code", "Triggers and flows firing each other in loops", "Hardcoded record IDs that differ between orgs"]
+deliverable_format = "A pull request with the metadata and Apex changes, test classes passing in a sandbox and the deployment order."

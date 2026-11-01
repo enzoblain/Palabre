@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Specifications", "Verification reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Systems verified against mission requirements."
+method = ["Read the mission requirements and the security classification rules", "Decompose them into system requirements and interfaces", "Design for reliability under degraded or hostile conditions", "Verify against the requirements with controlled test records"]
+watch_points = ["Sensitive data leaving the controlled environment", "Interfaces defined but not verified between suppliers", "Requirements changed without impact analysis"]
+deliverable_format = "A systems specification with interface control documents and a verification matrix, handled under the project's classification rules."

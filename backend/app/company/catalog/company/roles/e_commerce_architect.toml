@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture notes", "Decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "A platform that holds up on peak days."
+method = ["Map the catalog, cart, checkout, order and fulfillment flows", "Choose which capabilities are built and which are bought, with the reasons", "Design the integrations with payment, tax, shipping and inventory", "Plan peak-traffic capacity and the failure handling of each flow"]
+watch_points = ["Checkout failures that lose orders silently", "Stock counts that diverge between channels", "Promotions and taxes computed in several places"]
+deliverable_format = "An architecture decision record with a flow diagram per purchase step, the integration list and the capacity assumptions."

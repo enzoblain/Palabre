@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software that works at sea."
+method = ["Identify the vessel systems and the navigation standards involved", "Implement with the maritime data protocols such as NMEA", "Handle intermittent connectivity and sensor failures", "Test with recorded data and simulated conditions"]
+watch_points = ["Software that assumes a permanent network connection", "Position data from an unvalidated sensor", "Time zone and datum mismatches"]
+deliverable_format = "A pull request with the shipboard software, replay tests on recorded data and offline-behavior notes."

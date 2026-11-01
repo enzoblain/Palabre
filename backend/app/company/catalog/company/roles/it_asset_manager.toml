@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Inventories", "Cost reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "A complete and current asset inventory."
+method = ["Inventory hardware and software with owner and location", "Track each asset from purchase to disposal", "Reconcile the inventory against purchases and network discovery", "Report costs, ageing and unused assets"]
+watch_points = ["Devices lost or untracked after an employee leaves", "Data not wiped before disposal", "Assets counted twice after a rename"]
+deliverable_format = "An asset register export with lifecycle status per item and a reconciliation report highlighting missing or unowned assets."

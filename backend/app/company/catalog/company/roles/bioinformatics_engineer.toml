@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Pipeline documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Pipelines that give reproducible biological results."
+method = ["Inspect the input formats and the sample metadata", "Build the pipeline in versioned, containerized steps", "Validate on a dataset with known results", "Run at scale and track provenance of every output"]
+watch_points = ["Wrong genome build or coordinate convention", "Sample mix-ups between pipeline stages", "Pipelines producing different results on rerun"]
+deliverable_format = "A pull request with the pipeline definition, its container recipe, a validation dataset and the provenance log format."

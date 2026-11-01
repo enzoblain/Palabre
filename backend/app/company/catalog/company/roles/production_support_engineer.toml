@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Incident notes", "Handover reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Fast mitigation and clean handover."
+method = ["Triage the production alert or report for user impact", "Collect logs, traces and the recent change list", "Restore service first, using the documented mitigation", "File the follow-up with the diagnosis for developers"]
+watch_points = ["Investigating before mitigating an ongoing outage", "Changes made in production with no trace", "Handoffs missing the evidence collected"]
+deliverable_format = "A production support note with impact, mitigation, evidence gathered and a follow-up ticket for the permanent fix."

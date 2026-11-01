@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Preservation plans", "Integrity reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data that stays accessible and verifiable."
+method = ["Assess the formats and the media at risk of becoming unreadable", "Choose preservation formats and storage with redundancy", "Capture metadata describing each object and its origin", "Run integrity checks and plan format migrations"]
+watch_points = ["Proprietary formats with no future reader", "Corruption found years later without a checksum", "Metadata separated from the files it describes"]
+deliverable_format = "A preservation plan and a pull request with the ingest and fixity scripts, with a catalog of formats and their migration paths."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Integration tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Payments that complete reliably in every method."
+method = ["Read the provider's API, its sandbox and its webhook contract", "Implement the integration behind an interface of our own", "Verify webhook signatures and handle out-of-order events", "Run the provider's test cases for success, failure and 3-D Secure"]
+watch_points = ["Trusting a webhook without checking its signature", "Order status updated twice by repeated notifications", "Secret keys committed or logged"]
+deliverable_format = "A pull request with the provider adapter, webhook handlers and tests run against the provider sandbox."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Reconciliation checks"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "No lost, duplicated or unexplained payment."
+method = ["Map the payment flows, parties and settlement timing", "Model the transaction states and the allowed transitions", "Implement with idempotency keys and a reconciliation job", "Test refunds, chargebacks and provider outages"]
+watch_points = ["Double charges from retried requests", "Card data stored or logged outside the compliant scope", "Ledger totals that differ from the provider's settlement"]
+deliverable_format = "A pull request with the payment flow, a state diagram, reconciliation tests and the failure cases covered."

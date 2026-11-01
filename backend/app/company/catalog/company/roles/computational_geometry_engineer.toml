@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Geometry code correct on degenerate cases."
+method = ["Specify the geometric operation and its degenerate cases", "Choose robust predicates or exact arithmetic where needed", "Implement and test against random and degenerate inputs", "Benchmark the performance by input size"]
+watch_points = ["Floating-point errors inverting a geometric decision", "Collinear and coincident points breaking the algorithm", "Fast code that fails on degenerate input"]
+deliverable_format = "A pull request with the geometry library code, degenerate-case tests and benchmarks by input size."

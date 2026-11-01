@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Compliance reports", "Notice files"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Every obligation identified and met."
+method = ["Scan the codebase for third-party and copied code", "Match each finding to its license and origin", "Resolve the obligations: notices, source offers or replacement", "Add a check to the pipeline to catch new violations"]
+watch_points = ["Snippets copied from the web without license", "Transitive dependencies missed by the scan", "Notices generated but not shipped"]
+deliverable_format = "A compliance report with scan results and resolutions, plus a pull request adding notices and the CI license check."

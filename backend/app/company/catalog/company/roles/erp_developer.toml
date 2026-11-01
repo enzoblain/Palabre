@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Customizations that survive upgrades."
+method = ["Read the standard ERP process before changing it", "Implement the extension using supported hooks, not core patches", "Test on a copy of real master data", "Plan the transport and the rollback"]
+watch_points = ["Core modifications that block upgrades", "Master data assumptions failing on legacy records", "Customizations bypassing the ERP's authorization checks"]
+deliverable_format = "A pull request with the extension, test results on a data copy and the transport and rollback steps."

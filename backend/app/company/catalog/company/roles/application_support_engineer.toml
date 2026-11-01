@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Incident analyses", "Fix notes"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Application incidents resolved and understood."
+method = ["Check the application logs, metrics and recent releases for the failing function", "Isolate whether the cause is data, configuration or code", "Fix the data or configuration, or hand the defect to developers with evidence", "Add monitoring or a runbook step so the next occurrence is caught earlier"]
+watch_points = ["Manual data fixes in production without a record", "Treating a symptom while the code defect remains", "Alert noise that hides real failures"]
+deliverable_format = "An incident note with timeline, root cause class, the data or configuration change made and a link to the defect ticket."

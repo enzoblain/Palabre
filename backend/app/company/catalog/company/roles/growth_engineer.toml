@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Experiment results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Decisions driven by experiment evidence."
+method = ["Pick the funnel step with the most potential and measure its baseline", "Propose an experiment with a hypothesis and a success metric", "Implement it behind a feature flag with event tracking", "Read the result with enough sample and decide to keep or drop"]
+watch_points = ["Stopping an experiment when it first looks good", "Optimizing a metric that harms retention", "Several overlapping experiments on the same users"]
+deliverable_format = "A pull request with the flagged experiment, its tracking events and a results note giving sample size and decision."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Process documents", "Tool configuration"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Processes that are followed and measured."
+method = ["Assess how incident, change and request processes work today", "Design the target process on a recognized framework such as ITIL, scaled to the team", "Configure the ITSM tool and its workflows", "Train users and measure whether the process is followed"]
+watch_points = ["Processes so heavy that people bypass them", "Tool configuration copied from a template and never adapted", "Metrics collected that nobody uses"]
+deliverable_format = "Process definitions with flow diagrams, the tool configuration export and a short adoption report."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Financial logic that is exact and auditable."
+method = ["Clarify the regulatory constraints on the feature", "Model money as exact amounts with its currency", "Implement with an audit trail on every state change", "Test rounding, limits and failure recovery"]
+watch_points = ["Floating-point amounts", "Operations that cannot be traced to a user and a time", "Features shipped that need a license or approval"]
+deliverable_format = "A pull request with the feature, exact-amount tests, an audit log entry for each action and a note on the regulatory assumptions."

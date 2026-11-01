@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Circuits and code", "Result analysis"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Quantum results verified against a classical reference."
+method = ["Express the problem as a circuit or an annealing formulation", "Validate it on a simulator against known outputs", "Adapt it to the device's gate set, connectivity and noise", "Run on hardware with enough shots and compare with the ideal result"]
+watch_points = ["Circuit depth beyond what the device's noise allows", "Conclusions drawn from too few shots", "Claiming advantage without a classical baseline"]
+deliverable_format = "A pull request with the circuits, simulator tests and a report comparing ideal, noisy and hardware results."

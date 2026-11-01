@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Runbooks", "Operation reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Stable applications with automated routines."
+method = ["Learn the application's architecture, dependencies and normal behavior", "Define health checks, dashboards and alerts", "Handle deployments, scaling and routine jobs by runbook", "Review incidents and automate the repeated manual actions"]
+watch_points = ["Alerts that fire without a defined action", "Manual steps depending on one person's memory", "Capacity limits discovered during peak load"]
+deliverable_format = "A pull request with the monitoring configuration and runbooks, and an operations report on availability and incidents."

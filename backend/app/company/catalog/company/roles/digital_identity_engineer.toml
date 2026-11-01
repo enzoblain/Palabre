@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Identity flows secure by construction."
+method = ["Define the identity lifecycle: enrollment, authentication, recovery and removal", "Select the protocols such as OIDC or SAML and the assurance levels", "Implement with secure token handling and session expiry", "Test account takeover and recovery scenarios"]
+watch_points = ["Account recovery that bypasses strong authentication", "Tokens that live too long or are too broadly scoped", "Identity data kept beyond its purpose"]
+deliverable_format = "A pull request with the identity flows, a lifecycle diagram and tests on recovery and revocation."

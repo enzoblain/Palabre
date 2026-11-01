@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Service catalog", "Service reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Services delivered at the agreed level."
+method = ["Define the services in the catalog with owners and service levels", "Agree the targets with the business", "Monitor delivery against the targets and review breaches", "Run the service review and agree improvements"]
+watch_points = ["Service levels that cannot be measured", "A catalog describing technology instead of what users get", "Breaches reported without a corrective action"]
+deliverable_format = "A service catalog entry per service and a monthly review document comparing results with agreed levels."

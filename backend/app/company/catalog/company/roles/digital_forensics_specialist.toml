@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Forensic reports", "Timelines"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Findings that withstand scrutiny."
+method = ["Preserve the evidence by imaging systems and recording hashes", "Work only on copies and log every action", "Reconstruct the timeline from logs, files and memory", "Report the findings with the confidence level of each"]
+watch_points = ["Altering the original evidence", "Gaps in the chain of custody", "Conclusions stated beyond what the evidence supports"]
+deliverable_format = "A forensic report with evidence inventory, hashes, a timeline and findings, each tied to its source."

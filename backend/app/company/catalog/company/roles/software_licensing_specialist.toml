@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["License inventory", "Recommendations"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "No license conflict in what we ship."
+method = ["List the software we use and ship with their license terms", "Identify obligations such as attribution, source disclosure or restrictions", "Flag combinations that conflict", "Record the decision and the required notices"]
+watch_points = ["Copyleft code linked into a proprietary product", "Missing attribution files in distributions", "Licenses changing between versions"]
+deliverable_format = "A license register with obligations per component, the conflicts found and the notice files to ship."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Flow documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Automations that run correctly and respect consent."
+method = ["Map the customer journey and its trigger events", "Build the campaign flows with explicit entry and exit conditions", "Test with seed contacts in a staging audience", "Monitor sends, bounces and unsubscribes after launch"]
+watch_points = ["Contacts messaged without valid consent", "Overlapping flows sending several messages at once", "Segments built on stale data"]
+deliverable_format = "A pull request or workspace export with the flow definitions, a test log from seed contacts and the segment rules."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Sustainability reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Figures that are traceable and defensible."
+method = ["Define the sustainability goals and the scope of the assessment", "Collect data on energy, hardware lifecycle and suppliers", "Identify and rank actions by effect and effort", "Track results against the goals"]
+watch_points = ["Goals set without a baseline", "Counting only operational emissions", "Offsets replacing real reductions"]
+deliverable_format = "A sustainability assessment with baseline figures, ranked actions and tracked indicators committed as a report."

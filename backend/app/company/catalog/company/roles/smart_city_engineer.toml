@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Integration docs"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "City services built on reliable data."
+method = ["Identify the city services and the data they produce", "Design the platform integrating sensors and municipal systems", "Apply privacy and open data rules for citizen data", "Pilot on a limited area and evaluate before extending"]
+watch_points = ["Citizen location data collected beyond its purpose", "Sensors with no maintenance plan", "Closed data formats locking in a supplier"]
+deliverable_format = "An architecture document and a pilot report with the data flows, privacy measures and the measured results."

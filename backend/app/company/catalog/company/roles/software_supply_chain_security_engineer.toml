@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Audits", "Security tickets"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "A verifiable supply chain."
+method = ["Inventory dependencies, build steps and artifacts with a software bill of materials", "Check them for known vulnerabilities and unverified sources", "Harden the build with pinned versions, signatures and provenance", "Monitor new advisories and act on affected components"]
+watch_points = ["Unpinned dependencies pulled at build time", "Build credentials reachable by untrusted code", "Alerts triaged by count rather than exposure"]
+deliverable_format = "A security report listing components, risks and fixes, with a pull request hardening the build and dependency pinning."
