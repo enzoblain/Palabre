@@ -6,7 +6,7 @@ from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RandomPersonalityOut, RoleOut, RoleToolsOut
-from app.company.catalog import MANDATORY_ROLE, MAX_TEAM_SIZE, MIN_AUTO_TEAM_SIZE, MODELS, Role, load_catalog
+from app.company.catalog import MANDATORY_ROLE, MAX_TEAM_SIZE, MIN_TEAM_SIZE, MODELS, Role, load_catalog
 from app.company.team import generate_team, personality_for, random_personality
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
@@ -39,7 +39,7 @@ async def list_roles(kind: Kind = "company") -> dict[str, RoleOut]:
 async def team_limits() -> CatalogLimitsOut:
     """Models an employee can run on, the team size bounds and the member every company needs."""
     return CatalogLimitsOut(
-        models=list(MODELS), max_agents=MAX_TEAM_SIZE, min_team_size=MIN_AUTO_TEAM_SIZE, mandatory_role=MANDATORY_ROLE
+        models=list(MODELS), max_agents=MAX_TEAM_SIZE, min_team_size=MIN_TEAM_SIZE, mandatory_role=MANDATORY_ROLE
     )
 
 
