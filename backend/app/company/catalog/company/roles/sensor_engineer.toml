@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Sensor integration code", "Calibration reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Sensor readings that are accurate, calibrated and filtered of noise and drift."
+method = ["Understand the physical quantity to measure and the accuracy required", "Select the sensor and design the signal conditioning", "Calibrate against a reference and record the error and drift", "Add filtering and plausibility checks in the integration code"]
+watch_points = ["Drift over temperature or time left uncorrected", "Filtering that hides real changes or adds a lag", "A faulty sensor reading accepted as valid"]
+deliverable_format = "A pull request with the integration code and a committed calibration report (reference, error, drift, method)."

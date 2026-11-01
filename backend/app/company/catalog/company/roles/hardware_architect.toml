@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Hardware architecture", "Component choices"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "A hardware architecture whose components, interfaces and budgets stand up to validation."
+method = ["Collect the system requirements and the key constraints: performance, power, cost, volume", "Propose block-level architectures and compare them against those constraints", "Choose the main components, checking availability and long-term supply", "Document interfaces and the risks, with a fallback component for each critical part"]
+watch_points = ["A single-source component on the critical path", "A power budget computed from typical rather than worst-case consumption", "Choices tied to one supplier's roadmap with no alternative"]
+deliverable_format = "A markdown hardware architecture (block diagram, interfaces, budgets) and a component choice table with justification and alternates, committed in the repository."

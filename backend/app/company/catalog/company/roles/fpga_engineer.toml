@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["HDL code and constraint files committed in the repository", "Simulation and on-board test reports in markdown, committed", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "HDL that meets timing on the target FPGA and passes simulation and on-board tests."
+method = ["Specify the logic function, clock domains and interfaces", "Write the HDL and simulate it with a testbench covering the edge cases", "Add timing constraints, then synthesize and fix the violated paths", "Test on the board and compare against the simulation"]
+watch_points = ["Clock domain crossings without synchronizers", "Missing or wrong timing constraints", "A design that simulates correctly but fails on the board because of the pin assignment"]
+deliverable_format = "HDL code and constraint files committed in the repository, with a markdown report of simulation and on-board tests, and a pull request to review them."

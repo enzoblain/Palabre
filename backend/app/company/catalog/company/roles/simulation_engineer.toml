@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Simulation code", "Validation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Simulations that match the reference behavior and run efficiently enough to be useful."
+method = ["Specify what the simulation must represent, to which accuracy and at which speed", "Implement the model with a stable numerical method and fixed time step", "Validate against known analytical results or measured data", "Optimize only after the results are correct"]
+watch_points = ["Numerical instability when the time step or values go out of range", "A model validated at one operating point only", "Non-reproducible results because of unseeded randomness"]
+deliverable_format = "A pull request with the simulation code and a committed validation report comparing results to the reference data."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Rendering code", "Frame profiles", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A renderer that holds the target frame rate and produces the intended image on the target hardware."
+method = ["Capture a frame and read where the GPU and CPU time goes", "Implement or adjust the rendering technique to fit the frame budget", "Check visual correctness against reference images", "Profile again on the minimum-spec hardware"]
+watch_points = ["Visual regressions unnoticed because there is no reference image", "Optimizing the GPU when the CPU draw submission is the limit", "Quality settings that do not scale down for low-end devices"]
+deliverable_format = "A pull request with the rendering code and frame profiles (before and after) attached in the description."

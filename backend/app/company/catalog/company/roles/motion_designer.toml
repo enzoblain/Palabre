@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Motion specs", "Animation prototypes"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Animations that clarify the interface, stay smooth and can be turned off when users ask."
+method = ["Decide what the motion must achieve: guide attention, show a relationship, confirm an action", "Define the duration, easing and distance for each type of transition", "Prototype the animation and check it at real speed on the target device", "Write the spec the developers need, including a reduced-motion alternative"]
+watch_points = ["Decorative animation that slows tasks down", "No reduced-motion variant for users sensitive to movement", "Animations too heavy for low-end devices"]
+deliverable_format = "Motion specs in markdown (trigger, duration, easing, properties, reduced-motion behavior) and the animation prototype files, committed in the repository."

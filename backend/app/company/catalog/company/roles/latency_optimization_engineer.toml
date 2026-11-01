@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Latency measurements", "Latency fixes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Tail latency (p95 and p99) drops to the target and stays there under load."
+method = ["Collect latency as percentiles (p50, p95, p99) per endpoint, not as an average", "Trace the slowest requests to find where the tail comes from: lock waits, cold caches, retries, garbage collection, slow dependencies", "Remove or parallelize the wait, or cache what is slow and stable, targeting the percentile that hurts", "Rerun the same measurement and compare the percentiles, not the mean"]
+watch_points = ["Improving the median while the p99 users still wait", "Caching that serves stale or wrong data to some users", "Parallel calls that add load on a dependency and push its latency up"]
+deliverable_format = "A pull request with the latency fixes, with a percentile table (p50, p95, p99 before and after) for each touched endpoint and the trace that justified each change."

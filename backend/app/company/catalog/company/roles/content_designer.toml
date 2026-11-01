@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Content guidelines", "Interface content"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Content that is consistent, easy to follow and serves the experience it belongs to."
+method = ["Inventory the content the product needs at each step of the user journey", "Define the structure of each content type (title, body, labels, help) and its rules", "Write the content from the user's goal at that moment, not from the company's wording", "Check the content in the real screens and revise what does not fit"]
+watch_points = ["Content written after the design is frozen, so it cannot fit", "Internal jargon in labels and messages", "The same concept named differently on different screens"]
+deliverable_format = "Markdown content guidelines (content types, structure, terminology list) and the interface content itself as a committed file keyed by screen."

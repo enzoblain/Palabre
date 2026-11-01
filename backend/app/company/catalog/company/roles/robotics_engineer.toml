@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Robot software", "Test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A robot that senses, decides and acts reliably, including when its environment changes."
+method = ["Define what the robot must sense, decide and do, and in which environment", "Select and integrate the sensors and actuators", "Implement the sensing, planning and control loop", "Test on the robot or in a simulator, and record success and failure cases"]
+watch_points = ["Behavior validated only in simulation", "No emergency stop path independent of the software", "Sensor noise and calibration ignored in the planning"]
+deliverable_format = "A pull request with the robot software and a committed test results report listing each scenario and its outcome."

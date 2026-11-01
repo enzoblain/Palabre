@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Backlog reports", "Process improvements"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Product teams spend less time on process, with data and tools available when needed."
+method = ["Observe how product work moves: intake, grooming, planning, release, feedback", "Find where it stalls or repeats itself, such as stale tickets or duplicated requests", "Standardize the intake and the backlog hygiene rules (templates, statuses, ownership)", "Track a few process indicators and report them regularly"]
+watch_points = ["Process rules so heavy that people stop following them", "A backlog report that counts tickets but shows nothing about their age or value", "Tooling changes made without agreement from the people who use them"]
+deliverable_format = "A markdown backlog report committed in the repository (counts by status, oldest items, duplicates, blocked items) together with the process improvements proposed and their owner."

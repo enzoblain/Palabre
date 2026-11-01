@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["HDL design files committed in the repository", "Verification and timing reports in markdown, committed", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A design that closes timing, power and area targets and passes its verification suite."
+method = ["Capture the specification: function, performance, power, area and interfaces", "Write the RTL in the hardware description language and simulate it against a testbench", "Run synthesis and static timing analysis, and fix the paths that fail", "Complete the verification plan with coverage figures and review it before sign-off"]
+watch_points = ["Timing closed only at one process corner", "Verification that covers the nominal cases but not the corner ones", "A late design change after tape-out preparation, where a fix is costly"]
+deliverable_format = "HDL design files and testbenches committed in the repository, with a markdown verification and timing report (coverage, slack, power) and a pull request to review them."

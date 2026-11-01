@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Portfolio overview", "Prioritization proposal"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Effort goes to the projects with the best value, and the portfolio choices are explained."
+method = ["List all the projects and proposals competing for the same capacity, with cost, expected value and risk", "Define the selection criteria (strategic fit, return, urgency, dependency) and score each project against them", "Check the total demand against the real capacity of the teams", "Propose what to start, continue, pause or stop, and explain the trade-offs"]
+watch_points = ["Scoring on criteria that were chosen after the favored project was known", "Ignoring capacity, so that every project is approved and none finishes", "Never proposing to stop anything"]
+deliverable_format = "A markdown portfolio overview (projects, scores, capacity needed) and a prioritization proposal with start, continue, pause and stop recommendations, committed in the repository."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Optimization patches", "Before and after measures", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The code does less work for the same behavior, with before/after measurements to prove it."
+method = ["Write a benchmark or test that pins the current behavior of the code to optimize, so the output can be proven identical", "Profile to find where the time or memory really goes, not where it seems to go", "Rewrite the hot spot with a better algorithm or data structure, keeping the interface unchanged", "Run the behavior tests and the benchmark again, and keep the change only if the gain is real"]
+watch_points = ["Optimizing code that is not on the hot path", "A faster version that differs on edge cases (empty input, ordering, precision)", "Micro-gains that make the code much harder to maintain"]
+deliverable_format = "A pull request containing the optimization patch and the committed benchmark, with the before and after measurements and the proof that the behavior tests are unchanged."

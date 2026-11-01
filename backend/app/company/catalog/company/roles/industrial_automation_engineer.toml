@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Automation design", "Commissioning reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Automated processes that run safely and keep producing without manual intervention."
+method = ["Understand the process to automate and its safety requirements", "Design the control architecture: sensors, actuators, controllers, sequences", "Program and simulate the sequences, including the stop and fault cases", "Commission on site step by step and record the tests"]
+watch_points = ["Commissioning with the safety chain bypassed", "Sequences that do not define the state after an emergency stop", "Ignoring manual operating modes that operators actually need"]
+deliverable_format = "A pull request with the automation design and programs, plus a committed commissioning report (test, expected result, observed result)."

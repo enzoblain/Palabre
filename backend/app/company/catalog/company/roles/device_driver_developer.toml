@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Driver code", "Driver tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Drivers that expose the hardware correctly and stay stable under stress and unplugging."
+method = ["Read the datasheet and the register map of the hardware", "Write the driver around the operating system's driver model, keeping the hardware access in a thin layer", "Handle interrupts, concurrency and error paths explicitly", "Test on the device and on a mock of the hardware layer"]
+watch_points = ["Race conditions between the interrupt handler and the normal context", "Not checking return values of hardware operations", "A driver that works only after a clean boot and fails on resume or reset"]
+deliverable_format = "A pull request with the driver code and its tests (hardware mock and on-device procedure), and the register usage notes in the description."

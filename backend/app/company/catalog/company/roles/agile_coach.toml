@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Coaching notes", "Practice recommendations"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "A team that delivers more steadily and keeps improving its own process without being pushed."
+method = ["Observe the team for a while (planning, reviews, how work flows) before suggesting anything", "Find the one or two practices that cost the team the most, such as long review waits or unclear tickets", "Propose a small experiment for each, with the signal that will show whether it works", "Review the signal after the experiment and keep, adjust or drop the practice"]
+watch_points = ["Importing a framework wholesale when the team needs one small change", "Measuring ceremonies attended instead of outcomes such as cycle time", "Coaching that turns into dictating how developers must work"]
+deliverable_format = "A markdown coaching note committed in the repository: observations, the experiment proposed for each practice, its success signal and the review result."

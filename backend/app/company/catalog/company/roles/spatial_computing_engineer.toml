@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Spatial computing code", "Environment tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software that tracks and maps 3D space accurately and in real time."
+method = ["Define how the software must perceive space: planes, meshes, anchors, depth", "Integrate the sensor data and build the spatial map", "Handle space changes, occlusion and mapping errors", "Test in rooms of various sizes and lighting"]
+watch_points = ["Maps that drift over a long session", "Reconstruction cost that exceeds the device's compute budget", "Assuming a flat, empty room"]
+deliverable_format = "A pull request with the spatial computing code and environment tests, with a table of rooms and results in the description."

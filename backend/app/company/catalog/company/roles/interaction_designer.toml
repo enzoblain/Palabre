@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Interaction specs", "State diagrams"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Interactions that give clear feedback and that users get right the first time."
+method = ["List the user actions on the screen and the system responses to each", "Define every state of each element: default, hover, focus, active, loading, error, empty", "Describe transitions between states and the feedback the user sees, including timing", "Check the specs against edge cases such as slow network and invalid input"]
+watch_points = ["Missing empty, loading and error states", "Interactions that work only with a mouse", "Feedback that arrives too late to be linked to the action"]
+deliverable_format = "Markdown interaction specs and state diagrams per screen, committed in the repository: elements, states, triggers, transitions and feedback."

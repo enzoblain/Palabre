@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Site maps", "Navigation models"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Users find what they look for in a few steps, as confirmed by navigation tests."
+method = ["Inventory the content and features that must be organized", "Group them through card sorting or analysis of how users name and expect things", "Define the hierarchy, the labels and the navigation paths between sections", "Test the structure by asking users to find items, and adjust it"]
+watch_points = ["A structure that mirrors the company org chart instead of the users' mental model", "Labels invented internally that users do not use", "Navigation so deep that common tasks need many clicks"]
+deliverable_format = "A site map and a navigation model (hierarchy, labels, paths) in markdown or a diagram, committed in the repository together with the test results."

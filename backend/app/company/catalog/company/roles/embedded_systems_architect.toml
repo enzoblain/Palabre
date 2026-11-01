@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture documents", "Interface definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "An embedded architecture that fits the memory, power and real-time limits of the target device."
+method = ["Collect the functional needs and the constraints: memory, CPU, power, real-time deadlines, cost", "Split the system into hardware and software components and allocate the functions to them", "Define the interfaces between components, including buses, protocols and update path", "Check the allocation against the constraints with estimates and record the open risks"]
+watch_points = ["A design whose memory or power budget has not been estimated", "Interfaces left vague between the hardware and software teams", "No plan for updating devices already in the field"]
+deliverable_format = "Markdown architecture documents with diagrams and resource budgets, and interface definitions (message and register formats) committed in the repository."

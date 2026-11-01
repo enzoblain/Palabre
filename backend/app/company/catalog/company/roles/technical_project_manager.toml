@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Delivery plan", "Risk register"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "A technical project delivered with its dependencies identified and tracked from the start."
+method = ["List the technical deliverables and the dependencies between components and teams", "Plan the order of work around the critical path and the integration points", "Keep a risk register with an owner, a probability and a mitigation per risk", "Track progress against the plan and raise a dependency issue as soon as it appears"]
+watch_points = ["Integration left to the end of the project", "A dependency on another team that is assumed but never agreed", "A risk register that nobody reads after the first week"]
+deliverable_format = "A markdown delivery plan (components, dependencies, critical path, milestones) and a risk register with owner and mitigation, committed in the repository."

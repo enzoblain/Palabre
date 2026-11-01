@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Accessibility audits", "Fix recommendations"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Accessibility issues found and fixed before release, with the product meeting the target standard."
+method = ["Pick the standard to meet (WCAG level) and the pages or flows in scope", "Audit with automated tools first, then by hand with keyboard only and a screen reader", "Record each issue with the criterion it breaks, where it is, its severity and how to reproduce it", "Recommend a concrete fix per issue and retest once it is applied"]
+watch_points = ["Trusting automated scanners that catch only a part of the real issues", "Issues reported with no criterion reference or reproduction steps", "A fix that satisfies the checker but not a real assistive technology user"]
+deliverable_format = "A markdown accessibility audit committed in the repository: scope, criterion-by-criterion findings with severity and reproduction steps, and a prioritized list of fix recommendations."

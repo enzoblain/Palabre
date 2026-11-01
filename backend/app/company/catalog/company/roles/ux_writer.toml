@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Interface texts", "Voice and tone guide"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Interface text that is short, consistent and understood on the first read."
+method = ["Collect the screens and the situations where the user reads the text", "Write short labels and messages in the user's vocabulary, starting with the action", "Write error messages that say what happened and what to do next", "Check the words in context and keep a glossary for consistent terms"]
+watch_points = ["Error messages that blame the user or show a technical code only", "Text that overflows the space once translated", "Two terms for one thing across the product"]
+deliverable_format = "A committed file of interface texts keyed by screen and element, and a markdown voice and tone guide with a glossary."

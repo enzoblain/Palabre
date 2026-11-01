@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Automotive software", "Compliance evidence", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Vehicle software that complies with the required automotive standards and passes its safety checks."
+method = ["Identify the applicable standards and the safety level required for the function", "Derive the software requirements and design them within the architecture of the vehicle", "Implement under the coding rules of the standard and run the static analysis", "Test at unit, integration and in-the-loop levels and gather the evidence for each requirement"]
+watch_points = ["Requirements with no test that traces back to them", "Coding rule deviations that are not justified", "Assuming the nominal vehicle state and ignoring fault and degraded modes"]
+deliverable_format = "A pull request with the software and its tests, plus a committed compliance evidence file mapping each requirement to its code and test results."

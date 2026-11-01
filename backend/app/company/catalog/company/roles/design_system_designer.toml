@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Component library design", "Usage guidelines"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "A design system whose components are consistent, documented and actually reused."
+method = ["Audit the existing interface to list the repeated components and their inconsistencies", "Define the foundations first: colours, type scale, spacing, elevation, as tokens", "Design each component with its variants and states (hover, focus, disabled, error)", "Write the usage guideline: when to use it, when not to, and accessibility notes"]
+watch_points = ["Components designed for one screen that do not generalize", "Missing states such as focus, loading and error", "Too many variants, which defeats the consistency the system should bring"]
+deliverable_format = "Design token and component specs committed in the repository as files, plus markdown usage guidelines per component with its states and variants."

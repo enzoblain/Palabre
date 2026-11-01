@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Control designs", "Tuning results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Controllers that stay stable and accurate within the specified margins, including under disturbances."
+method = ["Model the plant and write down the requirements: response time, overshoot, accuracy, stability margin", "Choose the control structure and compute the initial gains from the model", "Simulate the closed loop including delays, noise and actuator limits", "Tune on the real system and record the results against the requirements"]
+watch_points = ["Ignoring actuator saturation and integrator windup", "A model that omits sensor delay, so the real loop oscillates", "Tuning that leaves too little stability margin for component variation"]
+deliverable_format = "A pull request with the controller code and parameters, and a markdown tuning report committed in the repository (model, gains, step responses and margins)."

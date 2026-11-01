@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["ROS packages", "Launch and test setups", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "ROS nodes that communicate reliably, are launched reproducibly and are tested in simulation."
+method = ["Define the nodes, topics, services and message types of the package", "Implement the nodes, with parameters in a configuration file instead of in the code", "Write launch files that start the whole system consistently", "Test the nodes with the ROS test tools and a recorded data replay"]
+watch_points = ["Message types changed in a way that breaks other packages", "Hardcoded topic names and parameters", "Callbacks that block and stall the executor"]
+deliverable_format = "A pull request with the ROS packages (nodes, messages, launch files, parameter files) and tests that can be run with a recorded bag."

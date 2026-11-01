@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend wit
 deliverables = ["Optimized frontend code", "Web vitals reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Page load and interaction metrics meet their budgets, and regressions are caught in CI."
+method = ["Measure the current web vitals (LCP, INP, CLS) and the bundle size on the key pages, on a throttled device profile", "Find what blocks first paint and interaction: heavy bundles, render-blocking resources, unoptimized images, long tasks", "Cut the biggest cost first (code splitting, lazy loading, caching, image formats) and remeasure", "Set a performance budget in the build so a regression fails the check"]
+watch_points = ["Lab scores that improve while real-user metrics do not", "Lazy loading above the fold, which delays the content the user came for", "Optimizations that break accessibility or layout stability"]
+deliverable_format = "A pull request with the optimized frontend code and the budget configuration, and a before/after table of web vitals and bundle sizes per page in the description."

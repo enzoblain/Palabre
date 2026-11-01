@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Design proposals", "Interface specs"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "A product that solves the user's problem from end to end, validated with users."
+method = ["Frame the user problem and what success looks like for it", "Explore flows and several solutions before choosing one", "Detail the chosen solution down to the screens, states and content", "Hand it over with specs, and review the implementation against the design"]
+watch_points = ["Jumping to screens before the problem is understood", "Design handed over without edge cases and error states", "A solution the engineers cannot build in the available time"]
+deliverable_format = "Markdown design proposals (problem, options considered, chosen solution) and interface specs per screen committed in the repository."

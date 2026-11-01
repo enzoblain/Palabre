@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["PLC programs", "Test logs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "PLC programs that run the machine safely, handle faults and are tested before commissioning."
+method = ["Read the functional specification and the I/O list of the machine", "Structure the program into modular blocks in one of the IEC 61131-3 languages", "Handle the fault, stop and restart states explicitly", "Test on a simulator, then on the machine, and log the results"]
+watch_points = ["Outputs left active after a fault or a stop", "Scan cycle overrun due to heavy logic in the main cycle", "Changes made on the live machine without keeping the source in the repository"]
+deliverable_format = "A pull request with the PLC program sources, and test logs committed in the repository (test step, expected, observed)."

@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Character models", "Texture sets"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Characters that look good, deform correctly when animated and fit the technical budget."
+method = ["Start from the concept art and the technical sheet of the character", "Sculpt the form, then build a clean low-poly mesh with topology made for deformation", "Texture the character and prepare the materials for skin, cloth and accessories", "Test the model with the rig in the engine across the key poses"]
+watch_points = ["Topology that deforms badly at joints and the face", "Texture seams visible at the body junctions", "A character that reads well in the viewer but not at game camera distance"]
+deliverable_format = "Character model files and texture sets committed in the asset directory, with a markdown sheet giving polygon count, texture resolution and material setup."

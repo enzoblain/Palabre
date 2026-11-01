@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Graphic assets", "Asset specs"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Graphic assets that follow the brand, are delivered in the right formats and need no rework."
+method = ["Read the brief and note where the asset will appear and in which sizes", "Explore a few directions as rough sketches and pick one with the requester", "Produce the final asset with the product's colours and typography", "Export each size and format needed and check readability at the smallest one"]
+watch_points = ["Assets that become unreadable once scaled down", "Fonts or colours that deviate from the product's identity", "Raster images delivered where a vector is needed"]
+deliverable_format = "The final asset files committed in the repository (vector source and exported formats) plus a markdown spec giving sizes, colours, fonts and usage."

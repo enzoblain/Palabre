@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Product strategy", "Roadmap options"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "A product vision and strategy the team understands and uses to choose what comes next."
+method = ["Analyze the market, the users and the product's current position", "Define the long-term vision and the bets that move the product toward it", "Work out several strategic options and what each one requires and risks", "Turn the preferred option into roadmap directions, with the assumptions to validate first"]
+watch_points = ["A strategy that is a list of features and not a set of choices", "Unstated assumptions about the market treated as facts", "Presenting one option only, which leaves the decision to nobody"]
+deliverable_format = "A markdown product strategy committed in the repository (vision, context, chosen bets, assumptions to test) and a roadmap options document comparing the alternatives."

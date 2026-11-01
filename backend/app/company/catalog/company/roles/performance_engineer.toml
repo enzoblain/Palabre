@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Profiling reports", "Benchmarks before and after", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Bottlenecks found with profiling and removed, with the gains measured end to end."
+method = ["Set the performance goals (latency, throughput, resource use) with the people who own them", "Profile the whole system and list the bottlenecks by their share of the total time", "Treat the biggest bottleneck first, whichever layer it lives in (code, database, network, configuration)", "Benchmark again after each fix, and stop when the goals are met"]
+watch_points = ["Optimizing the layer you know best instead of the one that dominates the profile", "Benchmarks that cannot be reproduced because the environment or the data changed", "Fixing one bottleneck that merely moves the problem to the next component"]
+deliverable_format = "A markdown profiling report committed in the repository (bottlenecks ranked by cost) and a pull request with the fixes, with a before/after benchmark table in the description."

@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Requirements", "Process models"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Business needs written so clearly that developers build the right thing without asking again."
+method = ["Collect the business need from the people who live it, and write down the problem before any solution", "Separate goals, actors, rules and constraints, and name the data involved", "Write the requirements as testable statements and model the process they change", "Walk the draft through with the stakeholders and the developers to catch gaps and ambiguity"]
+watch_points = ["Writing a solution in the requirement instead of the need behind it", "Business rules that live only in someone's head and never reach the document", "Requirements that two stakeholders read differently"]
+deliverable_format = "A markdown requirements document committed in the repository (goals, actors, business rules, numbered requirements with acceptance criteria) and a process model as a diagram or structured list."
