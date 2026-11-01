@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Reverse engineering notes", "Protocol documentation"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Opaque components become understood and documented."
+method = ["Identify the file format, the architecture and any protection", "Disassemble and name the functions in order of importance", "Run the program under a debugger or capture its traffic", "Confirm each hypothesis by running the code", "Write the structure and the behavior in a form others can follow"]
+watch_points = ["Reading the disassembly without confirming by execution", "Skipping the legal and license limits of the target", "Notes that only the analyst can understand", "Running an unknown binary outside an isolated environment"]
+deliverable_format = "Reverse engineering notes with the annotated structure and the evidence for each claim, and documentation of the protocol or format."

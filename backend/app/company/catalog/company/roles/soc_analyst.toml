@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Alert triage notes", "Incident tickets"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Real incidents are never lost among the noise."
+method = ["Pick the next alert by severity", "Check its source, the asset concerned and the history", "Decide: false positive, benign or incident", "For an incident, collect the logs and escalate with them", "Write the case so it can be replayed"]
+watch_points = ["Closing an alert of a type seen often without looking", "Escalating without evidence", "Case notes with no times", "Alert fatigue leading to skipped checks"]
+deliverable_format = "A triage note per alert with the decision and its reason, and an incident ticket with the evidence for the real cases."

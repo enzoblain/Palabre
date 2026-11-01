@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Token economic model", "Simulation results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The token economy is sound and resistant to abuse."
+method = ["State the goal of the token and who must be incentivized", "Define the supply, the emission and the distribution", "Simulate holders, sellers and attackers across several scenarios", "Find the conditions under which the model fails", "Write the rules precisely enough for the contracts to implement"]
+watch_points = ["Incentives that reward the exploit instead of the use", "A model tested only with rational and honest users", "Large allocations unlocking at the same date", "Rules that are ambiguous when they reach the contract"]
+deliverable_format = "An economic model document with the parameters and a simulation report showing the scenarios, the failure conditions and the results."

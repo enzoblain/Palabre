@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Contracts", "Contract tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Contracts behave exactly as specified and hold up to attacks."
+method = ["Write the specification and the invariants first", "Reuse audited libraries for standard parts", "Write the contract with checks-effects-interactions order and explicit access control", "Write unit tests and fuzz tests for the invariants and the attack paths", "Measure the gas and optimize only where the tests still pass"]
+watch_points = ["Reentrancy through an external call before the state update", "Missing access control on an admin function", "Integer overflow in custom arithmetic", "Gas optimization that removes a safety check"]
+deliverable_format = "Contracts with deployment scripts, tests including attack cases, and a gas report for the main functions."

@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Device security reviews", "Firmware update rules"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Connected devices cannot be taken over remotely."
+method = ["Inventory the devices, their firmware and their communications", "Check each device has its own identity and keys", "Test the update path: signed images, rollback protection", "Try physical access, debug ports and the radio interface", "Define how a compromised device is revoked"]
+watch_points = ["Default or shared credentials on the devices", "Firmware updates that are not signed", "Devices that cannot be revoked once deployed", "Testing only the cloud side and not the device"]
+deliverable_format = "A device security review with each test, its result and the fix, plus rules for the firmware update and the key provisioning."

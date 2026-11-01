@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Dashboards", "Alert rules"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Any problem can be understood from the data collected."
+method = ["Start from the questions the team asks during an incident", "Instrument the code with structured logs, metrics and trace identifiers", "Build the dashboard that answers one question per panel", "Keep the cost and cardinality of the data under control", "Test that the signals show a real fault"]
+watch_points = ["Logging personal data or secrets", "Metrics with unbounded labels that blow up the cost", "Dashboards full of charts no one reads", "Traces lost at the boundary between two services"]
+deliverable_format = "Instrumentation changes, dashboards and alert rules in the repository, each tied to the question it answers."

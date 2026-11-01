@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Migration plans", "Rollback procedures"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Migrations complete without data loss and with minimal downtime."
+method = ["Inventory the application, its dependencies and its data volume", "Choose the migration approach and the order of the services", "Rehearse the migration in a copy of the environment", "Write the rollback and check it works before the real run", "After the cut-over, compare the new service with the old on real requests"]
+watch_points = ["Hidden dependencies on the old network or hostnames", "Data copied while it is still being written", "A cut-over with no tested path back", "Dropping the old environment before the new one has run through a full cycle"]
+deliverable_format = "A migration plan with the order of steps, the downtime expected, a rollback procedure and a post-migration comparison report."

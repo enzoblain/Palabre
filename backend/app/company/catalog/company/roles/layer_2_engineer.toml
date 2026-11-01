@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Layer 2 components", "Throughput measurements"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The layer 2 scales while inheriting the base chain's security."
+method = ["Define what the layer 2 inherits from the base chain: security, data, finality", "Implement the batching and the settlement on the base chain", "Implement deposits and withdrawals, including the delay and the dispute path", "Test a fraudulent state and a sequencer that stops", "Measure throughput and cost per transaction"]
+watch_points = ["Withdrawals that cannot be forced if the operator is offline", "Fraud windows too short for anyone to react", "Measuring throughput on an empty network", "Funds locked by a bug in the bridge contract"]
+deliverable_format = "Layer 2 components with tests for fraud and operator failure, and a throughput and cost measurement."

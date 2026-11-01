@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Security controls", "Risk notes"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Security risks are known, ranked and mitigated before they are exploited."
+method = ["Identify the assets and the likely attackers", "Pick the controls that cut the largest risks first", "Implement them in the application and the pipeline", "Check that each control works by trying to bypass it", "Record the risks left open and propose the next mitigation as a decision"]
+watch_points = ["Adding controls that nobody has tested", "Spreading effort over minor risks while a major one stays open", "Risk notes with no owner or date", "Controls that depend on one person remembering to apply them"]
+deliverable_format = "A set of controls committed or documented with the test that shows each one works, and a risk note ranking what remains open."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Telecom designs", "Quality reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Communications are available with the expected quality."
+method = ["Take the service requirements and the capacity needed", "Design the interconnections and the redundancy", "Provision and test calls and data end to end", "Monitor the quality of service indicators", "Handle faults with the carrier and record the cause"]
+watch_points = ["Capacity sized without the busiest hour", "Interconnections with a single carrier", "A fault passed to the carrier without a clear test result", "Quality measured by the equipment and not by the user"]
+deliverable_format = "A telecom design with the interconnections and the capacity, and a quality report with the indicators and their trend."

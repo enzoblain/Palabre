@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Bug reports", "Playtest notes"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Players do not meet blocking bugs."
+method = ["Read the build notes and the features added", "Play through the main path and then the side paths", "Try to break the game: odd inputs, quitting at bad moments, pausing", "Check the frame rate and the loading on the lowest supported hardware", "Write each bug with the build, the steps and a recording"]
+watch_points = ["Testing only on a powerful machine", "Bugs reported without the build number", "Calling a hard section a bug, or a bug a design choice", "Checking only the new levels and not the saves of older builds"]
+deliverable_format = "Bug reports with the build, the steps, the expected and observed result and a recording, plus playtest notes on balance and difficulty."

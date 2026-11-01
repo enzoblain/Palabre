@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Function definitions", "Cost and latency reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Serverless workloads are cheap, fast and observable."
+method = ["Split the work into functions with a single trigger each", "Set memory, timeout and concurrency limits", "Measure cold start and cost on realistic traffic", "Make each function safe to run twice with the same event", "Trace one request across the functions"]
+watch_points = ["Functions that are not idempotent and run more than once", "Costs that explode with an unlimited trigger", "Timeouts longer than the caller waits", "Local tests that hide the limits of the platform"]
+deliverable_format = "Function definitions with their limits, and a report of cost and latency measured on a realistic load."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Test architecture", "Test conventions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The test suites stay fast, readable and trustworthy."
+method = ["Review the existing tests, their layers and their duration", "Define the layers and what each one is for", "Write the conventions for naming, data and isolation", "Provide shared helpers instead of copies", "Review the suites to remove the duplication and the flaky parts"]
+watch_points = ["Test helpers more complex than the code they test", "Tests coupled to implementation details", "Layers that overlap and cost twice", "Conventions written and never enforced"]
+deliverable_format = "A test architecture document with the layers, the conventions and the shared helpers, and refactoring changes to apply them."

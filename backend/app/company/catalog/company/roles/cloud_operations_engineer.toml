@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Runbooks", "Operations reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The cloud environment runs smoothly day after day."
+method = ["Check the health dashboards and the open alerts at the start of the day", "Handle each incident from its runbook, and note the gaps found", "Process the routine requests through the same documented path", "Patch and resize the services in the maintenance window", "Update the runbook after every incident"]
+watch_points = ["Fixes applied by hand that are never written down", "Alerts acknowledged and then forgotten", "Changes made outside the maintenance window", "Runbooks that no longer match the environment"]
+deliverable_format = "Runbooks updated after each incident and an operations report with the incidents, their causes and the actions taken."

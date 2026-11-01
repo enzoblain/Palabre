@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Compliance reports", "Gap lists"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "No compliance gap is discovered by surprise."
+method = ["List the standards and legal rules that apply to the project", "Check each requirement against what the team does in practice", "Mark each as met, partly met or not met, with the evidence", "Open a correction for each gap with an owner and a date", "Re-check when the correction is reported done"]
+watch_points = ["Marking a control as met on the word of the team", "Gaps listed without owner or date", "A standard applied that does not concern the project", "Compliance mistaken for real security"]
+deliverable_format = "A compliance report with the status of each requirement and its evidence, and a list of gaps with owner and due date."

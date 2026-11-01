@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Test environments", "Runner configurations"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Tests run fast in clean, reproducible environments."
+method = ["Measure the time and the failures of the current test runs", "Build the environments from code so they are the same each time", "Isolate each run so tests cannot affect each other", "Parallelize the execution and cache what can be", "Watch the runners and the queue"]
+watch_points = ["Shared environments that hold the leftovers of other runs", "Environments that differ from production in important ways", "Runners that are never cleaned", "Speed gained by dropping isolation"]
+deliverable_format = "Environment and runner configuration in version control, with the run time before and after and the instructions to recreate an environment."

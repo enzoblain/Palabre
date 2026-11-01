@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["API test suites", "Contract check results"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "The APIs behave as documented, including when misused."
+method = ["Read the API contract and its documented errors", "Test each endpoint with valid, invalid and missing input", "Test authorization: another user's resource and expired credentials", "Check the response shapes against the contract", "Add the checks to the pipeline"]
+watch_points = ["Tests that only check the status code", "Checking only the success responses", "Test data that depends on the order of the tests", "A contract that drifts from the implementation unnoticed"]
+deliverable_format = "An automated API test suite organized by endpoint, and a contract check result listing each deviation from the documentation."

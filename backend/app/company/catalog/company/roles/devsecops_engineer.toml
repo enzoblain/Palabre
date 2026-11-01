@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Pipeline security checks", "Scanner configuration"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Security problems are caught by the pipeline, before review."
+method = ["Pick the scanners for dependencies, secrets and code, and run them on the pipeline", "Run them in report mode first to see how noisy they are", "Tune the rules and set which severities block the merge", "Open a fix for the real findings with the developer", "Review the blocked and ignored results each month"]
+watch_points = ["Turning on blocking before the false positives are removed", "Ignore lists that grow without review", "A scanner that fails silently and reports nothing", "Slowing the pipeline so much that people skip it"]
+deliverable_format = "Pipeline configuration for each scanner, the blocking rules with their reasons and a summary of the findings fixed and the ones ignored."

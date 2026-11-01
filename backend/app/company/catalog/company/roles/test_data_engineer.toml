@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Test datasets", "Data generators"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Tests run on realistic data that contains no personal information."
+method = ["Study the schema and what the tests need", "Write generators for realistic and for extreme values", "Anonymize or replace any data from production", "Version the datasets with the schema", "Check the datasets still load after each migration"]
+watch_points = ["Personal data copied from production into tests", "Data too clean to find real bugs", "Datasets that break after a schema change", "Random data that makes a failure impossible to reproduce"]
+deliverable_format = "Test datasets and generators with a fixed seed, and a note on how each is anonymized and updated with the schema."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Link designs", "Test certificates"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Optical links are certified and faults are located fast."
+method = ["Survey the route, the existing ducts and the distances", "Compute the loss budget of the link against the equipment's limits", "Install and splice, then label every fiber end", "Test each link with a reflectometer and record the result", "Locate a fault from the trace and repair it"]
+watch_points = ["Bends tighter than the fiber allows", "Dirty connectors that cause losses on a good link", "Unlabeled fibers in a shared duct", "Links accepted without a recorded test"]
+deliverable_format = "A link design with its loss budget and the route, and a test certificate per link with the measured loss and the date."

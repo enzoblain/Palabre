@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Pipeline definitions", "Deployment automation"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Every change is tested and delivered automatically."
+method = ["Read the pipeline definitions and the recent run times and failures", "Find the steps that are slow, flaky or redundant", "Change one stage at a time and run the pipeline on a branch", "Add a deployment stage with an automatic check after it", "Document how a failed deployment is rolled back"]
+watch_points = ["Flaky jobs hidden behind automatic retries", "Pipelines that deploy without a post-deployment check", "Secrets printed in job logs", "Required checks removed to make the pipeline green"]
+deliverable_format = "A pipeline definition change with the run times before and after, a green run on the branch and the rollback steps in the documentation."

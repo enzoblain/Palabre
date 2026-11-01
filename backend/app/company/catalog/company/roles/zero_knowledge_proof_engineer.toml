@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Circuits", "Proof benchmarks"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Proofs are sound, fast enough and verifiable on-chain."
+method = ["Write down what is proved and what stays private", "Express the statement as constraints in the circuit", "Check that the circuit does not accept a false statement", "Benchmark the proving and the verification time and size", "Integrate the verifier with the contract or service"]
+watch_points = ["Under-constrained circuits that accept false proofs", "A trusted setup handled without a record of who took part", "Private inputs leaking through a public output", "Proving time that makes the product unusable"]
+deliverable_format = "Circuits with tests of valid and invalid witnesses, and benchmarks of the proving time, verification cost and proof size."

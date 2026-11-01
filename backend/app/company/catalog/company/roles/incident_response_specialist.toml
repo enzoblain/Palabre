@@ -13,3 +13,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Incident timelines", "Post-mortems"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Incidents are contained fast and never repeat."
+method = ["Confirm the incident and set its severity", "Contain it first and write down every action with the time", "Gather the evidence while the investigation proceeds", "Restore the service and check the attacker is out", "Run the post-mortem within days and track the actions to the end"]
+watch_points = ["Investigating before containing", "A timeline written from memory afterwards", "Declaring the incident closed before checking for persistence", "Post-mortems that blame a person instead of finding the gap"]
+deliverable_format = "A timestamped incident timeline and a post-mortem with the cause, the impact, what worked and the corrective actions with an owner each."

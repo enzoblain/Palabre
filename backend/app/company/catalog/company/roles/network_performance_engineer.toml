@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Performance measurements", "Optimization proposals"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Network bottlenecks are found and removed with evidence."
+method = ["Define what good looks like: target latency, throughput, loss", "Measure along the path to find where it degrades", "Identify the bottleneck: link, device, configuration, protocol", "Change one thing at a time", "Measure again under the same conditions"]
+watch_points = ["Measuring once and calling it representative", "Changing several settings and not knowing which one worked", "Tests that load the network more than the real traffic", "Averages that hide the worst delays"]
+deliverable_format = "A measurement report with the method and the numbers before and after, and a proposal for each bottleneck with its expected gain."

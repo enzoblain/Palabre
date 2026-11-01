@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Host configurations", "Policy documentation"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Windows systems are stable, patched and under control."
+method = ["Check the update level and the event logs of each server", "Apply updates in rings, starting with a test server", "Manage accounts and group policies through the directory", "Troubleshoot from the event logs before changing a setting", "Document each policy and the reason for it"]
+watch_points = ["Group policies changed without testing on a pilot group", "Domain admin accounts used for daily work", "Updates deployed to all servers at once", "Policies that no one can explain"]
+deliverable_format = "Host configuration and policy documentation giving the setting, its purpose and the test done before applying it."

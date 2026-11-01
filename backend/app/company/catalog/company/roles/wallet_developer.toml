@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Wallet code", "Signing flow tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Users keep control of their keys and never sign by accident."
+method = ["Choose how the keys are generated and where they are stored", "Implement signing so the user sees what they are signing", "Build the transaction with the fee estimated and the nonce handled", "Add protection against known phishing patterns and wrong networks", "Test recovery and the loss of the device"]
+watch_points = ["Keys leaving the secure storage of the device", "Signing data the user cannot read", "A recovery phrase shown in a place that is logged or screenshotted", "Fees estimated too low, leaving transactions stuck"]
+deliverable_format = "Wallet code with tests of the signing flow, the recovery and the rejection of dangerous requests."

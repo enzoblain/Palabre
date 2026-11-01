@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Deployment pipelines", "Secret handling rules"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Contracts and nodes are deployed repeatably and safely."
+method = ["Script the build and the tests of the contracts and the nodes", "Deploy to a test network first from the pipeline", "Keep the deployment keys in a vault with a narrow scope", "Verify the deployed code matches the source", "Add alerts on the deployed contracts and nodes"]
+watch_points = ["Private keys in the pipeline variables", "Deploying to the main network from a developer machine", "Contracts deployed but not verified against the source", "No alert when a node falls behind the chain"]
+deliverable_format = "Deployment pipeline definitions and rules for secrets, with a run on a test network that deploys and verifies a contract."

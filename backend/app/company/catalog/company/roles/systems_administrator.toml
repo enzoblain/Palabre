@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Maintenance logs", "Server runbooks"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The systems are available, patched and recoverable."
+method = ["Check the services, the disk space and the logs of each server", "Apply the patches, starting with a non-critical server", "Verify last night's backup completed and that it can be read", "Manage the accounts: create, review, remove", "Log each change in the maintenance log"]
+watch_points = ["Patches applied to every server at once", "A backup that runs but is never opened", "Accounts of people who left still active", "Changes made without a note of what was changed"]
+deliverable_format = "A maintenance log with the date, the change and the check done, and runbooks per server with how to restart and restore it."

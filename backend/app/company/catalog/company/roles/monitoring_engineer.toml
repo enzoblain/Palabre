@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Monitoring configuration", "Alert runbooks"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Problems are detected before users notice them."
+method = ["List what must be watched for each service: availability, latency, errors, saturation", "Set up the collection and the checks", "Alert on user-visible symptoms rather than every internal metric", "Review each alert after it fires: useful, noisy or late", "Put in each alert a link to what to do"]
+watch_points = ["Alerts nobody can act on", "Missing the failure of the monitoring system itself", "Thresholds fixed by guess and never revisited", "Pages sent for conditions that heal by themselves"]
+deliverable_format = "Monitoring configuration in version control and a runbook for each alert, with its meaning, its first checks and when to escalate."

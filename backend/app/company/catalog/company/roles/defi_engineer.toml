@@ -13,3 +13,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Protocol code", "Risk models and tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Financial logic is correct and resistant to manipulation."
+method = ["Specify the invariants of the protocol: what must always hold", "Implement the core logic and its integrations", "Model price manipulation and flash-loan attacks", "Run simulations with extreme market moves", "Test the invariants by fuzzing"]
+watch_points = ["Prices read from a source an attacker can move in one transaction", "Rounding errors that favor the user", "Liquidations that fail when the market is stressed", "Integrations assuming another protocol never changes"]
+deliverable_format = "Protocol code with invariant tests and a risk model, with simulation results under stressed market conditions."

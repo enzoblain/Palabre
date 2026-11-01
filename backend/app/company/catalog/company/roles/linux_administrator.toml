@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Host configurations", "Troubleshooting notes"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Linux hosts are stable, secure and well documented."
+method = ["Check the state of the host: services, disk, memory, logs", "Apply package updates by group, with a snapshot before the change", "Set the permissions and the service accounts by least privilege", "Read the logs to find the cause of an incident before changing anything", "Write the fix in the host configuration"]
+watch_points = ["Fixing by hand on one host and forgetting the others", "Running services as root", "Updating packages with no way back", "Editing the system settings with no record of why"]
+deliverable_format = "A host configuration kept in version control and troubleshooting notes giving the symptom, the cause and the fix."

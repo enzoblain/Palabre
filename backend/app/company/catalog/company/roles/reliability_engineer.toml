@@ -13,3 +13,6 @@ forbidden = ["Fixing bugs yourself", "Merging"]
 deliverables = ["Reliability analyses", "Reliability targets"]
 escalation = "Disputed blocking bug → the lead decides."
 success = "Failures are understood and become less frequent."
+method = ["Collect failure data: crashes, errors, restarts", "Group the failures by cause and rank by frequency and impact", "Find the changes that introduced the biggest groups", "Propose the fix and the test that would have caught it", "Set the reliability targets and track the trend"]
+watch_points = ["Counting failures with no link to the users they affect", "Targets nobody can measure", "Looking only at crashes and not at silent errors", "Fixing the symptom of the most visible failure"]
+deliverable_format = "A reliability analysis with the failure rates by cause, the fixes proposed and the targets with their current values."

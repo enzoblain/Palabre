@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Hardware inventory", "Maintenance plans"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The physical infrastructure is available and well documented."
+method = ["Take the inventory of the racks, the power and cooling capacity", "Check what each rack draws against what its feed can supply", "Plan the hardware change with the window and the parts needed", "Do the change, label the cabling and update the inventory the same day", "Test the failover of power and cooling on a schedule"]
+watch_points = ["Racks loaded beyond their power or cooling limit", "Unlabeled cables that make later repairs risky", "Inventory that no longer matches the room", "Maintenance with no spare part on site"]
+deliverable_format = "An updated hardware inventory and a maintenance plan with the window, the steps, the spare parts and the result of each failover test."

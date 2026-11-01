@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Network inventory", "Change logs"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "The network is available and changes are traceable."
+method = ["Check the device status and the pending alerts", "Process requests for access or addresses through the change log", "Back up the device configuration before every change", "Apply the updates in the maintenance window", "Update the inventory the same day"]
+watch_points = ["Changes made without a configuration backup", "An address plan kept in someone's head", "Switches and routers left on old firmware", "Access rules that stay after the need is gone"]
+deliverable_format = "An up to date network inventory and a change log with the request, the change made and its result."

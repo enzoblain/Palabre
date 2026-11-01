@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Link budgets", "Ground equipment documentation"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Satellite links meet their availability targets."
+method = ["Set the service requirements: data rate, availability, latency", "Compute the link budget for the frequency band and the terminals", "Add the margin for the rain and the pointing error", "Verify the link on site against the budget", "Document the ground equipment and the handover procedure"]
+watch_points = ["A link budget with no weather margin", "Pointing and polarization errors found only on site", "Ground equipment with no documented spare", "Latency ignored for interactive applications"]
+deliverable_format = "A link budget with its assumptions and margins, and ground equipment documentation with the configuration and handover steps."

@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Load balancer configurations", "Failover tests"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Traffic is shared evenly and failures are invisible to users."
+method = ["List the backends, their capacity and how to know if they are healthy", "Choose the balancing algorithm for the traffic pattern", "Set the health checks, timeouts and connection limits", "Take a backend down during traffic and watch the result", "Document the failover behavior and its limits"]
+watch_points = ["Health checks that pass while the application is broken", "Sticky sessions that overload one backend", "Timeouts that retry a failing request on all backends", "A load balancer that is itself a single point of failure"]
+deliverable_format = "Load balancer configuration in version control and a failover test report with the failure induced, the behavior seen and the recovery time."

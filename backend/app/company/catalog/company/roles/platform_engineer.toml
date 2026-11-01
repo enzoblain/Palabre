@@ -13,3 +13,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Platform tooling", "Platform documentation"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Developers ship quickly on a platform they trust."
+method = ["Interview or observe developers to find what slows them down", "Pick the most frequent friction and turn it into a standard path", "Build the tool or template that takes that path in one command", "Document it with an example that runs", "Measure its adoption and ask for feedback"]
+watch_points = ["Building a platform nobody asked for", "Making the standard path mandatory before it is good", "Documentation that falls behind the tooling", "Hiding errors so that developers cannot debug them"]
+deliverable_format = "Platform tooling or templates in the repository with documentation and a working example, and a note on how it is adopted."
