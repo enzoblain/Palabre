@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["HCI analyses", "Design recommendations"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Design decisions backed by evidence on how people actually interact with the product."
+method = ["Define the task and the user population studied", "Apply the relevant principles (cognitive load, Fitts's law, mental models) and heuristics to the current design", "Back the analysis with observation or a small test where the literature is not enough", "Turn each finding into a design recommendation with its rationale"]
+watch_points = ["Citing a principle without checking it applies to this context", "Recommendations that ignore constraints of the platform or the team", "Findings with no link to the user's task"]
+deliverable_format = "A markdown HCI analysis committed in the repository: task, principles applied, findings and prioritized design recommendations with their rationale."

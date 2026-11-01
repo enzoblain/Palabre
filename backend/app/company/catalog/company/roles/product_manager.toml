@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Product roadmap", "User stories"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "The team builds what brings value to users, and priorities are clear to everyone."
+method = ["Collect user problems and business goals, and decide which problem is worth solving now", "Define the outcome expected, and the metric that will tell whether it was reached", "Break the work into user stories with acceptance criteria that developers can build and QA can test", "Order the backlog by value and cost, and revisit it as feedback comes in"]
+watch_points = ["Prioritizing by the loudest request instead of by evidence", "User stories that describe a solution with no stated user problem", "A roadmap treated as a promise of dates"]
+deliverable_format = "A product roadmap in markdown (outcomes by period, not features by date) and user stories committed in the repository, each with an acceptance criteria list."

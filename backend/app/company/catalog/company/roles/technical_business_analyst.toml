@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Technical requirements", "Data flow descriptions"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Business needs translated into technical requirements that both sides confirm as accurate."
+method = ["Learn the business need and the technical landscape it will land in", "Translate the need into technical requirements: interfaces, data, volumes, constraints", "Describe how data flows between the systems involved, with its format and its owner", "Check with the developers that the requirements are feasible and with the business that they still serve the need"]
+watch_points = ["Technical requirements that drift away from the original business need", "Data flows that omit the formats, volumes or timing of the exchange", "Assuming an existing system can do something without checking it"]
+deliverable_format = "A markdown document committed in the repository with the technical requirements and the data flow descriptions (source, target, format, frequency)."

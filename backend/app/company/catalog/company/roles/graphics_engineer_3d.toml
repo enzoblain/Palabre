@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Graphics code", "Performance measures", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "3D features that render correctly on the target hardware at an acceptable frame rate."
+method = ["Define the visual feature and the frame budget it may use", "Implement it on the graphics API with a simple version first", "Profile on the target GPUs and reduce the cost where it exceeds the budget", "Verify the output on different hardware and drivers"]
+watch_points = ["A feature that runs well on a developer's GPU but not on the minimum spec", "Visual differences between drivers", "CPU-GPU synchronization stalls"]
+deliverable_format = "A pull request with the graphics code and a table of frame time measures on the test hardware."

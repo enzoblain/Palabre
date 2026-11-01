@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Process maps", "Improvement proposals"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Documented processes that match reality, with the bottlenecks identified and the fixes agreed."
+method = ["Map the process as it really runs today, step by step, with who does what and where it waits", "Measure what can be measured: duration of each step, waiting time, rework and error counts", "Find the steps that add delay without adding value, and the handoffs where information is lost", "Draw the improved process and estimate the gain against the current figures"]
+watch_points = ["Mapping the process as it is documented instead of as it is practiced", "Automating a step that should have been removed", "Improvement proposals with no baseline, so the gain cannot be checked"]
+deliverable_format = "A markdown file committed in the repository with the as-is and to-be process maps (diagram or ordered step tables), the measured baseline and a ranked list of improvement proposals with the expected gain of each."

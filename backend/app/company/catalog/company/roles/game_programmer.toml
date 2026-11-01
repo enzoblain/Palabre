@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Gameplay code", "Logic tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Gameplay that works as designed, holds the target frame rate and is covered by logic tests."
+method = ["Read the design document for the system to implement and ask about its edge cases", "Structure the code so that gameplay rules are separate from rendering and input", "Implement the system with data-driven values instead of hardcoded ones", "Test the rules with logic tests, then playtest in the engine"]
+watch_points = ["Gameplay logic tied to the frame rate", "Allocation in the update loop that triggers garbage collection hitches", "Tuning values buried in code where designers cannot change them"]
+deliverable_format = "A pull request with the gameplay code, data files for the tunable values and logic tests of the rules."

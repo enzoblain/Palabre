@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Hardware specifications committed in the repository", "Validation reports in markdown, committed", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Hardware that passes its validation, with the reports committed in the repository."
+method = ["Take the hardware requirements and break them into testable specifications", "Design and prototype the hardware", "Validate each specification with a measurement on the prototype", "Log defects and re-spin the design until all pass"]
+watch_points = ["Validation only at room temperature and nominal voltage", "A specification that is untestable as written", "Prototype results not reproducible on a second unit"]
+deliverable_format = "Hardware specifications committed in the repository and a markdown validation report (spec, test method, result, pass or fail), submitted in a pull request."

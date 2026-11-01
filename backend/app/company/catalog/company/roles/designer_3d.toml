@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["3D assets", "Asset documentation"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "3D visuals and models that match the brief and work in the target product without rework."
+method = ["Collect the reference and the technical limits (polygon budget, formats, target platform) of the 3D asset", "Block out the form first and validate its proportions before detailing", "Model, unwrap and texture the asset within the budget", "Export it in the agreed format and check it in the real product"]
+watch_points = ["Over-detailed models that exceed the polygon budget of the target platform", "Wrong scale or orientation on export", "Textures too large for the memory of the target devices"]
+deliverable_format = "The 3D asset files committed in the repository (or its asset directory) in the agreed format, with a markdown sheet listing polygon count, texture sizes and export settings."

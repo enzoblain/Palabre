@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Device and gateway code", "Integration tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Connected devices that stay online, report correct data and recover after network loss."
+method = ["Define the device, the gateway and the cloud responsibilities, and the message format", "Implement the device and the gateway code with a power-aware communication schedule", "Provision devices with unique credentials and secure transport", "Test end to end including offline periods and reconnections"]
+watch_points = ["Shared credentials across all devices", "Battery drain from chatty communication", "No behavior defined for a device that is offline for days"]
+deliverable_format = "A pull request with the device and gateway code, and integration tests covering offline and reconnection cases."

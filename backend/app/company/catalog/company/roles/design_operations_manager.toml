@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Design process docs", "Handoff checklists"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Designers spend their time designing: tools, processes and handoffs run without friction."
+method = ["Map how design work flows: briefs, reviews, handoff to developers, tooling", "Find the points where designers lose time, such as unclear briefs or duplicated files", "Define the process and the templates that remove them (brief, review, handoff)", "Check with designers and developers after a few weeks whether the process helped"]
+watch_points = ["Process added that costs more time than the problem it solves", "Handoff files whose naming and structure vary from designer to designer", "Tools chosen without asking those who use them daily"]
+deliverable_format = "Markdown design process documents and handoff checklists (what a design file must contain before developers pick it up), committed in the repository."

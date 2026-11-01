@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Game design documents", "Balance tables"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Mechanics that are clear, balanced and fun, confirmed by playtests."
+method = ["State the player experience and the core loop in a few sentences", "Detail the mechanics, rules and progression in the design document", "Set the numbers (costs, rewards, damage, pacing) in tables", "Playtest, observe where players get lost or bored, and revise the numbers and rules"]
+watch_points = ["Mechanics that interact in an unplanned exploit", "Balance values set once and never retested", "A document too long for anyone to implement from"]
+deliverable_format = "A markdown game design document and balance tables (a CSV or markdown file) committed in the repository."

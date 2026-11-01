@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Integration design", "System test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A product whose mechanics, electronics and software work together within specification."
+method = ["Define the mechanical, electrical and software interfaces of the product", "Choose the actuators and sensors against load, speed and precision", "Integrate the three domains on a test bench and find the interaction faults", "Run the system tests across the operating range"]
+watch_points = ["Each domain meeting its spec while the combination fails", "Mechanical play or friction neglected in the control design", "Cabling and connector reliability under vibration"]
+deliverable_format = "A pull request with the integration design and software, plus a committed system test report (operating range, results, faults found)."

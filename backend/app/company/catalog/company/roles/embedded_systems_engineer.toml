@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Embedded code", "Hardware test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software that runs within the memory and power limits of the device without crashes or leaks."
+method = ["Read the hardware specification and the constraints of memory, power and timing", "Write the code with static allocation and no unbounded operations", "Test the logic on the host with mocks, then on the target board", "Measure memory use and timing on the device"]
+watch_points = ["Dynamic allocation or recursion on a device with scarce memory", "Shared data between interrupt and main code with no protection", "Code that only works with the debugger attached"]
+deliverable_format = "A pull request with the embedded code, host-side tests, and a table of measured memory use and timing on the target in the description."

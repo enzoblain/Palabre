@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Game server code", "Load test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Game servers that scale with the player count and recover from crashes without losing sessions."
+method = ["Define the capacity target: concurrent players per instance and instances overall", "Design the lifecycle of a server instance: start, allocate, run, drain, stop", "Make the instance restart safe and the scaling automatic", "Load test with simulated players and observe the tick rate and memory"]
+watch_points = ["A tick rate degrading under load without any alert", "Instances killed during a match with no drain", "Memory growing slowly until a crash after hours"]
+deliverable_format = "A pull request with the server code and a load test results report committed in the repository (players, tick rate, memory, failures)."

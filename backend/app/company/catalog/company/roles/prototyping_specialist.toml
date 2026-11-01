@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Prototypes", "Test notes"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Prototypes ready fast enough to test an idea before any real development."
+method = ["Fix the question the prototype must answer and the fidelity needed to answer it", "Build only the paths required to test it, with realistic content", "Run it with a few users and watch where they hesitate or fail", "Write down what was learned and what to change in the next version"]
+watch_points = ["Spending days on polish when a rough version would have answered the question", "A prototype that tests the wrong flow", "Testing with colleagues who already know the product"]
+deliverable_format = "The prototype files committed in the repository, with markdown test notes: question, participants, observations, changes to make."

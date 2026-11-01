@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Screen mockups", "Component specs"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Interfaces that are consistent, readable and delivered as specs that developers implement directly."
+method = ["Take the wireframes and the existing component library as the starting point", "Lay out each screen with consistent spacing, hierarchy and alignment", "Apply the colours and typography of the product, and check contrast", "Specify the components used and their states for handoff"]
+watch_points = ["Creating a new component when one exists in the library", "Text contrast that fails accessibility thresholds", "A mockup shown only in its ideal state, without long text or an empty list"]
+deliverable_format = "Screen mockups and component specs committed in the repository (design files or exported images with a markdown spec giving sizes, spacing, colours and states)."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Digital twin models", "Validation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A digital twin whose behavior stays within tolerance of the real system it mirrors."
+method = ["Define what decisions the twin must support and how accurate it must be for them", "Model the physical system and connect it to its live data source", "Compare the twin's output with measurements to tune it", "Set the thresholds beyond which the twin must be considered out of sync"]
+watch_points = ["A twin that drifts from the real system without anyone noticing", "A model more detailed than the decision needs, costly to maintain", "Raw sensor data used without cleaning outliers or checking timestamps"]
+deliverable_format = "A pull request with the twin model and data connectors, plus a committed validation report comparing twin outputs and measurements."

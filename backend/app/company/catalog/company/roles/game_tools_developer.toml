@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Tools code", "Tool documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Tools that cut the time designers and artists need to produce and ship content."
+method = ["Watch how designers and artists work now and find the slowest repeated steps", "Build the smallest tool that removes the worst of them", "Make the tool safe to use, with validation and undo", "Document it and collect feedback from its first users"]
+watch_points = ["A tool that corrupts content data with no way back", "Building a general editor when a script was needed", "No documentation, so only its author uses it"]
+deliverable_format = "A pull request with the tool code and a documentation page covering installation, usage and known limits."

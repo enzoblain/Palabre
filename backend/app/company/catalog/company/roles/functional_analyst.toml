@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Functional specifications", "Use cases"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Functional specifications precise enough that the expected behavior is never in doubt."
+method = ["Collect the intended behavior of the feature from the business need and the existing system", "Describe each use case: actor, trigger, main flow, alternative flows and error cases", "Specify the rules, data fields, states and transitions in unambiguous terms", "Review the specification with the developers and testers so that every statement can be implemented and verified"]
+watch_points = ["Describing only the happy path and leaving the error cases for the developers to guess", "Rules stated vaguely with words like 'quickly' or 'appropriate'", "A specification that contradicts the behavior of existing features"]
+deliverable_format = "A markdown functional specification committed in the repository: a use case per feature (actor, flows, errors), rules, data fields and a state table."

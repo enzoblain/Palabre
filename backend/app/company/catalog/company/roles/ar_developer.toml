@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["AR application code", "Device test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "AR content that stays anchored and stable on the target devices at a steady frame rate."
+method = ["Define the real-world anchors for the experience: surfaces, markers or locations", "Implement tracking and placement of virtual objects with the platform's AR framework", "Handle tracking loss, poor lighting and unsupported devices", "Test on real devices, in several environments"]
+watch_points = ["Content that drifts or floats when tracking quality drops", "A frame rate that drops and makes the user nauseous or the device hot", "Tests made at a desk only"]
+deliverable_format = "A pull request with the AR application code, with a table of devices and environments tested in the description."

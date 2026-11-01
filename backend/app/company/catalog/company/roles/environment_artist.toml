@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Environment assets", "Scene setups"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Worlds that look coherent, run within the performance budget and guide the player naturally."
+method = ["Block out the space with simple volumes to check scale and flow before detail", "Build modular kit pieces that can be reused across the level", "Dress the scene with props, materials and lighting", "Profile the scene in the engine and cut what exceeds the budget"]
+watch_points = ["Repetition obvious to the player because the kit is too small", "Draw calls and overdraw above the performance budget", "Scale mismatched with the player character"]
+deliverable_format = "Environment assets and scene setup files committed in the repository, with a markdown note of the budget figures measured in the engine."

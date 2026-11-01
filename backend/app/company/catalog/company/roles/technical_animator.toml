@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Rigs and animation setups", "Animation documentation"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Animations that blend smoothly, stay within the budget and work in the engine without manual fixes."
+method = ["Review the animation needs and the engine's animation system limits", "Build the rig with controls the animators can use and a skeleton the engine can run", "Set up the state machines and blending between animations", "Test transitions in the engine and profile the cost of the animations"]
+watch_points = ["Blending that pops or slides feet", "Bone counts and skin weights above the platform limits", "A rig that works in the DCC tool and breaks on export"]
+deliverable_format = "Rig and animation setup files committed in the asset directory, with a markdown documentation of skeleton, controls, state machine and export steps."

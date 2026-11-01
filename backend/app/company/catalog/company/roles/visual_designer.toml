@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Style guide", "Visual mockups"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "A visual identity that is coherent, readable and applied consistently across the product."
+method = ["Collect the brand values and the audience the visuals must speak to", "Define the palette, typography and imagery style, and test their readability together", "Apply them to key screens to check that the identity holds in practice", "Document the rules so other designers apply them the same way"]
+watch_points = ["An attractive palette that fails contrast tests", "A style that works on a poster but not at interface sizes", "A style guide with no examples of correct and incorrect use"]
+deliverable_format = "A markdown style guide (palette with values, type scale, imagery rules) and visual mockups of key screens, committed in the repository."

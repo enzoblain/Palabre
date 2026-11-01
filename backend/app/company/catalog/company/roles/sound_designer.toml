@@ -9,3 +9,6 @@ forbidden = ["Coding", "Merging"]
 deliverables = ["Audio assets", "Audio integration specs"]
 escalation = "Product disagreement → the product owner, then the boss."
 success = "Sounds that fit the experience, are mixed clearly and integrate without glitches or memory excess."
+method = ["Read the design intent for each moment and define the sound identity of the game", "Record or synthesize the sounds and edit them to loop and layer cleanly", "Mix the levels so important cues are always audible", "Integrate them in the engine and test on speakers and headphones"]
+watch_points = ["Repetitive sounds that become annoying after an hour", "Loudness that varies between assets", "Audio memory and streaming budgets ignored"]
+deliverable_format = "Audio assets committed in the asset directory in the agreed format, with a markdown integration spec (event, asset, volume, loop, priority)."

@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Project plan", "Status reports"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "The project is delivered on scope and on schedule, with risks flagged early."
+method = ["Define the scope, the deliverables and the criteria that say the project is done", "Break the work into tasks with estimates, owners and dependencies, and fix the schedule", "Track progress against the plan, and manage scope change explicitly through a decision", "Report status on a regular schedule with risks, issues and the next steps"]
+watch_points = ["Scope growing through small unrecorded requests", "A plan with no buffer and no critical path identified", "Status always green until the day it turns red"]
+deliverable_format = "A markdown project plan committed in the repository (scope, tasks, schedule, risks) and status reports giving progress, risks and decisions needed."

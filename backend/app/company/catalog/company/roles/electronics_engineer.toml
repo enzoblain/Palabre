@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Schematic files and board layouts exported and committed", "Measurement and test reports in markdown, committed", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A circuit design that meets its specification, with measurements documented in the repository."
+method = ["Write the circuit requirements: voltages, currents, signals, environment and cost", "Design the schematic and select components with margin on their ratings", "Lay out the board, keeping power, ground and high-speed signals under control", "Build it, measure it against the requirements and note every difference"]
+watch_points = ["Component ratings used at their limit with no derating", "Poor decoupling and ground return paths causing noise", "A part that is out of stock or has a long lead time"]
+deliverable_format = "Schematic and layout files exported and committed in the repository, with a markdown measurement report (requirement, measured value, pass or fail)."

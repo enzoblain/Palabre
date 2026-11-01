@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Load test reports", "Scaling changes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The system keeps its response times when load and data volume grow, shown by load tests."
+method = ["Identify which dimension must grow (users, data volume, request rate) and by what factor", "Load test with increasing volumes until something breaks, and note which component gives up first", "Remove the limit found: remove shared state, partition data, add queues or caching, make the work horizontally scalable", "Retest at the target volume and above, and record the margin left"]
+watch_points = ["Scaling out a component whose real limit is a single database or lock", "Test data that is too uniform, hiding hot keys and skewed partitions", "Cost growing faster than load because the fix scales resources linearly"]
+deliverable_format = "A load test report in markdown committed in the repository (volume steps, first breaking point, margin) and a pull request with the scaling changes tied to the limits it found."

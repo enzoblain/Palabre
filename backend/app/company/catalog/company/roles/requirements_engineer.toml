@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Requirements document", "Traceability matrix"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Requirements that are complete, consistent and testable, with traceability to the tests."
+method = ["Elicit the requirements from stakeholders, existing documents and the current system", "Rewrite each one as a single, numbered, verifiable statement", "Check the set for completeness, contradictions and duplicates", "Link every requirement to its source and to the tests or design elements that cover it"]
+watch_points = ["Requirements that bundle several needs in one sentence and cannot be tested separately", "A requirement with no source, so nobody can say whether it is still needed", "A traceability matrix filled in once and never kept up to date"]
+deliverable_format = "A markdown requirements document with numbered requirements and a traceability matrix (requirement, source, design element, test), both committed in the repository."
