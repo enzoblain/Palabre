@@ -97,7 +97,9 @@ async def create_project(
         ]
         team = Team(mode=mode, seed=seed, process=dict(load_catalog()["modes"][mode]["process"]), employees=members)
     elif creation_mode == "auto":
-        roles = await team_selection.select_roles(description or "", employee_count or 0, team_token())
+        if employee_count is None:
+            raise WorkflowError("An automatic team needs an employee count")
+        roles = await team_selection.select_roles(description or "", employee_count, team_token())
         team = generate_team_from_roles(AUTO_TEAM_MODE, roles, seed)
     else:
         team = generate_team(mode, seed)

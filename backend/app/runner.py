@@ -32,6 +32,8 @@ AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
 # Settings layers claude may load. Never project/local: an agent that can write in its cwd
 # could persist a .claude/settings.json (hooks run outside --tools) for its next run
 SETTING_SOURCES = "user"
+# A one-shot call answers in a single turn
+ONESHOT_MAX_TURNS = 1
 # Employee id of a run that belongs to nobody (no session kept, no toolchain)
 NO_EMPLOYEE = 0
 
@@ -266,7 +268,7 @@ async def _run_oneshot(prompt: str, system_prompt: str, model: str, token: str, 
         config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, NO_EMPLOYEE, None, user)
         cmd = [
             settings.claude_bin, "-p", "--output-format", "json", "--setting-sources", SETTING_SOURCES,
-            "--tools", "", "--max-turns", "1", "--model", model, "--append-system-prompt-file", str(system_prompt_file),
+            "--tools", "", "--max-turns", str(ONESHOT_MAX_TURNS), "--model", model, "--append-system-prompt-file", str(system_prompt_file),
         ]  # fmt: skip
         env = _env("Palabre", token, config_dir, config_dir, user, NO_EMPLOYEE)
         try:

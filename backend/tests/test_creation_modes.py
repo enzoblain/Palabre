@@ -209,3 +209,45 @@ async def test_manual_creation_below_the_minimum_is_refused(projects_client):
     assert response.status_code == 422
     assert response.json()["code"] == ErrorCode.TEAM_TOO_SMALL
     assert projects_client.created == []
+
+
+async def test_auto_creation_selects_the_roles_and_uses_the_enterprise_process(monkeypatch):
+    chosen = ["dev_backend", "dev_frontend"]
+    calls = []
+
+    async def select_roles(description, employee_count, token):
+        calls.append((description, employee_count, token))
+        return ["lead", "reviewer", "qa", *chosen]
+
+    async def working_branch(_url):
+        return "dev"
+
+    async def no_op(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(projects.team_selection, "select_roles", select_roles)
+    monkeypatch.setattr(projects, "team_token", lambda: "team-token")
+    monkeypatch.setattr(projects, "working_branch", working_branch)
+    monkeypatch.setattr(projects, "_open_channels", no_op)
+    monkeypatch.setattr(projects, "ensure_direction", no_op)
+    session = SimpleNamespace(add=lambda _obj: None, commit=no_op)
+
+    project = await projects.create_project(
+        session, name="App", repo_url="https://github.com/acme/app", mode="multinational",
+        creation_mode="auto", description="A CRM", employee_count=5,
+    )  # fmt: skip
+
+    assert calls == [("A CRM", 5, "team-token")]
+    assert project.mode == projects.AUTO_TEAM_MODE
+    assert [e.roles[0] for e in project.employees] == ["lead", "reviewer", "qa", *chosen]
+
+
+async def test_auto_creation_refuses_a_missing_employee_count(monkeypatch):
+    async def working_branch(_url):
+        return "dev"
+
+    monkeypatch.setattr(projects, "working_branch", working_branch)
+    with pytest.raises(projects.WorkflowError):
+        await projects.create_project(
+            None, name="App", repo_url="https://github.com/acme/app", mode="multinational", creation_mode="auto",
+        )  # fmt: skip
