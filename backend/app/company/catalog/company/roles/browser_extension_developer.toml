@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend wit
 deliverables = ["Extension code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Extensions work across the supported browsers, request minimal permissions and stay safe."
+method = ["Read the feature and list the browser permissions it really needs", "Implement the background, content and popup parts separately", "Isolate the content script from the page and sanitize anything it injects", "Test on each supported browser", "Submit for review with the manifest changes explained"]
+watch_points = ["Permissions broader than needed", "Injecting page content as HTML without sanitizing", "Manifest version or store policy changes breaking the extension"]
+deliverable_format = "A pull request with the extension code and manifest, each permission justified in the description, and tests for the messaging between parts."

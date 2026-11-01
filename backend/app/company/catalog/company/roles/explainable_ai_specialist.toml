@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Explanation tooling", "Explanation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Model decisions can be explained accurately to the people they affect."
+method = ["Identify who needs the explanation and for which decision", "Choose a method that fits the model type", "Check that explanations are faithful to the model, not only plausible", "Test them with real users for understanding", "Submit the tooling and the findings"]
+watch_points = ["Explanations that look convincing but are wrong", "Explanations too technical for their audience", "Explaining average behavior instead of the single decision"]
+deliverable_format = "A pull request with the explanation tooling and a report showing sample explanations and a faithfulness check."

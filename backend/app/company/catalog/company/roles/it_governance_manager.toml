@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["IT policies", "Compliance gap reports"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "IT decisions, policies and responsibilities are documented and followed."
+method = ["List the IT decisions that need a clear owner", "Check which existing policies cover them and where they conflict", "Write or amend the policy with who decides what", "Publish it and tell the people it concerns", "Measure compliance and report the gaps"]
+watch_points = ["Policies written but never communicated", "Responsibilities shared by several roles with no final decider", "Rules without an exception process"]
+deliverable_format = "A set of IT policies committed to the repository and a compliance gap report listing each rule, its owner and whether it is followed."

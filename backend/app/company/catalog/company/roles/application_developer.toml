@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Application code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The business applications work as specified and are covered by tests."
+method = ["Read the business rule to implement and who uses it", "Model the data and the workflow step by step", "Implement the rule in one place, not in each screen", "Test the rule with its edge cases and wrong inputs", "Submit for review with an example of the new behavior"]
+watch_points = ["Business rules duplicated in several places", "Edge cases found only by users", "Features added without asking who needs them"]
+deliverable_format = "A pull request with the application code and tests that express the business rule, and a short example of the behavior in the description."

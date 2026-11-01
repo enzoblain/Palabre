@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture map", "Standards and guidelines"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The company's systems stay coherent and aligned with its strategy."
+method = ["Map the existing applications, data and their dependencies", "Identify redundancies and inconsistencies across them", "Define common standards and target principles", "Plan the transition from the current to the target state", "Review new projects against the standards"]
+watch_points = ["Standards imposed without a path to adopt them", "A map out of date within weeks", "Local needs ignored for the sake of uniformity"]
+deliverable_format = "An architecture map and a standards and guidelines document committed to the repository, with a transition plan between current and target state."

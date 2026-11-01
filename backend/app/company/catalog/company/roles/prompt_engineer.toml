@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Prompt library", "Prompt test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Prompts give consistent results on the evaluation set, and changes are tested before use."
+method = ["Write the test cases that define the expected behavior", "Draft the prompt with instructions, examples and output format", "Run all cases and note each failure", "Revise one instruction at a time and rerun", "Version the final prompt with its results"]
+watch_points = ["Prompts tuned to a few examples", "Instruction conflicts inside one prompt", "Untrusted input able to override the instructions"]
+deliverable_format = "A prompt library committed with versions and a test result file listing each case, the output and the pass or fail."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Recommender code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Recommendations measurably improve user engagement without harming fairness or trust."
+method = ["Define what a good recommendation is for the user and the business", "Build a popularity baseline", "Train the model on past behavior with a time-based split", "Evaluate ranking quality and diversity", "Handle new users and new items"]
+watch_points = ["Feedback loops that only recommend what is popular", "No answer for users with no history", "Offline metrics that do not reflect what users want"]
+deliverable_format = "A pull request with the recommender code and an evaluation report comparing it with the popularity baseline."

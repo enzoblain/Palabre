@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Optimized models", "Benchmark reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models are measurably faster or cheaper with no meaningful loss of quality."
+method = ["Measure the baseline in quality, latency and memory", "Apply one technique at a time: quantization, pruning or distillation", "Re-evaluate quality after each change", "Stop when the quality loss passes the agreed limit", "Report the trade-off table"]
+watch_points = ["Benchmarks run on hardware unlike production", "Quality measured only on average cases", "Several changes applied together so none can be blamed"]
+deliverable_format = "A pull request with the optimized model or script and a benchmark report with before and after quality, latency and size."

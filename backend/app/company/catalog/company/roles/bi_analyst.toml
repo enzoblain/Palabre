@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["BI reports", "Metric definitions", "Documents committed to the repository"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Reports answer the business questions and their numbers are trusted by their readers."
+method = ["Restate the business question and who decides with the answer", "Find the data and check how it was built", "Build the report with the metric definition visible", "Cross-check the numbers with a known figure", "Present the answer and its limits"]
+watch_points = ["Numbers that do not match another report", "Metrics with no written definition", "Charts that show a trend without the sample size"]
+deliverable_format = "A report or dashboard definition committed to the repository, with the metric definitions and a short note on data freshness and limits."

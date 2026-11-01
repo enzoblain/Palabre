@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["IoT architecture documents", "Device communication designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Connected-device systems are secure, scalable and updatable in the field."
+method = ["Describe the devices, their constraints and the data they send", "Choose the protocols and the gateway layout", "Design device identity, provisioning and updates", "Plan how the cloud side ingests and stores the data", "Document the behavior when connectivity drops"]
+watch_points = ["Devices that cannot be updated remotely", "Credentials shared by all devices", "Designs assuming permanent connectivity"]
+deliverable_format = "An IoT architecture document and device communication designs committed to the repository, including the offline and update behavior."

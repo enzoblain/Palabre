@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Game code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Game features work as designed, run at a steady frame rate and are free of blocking bugs."
+method = ["Read the design of the feature and the target frame budget", "Implement it with data-driven values the designers can tweak", "Play the feature with edge cases like pausing or restarting", "Profile it for frame time and memory", "Open the pull request with the profiling figures"]
+watch_points = ["Gameplay values hard-coded in the logic", "Frame spikes from allocations during play", "State not reset when a level restarts"]
+deliverable_format = "A pull request with the game code, tests for the rules and a note on the frame time and memory cost of the feature."

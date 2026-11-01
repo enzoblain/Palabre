@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Graph models", "Query code", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Connected data is modeled correctly and queries stay fast as the graph grows."
+method = ["List the entities, relations and the questions asked about them", "Model nodes and edges to answer those questions", "Index the properties used to start a traversal", "Write the queries and check their cost", "Open the pull request with the traversal timings"]
+watch_points = ["Traversals that explode on highly connected nodes", "Using a graph where a table would do", "Edges without direction or type"]
+deliverable_format = "A pull request with the graph model, the query code and timings of the main traversals on realistic data."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Database designs", "Migration strategies"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Schemas stay consistent and performant as the data and the usage grow."
+method = ["Study the access patterns and the expected volumes", "Choose the database engine and the data model", "Define indexes, partitioning and constraints", "Plan how the schema evolves without downtime", "Test the design on realistic data"]
+watch_points = ["Schemas that need a long lock to change", "Indexes added without measuring the queries", "Normalization choices made without looking at read patterns"]
+deliverable_format = "A database design with schema diagram, index plan and a migration strategy committed to the repository, backed by measured query timings."

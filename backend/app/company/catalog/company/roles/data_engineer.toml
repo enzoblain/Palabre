@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data pipeline code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Pipelines deliver complete, timely and tested data."
+method = ["Read the data need and the source system", "Design the target tables and their keys", "Write the load so that it is idempotent", "Add checks for volume, nulls and duplicates", "Submit for review with a backfill plan"]
+watch_points = ["Loads that create duplicates when rerun", "Schema changes upstream breaking the job unnoticed", "Late data overwritten by earlier runs"]
+deliverable_format = "A pull request with the pipeline code, data checks and tests, and a note on how to rerun or backfill."

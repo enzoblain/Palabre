@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Evaluation suites", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Evaluations are reproducible and tell the team whether a change really improves the system."
+method = ["Define with the owner what good means for the system", "Build a representative dataset including hard and adversarial cases", "Choose metrics that match that definition, with human judgment where needed", "Run the evaluation and analyze the failures by category", "Write the report with the confidence of each number"]
+watch_points = ["Test cases leaked into the training or prompt", "A single average hiding a failing category", "Automated judges never calibrated against people"]
+deliverable_format = "An evaluation suite runnable with one command and a report committed to the repository, with scores by category and a sample of failures."

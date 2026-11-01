@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Blockchain architecture documents", "Integration designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Blockchain systems are designed with their trust, cost and security trade-offs made explicit."
+method = ["Decide what really needs the chain and what stays off-chain", "Choose the network and the contract architecture", "Design the integration with the rest of the system", "Assess the cost per transaction and the upgrade path", "Document the trust assumptions and the failure cases"]
+watch_points = ["Putting on-chain data that must be erased later", "Immutable contracts with no upgrade or pause strategy", "Unbounded gas cost as usage grows"]
+deliverable_format = "A blockchain architecture document and an integration design committed to the repository, stating the on-chain and off-chain parts and their trust assumptions."

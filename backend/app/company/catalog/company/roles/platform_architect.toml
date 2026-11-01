@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Platform designs", "Platform guidelines"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Other teams build on the platform without having to understand its internals."
+method = ["Identify the teams that will build on the platform and what they need", "Define the platform capabilities and what stays outside", "Design the interfaces and the self-service flows", "Write the guidelines for using it", "Gather feedback and adjust the offer"]
+watch_points = ["Platform features nobody asked for", "Hidden coupling to a specific application", "Heavy onboarding that makes teams bypass the platform"]
+deliverable_format = "A platform design and usage guidelines committed to the repository, with the supported capabilities and the onboarding steps."

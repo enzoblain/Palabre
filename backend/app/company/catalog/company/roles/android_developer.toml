@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Android app code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The Android app is stable, performs well on the supported devices and passes its tests."
+method = ["Read the screen or feature spec and the existing app structure", "Implement it with lifecycle-aware components", "Handle rotation, process death and slow or missing network", "Test on several API levels and screen sizes", "Open the pull request with the tested API levels listed"]
+watch_points = ["State lost when the system kills the process", "Work done on the main thread", "Permissions requested without a clear reason shown to the user"]
+deliverable_format = "A focused pull request with the Android code, unit and instrumented tests, and the minimum supported API level stated when it changes."

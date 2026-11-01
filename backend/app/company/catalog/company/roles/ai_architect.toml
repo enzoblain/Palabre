@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["AI architecture documents", "Model integration designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "AI components fit the system cleanly, with their cost, risk and limits understood."
+method = ["List the AI features and the quality each one needs", "Decide for each what runs on a model and what stays deterministic", "Design the model access, fallback and cost control", "Define how outputs are evaluated and monitored", "Record the decisions and their alternatives"]
+watch_points = ["A single model provider with no fallback", "Model output trusted without validation", "Unbounded cost per request"]
+deliverable_format = "An AI architecture document and a model integration design committed to the repository, with fallback, cost and evaluation choices."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Infrastructure code", "Capacity reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "AI workloads run on stable, observable infrastructure at a controlled cost."
+method = ["Estimate the memory and compute each workload needs", "Choose the serving and training setup, with scaling rules", "Automate provisioning in code", "Load test and measure cost per request", "Submit for review with the capacity numbers"]
+watch_points = ["Idle accelerators left running", "Cold starts of large models hurting latency", "No quota or limit per consumer"]
+deliverable_format = "A pull request with the infrastructure code and a capacity report listing throughput, latency and cost per unit."

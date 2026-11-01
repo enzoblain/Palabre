@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Commits", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Features work end to end, from the interface to the data, and are tested on both sides."
+method = ["Read the task and decide which parts touch the API and which the interface", "Build the backend change and its tests first", "Build the interface on top of the real API", "Check the whole flow in the running app", "Submit one pull request for both sides"]
+watch_points = ["Frontend and backend contracts drifting apart", "Validation done on one side only", "A large pull request mixing unrelated changes"]
+deliverable_format = "A single pull request containing the backend, the interface and tests for both, with the end-to-end flow described."

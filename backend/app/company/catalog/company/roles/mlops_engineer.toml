@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Pipeline code", "Monitoring dashboards", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models are deployed repeatably, monitored in production and rolled back safely."
+method = ["Automate training as a pipeline that reruns from raw data", "Register each model with its data and code versions", "Deploy with a gradual rollout and a rollback path", "Monitor input drift and prediction quality", "Open the pull request with the monitoring thresholds explained"]
+watch_points = ["Models trained by hand that nobody can rebuild", "Input drift going unnoticed", "No rollback to the previous model"]
+deliverable_format = "A pull request with pipeline code, a model registry setup and monitoring of input drift with alert thresholds."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Multi-agent system code", "Scenario tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Agents cooperate predictably, conflicts are handled and the whole system stays observable."
+method = ["Define each agent's role and what it may do", "Design the messages they exchange and who arbitrates conflicts", "Limit the number of turns and the total cost", "Write scenarios including an agent failing or disagreeing", "Run them and read the exchanges"]
+watch_points = ["Agents looping on each other's messages", "Two agents editing the same thing", "Errors of one agent trusted by the others"]
+deliverable_format = "A pull request with the multi-agent code and scenario tests, with transcripts of the main scenarios."

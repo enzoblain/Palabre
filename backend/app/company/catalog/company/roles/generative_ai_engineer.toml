@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Generative feature code", "Quality evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Generated content meets quality and safety standards at an acceptable cost."
+method = ["Define the content to generate and its quality criteria", "Build the generation with controls on style and length", "Add filters for unsafe or off-brand output", "Evaluate samples with a rubric and with people", "Open the pull request with the rubric scores"]
+watch_points = ["Generated content shown with no check", "Copied text or images from the training source", "Cost growing with long outputs"]
+deliverable_format = "A pull request with the generation code and a quality evaluation of sampled outputs with the rubric used."

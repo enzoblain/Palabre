@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Engine code", "Engine documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The engine is fast, stable and lets game teams build without touching its internals."
+method = ["Define the system with its public interface and the games that will use it", "Implement it without game-specific assumptions", "Write unit tests and a small sample scene", "Benchmark it against the frame budget", "Document the interface and submit for review"]
+watch_points = ["Engine code depending on one specific game", "Interface changes breaking existing games", "Per-frame work that grows with scene size"]
+deliverable_format = "A pull request with the engine code, a sample scene, benchmark numbers and the interface documentation."

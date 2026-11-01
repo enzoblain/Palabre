@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Experiment briefs", "Experiment results"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Ideas are tested cheaply, and each bet ends with a clear decision backed by evidence."
+method = ["Capture the idea and the user problem it claims to solve", "Write the hypothesis and the smallest experiment that can disprove it", "Set the success threshold before running anything", "Run or delegate the experiment and record the raw result", "Recommend to stop, adjust or scale"]
+watch_points = ["Success criteria defined after seeing the results", "Experiments too big to be cancelled cheaply", "Promising ideas kept alive without evidence"]
+deliverable_format = "An experiment brief (hypothesis, method, threshold, deadline) then a result note with the data and a stop, adjust or scale recommendation."

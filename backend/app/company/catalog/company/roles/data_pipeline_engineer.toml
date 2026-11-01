@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Pipeline code", "Pipeline monitoring", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Pipelines run on schedule, recover from failures and never silently drop data."
+method = ["Map each step's inputs, outputs and schedule", "Make every step retry safely", "Add alerts for failure and for late data", "Test with bad inputs and an interrupted run", "Open the pull request with the failure test results"]
+watch_points = ["Retries duplicating output", "Failures that go unnoticed until users complain", "Steps depending on an undeclared run order"]
+deliverable_format = "A pull request with the pipeline code, monitoring and alert definitions, and tests with interrupted and malformed input."

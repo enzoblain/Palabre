@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data definitions", "Issue follow-ups", "Documents committed to the repository"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data in the domain is clearly defined and its quality issues are followed until resolved."
+method = ["Define the terms of the domain in one glossary", "Check that the data matches the definitions", "Log the issues found and chase their owners", "Approve changes to definitions", "Report open issues regularly"]
+watch_points = ["The same field meaning different things", "Issues logged but never followed up", "Definitions changed without informing the users of the data"]
+deliverable_format = "A glossary of data definitions and a log of issues with owner and status, committed to the repository."

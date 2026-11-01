@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Migration code", "Characterization tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Legacy systems are migrated step by step with their behavior preserved and verified."
+method = ["Read the legacy code and write tests capturing what it does today", "Pick a seam where old and new can coexist", "Replace one slice at a time behind that seam", "Compare old and new outputs on real cases", "Submit for review, with the old path still removable"]
+watch_points = ["Rewriting everything at once", "Behavior nobody documented that users depend on", "Removing the old path before the new one is proven"]
+deliverable_format = "A pull request replacing one slice, with characterization tests passing on both paths and a comparison of their outputs."

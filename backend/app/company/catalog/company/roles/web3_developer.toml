@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Web3 application code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Applications connect to decentralized services safely, with failures handled clearly for the user."
+method = ["Read the user flow involving a wallet or a contract", "Implement wallet connection with clear network and account changes handling", "Show the transaction state to the user: pending, confirmed, failed", "Test against a local chain and a testnet", "Open the pull request with the supported networks listed"]
+watch_points = ["Assuming the user stays on the expected network", "Transactions marked successful before confirmation", "Asking signatures with unreadable messages"]
+deliverable_format = "A pull request with the application code and tests against a local chain, and the supported networks and wallets stated."

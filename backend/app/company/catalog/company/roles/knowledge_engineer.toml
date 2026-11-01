@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Knowledge models", "Knowledge base content", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Knowledge is structured consistently so that systems can query and reason with it."
+method = ["Interview the sources to find the concepts and their relations", "Model them as entities, relations and rules", "Load the knowledge and test queries on it", "Check consistency and find contradictions", "Document the model for contributors"]
+watch_points = ["Concepts with two competing definitions", "Rules that contradict each other", "Knowledge that nobody has the job of updating"]
+deliverable_format = "A pull request with the knowledge model, content, and queries or tests proving what the model can answer."

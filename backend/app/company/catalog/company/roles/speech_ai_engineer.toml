@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Speech pipeline code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Speech systems meet their accuracy and latency targets across speakers and conditions."
+method = ["Define the speech task and the accents and noise levels expected", "Collect audio that matches those conditions", "Build the pipeline and measure word error rate by condition", "Check latency for real-time use", "Open the pull request with the latency measurements"]
+watch_points = ["Evaluation on clean studio audio only", "Voice recordings stored without consent", "Latency too high for conversation"]
+deliverable_format = "A pull request with the speech pipeline code and a report of error rates by accent and noise condition, with latency."

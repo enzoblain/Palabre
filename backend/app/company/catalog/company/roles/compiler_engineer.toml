@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Compiler code", "Test suites", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Programs compile and run correctly, and the toolchain is fast and well tested."
+method = ["Specify the language feature with sample programs and expected output", "Extend the parser, then the analysis, then the code generation", "Add a test for each new rule and each error message", "Run the whole suite and compare the output with the reference", "Open the pull request with the full suite passing"]
+watch_points = ["Error messages without line and column", "A change in one phase silently altering another's output", "Optimizations that change program behavior"]
+deliverable_format = "A pull request with the compiler change, source-to-output tests for the new feature and tests of its error messages."

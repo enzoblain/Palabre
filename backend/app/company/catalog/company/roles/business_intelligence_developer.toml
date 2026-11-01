@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["BI reports", "Data models", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Reports and dashboards are accurate, fast and used by the business."
+method = ["Collect the report requirements and the audience", "Model the data for the questions asked", "Build the visuals with filters people need", "Check the totals against the source system", "Open the pull request with the reconciled totals"]
+watch_points = ["Totals that differ from the source", "Dashboards slow because of unneeded detail", "Filters that quietly change the metric meaning"]
+deliverable_format = "A pull request with the report definitions and data models, with a reconciliation against the source totals."

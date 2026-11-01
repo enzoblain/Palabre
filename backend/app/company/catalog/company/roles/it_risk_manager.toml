@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Risk register", "Mitigation plans"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "IT risks are identified, rated and owned, with mitigations tracked to completion."
+method = ["Identify the IT assets and what could threaten each", "Rate each risk by likelihood and impact", "Choose to avoid, reduce, transfer or accept it", "Write mitigation plans with owners and dates", "Review the register when systems change"]
+watch_points = ["A register that is never updated after its first version", "Risks accepted without a named person accountable", "Mitigations with no deadline"]
+deliverable_format = "A risk list in the security audit report, plus security tickets with an owner and a due date for each mitigation."

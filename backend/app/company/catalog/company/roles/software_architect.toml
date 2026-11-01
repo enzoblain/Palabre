@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture documents", "Design decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The code stays consistent, understandable and easy to evolve."
+method = ["Read the code structure and where it hurts to change", "Identify the stable parts and the ones that will evolve", "Define module boundaries and dependency rules", "Write the design for the next change and its trade-offs", "Review pull requests for respect of the boundaries"]
+watch_points = ["Abstractions added before a second use case exists", "Circular dependencies between modules", "Designs not matching the actual code"]
+deliverable_format = "An architecture document and design decision records committed to the repository, with the module boundaries and the dependency rules."

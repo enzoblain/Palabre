@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Domain models", "Boundary definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The domain model and its boundaries stay clear, and teams can evolve it independently."
+method = ["Read the code and the tasks to find the domain vocabulary", "Identify the entities and the rules of the domain", "Draw the boundaries between sub-domains", "Define what crosses each boundary", "Check that the code respects the boundaries"]
+watch_points = ["Boundaries drawn along the technical layers instead of the business", "One term meaning different things in different places", "Shared models that couple the sub-domains"]
+deliverable_format = "A domain model and a document of boundary definitions committed to the repository, with a glossary of the domain terms."

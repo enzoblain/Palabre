@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["LLM pipeline code", "Monitoring dashboards", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "LLM applications run in production with monitoring, cost control and safe rollouts."
+method = ["Log every request with its prompt version, tokens and latency", "Set alerts on error rate, cost and quality drift", "Version prompts and models and allow rollback", "Run the evaluation set before each change goes live", "Submit for review with the dashboards"]
+watch_points = ["Prompts edited in production without a version", "Logs holding personal data indefinitely", "Cost spikes found only on the invoice"]
+deliverable_format = "A pull request with the pipeline code and dashboards definitions showing cost, latency and quality over time."

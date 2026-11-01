@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Graphics code", "Performance measurements", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Rendering is correct and meets its frame-time budget on the target hardware."
+method = ["Read the visual target and the performance budget", "Implement the rendering step in isolation", "Check it on low-end and high-end hardware", "Capture a frame profile before and after", "Submit for review with the captures"]
+watch_points = ["Visual changes that only look right on one GPU", "Costs hidden in extra draw calls or overdraw", "Precision artifacts at large distances"]
+deliverable_format = "A pull request with the graphics code and before and after screenshots with frame timings."

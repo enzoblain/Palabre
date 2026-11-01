@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Integration code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "AI services are integrated without breaking existing systems and degrade gracefully when they fail."
+method = ["Read the existing system and where the AI service plugs in", "Wrap the service behind an interface of our own", "Add timeouts, retries and a degraded mode", "Test with the service mocked and with real calls", "Open the pull request with the mocked and real call results"]
+watch_points = ["Provider calls scattered across the code", "No behavior when the service is down", "Sensitive data sent to the provider without need"]
+deliverable_format = "A pull request with the integration code behind a local interface, tests with mocked service and the degraded behavior described."
