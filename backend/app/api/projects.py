@@ -19,7 +19,7 @@ from app.api.schemas import (
     ProjectIn,
     ProjectOut,
 )
-from app.company.catalog import load_catalog, team_permission_error
+from app.company.catalog import MANDATORY_ROLE, MIN_AUTO_TEAM_SIZE, load_catalog, team_permission_error
 from app.company.team import kind_of_mode, render_system_prompt
 from app.models import Employee, Project
 from app.orchestrator.dispatcher import orchestrator
@@ -28,6 +28,9 @@ from app import services
 from app.services import boss_display_name
 
 router = APIRouter(tags=["projects"])
+
+# Only checked at the API: the team is not yet drawn from them (roles of an automatic team come later)
+CREATION_FIELDS = {"creation_mode", "description", "employee_count"}
 
 
 async def _project(s, project_id: int) -> Project:
@@ -77,13 +80,39 @@ async def create_project(body: ProjectIn, s: SessionDep):
                 ErrorCode.INVALID_REPOSITORY,
                 str(exc),
             ) from None
+    _check_creation_mode(body, kind)
     _check_accounts(body.accounts.values())
     if body.employees is not None:
         _check_team(body.employees, kind)
-    project = await projects.create_project(s, **body.model_dump())
+    project = await projects.create_project(s, **body.model_dump(exclude=CREATION_FIELDS))
     if body.employees and kind == "company":
         projects.plan_custom_channels_later(project.id)
     return _detail(await _project(s, project.id))
+
+
+def _invalid_creation(code: ErrorCode, message: str) -> ApiError:
+    return ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, code, message)
+
+
+def _check_creation_mode(body: ProjectIn, kind: str) -> None:
+    """Manual: the team is listed and holds the mandatory member. Automatic: a description
+    and at least MIN_AUTO_TEAM_SIZE employees, no list."""
+    if body.creation_mode is None:
+        return
+    if kind != "company":
+        raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "Manual and automatic creation are for companies")
+    if body.creation_mode == "manual":
+        if body.employees is None:  # a listed team is checked by `_check_team`
+            raise _invalid_creation(ErrorCode.LEAD_REQUIRED, f"A manual team is listed and holds the {MANDATORY_ROLE}")
+        return
+    if body.employees is not None:
+        raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "An automatic team is not listed by hand")
+    if not (body.description or "").strip():
+        raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "An automatic team needs a project description")
+    if body.employee_count is None or body.employee_count < MIN_AUTO_TEAM_SIZE:
+        raise _invalid_creation(
+            ErrorCode.TEAM_TOO_SMALL, f"An automatic team needs at least {MIN_AUTO_TEAM_SIZE} employees"
+        )
 
 
 def _check_team(employees: list[MemberIn], kind: str) -> None:
@@ -113,11 +142,11 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
                 ErrorCode.UNKNOWN_PERSONALITY,
                 f"{e.name}: unknown personality {e.personality}",
             )
-    if kind == "company" and not any("lead" in e.roles for e in employees):
+    if kind == "company" and not any(MANDATORY_ROLE in e.roles for e in employees):
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.LEAD_REQUIRED,
-            "The team needs a lead (they organize and merge)",
+            f"The team needs a {MANDATORY_ROLE} (they organize and merge)",
         )
     if problem := team_permission_error([e.roles for e in employees], kind):
         raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_TEAM_PERMISSIONS, problem)

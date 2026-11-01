@@ -155,6 +155,14 @@ class PersonalityPresetOut(BaseModel):
     style: dict[str, str]
 
 
+class RandomPersonalityOut(BaseModel):
+    """A drawn personality, ready to be used as a member's traits, quirks and style."""
+
+    traits: dict[str, int]
+    quirks: list[str]
+    style: dict[str, str]
+
+
 class ProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     # Mode: company (startup...) or research (duo...). It sets the rules and, without
@@ -169,6 +177,12 @@ class ProjectIn(BaseModel):
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
+    # How a company team is made: "manual" (the `employees` list, the lead included) or "auto"
+    # (`description` and `employee_count`); none: drawn for the mode, as before
+    creation_mode: Literal["manual", "auto"] | None = None
+    # Auto: what the project is about, and how many employees to hire (the lead included)
+    description: str | None = Field(default=None, max_length=10000)
+    employee_count: int | None = Field(default=None, le=MAX_TEAM_SIZE)
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=MAX_TEAM_SIZE)
 

@@ -177,6 +177,18 @@ def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee
     return team.employees[index]
 
 
+def random_personality(kind: str, seed: int | None = None) -> dict:
+    """A random but valid personality (traits, quirks and style) of this kind of project."""
+    rng = random.Random(seed)
+    personality = personality_for(kind)
+    traits = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
+    return {
+        "traits": traits,
+        "quirks": rng.sample(personality["quirks"], rng.randint(1, 2)),
+        "style": {k: rng.choice(v) for k, v in personality["style"].items()},
+    }
+
+
 def _draw_traits(rng: random.Random, personality: dict, n: int) -> list[dict[str, int]]:
     axes = personality["axes"]
     levels = personality["levels"]
