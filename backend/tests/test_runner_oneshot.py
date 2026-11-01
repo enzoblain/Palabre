@@ -58,7 +58,7 @@ async def test_returns_the_answer_with_no_tool_and_the_prompt_on_stdin(claude):
     assert await call() == '["qa"]'
     args = list(claude.args)
     assert args[args.index("--tools") + 1] == "" and args[args.index("--model") + 1] == "haiku"
-    assert "--mcp-config" not in args and "Pick roles" not in args
+    assert "--mcp-config" not in args and "--strict-mcp-config" in args and "Pick roles" not in args
     assert claude.stdin == b"Pick roles"
 
 

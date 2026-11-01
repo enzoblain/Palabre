@@ -268,7 +268,7 @@ async def _run_oneshot(prompt: str, system_prompt: str, model: str, token: str, 
         config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, NO_EMPLOYEE, None, user)
         cmd = [
             settings.claude_bin, "-p", "--output-format", "json", "--setting-sources", SETTING_SOURCES,
-            "--tools", "", "--max-turns", str(ONESHOT_MAX_TURNS), "--model", model, "--append-system-prompt-file", str(system_prompt_file),
+            "--tools", "", "--strict-mcp-config", "--max-turns", str(ONESHOT_MAX_TURNS), "--model", model, "--append-system-prompt-file", str(system_prompt_file),
         ]  # fmt: skip
         env = _env("Palabre", token, config_dir, config_dir, user, NO_EMPLOYEE)
         try:
