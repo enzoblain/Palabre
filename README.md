@@ -5,8 +5,9 @@ software team builds your product: a lead organizes the work, developers open pu
 requests, reviewers and QA check them before anything is merged. Or give it a topic
 and a research group searches the web, debates and writes you a sourced report.
 
-You are the CEO. You talk to your team in chat rooms, like you would on Slack, from a
-desktop app or your phone's browser. The agents run on [Claude Code](https://claude.com/claude-code),
+You are the CEO. You talk only to the lead (the CTO), in the `#direction` channel, from a
+desktop app or your phone's browser; the lead relays to the team. The agents talk to each
+other in their own team channels, like colleagues on Slack, and you do not see those. The agents run on [Claude Code](https://claude.com/claude-code),
 billed on your Claude subscription, on a server you host yourself (a NAS is enough).
 
 - [How it works](#how-it-works)
