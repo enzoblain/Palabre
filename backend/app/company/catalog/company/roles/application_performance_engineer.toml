@@ -1,0 +1,11 @@
+title = "Application Performance Engineer"
+description = "Application Performance Engineer: keep the application fast under real usage."
+category = "performance_reliability"
+archetype = "dev_backend"
+order = 1103
+mission = "Keep the application fast under real usage."
+responsibilities = ["Trace slow requests end to end", "Tune queries, caches and concurrency", "Track response-time indicators after each change", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Performance findings", "Tuning patches", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Measured response times and resource use stay within target under real usage."

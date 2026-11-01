@@ -1,0 +1,11 @@
+title = "Graphic Designer"
+description = "Graphic Designer: create the graphic assets the product needs."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1309
+mission = "Create the graphic assets the product needs."
+responsibilities = ["Design icons, illustrations and visuals", "Follow the brand guidelines", "Deliver assets in usable formats"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Graphic assets", "Asset specs"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Graphic assets that follow the brand, are delivered in the right formats and need no rework."

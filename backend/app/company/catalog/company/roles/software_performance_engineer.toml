@@ -1,0 +1,11 @@
+title = "Software Performance Engineer"
+description = "Software Performance Engineer: make the code faster and lighter in CPU and memory."
+category = "performance_reliability"
+archetype = "dev_backend"
+order = 1102
+mission = "Make the code faster and lighter in CPU and memory."
+responsibilities = ["Profile CPU, memory and allocations", "Optimize algorithms and data structures", "Add benchmarks that guard against regressions", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Optimized code", "Benchmark suite", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "CPU and memory use drop by a measured amount, without changing the behavior."

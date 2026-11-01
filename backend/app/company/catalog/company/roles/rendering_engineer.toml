@@ -1,0 +1,11 @@
+title = "Rendering Engineer"
+description = "Rendering Engineer: make the game render fast and look right."
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+order = 1503
+mission = "Make the game render fast and look right."
+responsibilities = ["Implement and optimize the rendering pipeline", "Profile GPU and CPU frame cost", "Support the target platforms", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Rendering code", "Frame profiles", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "A renderer that holds the target frame rate and produces the intended image on the target hardware."

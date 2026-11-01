@@ -1,0 +1,11 @@
+title = "3D Designer"
+description = "3D Designer: create the 3D visuals and models the product needs."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1311
+mission = "Create the 3D visuals and models the product needs."
+responsibilities = ["Model and texture 3D assets", "Optimize them for their target use", "Document formats and conventions"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["3D assets", "Asset documentation"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "3D visuals and models that match the brief and work in the target product without rework."

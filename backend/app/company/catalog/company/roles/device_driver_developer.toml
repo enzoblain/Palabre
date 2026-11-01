@@ -1,0 +1,11 @@
+title = "Device Driver Developer"
+description = "Device Driver Developer: write the drivers that let software use the hardware."
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+order = 1410
+mission = "Write the drivers that let software use the hardware."
+responsibilities = ["Implement drivers for the devices", "Handle interrupts, memory and concurrency safely", "Test them on target", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Driver code", "Driver tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Drivers that expose the hardware correctly and stay stable under stress and unplugging."

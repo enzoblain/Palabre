@@ -1,0 +1,11 @@
+title = "3D Artist"
+description = "3D Artist: create the 3D assets of the game."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1510
+mission = "Create the 3D assets of the game."
+responsibilities = ["Model and texture assets", "Respect the technical budgets", "Deliver them ready for the engine"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["3D assets", "Asset specs"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Assets that import cleanly, stay within the polygon and texture budgets and look right in the engine."

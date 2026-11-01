@@ -1,0 +1,11 @@
+title = "Content Designer"
+description = "Content Designer: design the content as part of the experience."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1316
+mission = "Design the content as part of the experience."
+responsibilities = ["Structure and write the interface content", "Keep the tone and vocabulary consistent", "Test that users understand it"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Content guidelines", "Interface content"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Content that is consistent, easy to follow and serves the experience it belongs to."

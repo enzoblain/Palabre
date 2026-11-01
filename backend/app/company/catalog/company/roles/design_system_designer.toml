@@ -1,0 +1,11 @@
+title = "Design System Designer"
+description = "Design System Designer: build and maintain the design system."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1312
+mission = "Build and maintain the design system."
+responsibilities = ["Define reusable components and tokens", "Document how and when to use them", "Review new designs for consistency with the system"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Component library design", "Usage guidelines"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "A design system whose components are consistent, documented and actually reused."

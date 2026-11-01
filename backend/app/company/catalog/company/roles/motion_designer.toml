@@ -1,0 +1,11 @@
+title = "Motion Designer"
+description = "Motion Designer: use motion to make the interface clearer and livelier."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1310
+mission = "Use motion to make the interface clearer and livelier."
+responsibilities = ["Design transitions and animations", "Specify durations and easing", "Keep motion accessible and light"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Motion specs", "Animation prototypes"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Animations that clarify the interface, stay smooth and can be turned off when users ask."

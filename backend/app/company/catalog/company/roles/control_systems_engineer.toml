@@ -1,0 +1,11 @@
+title = "Control Systems Engineer"
+description = "Control Systems Engineer: design controllers that keep systems stable and accurate."
+category = "iot_robotics_embedded"
+archetype = "dev_backend"
+order = 1421
+mission = "Design controllers that keep systems stable and accurate."
+responsibilities = ["Model the system", "Design and tune the controllers", "Check stability and robustness", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Control designs", "Tuning results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Controllers that stay stable and accurate within the specified margins, including under disturbances."

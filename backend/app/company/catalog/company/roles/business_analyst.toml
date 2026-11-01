@@ -1,0 +1,11 @@
+title = "Business Analyst"
+description = "Business Analyst: understand the business need and express it clearly."
+category = "product_project_management"
+archetype = "product_owner"
+order = 1216
+mission = "Understand the business need and express it clearly."
+responsibilities = ["Interview stakeholders and collect needs", "Model the business rules and processes", "Write requirements the team can build"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Requirements", "Process models"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "Business needs written so clearly that developers build the right thing without asking again."

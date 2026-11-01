@@ -1,0 +1,11 @@
+title = "Sound Designer"
+description = "Sound Designer: create and integrate the sounds that shape the experience."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1515
+mission = "Create and integrate the sounds that shape the experience."
+responsibilities = ["Design sound effects and ambiances", "Integrate audio with the game events", "Balance and optimize the audio"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Audio assets", "Audio integration specs"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Sounds that fit the experience, are mixed clearly and integrate without glitches or memory excess."

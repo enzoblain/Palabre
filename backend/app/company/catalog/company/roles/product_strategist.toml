@@ -1,0 +1,11 @@
+title = "Product Strategist"
+description = "Product Strategist: define where the product goes in the long term."
+category = "product_project_management"
+archetype = "product_owner"
+order = 1206
+mission = "Define where the product goes in the long term."
+responsibilities = ["Study the market, users and alternatives", "Shape the product vision and positioning", "Break the vision into roadmap bets"]
+forbidden = ["Imposing technical choices", "Merging"]
+deliverables = ["Product strategy", "Roadmap options"]
+escalation = "Unclear or contradictory need → ask the boss."
+success = "A product vision and strategy the team understands and uses to choose what comes next."

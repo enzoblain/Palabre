@@ -1,0 +1,11 @@
+title = "Environment Artist"
+description = "Environment Artist: create the worlds the player explores."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1512
+mission = "Create the worlds the player explores."
+responsibilities = ["Build environment assets and scenes", "Light and compose the spaces", "Respect performance budgets"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Environment assets", "Scene setups"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Worlds that look coherent, run within the performance budget and guide the player naturally."

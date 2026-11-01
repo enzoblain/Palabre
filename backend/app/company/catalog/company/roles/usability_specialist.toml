@@ -1,0 +1,11 @@
+title = "Usability Specialist"
+description = "Usability Specialist: find what makes the product hard to use."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1321
+mission = "Find what makes the product hard to use."
+responsibilities = ["Run usability tests and reviews", "Rank the problems found by impact", "Recommend concrete improvements"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Usability reports", "Improvement recommendations"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Usability problems found with real users, ranked by severity and fixed in the product."
