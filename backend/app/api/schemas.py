@@ -72,6 +72,8 @@ class RoleOut(BaseModel):
 class CatalogLimitsOut(BaseModel):
     models: list[str]
     max_agents: int
+    min_team_size: int
+    mandatory_role: str
 
 
 # --- Employees ---------------------------------------------------------------------
