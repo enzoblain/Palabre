@@ -1,13 +1,8 @@
 """REST endpoints for application settings."""
 
-from dataclasses import asdict
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, status
 
-from sqlalchemy import select
-
-from app import claude_usage, services, usage
+from app import claude_usage, services
 from app.accounts import account_count
 from app.api.deps import SessionDep
 from app.api.errors import ApiError, ErrorCode
@@ -17,12 +12,8 @@ from app.api.schemas import (
     AppSettingsOut,
     ModelUsageOut,
     QuotaOut,
-    UsageEntry,
-    UsageOut,
-    UsageTotals,
     UsageWindowOut,
 )
-from app.models import AgentRun, Employee, Project
 
 router = APIRouter(tags=["settings"])
 
@@ -57,19 +48,6 @@ async def update_settings(body: AppSettingsIn, s: SessionDep):
     return _settings()
 
 
-def _entries(by_period: dict[str, dict], names: dict[int | None, str]) -> list[UsageEntry]:
-    keys = {k for period in usage.PERIODS for k in by_period[period]}
-    empty = usage.Totals()
-    return [
-        UsageEntry(
-            id=k,
-            name=names.get(k),
-            **{p: UsageTotals(**asdict(by_period[p].get(k, empty))) for p in usage.PERIODS},
-        )
-        for k in sorted(keys, key=lambda k: (k is None, k))
-    ]
-
-
 def _window(w: claude_usage.Window | None) -> UsageWindowOut | None:
     return UsageWindowOut(used_percent=w.used_percent, resets_at=w.resets_at) if w else None
 
@@ -89,29 +67,4 @@ async def get_quota():
             )
             for a in await claude_usage.fetch_all()
         ]
-    )
-
-
-@router.get("/settings/usage", response_model=UsageOut)
-async def get_usage(s: SessionDep):
-    """Claude usage of the agents' runs by account, employee and project, for today (UTC),
-    the last 7 days and since the beginning. Tokens and cost are what claude reported."""
-    rows = (
-        await s.execute(
-            select(
-                AgentRun.started_at, AgentRun.account, AgentRun.employee_id, Employee.project_id,
-                AgentRun.input_tokens, AgentRun.output_tokens, AgentRun.cache_creation_tokens,
-                AgentRun.cache_read_tokens, AgentRun.cost_usd,
-            ).join(Employee, Employee.id == AgentRun.employee_id)
-        )
-    ).all()  # fmt: skip
-    agg = usage.aggregate(rows, datetime.now(UTC))
-    employees = {e.id: e.name for e in await s.scalars(select(Employee))}
-    projects = {p.id: p.name for p in await s.scalars(select(Project))}
-    total = {p: UsageTotals(**asdict(usage.sum_totals(agg[p]["account"].values()))) for p in usage.PERIODS}
-    return UsageOut(
-        accounts=_entries({p: agg[p]["account"] for p in usage.PERIODS}, {}),
-        employees=_entries({p: agg[p]["employee"] for p in usage.PERIODS}, employees),
-        projects=_entries({p: agg[p]["project"] for p in usage.PERIODS}, projects),
-        **total,
     )
