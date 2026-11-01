@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Performance reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Workloads that scale on the target hardware."
+method = ["Characterize the workload: compute-bound, memory-bound or communication-bound", "Optimize the kernels and the data layout for the target hardware", "Scale across nodes with job scripts and communication tuning", "Record performance per resource with reproducible runs"]
+watch_points = ["Tuning for one cluster in a way that breaks elsewhere", "Wasting allocation hours on untested job scripts", "Results that change with the node count"]
+deliverable_format = "A pull request with optimized code, batch job scripts and a strong and weak scaling report on the target machine."

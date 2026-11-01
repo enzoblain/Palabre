@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Data architecture documents", "Data flow diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Data is stored and shared in a consistent, secure and scalable way."
+method = ["Inventory the data sources, their formats and owners", "Model the main entities and how they relate", "Design storage and flows between the systems", "Define consistency, retention and access rules", "Validate the design against the heaviest queries"]
+watch_points = ["Duplicated data with no single source of truth", "Flows with no ownership of the data quality", "Designs ignoring how the data is actually queried"]
+deliverable_format = "A data architecture document and data flow diagrams committed to the repository, each flow with its source, owner and refresh rate."

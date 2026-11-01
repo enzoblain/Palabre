@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Comparisons", "Purchase proposals"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Purchases that match needs and budget."
+method = ["Gather the requirement and budget from the requester", "Compare suppliers on cost, support terms and security", "Negotiate and verify the contract conditions", "Record the order and the delivery against the contract"]
+watch_points = ["Choosing on price while ignoring support and exit terms", "Orders bypassing the approval chain", "Auto-renewing contracts nobody tracks"]
+deliverable_format = "A procurement file with the requirement, compared offers, the decision, the contract and its renewal date."

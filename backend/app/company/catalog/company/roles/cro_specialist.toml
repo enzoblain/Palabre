@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Test plans", "Results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Conversion gains that are statistically sound."
+method = ["Analyze the funnel data and session recordings to find drop-offs", "Form a hypothesis from the observed behavior", "Design and run an A/B test with a calculated sample size", "Roll out the winner and record what was learned"]
+watch_points = ["Declaring a winner on too little traffic", "Testing cosmetic changes on a page nobody reaches", "Segments diluting a real effect"]
+deliverable_format = "A test plan and results report with hypothesis, variants, sample size, outcome and the shipped change."

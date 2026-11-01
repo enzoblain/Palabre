@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Root cause analyses", "Known error records"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Recurring incidents eliminated at the root."
+method = ["Group the incidents sharing symptoms into a problem record", "Run a root cause analysis with the evidence", "Document the workaround and propose the permanent fix", "Track the fix through change management until incidents stop"]
+watch_points = ["Stopping at the first plausible cause", "A workaround that becomes permanent", "Problem records left open without an owner"]
+deliverable_format = "A problem record with linked incidents, root cause analysis, workaround and a permanent fix tracked to closure."

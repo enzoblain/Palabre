@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Search code", "Relevance evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Users find what they look for quickly, and relevance is measured and improved."
+method = ["Collect real queries and what users expected to find", "Define the index fields and the analysis of text", "Tune ranking with a judged set of queries", "Measure relevance before and after each change", "Open the pull request with the relevance figures"]
+watch_points = ["Tuning for one query and breaking others", "Index updates lagging behind the source", "No handling of typos or empty results"]
+deliverable_format = "A pull request with the search code and a relevance evaluation giving the metrics on the judged queries."

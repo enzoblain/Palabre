@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Impact analyses"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Personalization that is measured and privacy-safe."
+method = ["Define what is personalized and for which segments", "Build the decision logic with a safe default for unknown users", "Measure the lift against a non-personalized control", "Add controls for users to see and reset what is used"]
+watch_points = ["Personalization built on sensitive attributes", "Feedback loops narrowing what users see", "No control group, so no proof of effect"]
+deliverable_format = "A pull request with the personalization logic and fallback, a control-group evaluation and a note on the data used."

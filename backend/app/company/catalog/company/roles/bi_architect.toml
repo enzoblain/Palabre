@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["BI architecture documents", "Metric standards"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The BI platform delivers consistent metrics across reports and scales with the usage."
+method = ["Inventory the reports and the metrics used", "Define one shared definition per metric", "Design the semantic layer and the models under it", "Set the refresh and access rules", "Document the standards for report builders"]
+watch_points = ["Same metric calculated several ways", "Reports reading raw tables directly", "Access rules that expose sensitive figures"]
+deliverable_format = "A BI architecture document and metric standards committed to the repository, with the definition and owner of each shared metric."

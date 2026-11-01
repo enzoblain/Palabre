@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Prototype commits", "Experiment reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Conclusions that hold up to reproduction."
+method = ["Turn the research question into a falsifiable hypothesis", "Design the experiment and fix the metrics before running it", "Run it with seeds, configs and raw outputs recorded", "Analyze the results honestly, including the negative ones"]
+watch_points = ["Changing the metric after seeing the results", "Conclusions drawn from a single run", "Positive results reported while failed attempts stay hidden"]
+deliverable_format = "A research report committed with the hypothesis, protocol, results tables and a clear conclusion, plus the scripts to reproduce them."

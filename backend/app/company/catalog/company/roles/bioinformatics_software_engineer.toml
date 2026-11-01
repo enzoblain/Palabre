@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Tools that are tested and fast on real data."
+method = ["Learn the formats and tools the scientists use", "Build the software component with tests on small reference datasets", "Make the processing efficient for large sequence files", "Release it with documentation scientists can follow"]
+watch_points = ["Reading entire sequence files into memory", "Different tool versions giving different outputs", "Tools released without example data"]
+deliverable_format = "A pull request with the tested software, a small reference dataset and a usage guide for scientists."

@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Privacy assessments", "Data processing records"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Personal data is processed lawfully, and privacy risks are assessed and tracked."
+method = ["List where personal data is collected, stored and shared", "Find the legal basis for each use", "Check retention, deletion and consent handling", "Record the processing activities", "Report gaps with the fix required"]
+watch_points = ["Personal data copied into logs or analytics", "Deletion requests not reaching backups or copies", "Purposes extended after collection"]
+deliverable_format = "A privacy assessment and a record of data processing committed to the repository, with the legal basis and retention of each processing."

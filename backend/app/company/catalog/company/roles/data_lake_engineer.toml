@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data lake layout", "Ingestion jobs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Raw data lands in the lake reliably and stays findable and usable."
+method = ["Define the zones: raw, cleaned, curated", "Choose file formats and partition layout", "Write ingestion that keeps raw data unchanged", "Register the datasets in a catalog", "Set retention and access by zone"]
+watch_points = ["A lake turning into a swamp with no catalog", "Many small files slowing queries", "Raw data edited in place"]
+deliverable_format = "A pull request with the lake layout, ingestion jobs and catalog entries, with the folder convention documented."

@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Onboarding docs"]
 escalation = "Contradictory information → ask the lead."
 success = "A short path from clone to first contribution."
+method = ["Measure how long it takes to set up, build and ship a change", "Interview developers about their worst friction", "Fix the biggest friction with tooling, scripts or templates", "Re-measure and publish the improvement"]
+watch_points = ["Building tools nobody asked for", "Improvements not measured before and after", "Setup guides that rely on undocumented steps"]
+deliverable_format = "A pull request with the tooling improvement, the before and after timings and an updated setup guide."

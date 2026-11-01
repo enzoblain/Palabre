@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Firmware code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Firmware boots and runs reliably, can be updated safely and is tested on the device."
+method = ["Read the register map and the boot requirements", "Write the hardware access layer separate from the logic", "Handle power loss and watchdog resets safely", "Verify the update path leaves a bootable device", "Open the pull request with the update test result"]
+watch_points = ["A failed update bricking the device", "Registers written with undocumented values", "Missing watchdog handling after a hang"]
+deliverable_format = "A pull request with the firmware code, tests of the logic layer, and the update and rollback procedure described."

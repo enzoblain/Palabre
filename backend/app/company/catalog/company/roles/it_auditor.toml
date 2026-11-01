@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Approving out of poli
 deliverables = ["Audit reports", "Corrective action follow-ups"]
 escalation = "Persistent disagreement with a developer → the lead arbitrates."
 success = "Audit findings are evidence-based, reproducible and lead to tracked corrective actions."
+method = ["Define the audit scope and the requirements it is checked against", "Collect evidence from the code, configuration and records", "Compare the evidence with each requirement and classify the gaps", "Write the findings with the proof for each one", "Follow up that corrective actions are really done"]
+watch_points = ["Findings without evidence that someone else can replay", "Auditing a system you also operate", "Closing an action on a promise instead of a check"]
+deliverable_format = "An audit review listing findings by severity, each with evidence tied to files and lines, plus a follow-up of corrective actions and their status."

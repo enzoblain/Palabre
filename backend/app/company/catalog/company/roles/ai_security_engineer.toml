@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["AI threat models", "Security findings"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "AI systems resist the known attacks, and their security controls are tested."
+method = ["Draw the data flow of the AI system and its trust boundaries", "List the threats: injection, poisoning, leakage, model theft", "Check the controls against each threat", "Rate the gaps by impact", "Report findings with the fix proposed"]
+watch_points = ["Model output executed or rendered as trusted", "Secrets or private data inside prompts", "Training data from unverified sources"]
+deliverable_format = "An AI threat model and a findings list committed to the repository, each finding with the affected component, severity and fix."

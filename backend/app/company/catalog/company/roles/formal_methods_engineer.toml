@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Specifications", "Proofs or checker results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Critical properties proven, assumptions explicit."
+method = ["Write the properties the system must satisfy in a formal language", "Model the system at the right abstraction level", "Run the model checker or prove the properties with a proof assistant", "Trace each counterexample back to the code or the spec"]
+watch_points = ["A model that omits the behavior where the bug lives", "Properties too weak to rule out real failures", "Proofs relying on unstated assumptions"]
+deliverable_format = "A pull request with the formal specification, the proof or model-checking scripts and a note listing assumptions and verified properties."

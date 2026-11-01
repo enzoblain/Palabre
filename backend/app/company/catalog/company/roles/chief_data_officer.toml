@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Data strategy", "Data standards"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Data is accurate, governed and available to those who need it."
+method = ["Identify the key datasets, their sources and who relies on them", "Assess their quality, access rules and legal constraints", "Define ownership and standards for naming, quality and retention", "Write the data strategy with priorities and success measures", "Check adoption of the standards on each new dataset"]
+watch_points = ["Datasets without a named owner", "Standards so heavy that nobody applies them", "Treating personal data like any other column"]
+deliverable_format = "A data strategy and a data standards document committed to the repository, with an owner and a quality target for each key dataset."

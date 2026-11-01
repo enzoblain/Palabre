@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Debt inventory", "Paydown plan"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Debt decisions made on evidence."
+method = ["Inventory the debt with its location and symptoms", "Estimate the cost of keeping versus fixing each item", "Prioritize by risk and effect on delivery speed", "Schedule the repayment alongside feature work"]
+watch_points = ["Debt listed but never priced", "Rewrites proposed for code that merely looks ugly", "Repayment work always displaced by features"]
+deliverable_format = "A prioritized debt register with cost, risk and proposed repayment per item, kept in the repository."

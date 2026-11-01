@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Infrastructure designs", "Capacity plans"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Infrastructure is resilient, secure and simple enough to operate."
+method = ["Gather the application needs in compute, storage and network", "Choose the hosting model and the topology", "Size for the expected load plus the margin", "Define the backup, recovery and monitoring layout", "Write the capacity plan with growth triggers"]
+watch_points = ["Sizing from guesses instead of measured load", "No recovery path tested for the critical component", "Capacity plans without a trigger to revisit them"]
+deliverable_format = "An infrastructure design and a capacity plan committed to the repository, with sizing assumptions and the thresholds that trigger a review."

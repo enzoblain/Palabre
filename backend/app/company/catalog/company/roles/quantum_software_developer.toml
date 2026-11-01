@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests and usage docs"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Quantum workflows that are testable and reproducible."
+method = ["Pick the quantum SDK and isolate it behind a small interface", "Write reusable circuit-building and measurement helpers", "Test them on a simulator with deterministic seeds", "Document the API with a runnable example"]
+watch_points = ["Coupling application code to one vendor's SDK", "Tests that depend on probabilistic outcomes without tolerances", "Hidden qubit-count or depth limits in the helpers"]
+deliverable_format = "A pull request with the library code, seeded simulator tests and a runnable example in the documentation."

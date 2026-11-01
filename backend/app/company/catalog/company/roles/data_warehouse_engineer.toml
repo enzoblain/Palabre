@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Warehouse models", "Loading jobs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The warehouse answers the business questions with consistent, fast and trusted data."
+method = ["Collect the business questions the warehouse must answer", "Design facts and dimensions around them", "Load incrementally, keeping history where it is needed", "Check the totals against the source systems", "Open the pull request with the reconciliation attached"]
+watch_points = ["Slowly changing dimensions overwritten", "Totals that do not reconcile with the source", "Fact tables with an unclear grain"]
+deliverable_format = "A pull request with the warehouse models and loading jobs, and a reconciliation of the main totals against the source."

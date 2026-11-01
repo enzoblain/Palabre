@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Accuracy tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Numerical code that is stable and accurate."
+method = ["Identify where precision and stability matter in the computation", "Select algorithms with known error behavior", "Test against high-precision references and ill-conditioned inputs", "Document accuracy guarantees and failure regimes"]
+watch_points = ["Catastrophic cancellation and accumulated rounding error", "Comparing floats with exact equality", "Fast routines whose accuracy was never measured"]
+deliverable_format = "A pull request with the numerical routines, tests on ill-conditioned cases and a table of measured error against a reference."

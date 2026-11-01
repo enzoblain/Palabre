@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Data security controls", "Security findings"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "Sensitive data is protected at rest and in transit, and access is controlled and audited."
+method = ["Classify the data by sensitivity", "Check access controls and encryption at rest and in transit", "Look for copies in logs, exports and backups", "Test who can really read what", "Report findings with the fix"]
+watch_points = ["Production data copied to test environments", "Access rights never revoked", "Encryption keys stored next to the data"]
+deliverable_format = "Security controls in code and a findings list committed to the repository, with the data class, exposure and fix for each."

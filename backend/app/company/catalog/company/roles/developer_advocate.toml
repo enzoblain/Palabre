@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Content", "Feedback summaries"]
 escalation = "Contradictory information → ask the lead."
 success = "Developers' problems heard and solved."
+method = ["Learn what developers struggle with from issues, forums and feedback", "Build sample applications and tutorials that solve those problems", "Explain the product honestly, including its limits", "Carry the feedback back to the product team"]
+watch_points = ["Promoting features the product does not deliver", "Samples that rot as the API changes", "Feedback gathered but never passed on"]
+deliverable_format = "A tutorial or sample project committed with its instructions, and a short feedback summary for the product team."

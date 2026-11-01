@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Maintenance logs", "Documentation"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Systems that are stable and documented."
+method = ["Check system health, logs and resource usage for the reported issue", "Compare with the last configuration or patch change", "Correct the configuration or restore the failing component", "Document the fix and update the baseline"]
+watch_points = ["Patches applied without a prior backup", "Configuration changed by hand on one server only", "Disk, certificate or license expiry going unnoticed"]
+deliverable_format = "A systems support record with the findings, the change applied, verification results and any baseline update."

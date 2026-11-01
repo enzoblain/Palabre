@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Capability maps", "Gap analyses"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Business goals map clearly to system capabilities, with no gap left unnoticed."
+method = ["Describe the business capabilities and who performs them", "Map each capability to the systems that support it", "Compare with the target goals and identify the gaps", "Prioritize the gaps by business value", "Share the maps with product and engineering"]
+watch_points = ["Maps that stay at a level too abstract to act on", "Capabilities with no system or no owner", "Gaps listed without a priority"]
+deliverable_format = "A capability map and a gap analysis committed to the repository, each gap linked to a capability, a system and a priority."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Application designs", "Design decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Applications are structured so they stay understandable and easy to evolve."
+method = ["Read the requirements and the existing code of the application", "Identify the main components and their responsibilities", "Choose the patterns and justify them against alternatives", "Draw the interactions between the components", "Record each design decision with its consequences"]
+watch_points = ["Over-engineering for needs nobody has", "Components with several unrelated responsibilities", "Designs that ignore the code that already exists"]
+deliverable_format = "An application design document with a component diagram and one decision record per significant choice, committed to the repository."

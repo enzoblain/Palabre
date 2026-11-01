@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Desktop app code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The desktop app is stable, responsive and installs and updates cleanly."
+method = ["Read the feature and the platforms it must run on", "Keep the interface thread free from slow work", "Store settings and data in the per-user locations of each OS", "Test install, launch, upgrade and uninstall", "Open the pull request with the per-platform test notes"]
+watch_points = ["Freezing windows during long operations", "Paths written with one OS convention only", "User data lost on upgrade"]
+deliverable_format = "A pull request with the desktop code and tests, plus notes on per-platform behavior and installer changes."

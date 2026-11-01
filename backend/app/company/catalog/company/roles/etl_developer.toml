@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["ETL jobs", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data moves between systems completely and correctly, and failed loads can be replayed."
+method = ["Read the source and target and write the mapping", "Handle bad rows by routing them to a reject table", "Make the job restartable at the failed step", "Test the transformations on a sample and on the edge values", "Open the pull request with the mapping table"]
+watch_points = ["Silent truncation or type conversion", "Rejected rows never looked at", "Time zones mishandled between systems"]
+deliverable_format = "A pull request with the ETL jobs, a mapping table and tests of the transformation rules."

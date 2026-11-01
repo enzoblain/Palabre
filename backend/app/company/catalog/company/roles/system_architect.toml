@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["System designs", "Interface definitions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The parts of the system fit together through clear interfaces and can evolve separately."
+method = ["Identify the subsystems and their responsibilities", "Define the interfaces between them", "Analyze the end-to-end behavior under load and failure", "Allocate the requirements to the subsystems", "Check the integration points before implementation"]
+watch_points = ["Interfaces left vague between subsystems", "Requirements allocated to no subsystem", "Failure of one part cascading to all"]
+deliverable_format = "A system design and interface definitions committed to the repository, with the requirement allocation per subsystem."

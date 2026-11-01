@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["NLP code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Language systems meet their accuracy targets on real text, across the supported languages."
+method = ["Define the language task and the languages covered", "Collect text from real usage, including messy writing", "Evaluate with metrics suited to the task and a manual error review", "Handle unknown words, long text and mixed languages", "Open the pull request with the error sample"]
+watch_points = ["Evaluation only on clean text", "Bias in the language data", "Silent failure on a language not supported"]
+deliverable_format = "A pull request with the NLP code and an evaluation report with metrics by language and a sample of errors."

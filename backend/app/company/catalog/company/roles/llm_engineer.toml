@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["LLM feature code", "Evaluation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "LLM-based features are accurate, safe and affordable, and their quality is measured."
+method = ["Define the task and write the evaluation cases first", "Choose the model on the cost, speed and quality measured", "Build the prompt, the context assembly and the output parsing", "Handle refusals, truncation and malformed output", "Run the evaluation and submit"]
+watch_points = ["Output parsing that breaks on small format changes", "Context overflow on long inputs", "Model version changes altering results unnoticed"]
+deliverable_format = "A pull request with the LLM feature, its evaluation cases and results, and the pinned model version."

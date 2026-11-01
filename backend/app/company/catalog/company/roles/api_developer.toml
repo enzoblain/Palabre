@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["API code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The APIs are reliable, tested and do not break their consumers."
+method = ["Read the API contract for the endpoints to build", "Implement the handlers with input validation and consistent error bodies", "Check that existing responses keep their shape", "Write tests for success, validation errors and authorization", "Update the API documentation and submit for review"]
+watch_points = ["Renaming or removing a field consumers already read", "Different error shapes from one endpoint to another", "Pagination missing on lists that will grow"]
+deliverable_format = "A pull request implementing the contract, with tests for each status code returned and the API documentation updated in the same change."

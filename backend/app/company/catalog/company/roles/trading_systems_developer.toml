@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Latency measurements"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Low latency without incorrect orders."
+method = ["Define the latency and throughput targets and the order lifecycle", "Implement the order and market data handling on the hot path with minimal allocation", "Replay recorded market data to check behavior", "Add risk limits and a kill switch"]
+watch_points = ["Latency spikes from garbage collection or locks", "Orders sent twice after a reconnect", "No pre-trade risk check on a new path"]
+deliverable_format = "A pull request with the component, a market-data replay test, latency measurements and the risk-limit configuration."

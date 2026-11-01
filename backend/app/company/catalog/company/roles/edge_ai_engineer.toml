@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Edge AI code", "Device benchmarks", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models run within the memory, power and latency limits of the target devices."
+method = ["Get the device limits: memory, compute, power", "Shrink the model to fit with quantization or a smaller architecture", "Measure accuracy and latency on the device itself", "Handle model updates on the device", "Submit for review with the benchmarks"]
+watch_points = ["Benchmarks run on a workstation, not the device", "Thermal throttling after minutes of use", "No way to update a model in the field"]
+deliverable_format = "A pull request with the edge inference code and device benchmarks for latency, memory and power use."

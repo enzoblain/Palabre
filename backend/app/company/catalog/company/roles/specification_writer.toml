@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Specifications"]
 escalation = "Contradictory information → ask the lead."
 success = "Specifications that can be implemented and tested as written."
+method = ["Collect the requirements and the constraints from stakeholders", "Write testable, numbered requirements with defined terms", "Describe interfaces and error behavior exactly", "Review with the engineers who will implement them"]
+watch_points = ["Requirements that cannot be tested", "Ambiguous words such as fast or user-friendly", "Specifying the implementation rather than the behavior"]
+deliverable_format = "A specification document with numbered requirements, a glossary and acceptance criteria for each, kept in the room document, ready for the engineers to review."

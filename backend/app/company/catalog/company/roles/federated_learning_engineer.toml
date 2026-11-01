@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Federated learning code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models improve through distributed training while raw data never leaves its owner."
+method = ["Define the clients, what stays local and what is shared", "Implement the training rounds and the aggregation", "Add protection against leakage from updates", "Compare the result with centralized training", "Report the cost in rounds and bandwidth"]
+watch_points = ["Updates that reveal private data", "Clients with very different data distributions", "Unreliable clients stalling a round"]
+deliverable_format = "A pull request with the federated code and a report comparing quality, rounds and communication against centralized training."

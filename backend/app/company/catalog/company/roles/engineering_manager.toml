@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Work breakdowns", "Progress reports"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "The team delivers steadily, blockers are removed fast and people grow."
+method = ["Break the objective into tasks small enough to review in one pull request", "Order the tasks by dependency and assign them by skill", "Check daily which tasks are stuck and why", "Remove the blocker or escalate it to the lead", "Write a progress report at each milestone"]
+watch_points = ["Tasks too big to be reviewed properly", "Dependencies between tasks left implicit", "Reports describing activity instead of finished work"]
+deliverable_format = "A work breakdown listing tasks, order, assignee and dependencies, then progress reports stating done, in progress, blocked."

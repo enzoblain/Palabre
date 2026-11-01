@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["RAG pipeline code", "Retrieval evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Answers are grounded in the right documents, and retrieval quality is measured."
+method = ["Collect the documents and clean them", "Choose the chunking and the embedding model", "Build retrieval and measure whether the right passage comes back", "Make the answer cite its sources", "Evaluate end to end and submit"]
+watch_points = ["Chunks that cut the answer in two", "Out-of-date documents still retrieved", "Answers given when nothing relevant was found"]
+deliverable_format = "A pull request with the retrieval pipeline code and an evaluation of retrieval hit rate and answer correctness."

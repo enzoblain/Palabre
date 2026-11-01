@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Model code", "Experiment logs", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models reach their target quality and can be trained and served reproducibly."
+method = ["Start from a small model and a fixed data split", "Track every run with its settings and seed", "Change one thing at a time and compare", "Check for overfitting with the validation curve", "Report the best run and how to reproduce it"]
+watch_points = ["Results that cannot be reproduced", "Validation data leaking into training", "Compute spent on a model before a baseline exists"]
+deliverable_format = "A pull request with the model code and a run log committed with settings, seeds and curves for the retained run."

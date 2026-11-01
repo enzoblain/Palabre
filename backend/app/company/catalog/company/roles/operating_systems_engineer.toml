@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Test results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A stable system layer with no regressions."
+method = ["Read the kernel or subsystem you will change and its interfaces", "Implement the change with attention to concurrency and interrupts", "Test on virtual machines and stress the failure paths", "Measure the impact on latency and throughput"]
+watch_points = ["Locking mistakes leading to deadlocks or races", "Unchecked user input crossing the kernel boundary", "Regressions in boot or shutdown paths"]
+deliverable_format = "A pull request with the patch, stress and regression tests and benchmark numbers before and after the change."

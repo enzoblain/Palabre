@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Samples", "Community reports"]
 escalation = "Contradictory information → ask the lead."
 success = "Developers adopt the product with little friction."
+method = ["Review the developer onboarding path and time to first success", "Fix the friction points with code, samples or documentation", "Support developers in public channels with tracked answers", "Report recurring questions as product feedback"]
+watch_points = ["Answering one developer without fixing the cause", "Onboarding steps relying on private knowledge", "Samples tested only on the author's machine"]
+deliverable_format = "A pull request with the improved sample, onboarding changes and a summary of the questions that motivated them."

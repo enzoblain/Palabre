@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Automation code", "Impact measurements", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Automations save measurable work and fail safely when the AI is wrong."
+method = ["Pick one repetitive business task and time it by hand", "Define what the AI does and what a person still checks", "Build it with a review step for low-confidence cases", "Measure time saved and error rate against the manual way", "Submit for review with the measurements"]
+watch_points = ["Automating a task whose volume does not justify it", "No human check on risky outputs", "Reporting time saved without counting corrections"]
+deliverable_format = "A pull request with the automation code and an impact note comparing time and errors before and after."

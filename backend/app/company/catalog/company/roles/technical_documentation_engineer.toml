@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Documentation pages"]
 escalation = "Contradictory information → ask the lead."
 success = "Docs built and verified automatically."
+method = ["Choose the documentation toolchain and the source format", "Specify the builds, link checks and previews CI should run", "Generate reference content from the code where possible", "Publish and monitor broken links and outdated pages"]
+watch_points = ["Docs build that nobody sees failing", "Generated reference drifting from the real behavior", "Content duplicated in several places"]
+deliverable_format = "A documentation plan in the room document: toolchain choice, source format, the CI checks to add and the pages to generate from code, written so a developer can implement it."

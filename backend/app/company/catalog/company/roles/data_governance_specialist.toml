@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data policies", "Data catalog entries", "Documents committed to the repository"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data policies are clear, owned and actually applied across the company."
+method = ["Identify the data domains and who is accountable for each", "Write the rules for access, retention and quality", "Check the existing datasets against the rules", "Record the exceptions with an owner and an end date", "Review the rules after each incident"]
+watch_points = ["Rules nobody can check", "Exceptions without an end date", "Policies that ignore how the data is really used"]
+deliverable_format = "Data policies and a list of compliance exceptions committed to the repository, each rule with an owner and a verification method."

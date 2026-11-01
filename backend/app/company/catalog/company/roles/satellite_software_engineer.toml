@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Test reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software proven before launch."
+method = ["Learn the flight computer, its resources and the command protocol", "Implement the flight or ground software within memory and power limits", "Test in simulation including fault injection", "Prepare the procedures for uploading and rollback in orbit"]
+watch_points = ["No way to recover after a faulty upload", "Resource budgets exceeded in rare modes", "Telemetry too sparse to diagnose a fault"]
+deliverable_format = "A pull request with the software, a simulation and fault injection report and the upload and rollback procedure."

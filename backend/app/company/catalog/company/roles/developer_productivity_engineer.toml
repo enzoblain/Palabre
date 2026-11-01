@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Measurements"]
 escalation = "Contradictory information → ask the lead."
 success = "Shorter build and feedback times."
+method = ["Collect the metrics on build times, test times and review waits", "Find the slowest steps in the delivery path", "Speed them up with caching, parallelism or removal", "Track the metrics to catch regressions"]
+watch_points = ["Optimizing a step that is not the real bottleneck", "Speed bought by dropping useful checks", "Metrics used to judge individuals"]
+deliverable_format = "A pull request with the pipeline or tooling change, accompanied by a table of timings before and after."

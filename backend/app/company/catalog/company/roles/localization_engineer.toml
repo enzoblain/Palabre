@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Locale tests"]
 escalation = "Contradictory information → ask the lead."
 success = "Correct behavior in every supported language."
+method = ["Extract user-facing strings into resource files", "Handle plurals, dates, numbers and text direction per locale", "Set up the pipeline that sends strings to translators and back", "Test the interface in each locale for truncation and encoding"]
+watch_points = ["Concatenated strings that cannot be translated", "Text overflowing in longer languages", "Hardcoded date and number formats"]
+deliverable_format = "A pull request with externalized strings, the translation workflow configuration and a pseudo-localization test result."

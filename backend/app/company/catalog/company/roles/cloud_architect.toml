@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Cloud architecture documents", "Cost and resilience notes"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Cloud systems are resilient, secure and cost-aware."
+method = ["Collect the load, availability and compliance requirements", "Choose the managed services and the regions", "Design for failure of a zone or a service", "Estimate the monthly cost and the main cost drivers", "Document the migration or deployment path"]
+watch_points = ["Single points of failure in one zone", "Lock-in on a service without a way out", "Cost estimates that ignore traffic and storage growth"]
+deliverable_format = "A cloud architecture document with a diagram, a resilience analysis and a cost estimate, committed to the repository."

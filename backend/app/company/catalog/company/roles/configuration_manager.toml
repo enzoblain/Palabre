@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Configuration records", "Audit reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Records that match reality."
+method = ["Define which items are tracked and their attributes", "Populate the configuration database from discovery and verified sources", "Record relationships between services and components", "Audit it against reality and correct the drift"]
+watch_points = ["Records that no longer match the environment", "Manual entries competing with automated discovery", "Tracking every detail with no use for it"]
+deliverable_format = "A configuration item model, a populated database export and an audit report listing discrepancies and corrections."

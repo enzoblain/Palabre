@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Specifications", "Verification reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Systems verified against mission requirements."
+method = ["Derive the mission requirements into system budgets such as mass, power and link", "Allocate them across subsystems with margins", "Analyze failure modes and the redundancy needed", "Review interfaces and verification at each design milestone"]
+watch_points = ["Margins consumed silently by subsystems", "Interfaces differing between subsystem documents", "Single failures with no recovery in flight"]
+deliverable_format = "A systems engineering package with budgets, margins, interface documents and a verification plan."

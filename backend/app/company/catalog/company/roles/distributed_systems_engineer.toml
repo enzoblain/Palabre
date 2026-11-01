@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Failure-mode documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A system that degrades gracefully and never loses data."
+method = ["Define the consistency, availability and failure assumptions of the system", "Model the protocol or the message flow before coding it", "Implement with timeouts, retries and idempotent operations", "Test with injected partitions, crashes and delays"]
+watch_points = ["Assuming the network is reliable or clocks are synchronized", "Retries that duplicate effects", "Failure modes only visible under partition"]
+deliverable_format = "A pull request with the implementation, a short design note on the failure model and fault-injection tests."

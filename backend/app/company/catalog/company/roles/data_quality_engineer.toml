@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data quality checks", "Quality reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data quality problems are detected automatically before they reach the users."
+method = ["Choose the data that matters most and what correct means", "Write checks for completeness, validity, uniqueness and freshness", "Run them in the pipeline and fail loudly", "Trace each failure to its source", "Report quality over time"]
+watch_points = ["Checks that never fail because the thresholds are too loose", "Failures reported without the source to fix", "Quality measured only at the end of the pipeline"]
+deliverable_format = "A pull request with the data checks and a quality report showing the pass rate by dataset and rule."

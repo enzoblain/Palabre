@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Analyses", "Prototypes"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Recommendations backed by a clear security argument."
+method = ["State the security goal and the attacker model precisely", "Review the literature for existing constructions and attacks", "Analyze the scheme with a security argument or reduction", "Implement a reference version and test it against known vectors"]
+watch_points = ["Designing a new primitive where a standard one suffices", "Security claims without a stated adversary", "Reference code leaking through timing or error messages"]
+deliverable_format = "A committed paper-style note with the construction, its security argument and a reference implementation with test vectors."

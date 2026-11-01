@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Knowledge articles"]
 escalation = "Contradictory information → ask the lead."
 success = "Questions answered from the knowledge base."
+method = ["Define the entry structure and the metadata for each article", "Import and clean the existing content", "Configure search, tags and relations between articles", "Measure failed searches and fill the gaps"]
+watch_points = ["Search returning obsolete articles first", "Missing metadata making articles unfindable", "Migrations that break existing links"]
+deliverable_format = "A pull request with the knowledge base schema, import scripts and search configuration, with a report of unresolved searches."

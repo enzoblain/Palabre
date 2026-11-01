@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Migration runbook"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Complete migrations with a tested rollback."
+method = ["Inventory what is migrated, its volume and its dependencies", "Write idempotent migration scripts and test on a copy", "Rehearse the full cutover and time it", "Prepare the rollback and verify counts after the run"]
+watch_points = ["Migrations that cannot be restarted halfway", "Data that differs after migration without a check", "Cutover with no tested rollback"]
+deliverable_format = "A pull request with the migration scripts, a rehearsal log with timings and the cutover and rollback checklist."

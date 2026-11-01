@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Network designs", "Topology diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Networks are fast, resilient and segmented so that failures and attacks stay contained."
+method = ["Collect the traffic flows and the latency needs", "Design the topology and the segmentation", "Plan redundancy for each critical link", "Define the addressing and routing scheme", "Document the security zones and their rules"]
+watch_points = ["Flat networks with no segmentation", "Redundancy never tested", "Addressing plans that cannot grow"]
+deliverable_format = "A network design with a topology diagram and an addressing and segmentation plan, committed to the repository."

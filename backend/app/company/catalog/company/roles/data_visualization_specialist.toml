@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Dashboards", "Visualization guidelines", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Visualizations are accurate and understood at a glance by their audience."
+method = ["Identify what the viewer must understand in a few seconds", "Pick the chart type that fits the comparison", "Remove decoration and label directly", "Check colors for color-blind readers", "Test with someone who did not build it"]
+watch_points = ["Truncated axes exaggerating a change", "Colors carrying meaning for sighted viewers only", "Too many series on one chart"]
+deliverable_format = "A pull request with the dashboards and a visualization guide committed with the chart choices and their reasons."

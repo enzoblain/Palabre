@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Contract code", "Test suites", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Contracts behave as specified, are fully tested and have no known vulnerability."
+method = ["Write the specification of the contract and its invariants", "Implement it using audited libraries where they exist", "Write tests and property tests on the invariants", "Check access control and external calls line by line", "Submit for review before any deployment"]
+watch_points = ["Missing access control on administrative functions", "Callbacks into the contract in the middle of a state update", "A deployed contract that cannot be fixed or paused"]
+deliverable_format = "A pull request with the contract, tests including property tests of the invariants, and a note on its upgrade and pause design."

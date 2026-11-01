@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "CRM features that keep data consistent."
+method = ["Read the customer data model and the sales process it supports", "Implement the change with validation on every contact and account field", "Check deduplication and permission rules on realistic data", "Test the sync with connected tools"]
+watch_points = ["Duplicate contacts created by imports or syncs", "Personal data exposed to roles that should not see it", "Customizations that break at the next CRM upgrade"]
+deliverable_format = "A pull request with the CRM change, tests on data rules and a note on migrations of existing records."

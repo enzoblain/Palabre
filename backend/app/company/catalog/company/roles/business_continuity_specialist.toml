@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Continuity plans", "Exercise reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Tested plans for every critical service."
+method = ["Run a business impact analysis to find the critical processes", "Set recovery time and recovery point objectives", "Write continuity plans with roles and contact trees", "Exercise the plans and fix what failed"]
+watch_points = ["Plans never tested", "Objectives not matched by the real backup capability", "Contact lists out of date"]
+deliverable_format = "A continuity plan per critical process with objectives, procedures and the report of the last exercise."

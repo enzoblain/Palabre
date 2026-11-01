@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "GIS tools that work on real data."
+method = ["Read the map and layer requirements from the users", "Prepare the data layers with consistent projections and attributes", "Build the map services or tools on top of them", "Check rendering and attribute accuracy against the source"]
+watch_points = ["Layers reprojected twice with lost precision", "Style hiding data quality problems", "Services slow because of unsimplified geometries"]
+deliverable_format = "A pull request with the map application or service, the layer definitions and a data preparation script."

@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Red team reports", "Reproduction cases"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "AI weaknesses are found and reported with reproducible attacks before real attackers find them."
+method = ["Define the scope and what a successful attack would be", "Try prompt injection, data extraction and policy bypass attacks", "Record each attempt with the exact input and output", "Rate the findings by impact", "Report to the owner with reproduction cases"]
+watch_points = ["Testing outside the agreed scope", "Findings that cannot be reproduced", "Real user data used as attack material"]
+deliverable_format = "A red team report committed to the repository, each finding with severity, exact reproduction input and suggested fix."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Security architecture documents", "Threat-aware designs"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Security controls are designed in from the start and known threats are covered."
+method = ["Model the threats against the design", "Select controls for authentication, authorization and data protection", "Place the trust boundaries on the architecture", "Review each design against the threats", "Write the security requirements for the developers"]
+watch_points = ["Security added after the design is frozen", "Controls with no owner who can verify them", "Trust boundaries drawn once and never updated"]
+deliverable_format = "A security architecture document with a threat model, trust boundaries and requirements per component, committed to the repository."

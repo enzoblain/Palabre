@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["API guidelines", "API contracts"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "APIs stay consistent, documented and backward compatible as they evolve."
+method = ["Collect the consumers and the use cases the API must serve", "Define the resources, naming and error conventions", "Write the contract before any implementation", "Review the contract with the consumers and the backend developers", "Define how versions and deprecations are handled"]
+watch_points = ["Breaking changes introduced without a versioning rule", "Inconsistent naming or error shapes between endpoints", "Contracts that expose the database structure"]
+deliverable_format = "API guidelines and contract files (OpenAPI or equivalent) committed to the repository, with examples of success and error responses."

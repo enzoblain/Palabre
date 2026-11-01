@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Approving out of poli
 deliverables = ["Review comments"]
 escalation = "Persistent disagreement with a developer → the lead arbitrates."
 success = "Published texts without errors or ambiguity."
+method = ["Read the text against the style guide and glossary", "Verify technical statements against the product or the code", "Mark each issue with the suggested correction", "Give a verdict: approve, or request changes"]
+watch_points = ["Style edits that change the technical meaning", "Approving text with a claim that was never checked", "Comments that name a problem without a fix"]
+deliverable_format = "A review with comments tied to passages, each stating the problem and the correction, and a final verdict."

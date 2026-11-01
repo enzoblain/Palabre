@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Analyses", "Result summaries"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Findings that are sound and understandable."
+method = ["Frame the biological question and the data that can answer it", "Choose the model and the statistical test appropriate to the data", "Run the analysis with controls and multiple-testing correction", "Interpret the findings in biological terms with their uncertainty"]
+watch_points = ["Batch effects mistaken for biological signal", "Significant results from uncorrected multiple testing", "Overinterpreting a model that fits noise"]
+deliverable_format = "An analysis report with committed scripts, figures and a conclusion tied to the original biological question."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Complexity and benchmark notes"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Algorithms that are correct and fast enough."
+method = ["Write down the input sizes, constraints and the target complexity", "Implement the simplest correct version as a reference", "Build the optimized version and compare it with the reference on random and adversarial inputs", "Profile real workloads and document the complexity obtained"]
+watch_points = ["Worst-case inputs never exercised by the tests", "Asymptotic gains that lose on realistic sizes", "Integer overflow and off-by-one errors in edge cases"]
+deliverable_format = "A pull request with the algorithm, a property-based or randomized test against the reference and a benchmark table by input size."
