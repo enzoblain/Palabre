@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tracking plan"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Analytics numbers the business can trust."
+method = ["Define the questions the business needs answered", "Specify the events and properties in a tracking plan", "Implement the collection and validate it in a debug view", "Build the reports and check them against source data"]
+watch_points = ["Events fired twice or not at all", "Metrics defined differently across dashboards", "Cookie consent ignored by the tags"]
+deliverable_format = "A tracking plan document and a pull request with the instrumentation, plus a validation sheet comparing reports with source data."

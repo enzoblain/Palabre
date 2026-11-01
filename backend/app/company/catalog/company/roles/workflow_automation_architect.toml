@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture notes", "Decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "A workflow landscape that is understandable and robust."
+method = ["Inventory the processes and automation tools in use", "Define the common patterns: triggers, retries, error handling and approvals", "Select the orchestration platform and the integration boundaries", "Set governance for who can create and change workflows"]
+watch_points = ["Shadow automations nobody owns", "Workflows with side effects that cannot be replayed", "Platform choice driven by one project's needs"]
+deliverable_format = "An architecture document with the pattern catalog, platform decision and governance rules."

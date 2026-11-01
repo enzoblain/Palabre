@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Location results that are accurate."
+method = ["Establish the coordinate systems and the accuracy needed", "Implement the spatial operations on a geospatial library with indexed queries", "Test on edge cases such as the antimeridian and the poles", "Benchmark on realistic data volumes"]
+watch_points = ["Mixing coordinate reference systems", "Latitude and longitude order reversed", "Spatial queries without an index"]
+deliverable_format = "A pull request with the spatial code, tests on edge geometries and query benchmarks on real-size data."

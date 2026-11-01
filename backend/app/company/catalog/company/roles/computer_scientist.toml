@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Analysis notes"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Solutions that are correct and well understood."
+method = ["Pin down the computational problem and the claim to establish, formally", "Survey the known results and the closest prior algorithms", "Prototype the idea and measure it against a baseline on defined inputs", "Write up the result with its assumptions, bounds and limits"]
+watch_points = ["Claims stated without the assumptions they depend on", "Benchmarks on inputs that favor the new idea", "Ignoring a known result that already covers the problem"]
+deliverable_format = "A committed note and reference prototype stating the problem, the result, its assumptions and the measured comparison, in a pull request."

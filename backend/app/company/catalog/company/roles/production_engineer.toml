@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Commits", "Runbooks"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Fewer production incidents, less manual work."
+method = ["Review the service's reliability data and failure history", "Fix the weakest point with code or automation in production tooling", "Add safeguards such as rate limits, circuit breakers and graceful degradation", "Verify the improvement with production metrics"]
+watch_points = ["Changes that work in staging and fail under production load", "Fixes without a rollback path", "Toil removed in one place and moved to another"]
+deliverable_format = "A pull request with the reliability change, its rollback steps and before and after production metrics."

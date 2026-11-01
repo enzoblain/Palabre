@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Applications that fit users and rules."
+method = ["Collect the business rules from the users who apply them", "Implement forms, validations and workflows to match them", "Test with real examples supplied by the business", "Train key users and gather their corrections"]
+watch_points = ["Rules that only exist in people's heads", "Validations too strict for real exceptions", "Reports built on data nobody keeps up to date"]
+deliverable_format = "A pull request with the application change, test cases written from the business examples and a short user guide."

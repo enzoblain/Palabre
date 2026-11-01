@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Maps", "Analyses"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Spatial analyses that are accurate and documented."
+method = ["Clarify the spatial question to answer", "Collect and clean the source layers", "Run the spatial analysis with documented parameters", "Present the results as maps with their limits stated"]
+watch_points = ["Maps implying precision the data lacks", "Different survey dates mixed unnoticed", "Analysis parameters not recorded"]
+deliverable_format = "A map product with the analysis workflow, the data sources and the parameters used, plus a short interpretation."

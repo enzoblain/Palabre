@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Scaling measurements"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Near-linear scaling with no race conditions."
+method = ["Profile the serial code to find what is worth parallelizing", "Choose the decomposition and the synchronization strategy", "Implement and check results match the serial output", "Measure speedup and efficiency across core counts"]
+watch_points = ["Data races and nondeterministic results", "Speedup lost to synchronization or memory contention", "Parallelizing code that is not the bottleneck"]
+deliverable_format = "A pull request with the parallel implementation, a correctness check against the serial version and a scaling table by number of workers."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Incident timelines", "Post-incident reviews"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Service restored quickly, lessons recorded."
+method = ["Declare the incident, set the severity and name an owner", "Coordinate the responders and keep a timestamped log", "Communicate status to stakeholders at a regular interval", "Close with a timeline and hand off to problem management"]
+watch_points = ["Responders working on the same thing in parallel", "Silence toward stakeholders during an outage", "Closing before service is verified restored"]
+deliverable_format = "An incident report with severity, timeline, impact, actions taken, communications sent and follow-up actions."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture notes", "Decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "An ERP landscape that stays upgradable."
+method = ["Define the ERP's scope and its boundaries with surrounding systems", "Choose the integration patterns and the master data ownership", "Plan the landscape: environments, performance and upgrades", "Set the rules for customization"]
+watch_points = ["An ERP stretched to cover needs it fits badly", "Master data defined in two systems", "A landscape that cannot absorb the vendor's upgrade cycle"]
+deliverable_format = "An architecture document with the system landscape, integration map, master data ownership and customization rules."

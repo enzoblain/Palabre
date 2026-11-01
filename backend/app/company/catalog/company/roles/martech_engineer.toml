@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Integration docs"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Marketing tools exchanging reliable data."
+method = ["List the marketing tools and what data each holds", "Connect them through an integration layer with a shared event schema", "Check data arrives complete and de-duplicated in each tool", "Retire overlapping tools once their data is migrated"]
+watch_points = ["Tag sprawl slowing pages", "The same event counted differently in each tool", "Data sent to a vendor without a legal basis"]
+deliverable_format = "A pull request with the integrations, the event schema document and a reconciliation of counts between tools."

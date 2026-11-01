@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Policies", "Program reports"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Open source activity that is safe and valuable."
+method = ["Define the open source goals and the contribution policy", "Review the licenses of what is published and what is consumed", "Set up the contribution process, governance and community channels", "Track community health and report to leadership"]
+watch_points = ["Publishing code without a license review", "Contributions with no maintainers to review them", "A project abandoned after its announcement"]
+deliverable_format = "A program document with the policy, the license review checklist, governance rules and a community health summary."

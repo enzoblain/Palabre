@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Commits", "Standards"]
 escalation = "Contradictory information → ask the lead."
 success = "Consistent documentation across the project."
+method = ["Audit the documentation for gaps, duplicates and stale pages", "Restructure it around tasks and a clear navigation", "Automate checks for links, style and code samples", "Define ownership and an update rule for each section"]
+watch_points = ["Pages without an owner", "Code samples that no longer compile", "Moving pages without redirects"]
+deliverable_format = "A pull request with the restructured docs, the automated checks and an ownership table."

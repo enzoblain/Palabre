@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Specifications", "Verification reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Verified systems meeting safety goals."
+method = ["Break the vehicle function into system requirements with safety goals", "Allocate them across the electronic control units and the network", "Run the hazard analysis and set integrity levels", "Verify the integration on a bench or in simulation"]
+watch_points = ["Timing assumptions between control units that fail on the bus", "Safety goals without allocated measures", "Late changes bypassing the integration tests"]
+deliverable_format = "A systems specification with allocation, hazard analysis results and integration test evidence."

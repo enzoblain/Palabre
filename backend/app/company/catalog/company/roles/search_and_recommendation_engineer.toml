@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Relevance evaluations"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Measured relevance improvements."
+method = ["Define the relevance goal and the evaluation metrics", "Build the index and the ranking or recommendation model", "Evaluate offline with labeled queries and then online with a test", "Monitor relevance and latency after release"]
+watch_points = ["Optimizing click rate to the detriment of usefulness", "Popular items crowding out everything else", "Index updates lagging behind the source data"]
+deliverable_format = "A pull request with the index and ranking changes, an offline evaluation table and an experiment plan."

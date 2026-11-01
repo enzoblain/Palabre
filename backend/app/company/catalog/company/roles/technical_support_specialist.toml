@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Answers", "Bug reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Customers helped and real bugs reported well."
+method = ["Collect the product version, logs and steps to reproduce", "Match the case against known issues and documented behavior", "Give the customer a clear fix, or a confirmed bug report to engineering", "Confirm resolution and tag the case for trend analysis"]
+watch_points = ["Blaming the user without reproducing the problem", "Bug reports without version or logs", "Customer promises about fix dates not backed by engineering"]
+deliverable_format = "A case summary with environment, reproduction steps, the answer given and a linked bug report when the cause is a defect."

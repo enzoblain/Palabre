@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Verification evidence"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software meeting certification requirements."
+method = ["Read the applicable standard, such as DO-178C, and the assigned criticality level", "Derive and review the software requirements", "Implement under coding rules with structural coverage", "Produce the verification evidence"]
+watch_points = ["Code without a requirement behind it", "Coverage reached by tests that check nothing", "Dynamic memory or unbounded loops in critical code"]
+deliverable_format = "A pull request with the code, requirement-based tests, coverage results and the traceability records."

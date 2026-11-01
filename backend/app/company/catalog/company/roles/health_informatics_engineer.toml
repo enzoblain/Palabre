@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Health data handled correctly and privately."
+method = ["Identify the clinical workflow and the data standards involved, such as HL7 FHIR", "Model the health data with proper coding systems", "Implement the exchange with consent and access controls", "Validate with clinicians on realistic cases"]
+watch_points = ["Patient data exposed to unauthorized roles", "Codes mapped incorrectly between systems", "Software interrupting the clinical workflow"]
+deliverable_format = "A pull request with the integration or data model, conformance tests with sample records and a note on privacy controls."

@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["Translated documents", "Glossaries"]
 escalation = "Contradictory information → ask the lead."
 success = "Translations accurate and consistent."
+method = ["Read the source text and the existing glossary", "Translate keeping product terms and code elements untouched", "Check consistency with earlier translations", "Have a native reader validate the result"]
+watch_points = ["Translating identifiers and commands that must stay in English", "Terminology that varies between documents", "Machine output accepted without review"]
+deliverable_format = "A translated document in the room document, with a glossary of the terms chosen and any open questions."

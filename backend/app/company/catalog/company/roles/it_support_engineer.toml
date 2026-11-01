@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Incident notes", "Knowledge entries"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Incidents resolved fast with solutions recorded."
+method = ["Reproduce the user's problem and note the exact symptoms", "Check the account, device and network basics before deeper diagnosis", "Apply the fix or a workaround and confirm with the user", "Record the solution for the next occurrence"]
+watch_points = ["Closing a ticket before the user confirms", "Resetting access without verifying who is asking", "Fixing the same issue repeatedly without reporting the pattern"]
+deliverable_format = "A resolved ticket note with symptoms, cause, fix applied and a knowledge entry if the issue can recur."

@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Process analyses", "Recommendations"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "An ERP setup that matches the real process."
+method = ["Interview the process owners and map the current process", "Compare it with the ERP's standard process and list the gaps", "Recommend configuration first, extension only where needed", "Agree the scope and the priorities with stakeholders"]
+watch_points = ["Reproducing the old process when the standard one fits", "Gaps decided without the process owner's agreement", "Underestimated effort for data migration"]
+deliverable_format = "A fit-gap analysis document with each gap, the recommended solution, its effort and the stakeholder decision."

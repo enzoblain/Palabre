@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tracking documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Complete tracking with consent respected."
+method = ["Audit the existing tags and the data they send", "Implement server-side or client-side tracking per the tracking plan", "Test every event across browsers and consent states", "Monitor event volumes to detect breakage early"]
+watch_points = ["Tracking lost after a front-end release", "Personal identifiers sent in event parameters", "Ad blockers silently dropping part of the data"]
+deliverable_format = "A pull request with the tracking implementation, a per-event test checklist and an alert on volume drops."

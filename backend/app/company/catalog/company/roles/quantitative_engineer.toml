@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Pipeline docs"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Reproducible, fast quantitative workflows."
+method = ["Define the strategy or risk question and the data required", "Build the backtest or simulation framework with realistic costs", "Validate out-of-sample and under stressed scenarios", "Package the model for production with monitoring"]
+watch_points = ["Lookahead bias in the backtest", "Transaction costs and slippage ignored", "A strategy fitted to one historical period"]
+deliverable_format = "A research package with the backtest code, an out-of-sample report and the production interface of the model."

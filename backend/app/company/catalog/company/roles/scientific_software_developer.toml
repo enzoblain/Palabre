@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests", "User documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Software scientists can trust and rerun."
+method = ["Collect the scientists' requirements and the data formats they use", "Structure the code so the science stays separate from the plumbing", "Add tests built on known analytical or published results", "Document inputs, units and assumptions for non-programmers"]
+watch_points = ["Units mixed silently across functions", "Code only its author can run", "Results that change between library versions"]
+deliverable_format = "A pull request with a tested, documented package, example inputs with expected outputs and a changelog of scientific behavior changes."

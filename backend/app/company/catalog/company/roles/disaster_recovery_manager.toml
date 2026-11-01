@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Recovery plans", "Test reports"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Recovery proven by regular tests."
+method = ["List the systems by criticality and their dependencies", "Design the recovery strategy matching each recovery objective", "Test restores and failovers on a schedule", "Update the runbooks with the real timings observed"]
+watch_points = ["Backups that were never restored", "A recovery order ignoring dependencies", "Runbooks relying on people or tools that are themselves down"]
+deliverable_format = "A disaster recovery plan with runbooks per system and the measured results of the last recovery test against objectives."

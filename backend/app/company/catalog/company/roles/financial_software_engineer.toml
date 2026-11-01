@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Tests"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Computations that reconcile to the cent."
+method = ["Read the accounting or pricing rules the software must follow", "Implement calculations with decimal arithmetic and explicit rounding", "Test against worked examples from the finance team", "Reconcile the output with an independent total"]
+watch_points = ["Rounding applied at the wrong step", "Period-end or timezone boundaries miscounted", "Calculation changes not versioned, so past results cannot be explained"]
+deliverable_format = "A pull request with the calculation code, test cases taken from finance examples and a reconciliation of totals."

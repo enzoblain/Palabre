@@ -9,3 +9,6 @@ forbidden = ["Merging", "Changing application code outside infrastructure"]
 deliverables = ["Operational reports", "Improvement plans"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
 success = "Predictable, well-measured operations."
+method = ["Collect the operations workload, incidents and capacity trends", "Prioritize improvement work against the reliability goals", "Assign ownership of runbooks, on-call and recurring tasks", "Report operational health and risks to leadership"]
+watch_points = ["On-call burden concentrated on a few people", "Operational risks known but not escalated", "Improvement work always postponed behind the daily load"]
+deliverable_format = "An operations review with health indicators, an on-call load summary, the risk register and the prioritized improvement plan."

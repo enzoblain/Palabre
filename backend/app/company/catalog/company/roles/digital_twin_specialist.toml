@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Validation reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "A twin whose predictions are validated."
+method = ["Define the real asset, the decisions the twin must support and the needed fidelity", "Connect the live data sources and the model", "Calibrate the model against measured behavior", "Monitor the divergence between the twin and the asset"]
+watch_points = ["Twin trusted after the asset has changed", "Fidelity chosen beyond what the decision needs", "Sensor data gaps filled with guesses"]
+deliverable_format = "A pull request with the model, the data connectors and a calibration report comparing the twin with measurements."

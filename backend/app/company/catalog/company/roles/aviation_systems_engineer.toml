@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Requirements", "Verification reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Systems verified against safety requirements."
+method = ["Define the system functions and their safety effects", "Allocate requirements to hardware, software and procedures", "Analyze failure conditions and their mitigations", "Verify integration against the allocated requirements"]
+watch_points = ["Single points of failure in critical functions", "Requirements allocated to no component", "Human factors overlooked"]
+deliverable_format = "A systems document with the function allocation, failure analysis and verification plan, committed with traceability."

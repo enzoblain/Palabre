@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture notes", "Decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "A Salesforce org that scales without sprawl."
+method = ["Review the org's data model, sharing rules and integrations", "Decide between declarative, Apex and external solutions per need", "Design for data volume and API limits", "Define the environment and release strategy"]
+watch_points = ["Sharing model that lets users see too much", "Custom code where configuration was enough", "Integrations that exhaust API limits at scale"]
+deliverable_format = "A design document with the data model, the sharing model, the integration patterns and the release path across environments."

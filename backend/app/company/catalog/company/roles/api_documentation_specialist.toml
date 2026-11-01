@@ -9,3 +9,6 @@ forbidden = ["Proposing technical decisions", "Taking sides in debates"]
 deliverables = ["API documentation"]
 escalation = "Contradictory information → ask the lead."
 success = "API docs matching the real behavior."
+method = ["Read the API contract and the actual responses", "Document each endpoint with parameters, errors and examples", "Run every example against a test environment", "Add guides for authentication and common workflows"]
+watch_points = ["Examples that return a different result than documented", "Undocumented error codes", "A spec that diverges from the implementation"]
+deliverable_format = "An updated API reference, such as an OpenAPI file with runnable examples, and a getting-started guide in a pull request."

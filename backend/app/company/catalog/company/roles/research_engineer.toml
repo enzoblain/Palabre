@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Benchmark results"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Research ideas shipped without losing their results."
+method = ["Read the paper or spec and list what must be reimplemented", "Reimplement the core with unit tests against published numbers", "Make the experiment reproducible: pinned dependencies and configs", "Hand the code to production-minded teammates with its known limits"]
+watch_points = ["A reimplementation that silently deviates from the paper", "Notebook-quality code that cannot be rerun", "Optimizing before the baseline numbers are matched"]
+deliverable_format = "A pull request with the reimplemented component, tests reproducing reference results and a README on how to rerun the experiments."

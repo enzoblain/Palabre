@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Workflow documentation"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Automated flows that fail loudly, never silently."
+method = ["Map the manual process and its handoffs", "Automate the stable steps and keep a human step for exceptions", "Make each step idempotent with logged outcomes", "Monitor failures and alert the process owner"]
+watch_points = ["Automating a broken process", "Failed runs that no one is told about", "Credentials embedded in the workflow definition"]
+deliverable_format = "A pull request with the workflow definitions, a process map before and after, and the error-handling and alert configuration."

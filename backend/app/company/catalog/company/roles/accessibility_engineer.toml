@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Commits", "Audit reports"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Interfaces meeting the accessibility standard."
+method = ["Audit the product against WCAG with automated tools and manual checks", "Fix issues in code: semantics, keyboard use, contrast, labels", "Test with a screen reader and keyboard-only navigation", "Add automated accessibility tests to the build"]
+watch_points = ["Relying on automated scanners that catch only part of the issues", "ARIA used to patch poor markup", "Keyboard focus lost in dynamic components"]
+deliverable_format = "A pull request with accessibility fixes, an audit report with the WCAG criteria addressed and the automated tests added."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Audit reports", "Commits"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Sound technical SEO with measured effect."
+method = ["Crawl the site and list indexing, speed and structure issues", "Prioritize fixes by search traffic at stake", "Implement canonical tags, sitemaps, structured data and redirects", "Verify in search console and compare crawl results afterwards"]
+watch_points = ["Redirect chains and loops after a migration", "Blocking crawlers through a robots rule by mistake", "Duplicate pages competing for the same query"]
+deliverable_format = "An audit report with prioritized findings and a pull request implementing the technical fixes, with before and after crawl results."

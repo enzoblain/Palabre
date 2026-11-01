@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Architecture notes", "Decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "One consistent view of the customer."
+method = ["Inventory the customer data sources and owners", "Define the single customer record and its identifiers", "Design the integrations and the data flow between CRM and other systems", "Set the rules for consent, retention and access"]
+watch_points = ["Several systems each claiming to own the customer", "Consent state not propagated across tools", "A design tied to one vendor's data model"]
+deliverable_format = "An architecture document with the customer data model, the integration map and the data-ownership table."
