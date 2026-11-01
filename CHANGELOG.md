@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - github: stop copying French task text onto GitHub (#318)
 - workflow: reuse the open PR when a submission is retried after a rollback (#327)
 - direction: show boss requests in full and without the author's name (#329)
+- direction: write decisions and escalations for a non-developer boss (#335)
 
 ## [0.20.0] - 2026-10-31
 
