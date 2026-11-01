@@ -614,15 +614,26 @@ async def room_context(s: AsyncSession, room_id: int) -> dict:
 
 
 async def add_decision(
-    s: AsyncSession, project_id: int, room_id: int, title: str, rationale: str, author: Employee
+    s: AsyncSession,
+    project_id: int,
+    room_id: int,
+    title: str,
+    rationale: str,
+    author: Employee,
+    decided_by_boss: bool = False,
 ) -> Decision:
-    decision = Decision(room_id=room_id, title=title, rationale=rationale, proposed_by=author.name)
+    """Record a decision. Unless the boss already settled it (lead only), the boss is asked to validate it."""
+    if decided_by_boss and "lead" not in author.roles:
+        raise WorkflowError("Only the lead can record a decision as already decided by the boss")
+    status = DecisionStatus.validated if decided_by_boss else DecisionStatus.proposed
+    decision = Decision(room_id=room_id, title=title, rationale=rationale, proposed_by=author.name, status=status)
     s.add(decision)
     await s.flush()
     await s.commit()
-    summary = rationale.strip()
-    text = title + (f"\n\n{summary}" if summary else "")
-    await ask_boss(s, project_id, author, text, "decision", decision.id)
+    if not decided_by_boss:
+        summary = rationale.strip()
+        text = title + (f"\n\n{summary}" if summary else "")
+        await ask_boss(s, project_id, author, text, "decision", decision.id)
     return decision
 
 

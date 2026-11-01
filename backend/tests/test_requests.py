@@ -203,6 +203,26 @@ async def test_add_decision_asks_the_boss_in_direction():
     assert decision.proposed_by == "Louise"
 
 
+async def test_a_decision_already_taken_by_the_boss_is_validated_without_a_request():
+    s = FakeSession()
+    decision = await services.add_decision(s, 1, 2, "Use Redis", "Faster", LEAD, decided_by_boss=True)
+    assert decision.status == DecisionStatus.validated
+    assert not [o for o in s.added if isinstance(o, Message)]
+
+
+async def test_a_decision_proposed_by_default_stays_proposed_with_a_request():
+    s = FakeSession()
+    decision = await services.add_decision(s, 1, 2, "Use Redis", "Faster", LEAD)
+    assert decision.status == DecisionStatus.proposed
+    assert len([o for o in s.added if isinstance(o, Message)]) == 1
+
+
+async def test_only_the_lead_can_record_a_decision_as_decided_by_the_boss():
+    dev = make_employee("Maya", "architect")
+    with pytest.raises(services.WorkflowError, match="Only the lead"):
+        await services.add_decision(FakeSession(), 1, 2, "Use Redis", "Faster", dev, decided_by_boss=True)
+
+
 async def test_a_decision_from_a_member_is_signed_by_the_lead_and_in_full():
     dev = make_employee("Maya", "architect")
     s = FakeSession()
