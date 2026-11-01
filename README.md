@@ -218,7 +218,6 @@ Four values in `.env` are required:
 | Variable | What it is |
 |---|---|
 | `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
-| `SESSION_TTL_SECONDS` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`). Default `43200` (12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
 | `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
@@ -231,7 +230,7 @@ See [Remote access](#remote-access) to reach the server from another machine.
 Upgrading from a version before secret files: keep your `.env` as it is, the four secrets are
 still read from it. Compose now mounts them as files (`/run/secrets`) instead of environment
 variables, so you need Compose 2.30 or later, and any other variable you set must be one of
-those listed in [Configuration](#configuration): the container no longer gets the whole
+those listed in the first table of [Configuration](#configuration): the container no longer gets the whole
 `.env`, so settings like `CORS_ORIGINS`, `CLAUDE_MAX_TURNS`, `AGENT_TIMEOUT_S`,
 `IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
 `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
@@ -414,7 +413,8 @@ different versions fails. If that happens, run the compile commands above by han
 
 ## Configuration
 
-All optional, in `.env`:
+Compose only passes the variables below to the containers (the secrets as files, the rest as
+environment); all are optional, in `.env`:
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -424,21 +424,42 @@ All optional, in `.env`:
 | `PALABRE_WEB_BIND` | `127.0.0.1` | Host address the web app port is published on; `0.0.0.0` exposes `/api` on every interface in clear HTTP |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
+| `POSTGRES_USER` / `POSTGRES_DB` | `palabre` | Database user and name |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
-| `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
-| `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
+| `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (build argument, needs a local build) |
+
+The other settings of `backend/app/config.py` (the variable is the field name in upper case) keep
+their default unless you add them to the `environment:` of the `backend` service in `docker-compose.yml`:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SESSION_TTL_SECONDS` | `43200` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`, 12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
+| `AUTH_MAX_FAILURES` / `AUTH_FAIL_WINDOW_SECONDS` | `10` / `300` | Failed authentications from one IP within the window before it gets `429` |
+| `TRUSTED_PROXY_HOSTS` | `["web"]` | JSON list of hosts whose `X-Real-IP` is believed (the web container's nginx) |
+| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere |
+| `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
+| `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
+| `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
+| `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
+| `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
+| `MAX_REVIEW_ROUNDS` | `3` | Rounds of "changes requested" on a task before the lead has to step in |
+| `MAX_RUNS_PER_CONVERSATION_HOUR` | `20` | Chatter runs per employee per hour before their wakeups are held |
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
 | `CLAUDE_TASK_MAX_TURNS` | `100` | Turn limit of a task run |
-| `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
-| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. Build argument of the same name sets how many accounts the image creates |
+| `AGENT_TIMEOUT_S` | `1800` | Seconds before a run is stopped |
+| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. The build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude task session (for one employee) serves before the next run on that subject starts a new session instead of resuming it. Conversation wakeups never resume: each starts a new session, as the prompt cache has expired between two wakeups. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
-| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere. Add it to the `environment:` of the `backend` service |
-| `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
+| `EGRESS_ALLOWED_HOSTS` / `EGRESS_ALLOWED_PORTS` | npm, PyPI and Go registries, `statsig.anthropic.com` / `[443]` | JSON lists of what the agents' egress proxy may reach, see [Security](#security) |
+| `EGRESS_MAX_TUNNELS` | `64` | Concurrent tunnels of the egress proxy |
+| `ANTHROPIC_ALLOWED_PATHS` / `ANTHROPIC_ALLOWED_SERVER_TOOLS` | `v1/messages`, `v1/messages/count_tokens` / `web_search` | JSON lists of what the Anthropic reverse proxy forwards |
+| `FETCH_TIMEOUT_S` / `FETCH_MAX_BYTES` / `FETCH_MAX_CHARS` / `FETCH_MAX_REDIRECTS` | `20` / `2000000` / `30000` / `3` | Bounds of the research groups' `fetch_page` tool |
+| `EGRESS_FILTER` | `on` | Read by the entrypoint, not by `config.py`: `off` runs without the agents' firewall |
 
 The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
 Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
@@ -488,8 +509,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
   A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
   with an attacker-supplied npm token: a known, accepted risk.
-- Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
-  process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
+- Agents run as other system users. The server runs as `palabre` (uid 1000); each `claude`
+  process is started as an `agent` account (`agent1..N` with the pool) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
   database URL or tokens. In `/data`, only the server can read the project's reference
   clone and `runtime/`; agents write in their task and desk clones, Claude's sessions and
@@ -518,21 +539,17 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   only) and deletes the directory. A `settings.json` or hook an agent writes there dies with
   the run and never reaches another employee's. Sessions of a volume made before this change
   are purged at the first start (agents begin a new session).
-  Known limit: all agents share the one `agent` user, so a run can still read another run's
-  process (its token, its MCP config path, its `CLAUDE_CONFIG_DIR`): while a run is live, another
-  run can write into its session, which is then collected into that employee's store.
-  The isolation is between agents and the server, not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
+  Known limit: the isolation holds between runs only with the pool (`AGENT_POOL_SIZE` above 0); in the shared-account mode all
+  runs share one uid and can read each other's processes, tokens and sessions.
   To check an image, see [Checking the isolation](#checking-the-isolation).
-  Agents still share the container's network, so keep Postgres' password strong.
+  Agents still share the container's network (limited by the egress firewall), so keep Postgres' password strong.
 - Each run gets its own random MCP token, held in server memory: it is revoked when the
   run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
   A token stolen from another run (`ps`, the config file) stops working once that run is
   over. The token is tied to the run and to its task or conversation (the headers must match
   the scope recorded at start), not to one MCP session: `claude` reopens sessions during a
-  run, so each `MCP initialize` is only logged by the backend. Residual risk: all runs share the `agent` uid, so while a run is live another run
-  can still read its `/proc/<pid>/environ` or the config file in that short window. The
-  real fix is one uid per run (or per sensitive role, the lead) or a sandbox per run
-  (bubblewrap, user namespace).
+  run, so each `MCP initialize` is only logged by the backend. With the pool, each run has its own uid, so another run cannot read the token;
+  in the shared-account mode it still could while the run is live.
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
 - The API is protected by `ADMIN_TOKEN`. The server port is published on `127.0.0.1` only;
