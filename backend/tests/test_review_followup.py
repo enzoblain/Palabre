@@ -2,9 +2,14 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
 from app import workflow
 from app.config import settings
-from app.models import TaskStatus, Verdict
+from app.models import Base, Event, Project, TaskStatus, Verdict
 from app.orchestrator import merge_watch
 
 from .conftest import FakeSession, make_employee, make_review, make_task
@@ -15,9 +20,14 @@ def woken(session, type_):
 
 
 class RecordingSession(FakeSession):
-    def __init__(self, reviews):
+    def __init__(self, reviews, sent=()):
         super().__init__(reviews)
-        self.added = []
+        self.added, self.sent = [], list(sent)
+
+    async def scalars(self, query):
+        if str(query).split("FROM ")[1].split()[0] == "events":
+            return self.sent  # reminders already sent for the head
+        return await super().scalars(query)
 
     def add(self, obj):
         self.added.append(obj)
@@ -64,13 +74,15 @@ async def test_a_reviewer_report_does_not_wake_anyone(reviewer):
 
 
 class SilenceSession(RecordingSession):
-    def __init__(self, tasks, reviewers, busy=None):
-        super().__init__([])
+    def __init__(self, tasks, reviewers, busy=None, sent=()):
+        super().__init__([], sent)
         self.tasks, self.reviewers, self.busy = tasks, reviewers, busy
 
     async def scalars(self, query):
         table = str(query).split("FROM ")[1].split()[0]
-        return {"tasks": self.tasks, "employees": self.reviewers}.get(table, [])
+        if table == "events" and "events.created_at" in str(query):
+            return []  # Timestamps of past reminders: none, the silence is old
+        return {"tasks": self.tasks, "employees": self.reviewers, "events": self.sent}.get(table, [])
 
     async def scalar(self, _query):
         return self.busy
@@ -159,3 +171,81 @@ async def test_changes_verdict_of_qa_does_not_wake_the_waiting_reviewer(qa, monk
     s = ReviewSession([])
     await workflow.review_task(s, task.project_id, task.id, qa, "changes", "broken", "a" * 12)
     assert task.status == TaskStatus.changes_requested and not waking
+
+
+# --- Cap of reminders per head SHA ---------------------------------------------------
+
+
+async def test_reminders_stop_at_the_cap_and_the_lead_is_told_once(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    sent = ["review_stalled"] * settings.max_review_reminders
+    s = SilenceSession([silent_task(1000, reviewed_head="a" * 12)], [reviewer], sent=sent)
+    await merge_watch.watch_silent_reviews(s)
+    assert not woken(s, "review_overdue") and not woken(s, "review_stalled")
+    [abandoned] = woken(s, "review_abandoned")
+    assert abandoned.target_role == "lead" and abandoned.payload["head_sha"] == "a" * 12
+
+
+async def test_no_second_notification_once_the_lead_was_told(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    sent = ["review_stalled"] * settings.max_review_reminders + ["review_abandoned"]
+    s = SilenceSession([silent_task(1000)], [reviewer], sent=sent)
+    await merge_watch.watch_silent_reviews(s)
+    assert not s.added
+
+
+async def test_below_the_cap_the_reviewer_is_still_reminded(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    sent = ["review_stalled"] * (settings.max_review_reminders - 1)
+    s = SilenceSession([silent_task(1000)], [reviewer], sent=sent)
+    await merge_watch.watch_silent_reviews(s)
+    assert len(woken(s, "review_overdue")) == 1 and not woken(s, "review_abandoned")
+
+
+async def test_qa_reports_stop_waking_the_reviewer_at_the_cap(reviewer, qa):
+    s = RecordingSession([make_review(reviewer, Verdict.comment)], ["verification_done"] * settings.max_review_reminders)
+    await workflow._wake_waiting_reviewers(s, make_task(), qa)
+    assert not woken(s, "verification_done")
+
+
+# --- The counting query, run on a real session -----------------------------------------
+
+
+@pytest.fixture
+async def db():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        session.add(Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company"))
+        await session.flush()
+        yield session
+    await engine.dispose()
+
+
+def reminder(project_id, type_, task_id, head):
+    return Event(project_id=project_id, type=type_, payload={"task_id": task_id, "head_sha": head})
+
+
+async def test_count_is_per_task_and_per_head_sha(db):
+    project = (await db.scalars(select(Project))).one()
+    task = make_task(project_id=project.id, reviewed_head="a" * 12)
+    db.add_all([
+        reminder(project.id, "review_stalled", task.id, "a" * 12),
+        reminder(project.id, "review_stalled", task.id, "a" * 12),
+        reminder(project.id, "review_stalled", task.id, "b" * 12),  # another head: starts from zero
+        reminder(project.id, "review_stalled", task.id + 1, "a" * 12),  # another task
+        reminder(project.id, "review_overdue", task.id, "a" * 12),  # not counted
+    ])  # fmt: skip
+    await db.flush()
+    assert await workflow.review_reminders_sent(db, task, "review_stalled") == ["review_stalled"] * 2
+    task.reviewed_head = "b" * 12
+    assert await workflow.review_reminders_sent(db, task, "review_stalled") == ["review_stalled"]
+
+
+async def test_the_json_filters_compile_to_postgres_operators():
+    query = select(Event.type).where(
+        Event.payload["task_id"].as_integer() == 1, Event.payload["head_sha"].as_string() == "x"
+    )
+    sql = str(query.compile(dialect=postgresql.dialect()))
+    assert "events.payload ->> %(payload_1)s" in sql and "CAST" in sql

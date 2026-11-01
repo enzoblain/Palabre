@@ -110,6 +110,8 @@ review, a reviewer whose last opinion is a comment without a verdict is woken up
 to give approve or changes. As a safety net, a task in review with no reviewer verdict for
 `REVIEW_SILENCE_MINUTES` (15 by default) wakes the reviewers again (`review_overdue`, when none is
 busy) and tells the lead (`review_stalled`), then waits another delay before the next reminder.
+Reminders are capped per head SHA by `MAX_REVIEW_REMINDERS` (3 by default, QA and security reports
+included); past it the lead gets one last notification (`review_abandoned`). A new head starts again from zero.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its
@@ -447,6 +449,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
 | `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
 | `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |
+| `MAX_REVIEW_REMINDERS` | `3` | Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it |
 | `MAX_REVIEW_ROUNDS` | `3` | Rounds of "changes requested" on a task before the lead has to step in |
 | `MAX_RUNS_PER_CONVERSATION_HOUR` | `20` | Chatter runs per employee per hour before their wakeups are held |
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |

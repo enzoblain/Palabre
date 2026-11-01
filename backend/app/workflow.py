@@ -28,6 +28,7 @@ from app.worktrees import (
 
 MAX_DIFF_CHARS = 100_000
 SHORT_SHA_LENGTH = 8
+NO_HEAD = "none"  # head key of a review round that recorded no head SHA
 MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
 FALLBACK_MERGE_TITLE = "chore: merge task"  # squash title when no PR title was recorded; never the (French) task title
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
@@ -621,15 +622,36 @@ def reviewer_gave_verdict(reviews: list[Review], task: Task, roles: dict[str, Ro
     )
 
 
+def head_key(task: Task) -> str:
+    """The head SHA review reminders are counted per; "none" while the round has no recorded head."""
+    return task.reviewed_head or NO_HEAD
+
+
+async def review_reminders_sent(s: AsyncSession, task: Task, *event_types: str) -> list[str]:
+    """The type of each reminder event of these types already sent for the task's current head SHA."""
+    return list(
+        await s.scalars(
+            select(Event.type).where(
+                Event.type.in_(event_types), Event.project_id == task.project_id,
+                Event.payload["task_id"].as_integer() == task.id,
+                Event.payload["head_sha"].as_string() == head_key(task),
+            )
+        )
+    )  # fmt: skip
+
+
 async def _wake_waiting_reviewers(s: AsyncSession, task: Task, author: Employee) -> None:
     """A QA or security report is in: wake the reviewers who commented without a verdict, probably
-    waiting for it. A reviewer who already gave a verdict is not woken."""
+    waiting for it, up to max_review_reminders per head SHA. A reviewer who already gave a verdict
+    is not woken."""
     roles = load_catalog()["roles"]
     if not held_role_keys(author.roles, roles) & {QA_KEY, SECURITY_KEY}:
         return
+    sent = len(await review_reminders_sent(s, task, "verification_done"))
     for waiting in _commenting_reviewers(await task_reviews(s, task), task):
-        if waiting.id != author.id:
-            payload = {"task_id": task.id, "by": author.name}
+        if waiting.id != author.id and sent < settings.max_review_reminders:
+            sent += 1
+            payload = {"task_id": task.id, "by": author.name, "head_sha": head_key(task)}
             emit_event(s, task.project_id, "verification_done", payload, employee_id=waiting.id)
     await s.commit()
 
