@@ -163,7 +163,6 @@ export const en = {
   "quota.resetsInHours": "resets in {hours}h{minutes}",
   "quota.resetsAt": "resets {date}",
 
-
   "new.title": "New project",
   "new.company": "Software company",
   "new.companyIntro": "A team with roles and a hierarchy builds your app on GitHub.",

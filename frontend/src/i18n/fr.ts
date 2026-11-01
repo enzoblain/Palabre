@@ -164,7 +164,6 @@ export const fr: Messages = {
   "quota.resetsInHours": "réinitialisation dans {hours} h {minutes}",
   "quota.resetsAt": "réinitialisation le {date}",
 
-
   "new.title": "Nouveau projet",
   "new.company": "Entreprise de logiciel",
   "new.companyIntro": "Une équipe avec des rôles et une hiérarchie construit votre application sur GitHub.",
