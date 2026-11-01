@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  ApiError, type AccountQuota, type AppSettings, type QuotaWindow, type Project, type ProjectDetail, type Usage, type UsageEntry, type UsagePeriod,
-  type UsageTotals, api,   getConnection,
+  ApiError, type AccountQuota, type AppSettings, type QuotaWindow, type Project, type ProjectDetail, api, getConnection,
 } from "../api";
 import { locale, translate, useI18n } from "../i18n";
 import { parseDate, spreadAccounts } from "../util";
@@ -60,7 +59,6 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
       <QuotaSection />
-      <UsageSection />
       <Projects projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
         <h2>{t("settings.server")}</h2>
@@ -258,8 +256,6 @@ function BranchField({ project, onChanged }: { project: Project; onChanged: () =
   );
 }
 
-const PERIODS = ["day", "week", "total"] as const satisfies readonly UsagePeriod[];
-
 function QuotaSection() {
   const { t, tr } = useI18n();
   const [accounts, setAccounts] = useState<AccountQuota[] | null>(null);
@@ -331,105 +327,6 @@ function QuotaBar({ label, window }: { label: string; window: QuotaWindow | null
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
         <div className="quota-fill" style={{ width: `${percent}%` }} />
       </div>
-    </div>
-  );
-}
-
-function UsageSection() {
-  const { t } = useI18n();
-  const [usage, setUsage] = useState<Usage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<UsagePeriod>("week");
-  useEffect(() => {
-    api.getUsage().then(setUsage).catch((err) => setError(err instanceof ApiError ? err.message : String(err)));
-  }, []);
-
-  return (
-    <section className="panel">
-      <h2>{t("usage.title")}</h2>
-      <p className="muted">
-        {t("usage.intro")}
-      </p>
-      <div className="row" role="group" aria-label={t("usage.period")}>
-        {PERIODS.map((p) => (
-          <button key={p} className={`btn btn-small${p === period ? " btn-primary" : ""}`}
-            aria-pressed={p === period} onClick={() => setPeriod(p)}>{t(`usage.${p}`)}</button>
-        ))}
-      </div>
-      {error && <p className="error">{error}</p>}
-      {!usage && !error && <p className="muted">{t("common.loading")}</p>}
-      {usage && usage.total.runs === 0 && <p className="muted">{t("usage.empty")}</p>}
-      {usage && usage.total.runs > 0 && (
-        <>
-          <UsageTable title={t("usage.byAccount")} what={t("usage.account")} period={period} entries={usage.accounts}
-            label={(e) => (e.id === null ? t("usage.unknown") : t("account.n", { account: e.id }))} />
-          <UsageTable title={t("usage.byEmployee")} what={t("usage.employee")} period={period} entries={usage.employees}
-            label={(e) => e.name ?? t("usage.employeeN", { id: e.id ?? "" })} />
-          <UsageTable title={t("usage.byProject")} what={t("usage.project")} period={period} entries={usage.projects}
-            label={(e) => e.name ?? t("usage.projectN", { id: e.id ?? "" })} />
-          <UsageSummary totals={usage[period]} />
-        </>
-      )}
-    </section>
-  );
-}
-
-function cost(t: UsageTotals) {
-  if (t.runs_without_cost >= t.runs) return "–";
-  return `${t.runs_without_cost > 0 ? "≥ " : ""}$${t.cost_usd.toFixed(2)}`;
-}
-
-function UsageSummary({ totals }: { totals: UsageTotals }) {
-  if (totals.runs_without_tokens === 0 && totals.runs_without_cost === 0) return null;
-  return (
-    <p className="muted">
-      {translate("usage.missing", { tokens: totals.runs_without_tokens, runs: totals.runs, cost: totals.runs_without_cost })}
-    </p>
-  );
-}
-
-function UsageTable({ title, what, period, entries, label }: {
-  title: string;
-  what: string;
-  period: UsagePeriod;
-  entries: UsageEntry[];
-  label: (e: UsageEntry) => string;
-}) {
-  const { t } = useI18n();
-  const rows = entries.filter((e) => e[period].runs > 0);
-  const number = new Intl.NumberFormat(locale());
-  return (
-    <div className="usage-block">
-      <h3>{title}</h3>
-      {rows.length === 0 ? <p className="muted">{t("usage.noRun")}</p> : (
-        <table className="usage-table">
-          <thead>
-            <tr>
-              <th scope="col">{what}</th>
-              <th scope="col" className="num">{t("usage.runs")}</th>
-              <th scope="col" className="num">{t("usage.input")}</th>
-              <th scope="col" className="num">{t("usage.output")}</th>
-              <th scope="col" className="num">{t("usage.cache")}</th>
-              <th scope="col" className="num">{t("usage.cost")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((e) => {
-              const t = e[period];
-              return (
-                <tr key={e.id ?? "none"}>
-                  <th scope="row" className="truncate">{label(e)}</th>
-                  <td className="num">{number.format(t.runs)}</td>
-                  <td className="num">{number.format(t.input_tokens)}</td>
-                  <td className="num">{number.format(t.output_tokens)}</td>
-                  <td className="num">{number.format(t.cache_creation_tokens + t.cache_read_tokens)}</td>
-                  <td className="num">{cost(t)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
     </div>
   );
 }

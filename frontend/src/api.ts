@@ -120,25 +120,6 @@ export type AppSettings = {
   languages: Record<string, string>;
   claude_accounts: number;
 };
-export type UsageTotals = {
-  runs: number;
-  input_tokens: number;
-  output_tokens: number;
-  cache_creation_tokens: number;
-  cache_read_tokens: number;
-  cost_usd: number;
-  // Runs that reported no tokens / no cost: the sums leave them out
-  runs_without_tokens: number;
-  runs_without_cost: number;
-};
-export type UsagePeriod = "day" | "week" | "total";
-// id and name are null where unknown (account: runs before it was recorded)
-export type UsageEntry = { id: number | null; name: string | null } & Record<UsagePeriod, UsageTotals>;
-export type Usage = {
-  accounts: UsageEntry[];
-  employees: UsageEntry[];
-  projects: UsageEntry[];
-} & Record<UsagePeriod, UsageTotals>;
 // Real quota of a Claude account, as /usage shows it. `resets_at` is null when unknown
 export type QuotaWindow = { used_percent: number; resets_at: string | null };
 export type ModelQuota = QuotaWindow & { model: string };
@@ -430,7 +411,6 @@ export async function login(server: string, adminToken: string): Promise<Connect
 
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
-  getUsage: () => call<Usage>("/settings/usage"),
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>

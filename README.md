@@ -307,7 +307,6 @@ shows in Claude Code: the 5-hour session, the week (all models) and the week per
 each with the percentage used and its reset time. It is read from Claude's OAuth usage
 endpoint with the account's token, which never leaves the backend, and cached for about a
 minute. An account that fails returns an `error` without affecting the others.
-`GET /settings/usage` is different: it only sums tokens and cost of the runs Palabre made.
 
 **Credits exhausted**: when a run fails because the account hit its usage limit or has no
 credit left (recognised in the output of `claude -p`, with its reset time when it gives
