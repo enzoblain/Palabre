@@ -438,8 +438,11 @@ export const api = {
     topic?: string;
     rapporteur?: string | null;
     mode: string;
-    seed: number;
+    seed?: number;
     accounts: Record<string, number>;
+    creation_mode?: "manual" | "auto";
+    description?: string;
+    employee_count?: number;
     employees?: MemberIn[];
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>

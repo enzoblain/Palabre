@@ -1,7 +1,7 @@
 // Unit tests of src/jobs.ts, run with Node's built-in test runner (no extra dependency).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupJobs, teamWarningThreshold } from "../src/jobs.ts";
+import { MIN_COMPANY_TEAM_SIZE, groupJobs, isTeamTooSmall, teamWarningThreshold } from "../src/jobs.ts";
 
 const role = (key, category, order, title = key, description = "") => ({ key, category, order, title, description });
 const roles = {
@@ -38,4 +38,10 @@ test("historic categories come before the extended ones", () => {
   const mixed = { ...roles, sec: role("sec", "cybersecurity", 0, "Pentester"), ml: role("ml", "artificial_intelligence", 1, "ML engineer") };
   assert.deepEqual(groupJobs(mixed, "").map(([category]) => category),
     ["management", "engineering", "quality", "artificial_intelligence", "cybersecurity"]);
+});
+
+test("a company team below four members, lead included, is too small", () => {
+  assert.equal(MIN_COMPANY_TEAM_SIZE, 4);
+  assert.equal(isTeamTooSmall(3, MIN_COMPANY_TEAM_SIZE), true);
+  assert.equal(isTeamTooSmall(4, MIN_COMPANY_TEAM_SIZE), false);
 });

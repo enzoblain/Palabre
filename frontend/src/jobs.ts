@@ -31,3 +31,11 @@ export function groupJobs(roles: Record<string, Role>, search: string): [RoleCat
 export function teamWarningThreshold(maxAgents: number): number {
   return Math.ceil(maxAgents * TEAM_WARNING_RATIO);
 }
+
+/** A company needs at least this many members, the lead included (MIN_AUTO_TEAM_SIZE on the server). */
+export const MIN_COMPANY_TEAM_SIZE = 4;
+
+/** Whether a team of this size is below the minimum. */
+export function isTeamTooSmall(size: number, minSize: number): boolean {
+  return size < minSize;
+}

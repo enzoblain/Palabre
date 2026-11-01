@@ -6,10 +6,14 @@ import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
-import { TeamEditor, teamProblems } from "./TeamEditor";
+import { MIN_COMPANY_TEAM_SIZE, isTeamTooSmall } from "../jobs";
+import { TeamEditor, mandatoryMember, teamProblems } from "./TeamEditor";
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
+const MANDATORY_ROLE = "lead"; // The member every company team starts with (MANDATORY_ROLE on the server)
 const DEFAULT_MODE: Record<ProjectKind, string> = { company: "startup", research: "panel" };
+
+type CreationMode = "auto" | "manual";
 
 function teamSize(mode: Mode): number {
   return mode.seats.reduce((n, seat) => n + (seat.count ?? 1), 0);
@@ -42,6 +46,10 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [repoUrl, setRepoUrl] = useState("");
   const [topic, setTopic] = useState("");
   const [mode, setMode] = useState(DEFAULT_MODE.company);
+  // Company: the team is hired from a description (auto) or listed by hand (manual)
+  const [creation, setCreation] = useState<CreationMode>("auto");
+  const [description, setDescription] = useState("");
+  const [employeeCount, setEmployeeCount] = useState(MIN_COMPANY_TEAM_SIZE);
   const research = kind === "research";
   const [team, setTeam] = useState<TeamPreview | null>(null);
   // Team built by hand (null: the team drawn at random is used)
@@ -72,6 +80,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setPresets(null);
     setCustom(null);
     setMode(DEFAULT_MODE[kind]);
+    setCreation("auto");
     api.modes(kind).then(setModes).catch((err) => setError(String(err.message ?? err)));
     api.personality(kind).then(setPersonality).catch(() => {});
     loadPresets(kind);
@@ -94,6 +103,13 @@ export function NewProject({ claudeAccounts, onCreated }: {
     setCustom((current) => current ?? []);
   }
 
+  // Manual company: the team starts with the mandatory member, who cannot be removed
+  function chooseCreation(next: CreationMode) {
+    setCreation(next);
+    if (next === "auto") return setCustom(null);
+    if (personality) setCustom((current) => current ?? [mandatoryMember(personality, names, MANDATORY_ROLE)]);
+  }
+
   function draw(forMode: string) {
     setTeam(null);
     setAccounts({});
@@ -102,25 +118,31 @@ export function NewProject({ claudeAccounts, onCreated }: {
   }
   // Only once the modes of the current kind are known (the mode resets with the kind)
   useEffect(() => {
-    if (modes && modes[mode]) draw(mode);
-  }, [mode, modes]);
+    if (research && modes && modes[mode]) draw(mode);
+  }, [research, mode, modes]);
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
   const sourceValid = research ? topic.trim().length > 0 : repoValid;
-  const problems = custom ? teamProblems(custom, !research) : [];
+  const autoProblems = !research && creation === "auto" && isTeamTooSmall(employeeCount, MIN_COMPANY_TEAM_SIZE)
+    ? [t("editor.problemTooSmall", { min: MIN_COMPANY_TEAM_SIZE })]
+    : [];
+  const problems = custom ? teamProblems(custom, !research, research ? 1 : MIN_COMPANY_TEAM_SIZE) : autoProblems;
+  const teamReady = research ? !!team : creation === "auto" || !!custom;
   const effective = team ? spreadAccounts(team.employees.map((m) => accounts[m.name]), claudeAccounts) : [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!team || problems.length) return;
+    if (!teamReady || problems.length) return;
     setBusy(true);
     setError(null);
     try {
       const project = await api.createProject({
         name: name.trim(),
         mode,
-        ...(research ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur } : { repo_url: repoUrl.trim() }),
-        seed: team.seed,
+        ...(research
+          ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur, seed: team?.seed }
+          : { repo_url: repoUrl.trim(), creation_mode: creation }),
+        ...(!research && creation === "auto" ? { description: description.trim(), employee_count: employeeCount } : {}),
         accounts: custom ? {} : accounts,
         ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
       });
@@ -171,6 +193,53 @@ export function NewProject({ claudeAccounts, onCreated }: {
         )}
       </section>
 
+      {!research && (
+        <section className="panel">
+          <div className="team-head">
+            <h2>{t("new.yourTeam")}</h2>
+            <div className="segmented" role="tablist">
+              <button type="button" role="tab" aria-selected={creation === "auto"} className={creation === "auto" ? "selected" : ""}
+                onClick={() => chooseCreation("auto")}>{t("new.creationAuto")}</button>
+              <button type="button" role="tab" aria-selected={creation === "manual"} className={creation === "manual" ? "selected" : ""}
+                disabled={!roles || !personality || !presets || !limits} onClick={() => chooseCreation("manual")}>
+                {t("new.creationManual")}
+              </button>
+            </div>
+          </div>
+          {presetsFailed && (
+            <p className="error" role="alert">
+              {t("new.presetsFailed")}{" "}
+              <button type="button" onClick={() => loadPresets(kind)}>{t("new.presetsRetry")}</button>
+            </p>
+          )}
+          {creation === "auto" ? (
+            <>
+              <p className="muted">{t("new.introAuto")}</p>
+              <label>
+                {t("new.description")}
+                <textarea required rows={4} maxLength={10000} value={description}
+                  onChange={(e) => setDescription(e.target.value)} placeholder={t("new.descriptionPlaceholder")} />
+              </label>
+              <label className="narrow">
+                {t("new.employeeCount")}
+                <input type="number" min={MIN_COMPANY_TEAM_SIZE} max={limits?.max_agents} value={employeeCount}
+                  onChange={(e) => setEmployeeCount(Number(e.target.value))} />
+              </label>
+            </>
+          ) : (
+            <>
+              <p className="muted">{t("new.introManual", { min: MIN_COMPANY_TEAM_SIZE })}</p>
+              {custom && roles && personality && presets && limits && (
+                <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} presets={presets}
+                  names={names} claudeAccounts={claudeAccounts} limits={limits} mandatoryRole={MANDATORY_ROLE} />
+              )}
+            </>
+          )}
+          {problems.map((problem) => <p key={problem} className="error" role="alert">{problem}</p>)}
+        </section>
+      )}
+
+      {research && (
       <section className="panel">
         <div className="team-head">
           <h2>{t("new.yourTeam")}</h2>
@@ -259,11 +328,12 @@ export function NewProject({ claudeAccounts, onCreated }: {
         )}
         {problems.map((problem) => <p key={problem} className="error">{problem}</p>)}
       </section>
+      )}
 
       {error && <p className="error">{error}</p>}
       <div className="row actions">
         <button type="button" className="btn" onClick={() => go("/")}>{t("common.cancel")}</button>
-        <button className="btn btn-primary" disabled={busy || !team || !name.trim() || !sourceValid || problems.length > 0}>
+        <button className="btn btn-primary" disabled={busy || !teamReady || !name.trim() || !sourceValid || (!research && creation === "auto" && !description.trim()) || problems.length > 0}>
           {busy ? t("new.creating") : research ? t("new.startResearch") : t("new.create")}
         </button>
       </div>
