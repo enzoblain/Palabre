@@ -58,3 +58,4 @@ def test_prompts_require_readme_update_in_same_pr():
 def test_qa_reminded_to_report_missing_readme_update():
     reason = REASONS["pr_ready"]
     assert "README" in reason and "report_bug" in reason
+    assert "without updating the README, report it as a bug" in reason
