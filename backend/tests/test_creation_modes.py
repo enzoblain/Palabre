@@ -169,16 +169,16 @@ async def test_manual_creation_passes_only_the_team_to_the_project(projects_clie
     response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=TEAM_PAYLOAD))
     assert response.status_code == 201
     [fields] = projects_client.created
-    assert not fields.keys() & projects_api.CREATION_FIELDS
+    assert fields["creation_mode"] == "manual"
     assert [e["name"] for e in fields["employees"]] == ["Elise", "Mehdi", "Malik", "Nathan"]
 
 
-async def test_auto_creation_does_not_pass_the_creation_fields(projects_client):
+async def test_auto_creation_passes_the_description_and_count(projects_client):
     body = _payload(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE)
     response = await projects_client.post("/projects", json=body)
     assert response.status_code == 201
     [fields] = projects_client.created
-    assert not fields.keys() & projects_api.CREATION_FIELDS
+    assert (fields["creation_mode"], fields["description"], fields["employee_count"]) == ("auto", "A CRM", MIN_TEAM_SIZE)
 
 
 async def test_manual_creation_without_the_lead_is_refused(projects_client):

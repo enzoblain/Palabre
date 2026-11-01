@@ -86,9 +86,22 @@ def generate_team(mode: str, seed: int | None = None) -> Team:
         seed = random.SystemRandom().randrange(2**32)
     rng = random.Random(seed)
 
+    seats = [seat["roles"] for seat in catalog["modes"][mode]["seats"] for _ in range(seat.get("count", 1))]
+    return _draw_team(rng, catalog, mode, seed, seats)
+
+
+def generate_team_from_roles(mode: str, role_keys: list[str], seed: int | None = None) -> Team:
+    """A team with one employee per role chosen beforehand (the process is the mode's); the names
+    and personalities are drawn at random, as for generate_team."""
+    catalog = load_catalog()
+    if seed is None:
+        seed = random.SystemRandom().randrange(2**32)
+    return _draw_team(random.Random(seed), catalog, mode, seed, [[key] for key in role_keys])
+
+
+def _draw_team(rng: random.Random, catalog: dict, mode: str, seed: int, seats: list[list[str]]) -> Team:
     mode_cfg = catalog["modes"][mode]
     personality = personality_for(mode_cfg["kind"])
-    seats = [seat["roles"] for seat in mode_cfg["seats"] for _ in range(seat.get("count", 1))]
     names = rng.sample(catalog["people"]["names"], len(seats))
     traits = _draw_traits(rng, personality, len(seats))
     employees = [

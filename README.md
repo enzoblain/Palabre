@@ -455,6 +455,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
 | `CLAUDE_TASK_MAX_TURNS` | `100` | Turn limit of a task run |
 | `AGENT_TIMEOUT_S` | `1800` | Seconds before a run is stopped |
+| `TEAM_SELECTION_TIMEOUT_S` | `120` | Seconds before the model call that picks the roles of an automatic team is abandoned (the catalog order is used instead) |
 | `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. The build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |

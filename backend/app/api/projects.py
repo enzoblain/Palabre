@@ -29,9 +29,6 @@ from app.services import boss_display_name
 
 router = APIRouter(tags=["projects"])
 
-# Only checked at the API: the team is not yet drawn from them (roles of an automatic team come later)
-CREATION_FIELDS = {"creation_mode", "description", "employee_count"}
-
 
 async def _project(s, project_id: int) -> Project:
     project = await projects.load_project(s, project_id)
@@ -84,7 +81,7 @@ async def create_project(body: ProjectIn, s: SessionDep):
     _check_accounts(body.accounts.values())
     if body.employees is not None:
         _check_team(body.employees, kind)
-    project = await projects.create_project(s, **body.model_dump(exclude=CREATION_FIELDS))
+    project = await projects.create_project(s, **body.model_dump())
     if body.employees and kind == "company":
         projects.plan_custom_channels_later(project.id)
     return _detail(await _project(s, project.id))
