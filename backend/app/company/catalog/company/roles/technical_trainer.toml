@@ -11,4 +11,4 @@ escalation = "Contradictory information → ask the lead."
 success = "Learners able to apply what they learned."
 method = ["Define the learning goals and the audience's starting level", "Build exercises that use realistic cases", "Run the session and observe where learners get stuck", "Adjust the material from the feedback"]
 watch_points = ["Slides covering far more than learners can practice", "Exercises depending on setup that fails on learners' machines", "No check that the skills were gained"]
-deliverable_format = "Training material with learning objectives, exercises with solutions and a prerequisites list, committed as files."
+deliverable_format = "Training material with learning objectives, exercises with solutions and a prerequisites list, in the room document."

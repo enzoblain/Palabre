@@ -11,4 +11,4 @@ escalation = "Contradictory information → ask the lead."
 success = "Documentation that is accurate and clear."
 method = ["Identify the reader and the task they need to accomplish", "Gather facts from the code, the engineers and by trying the product", "Draft with a clear structure, tested steps and consistent terms", "Have an engineer check accuracy and revise"]
 watch_points = ["Steps never actually executed", "Terminology that changes from page to page", "Describing the interface instead of the user's goal"]
-deliverable_format = "A documentation page in the repository's format, with tested steps, examples and a stated audience, submitted as a pull request."
+deliverable_format = "A documentation draft in the room document, with tested steps, examples and a stated audience, ready for a developer to commit."
