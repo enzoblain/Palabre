@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Task plans", "IT status reports"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Daily IT work flows, priorities are clear and incidents are handled promptly."
+method = ["Collect the daily IT requests and incidents", "Sort them by urgency and effect on users", "Assign each to someone with a due date", "Follow progress and unblock", "Summarize the day in a status report"]
+watch_points = ["Urgent requests starving the planned work", "Tasks assigned without checking the owner's load", "Requests lost because they were not written down"]
+deliverable_format = "A task plan with owner and due date for each item, plus a short IT status report saying done, late and blocked."

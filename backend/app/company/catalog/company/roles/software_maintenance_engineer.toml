@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Maintenance patches", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Existing software keeps working, with dependencies up to date and regressions caught by tests."
+method = ["Reproduce the reported issue or the update need", "Find the smallest safe change", "Add a regression test that fails before the change", "Run the suite on the supported versions", "Submit for review with the risk of the change stated"]
+watch_points = ["Fixing the symptom while the cause stays", "Updates that break the versions still supported", "Patches without a test that would catch their return"]
+deliverable_format = "A pull request with the patch, a regression test that fails without it and a note on the versions affected."

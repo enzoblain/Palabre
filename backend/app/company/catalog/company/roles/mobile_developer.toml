@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Mobile app code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The mobile app is stable, responsive and passes its tests on the supported devices."
+method = ["Read the feature and the supported platforms", "Implement it with a layout that adapts to screen size", "Make it work with a slow, dropped or absent connection", "Test on real devices when possible", "Open the pull request with the offline behavior described"]
+watch_points = ["Assuming the network is always available", "Battery drain from polling", "Layouts broken on small screens"]
+deliverable_format = "A pull request with the mobile code and tests, with the behavior on offline and slow networks described."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["AI inventory", "Compliance assessments", "Documents committed to the repository"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Every AI system in use is inventoried, assessed and covered by documented controls."
+method = ["List the AI systems in use and what data and decisions they touch", "Classify each by risk against the applicable rules", "Identify the missing controls: transparency, human review, records", "Write the assessment with the actions required", "Re-check after any model or use change"]
+watch_points = ["AI systems used but absent from the inventory", "Rules applied to the label instead of the actual use", "Assessments not redone after a model change"]
+deliverable_format = "An AI inventory and one compliance assessment per system committed to the repository, each with its risk class and required actions."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Blockchain code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "On-chain and off-chain code behaves correctly and is covered by tests."
+method = ["Read the specification and the target network", "Implement the contract or client with minimal on-chain logic", "Test on a local chain with hostile inputs, including reentrancy", "Estimate the gas cost of the main operations", "Submit for review with the deployment steps"]
+watch_points = ["Reentrancy and unchecked external calls", "Integer and rounding errors in token amounts", "Private keys or seeds appearing in the repository"]
+deliverable_format = "A pull request with the contract or client code, tests including attack cases, gas figures and the deployment instructions."

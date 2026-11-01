@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Streaming jobs", "Throughput reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Events are processed in order, with low latency and without loss or duplication."
+method = ["Define the events, their schema and the ordering needs", "Choose the windowing and the lateness allowed", "Make processing idempotent for redelivered events", "Test with out-of-order and duplicate events", "Measure throughput and lag"]
+watch_points = ["Late events dropped silently", "Duplicates counted twice", "Consumers falling behind with no alert"]
+deliverable_format = "A pull request with the streaming jobs, tests with duplicate and late events, and a report of throughput and lag."

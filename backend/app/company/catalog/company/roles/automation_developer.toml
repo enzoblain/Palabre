@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Automation code", "Usage documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Automations run reliably, report their failures and replace real manual work."
+method = ["Describe the manual procedure as it is done today, step by step", "Pick the steps worth automating by frequency and error rate", "Write the script so that running it twice is harmless", "Add clear logs and a non-zero exit code on failure", "Document how to run it and submit for review"]
+watch_points = ["Scripts that act without a dry-run option", "Silent failure in the middle of a run", "Hard-coded paths and credentials"]
+deliverable_format = "A pull request with the script or tool, a usage section in the documentation (arguments, example, failure behavior) and tests of the main paths."

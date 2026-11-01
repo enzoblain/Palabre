@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Data models", "Data tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data models are tested, documented and trusted by the analysts who use them."
+method = ["Read the business question the model must serve", "Build staging models that rename and type the raw columns", "Build the business models on top, one grain per table", "Document each column and add tests on keys and values", "Open the pull request once the model tests pass"]
+watch_points = ["Tables mixing different grains", "Metrics defined differently in two models", "Columns without a description"]
+deliverable_format = "A pull request with the data models, column documentation and tests for uniqueness, nulls and accepted values."

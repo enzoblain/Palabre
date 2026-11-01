@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Systems code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Low-level code is correct, efficient and safe for the layers that depend on it."
+method = ["Define the interface that upper layers will rely on", "Implement it with explicit error handling and no hidden allocation", "Test with fault injection and large inputs", "Benchmark the hot paths", "Open the pull request with the benchmark numbers"]
+watch_points = ["Undefined behavior from unchecked inputs", "Leaks on error paths", "Interface changes that break upper layers"]
+deliverable_format = "A pull request with the low-level code, fault injection tests and benchmark numbers for the critical paths."

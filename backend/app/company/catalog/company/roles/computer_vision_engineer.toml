@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Vision code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Vision models meet their accuracy and latency targets on real-world images."
+method = ["Define the visual task and the cases the images will really contain", "Assemble labeled data covering lighting, angles and bad quality", "Train or select the model and evaluate per condition", "Check speed on the target hardware", "Open the pull request with the per-condition metrics"]
+watch_points = ["Training images unlike real conditions", "Labels that disagree between annotators", "A single accuracy figure hiding rare critical errors"]
+deliverable_format = "A pull request with the vision code and an evaluation report with metrics by condition and the inference time."

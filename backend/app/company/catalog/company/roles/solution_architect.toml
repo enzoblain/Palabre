@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Solution designs", "Component diagrams"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The designed solution answers the business need and can be built within its constraints."
+method = ["Clarify the business need and the constraints", "Propose two or three solution options", "Compare them on cost, time and risk", "Detail the chosen one with its components", "Validate the feasibility with the developers"]
+watch_points = ["Solutions presented without alternatives", "Technical elegance over the stated need", "Estimates ignoring the integration effort"]
+deliverable_format = "A solution design with a comparison of options and a component diagram, committed to the repository."

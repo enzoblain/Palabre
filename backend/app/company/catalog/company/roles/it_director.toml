@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["IT plans", "Status reports"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "IT services run reliably, within budget and in line with the business needs."
+method = ["Review the state of the IT systems and open incidents", "Compare it with what the business needs next quarter", "Decide the investments and what is kept as is", "Publish the IT plan with budget assumptions", "Report status regularly, with the deviations"]
+watch_points = ["Plans that assume capacity nobody has", "Running costs ignored when approving a new tool", "Status reports that hide incidents"]
+deliverable_format = "An IT plan and periodic status reports committed to the repository, each with priorities, assumptions and deviations from the last plan."

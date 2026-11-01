@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Model code", "Evaluation reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models in production meet their quality targets and can be retrained reproducibly."
+method = ["Frame the problem and set a simple baseline", "Prepare features with the same code for training and serving", "Train and evaluate on a time-aware split", "Package the model with its version and inputs schema", "Submit for review with the evaluation"]
+watch_points = ["Differences between training and serving features", "Random splits on data that has a time order", "Models shipped without a version tied to the data"]
+deliverable_format = "A pull request with the training and serving code and an evaluation report comparing the model with the baseline."

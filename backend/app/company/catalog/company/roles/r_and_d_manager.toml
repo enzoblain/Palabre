@@ -9,3 +9,6 @@ forbidden = ["Imposing technical choices", "Merging"]
 deliverables = ["Research plans", "Findings summaries"]
 escalation = "Unclear or contradictory need → ask the boss."
 success = "Research efforts end in usable results or in a clear decision to stop."
+method = ["Define the research questions in relation to the product need", "Split them into time-boxed studies with an expected output", "Review intermediate results and cut dead ends early", "Summarize what was found and what it means for the product", "Hand usable results to the lead and drop the rest"]
+watch_points = ["Open-ended research with no deadline", "Findings that never reach the product", "Reporting only the results that confirm the plan"]
+deliverable_format = "A research plan listing questions, time boxes and owners, then a findings summary stating what is usable, what failed and what is next."

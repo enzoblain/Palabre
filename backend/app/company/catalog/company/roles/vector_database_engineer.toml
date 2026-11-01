@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Vector search code", "Benchmark reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Similarity search is fast and accurate, and the index stays correct as data changes."
+method = ["Fix the embedding dimension and the distance measure", "Choose the index type and its parameters", "Measure recall against exact search on a sample", "Test filtering combined with similarity", "Report the recall, latency and memory trade-off"]
+watch_points = ["Recall dropping without anyone measuring it", "Embeddings from a changed model mixed with older ones", "Memory use growing past the machine"]
+deliverable_format = "A pull request with the vector search code and a benchmark report giving recall, latency and memory per index setting."

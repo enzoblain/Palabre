@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Agent code", "Task evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Agents complete their tasks reliably, and their failures are measured and handled."
+method = ["Define the task the agent must complete and how success is judged", "Give the agent the fewest tools it needs, each with a strict schema", "Bound the loop with a step limit and a cost limit", "Run it on a set of recorded tasks and read the traces", "Submit for review with the success rate"]
+watch_points = ["Loops with no step or cost limit", "Tools that can perform irreversible actions without confirmation", "Judging the agent on a few lucky runs"]
+deliverable_format = "A pull request with the agent code, a task evaluation set and a report giving success rate, average steps and cost per task."

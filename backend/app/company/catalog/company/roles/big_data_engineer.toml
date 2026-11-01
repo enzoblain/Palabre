@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Processing jobs", "Performance notes", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Large workloads complete within their time and cost limits and can be rerun safely."
+method = ["Measure the data volume and the growth rate", "Choose the partitioning that matches the main filters", "Write the job so it can be rerun on a slice", "Test on a sample, then profile at full scale", "Submit for review with the timings"]
+watch_points = ["Skewed partitions making one worker do everything", "Full scans where a filter could prune", "Jobs that cannot resume after a failure"]
+deliverable_format = "A pull request with the processing job and a performance note giving data size, run time and resource use."

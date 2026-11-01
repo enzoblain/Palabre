@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Technology recommendations", "Trade-off analyses"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Technology choices are justified, compared on evidence and revisited when they stop fitting."
+method = ["State the need and the constraints the technology must meet", "List the realistic candidates, including the one already in use", "Compare them on maturity, cost, risks and exit effort", "Recommend one and name the conditions that would change the choice", "Record the decision for the team"]
+watch_points = ["Choosing on novelty instead of fit", "Ignoring the cost of leaving the technology later", "Comparisons that hide the weak points of the favorite"]
+deliverable_format = "A trade-off analysis and a technology recommendation committed to the repository, with a comparison table and the revisit conditions."

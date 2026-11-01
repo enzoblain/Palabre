@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Gameplay code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Gameplay feels as the designers intended and is stable and tested."
+method = ["Read the design document for the mechanic", "Prototype the core loop with placeholder content", "Tune controls and feedback until it feels as described", "Cover the rules with tests and the edge cases by hand", "Open the pull request with a short how-to-try note"]
+watch_points = ["Mechanics that behave differently at different frame rates", "Exploits from unexpected input order", "Tuning values buried in code"]
+deliverable_format = "A pull request with the gameplay code, rule tests and a short description of how to try the mechanic."

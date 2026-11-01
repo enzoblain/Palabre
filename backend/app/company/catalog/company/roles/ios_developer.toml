@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["iOS app code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "The iOS app is stable, performs well on the supported devices and passes its tests."
+method = ["Read the feature and the design guidelines of the platform", "Implement it with the standard components first", "Handle background states, permissions refused and offline use", "Test on several devices and OS versions", "Open the pull request with the tested device list"]
+watch_points = ["Work blocking the main thread", "Permissions asked at launch instead of when needed", "Deprecated APIs on the minimum supported version"]
+deliverable_format = "A pull request with the iOS code and tests, and the minimum OS version noted when it changes."

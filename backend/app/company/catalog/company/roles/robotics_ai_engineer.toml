@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Robotics AI code", "Simulation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Robots perceive and act reliably, and behaviors are validated in simulation before real use."
+method = ["Define the perception or decision task for the robot", "Train or integrate the model in a simulator first", "Test with noisy sensors and unexpected obstacles", "Add a safe fallback behavior", "Move to hardware with limits on speed"]
+watch_points = ["Simulation not matching the real world", "Missing safe stop when the model is unsure", "Sensor noise ignored in testing"]
+deliverable_format = "A pull request with the robotics AI code and simulation results, including runs with injected sensor noise."

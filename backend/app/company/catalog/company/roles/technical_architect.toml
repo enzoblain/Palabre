@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Technical guidelines", "Stack decisions"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "The technical foundations are clear, documented and adopted by the team."
+method = ["Review the current stack and its pain points", "Select the languages, frameworks and tools for the team", "Define the coding and project conventions", "Prototype the riskiest choice before committing", "Record each stack decision with the reasons"]
+watch_points = ["Stack choices the team cannot support", "Too many tools for one small team", "Conventions defined but not enforced by checks"]
+deliverable_format = "Technical guidelines and stack decision records committed to the repository, each with the chosen option, the alternatives and the reason."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["DataOps automation", "Pipeline monitoring", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data changes are tested, automated and deployed as safely as code."
+method = ["Put the data code under version control with review", "Run automated tests on every change to the pipelines", "Deploy data changes through the same path as code", "Monitor pipeline runs and data tests", "Reduce the time from change to production"]
+watch_points = ["Pipeline changes edited directly in production", "Tests that run only on small fake data", "Environments with different data schemas"]
+deliverable_format = "A pull request with the automation of tests and deployment for data code, and the monitoring of runs."

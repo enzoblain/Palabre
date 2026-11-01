@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Kernel code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Kernel code is correct, stable under load and tested on the supported configurations."
+method = ["Read the subsystem and its locking rules", "Make the smallest change that solves the problem", "Test with lock debugging and under stress", "Check for regressions on the supported configurations", "Submit for review with the reasoning on concurrency"]
+watch_points = ["Locking order violations and deadlocks", "Memory freed while still referenced", "A change that works on one architecture only"]
+deliverable_format = "A small patch-style pull request with the kernel code, test results under stress and an explanation of the locking and memory handling."

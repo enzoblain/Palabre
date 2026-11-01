@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Integration code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Integrations exchange data reliably, handle errors and are tested against the real contracts."
+method = ["Read the two systems' interface documentation and sample payloads", "Map each field and decide what to do with missing or extra ones", "Implement the exchange with timeouts and retries that are safe to repeat", "Test with recorded payloads and failure responses", "Open the pull request with the recorded-payload tests"]
+watch_points = ["Retries creating duplicate records", "Calls without timeouts blocking the caller", "A change at one side silently breaking the mapping"]
+deliverable_format = "A pull request with the integration code, a field mapping table in the documentation and tests using recorded payloads."

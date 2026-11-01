@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["Plugin code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Plugins integrate cleanly with the host, stay compatible across its versions and are tested."
+method = ["Read the extension points the host application offers", "Implement against the public interface only", "Test the plugin against the supported host versions", "Make it fail safely without bringing down the host", "Submit for review with compatibility notes"]
+watch_points = ["Using internal host APIs that change without notice", "Plugin errors crashing the host", "Slow start-up added to every host launch"]
+deliverable_format = "A pull request with the plugin code, tests against the supported host versions and a compatibility table in the documentation."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Safety mechanisms", "Safety test results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Known unsafe behaviors are tested for, and safeguards hold under adversarial use."
+method = ["List the harmful behaviors the system must never show", "Write tests that try to provoke each of them", "Add guards: input filters, output checks, limits on actions", "Measure how often guards block good requests", "Open the pull request with the blocked and falsely blocked cases"]
+watch_points = ["Guards that block many legitimate requests", "Only testing obvious wording of a request", "Safety mechanism sharing the same weakness as the model"]
+deliverable_format = "A pull request with the safety mechanisms and the test results listing blocked harmful cases and false blocks."

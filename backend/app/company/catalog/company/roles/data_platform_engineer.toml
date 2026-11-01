@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Platform code", "Platform documentation", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Data teams ship on a stable, self-service platform."
+method = ["Collect the needs of the data teams", "Provide self-service building blocks for storage, compute and scheduling", "Set quotas and cost reporting per team", "Document how to start a new data project", "Gather feedback and fix the friction"]
+watch_points = ["Platform changes breaking the teams' jobs", "No cost visibility per team", "Too many manual steps to get started"]
+deliverable_format = "A pull request with the platform code and a getting started guide, with the quotas and the versioning of the platform interfaces."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Integration designs", "Interface contracts"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Systems exchange data through clear contracts, and failures are contained and visible."
+method = ["List the systems and the data each one exchanges", "Choose the style: synchronous, events or batch", "Define the interface contracts and the message formats", "Decide the retry, idempotency and ordering rules", "Document the failure handling for each link"]
+watch_points = ["Retries that duplicate operations", "Tight coupling through shared databases", "Contracts changed without telling the consumers"]
+deliverable_format = "An integration design and interface contracts committed to the repository, each link with its format, delivery guarantee and failure behavior."

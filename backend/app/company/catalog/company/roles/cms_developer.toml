@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["CMS code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Content editors can work autonomously and the site stays fast and maintainable."
+method = ["Read the content model and the editors' needs", "Build the content types and templates", "Keep customizations in plugins or themes, not in the core", "Test editing, publishing and rendering flows", "Submit for review with upgrade notes"]
+watch_points = ["Changes to the core that block upgrades", "Content types that cannot be migrated later", "Plugins pulled in for one small feature"]
+deliverable_format = "A pull request with the CMS code, content type definitions and a note describing what must be done on upgrade."

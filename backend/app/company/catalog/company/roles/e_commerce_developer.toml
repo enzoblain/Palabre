@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by 
 deliverables = ["E-commerce code", "Tests", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Customers can browse, order and pay without errors, and orders are processed correctly."
+method = ["Read the shopping flow to change, from cart to payment", "Compute prices, taxes and stock in one trusted place", "Make the order creation safe against double submit", "Test the checkout with discounts, empty stock and refused payments", "Open the pull request with the order flow tests passing"]
+watch_points = ["Prices computed by the client", "Overselling when two orders arrive together", "Orders created twice on a retry"]
+deliverable_format = "A pull request with the shop code and tests of the order flow, including concurrent orders and failed payment cases."

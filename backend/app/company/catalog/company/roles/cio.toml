@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["Systems strategy", "Technology roadmap"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "Information systems support the company's goals and remain reliable, secure and affordable."
+method = ["Inventory the information systems in use, their owners and their cost", "Map each system to the company goal it serves and flag the ones serving none", "Rank the gaps and overlaps by business impact", "Write the systems strategy and a dated technology roadmap", "Submit the roadmap to the lead and record the accepted choices"]
+watch_points = ["Roadmap items with no named business goal behind them", "Strategy that ignores the systems already in place and their migration cost", "Vendor or tool choices made without comparing the alternatives"]
+deliverable_format = "A systems strategy document and a technology roadmap committed to the repository, each item with its goal, owner and target date."

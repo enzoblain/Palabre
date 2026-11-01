@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Analyses", "Reports", "Documents committed to the repository"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Analyses are correct, reproducible and lead to decisions."
+method = ["Clarify the question and the decision it supports", "Pull and clean the data, noting what was excluded", "Analyze and check the result against another angle", "Write the finding in plain words with a chart", "State the confidence and the limits"]
+watch_points = ["Conclusions from a sample too small", "Correlation reported as cause", "Excluded rows not mentioned"]
+deliverable_format = "An analysis document committed to the repository with the question, method, result, chart and a clear list of caveats."

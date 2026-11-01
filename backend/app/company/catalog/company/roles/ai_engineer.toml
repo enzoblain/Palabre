@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["AI feature code", "Evaluation results", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "AI features reach users with measured quality and a controlled cost."
+method = ["Read the feature and define what a good output looks like", "Write the evaluation cases before the first prompt", "Integrate the model with timeouts, retries and validation of its output", "Run the evaluation and iterate on the weak cases", "Hand the feature over for review with the results table"]
+watch_points = ["No fallback when the model is slow or wrong", "Prompt changes made without rerunning the evaluation", "Untrusted text flowing into the prompt unfiltered"]
+deliverable_format = "A pull request with the feature code, the evaluation cases and a results table committed alongside."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Analysis notebooks", "Model evaluations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Models and analyses solve a real business question and their results hold on new data."
+method = ["Translate the question into something measurable", "Explore the data for leaks and biases", "Build a simple model before a complex one", "Validate on data the model never saw", "Explain the result and how it should be used"]
+watch_points = ["Target leakage into the features", "Models worse than the simple rule next to them", "Results that cannot be rerun"]
+deliverable_format = "An analysis notebook and a model evaluation committed to the repository, runnable from raw data with fixed seeds."

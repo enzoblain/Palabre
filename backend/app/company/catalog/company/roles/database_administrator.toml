@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Backup and recovery procedures", "Tuning reports", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Databases are available, fast, backed up and restorable."
+method = ["Check the backup state and restore one to prove it works", "Review slow queries and index use", "Plan maintenance and upgrades with a rollback", "Monitor space, connections and replication", "Document the procedures"]
+watch_points = ["Backups that were never restored", "Maintenance on a production database without a rollback", "Disks filling up unnoticed"]
+deliverable_format = "A pull request with the procedures as scripts and runbooks, and a tuning report with the queries and indexes changed."

@@ -9,3 +9,6 @@ forbidden = ["Merging", "Coding features"]
 deliverables = ["AI strategy", "AI use-case priorities"]
 escalation = "Fundamental disagreement with the lead → the boss arbitrates."
 success = "AI is adopted where it brings value, with its risks owned and its results measured."
+method = ["Collect the places where AI is used or requested in the product", "Evaluate each use case for value, feasibility, data needs and risk", "Rank the use cases and pick the few worth funding now", "Write the AI strategy with the principles each use must respect", "Revisit priorities when a model, cost or regulation changes"]
+watch_points = ["Using AI where a plain rule would do", "Use cases approved without a way to measure their benefit", "Ignoring data rights, bias or cost per request in the ranking"]
+deliverable_format = "An AI strategy document and a ranked list of AI use cases committed to the repository, each with expected value, risk and decision."

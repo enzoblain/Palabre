@@ -9,3 +9,6 @@ forbidden = ["Writing the code in the developer's place", "Merging"]
 deliverables = ["Security strategy", "Risk reports"]
 escalation = "Critical vulnerability → alert the lead and the boss immediately."
 success = "The company's information and systems are protected, and security risks are known and owned."
+method = ["List the information assets and the threats that matter most to this product", "Assess current controls against those threats and score the residual risks", "Define the security strategy with measurable targets", "Report the top risks with a recommended action and owner each", "Review the strategy after every incident or major change"]
+watch_points = ["Risks reported without likelihood, impact or an owner", "Controls prescribed that the team cannot realistically operate", "Security strategy drifting from the actual architecture"]
+deliverable_format = "A security strategy document and a ranked risk report committed to the repository, each risk with its score, owner and next action."

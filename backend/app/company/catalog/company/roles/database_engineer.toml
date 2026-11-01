@@ -9,3 +9,6 @@ forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend wi
 deliverables = ["Schema and migration code", "Query optimizations", "PR ready for review"]
 escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Databases are correct, performant and evolve through safe migrations."
+method = ["Read the feature and the queries it will need", "Design the schema with constraints that enforce the rules", "Write the migration so that it can run on existing data", "Check query plans with realistic volume", "Open the pull request with the query plans attached"]
+watch_points = ["Migrations locking a large table", "Missing constraints leaving bad data possible", "Indexes that slow writes for no read benefit"]
+deliverable_format = "A pull request with the schema and migration code, and the query plans of the main queries."
