@@ -82,7 +82,7 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
     """Ask the boss something in the direction channel. They answer with Validate, Reject or
     Nuance (a free comment), and you are woken up with their answer. Use it when you need
     their go or arbitration; a plain update is a send_message with channel="direction".
-    content: what you ask, short and self-contained, with your recommendation."""
+    content: what you ask, short and self-contained, with your recommendation. The boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, content)
@@ -176,7 +176,8 @@ async def add_question(ctx: Context, question: str) -> dict:
 async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lead") -> dict:
     """Escalate a blocker or disagreement you cannot resolve at your level. With to="boss" the
     request reaches the boss through the lead's name: keep it short, in the team's language.
-    `reason` is posted in the conversation as a message to them: write it as you would say it."""
+    `reason` is posted in the conversation as a message to them: write it as you would say it.
+    With to="boss",the boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, reason)
@@ -209,7 +210,9 @@ async def add_decision(ctx: Context, title: str, rationale: str = "") -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
     validates or rejects it. title: the decision in one short sentence; rationale: the why in
     a few sentences (the boss reads it in full in direction, so keep it short and
-    plain). Write both in the team's language. The boss's request is signed by the lead."""
+    plain). Write both in the team's language. The boss's request is signed by the lead.
+    The boss is not a developer: title and rationale use plain sentences, with no jargon and no
+    code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
@@ -479,7 +482,9 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     accept it: a request in direction that merges it when they validate it. One release at a time.
     title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
     summary: the PR description (it goes to GitHub, in English), in Markdown: what changes for users, what was tested, known limits.
-    message: what you tell the team in the chat, in a sentence or two."""
+    message: what you tell the team in the chat, in a sentence or two; the boss reads it in
+    direction, so write it in plain words, with no jargon and no code references (files,
+    identifiers, task or PR numbers)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, message)
