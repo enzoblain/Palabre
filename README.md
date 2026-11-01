@@ -459,6 +459,22 @@ their default unless you add them to the `environment:` of the `backend` service
 | `EGRESS_MAX_TUNNELS` | `64` | Concurrent tunnels of the egress proxy |
 | `ANTHROPIC_ALLOWED_PATHS` / `ANTHROPIC_ALLOWED_SERVER_TOOLS` | `v1/messages`, `v1/messages/count_tokens` / `web_search` | JSON lists of what the Anthropic reverse proxy forwards |
 | `FETCH_TIMEOUT_S` / `FETCH_MAX_BYTES` / `FETCH_MAX_CHARS` / `FETCH_MAX_REDIRECTS` | `20` / `2000000` / `30000` / `3` | Bounds of the research groups' `fetch_page` tool |
+| `DATABASE_URL` | built from the `POSTGRES_*` settings | Database URL; set it explicitly only for an external database (it then wins over `POSTGRES_USER`, `POSTGRES_DB` and `POSTGRES_HOST`) |
+| `POSTGRES_HOST` | `db` | Host of the database in the URL built from the `POSTGRES_*` settings |
+| `POSTGRES_PASSWORD` | | Secret (a file, not an environment variable, 32 characters minimum): password of the database user, required with Compose |
+| `GITHUB_TOKEN` | | Secret (a file): token the backend alone uses to push, open pull requests and merge. Never given to agents |
+| `CLAUDE_CODE_OAUTH_TOKENS` | | Secret (a file): Claude account tokens separated by `\|`; the employees are spread over the accounts |
+| `PROJECTS_DIR` / `RUNTIME_DIR` / `TOOLCHAINS_DIR` | `/data/projects` / `/data/runtime` / `/data/toolchains` | Repositories and task clones, temporary files of runs (MCP configs), and the toolchains shared by the team |
+| `AGENT_RUN_DIR` | `/data/run` | Holds the MCP configs of runs when the agent user must read them (`RUNTIME_DIR` is the backend's only) |
+| `CLAUDE_STORE_DIR` | `CLAUDE_CONFIG_DIR` | The backend's private store of Claude sessions, one directory per employee |
+| `CLAUDE_BIN` | `claude` | Claude Code executable the agents run |
+| `MCP_URL` | `http://127.0.0.1:8000/mcp/` | MCP server URL as seen from the `claude` processes, which run in the backend container |
+| `EGRESS_PROXY_PORT` | `3128` | Local port of the agents' CONNECT proxy |
+| `ANTHROPIC_PROXY_URL` / `ANTHROPIC_API_URL` | `http://127.0.0.1:8000/anthropic` / `https://api.anthropic.com` | The local reverse proxy Claude Code talks to (it holds the account token), and the API it forwards to |
+| `ANTHROPIC_MAX_BODY_BYTES` / `ANTHROPIC_TIMEOUT_S` | `67108864` / `600` | Largest request body and timeout of that reverse proxy |
+| `ORCHESTRATOR_ENABLED` | `true` | `false` turns the orchestrator off (agents are no longer woken up) |
+| `POLL_INTERVAL_S` | `2.0` | Seconds between two orchestrator polls |
+| `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review waits for a reviewer's verdict before the reviewer is woken up again and the lead told |
 | `EGRESS_FILTER` | `on` | Read by the entrypoint, not by `config.py`: `off` runs without the agents' firewall |
 
 The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
