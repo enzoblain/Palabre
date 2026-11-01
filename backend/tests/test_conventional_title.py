@@ -10,19 +10,18 @@ from app.worktrees import branch_name, final_branch_name
 from .conftest import make_task
 
 
-def test_pr_number_is_added_last():
-    assert conventional_title("feat(usage): show real Claude usage per model", 60) == (
-        "feat(usage): show real Claude usage per model (#60)"
+def test_no_number_is_added():
+    assert conventional_title("feat(usage): show real Claude usage per model") == (
+        "feat(usage): show real Claude usage per model"
     )
 
 
 def test_scope_is_optional_and_breaking_mark_accepted():
-    assert conventional_title("fix: handle empty diff", 7) == "fix: handle empty diff (#7)"
-    assert conventional_title("refactor(api)!: drop v1", 7) == "refactor(api)!: drop v1 (#7)"
+    assert conventional_title("fix: handle empty diff") == "fix: handle empty diff"
+    assert conventional_title("refactor(api)!: drop v1") == "refactor(api)!: drop v1"
 
 
-def test_existing_reference_is_replaced_not_doubled():
-    assert conventional_title("chore: bump deps (#9)", 12) == "chore: bump deps (#12)"
+def test_existing_reference_is_dropped_so_github_adds_it_once():
     assert conventional_title("chore: bump deps (#9)") == "chore: bump deps"
 
 
@@ -42,7 +41,7 @@ def test_existing_reference_is_replaced_not_doubled():
 )
 def test_invalid_titles_are_refused_with_a_clear_message(title):
     with pytest.raises(WorkflowError, match="Conventional Commits"):
-        conventional_title(title, 1)
+        conventional_title(title)
 
 
 def test_branch_name_ignores_the_title():
@@ -75,3 +74,4 @@ def test_final_branch_name_from_title():
 )
 def test_task_branch_recognition(branch, expected):
     assert is_task_branch_name(branch) is expected
+

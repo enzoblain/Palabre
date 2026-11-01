@@ -63,7 +63,7 @@ From there the team works on its own:
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
    `submit_for_review` a title such as `feat(usage): show real Claude usage per model`, the backend
-   refuses a non-conforming one and adds the PR number once the PR is open (`... (#82)`; never the task number, which GitHub would read as another PR). That title is the PR's and
+   refuses a non-conforming one and never adds a number to it: a trailing `(#N)` is dropped, and GitHub appends the PR number itself to the squash commit (`... (#82)`; never the task number, which GitHub would read as another PR). That title is the PR's and
    the squash commit's; the PR body says `Palabre task #60`. Review and QA comments and release notes are in English too (release notes keep the standard text, not Conventional Commits bullets).
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.

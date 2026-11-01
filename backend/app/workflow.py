@@ -406,10 +406,10 @@ CONVENTIONAL_TITLE = re.compile(
 _TASK_REF = re.compile(r"\s*\(#\d+\)$")
 
 
-def conventional_title(title: str, pr_number: int | None = None) -> str:
-    """The English Conventional Commits title of a task's PR and squash commit, with the PR
-    number last once the PR exists: `feat(usage): show real usage (#60)`. The task number never goes
-    there: on GitHub `#N` is a PR. Raises WorkflowError if it does not follow the format."""
+def conventional_title(title: str) -> str:
+    """The English Conventional Commits title of a task's PR and squash commit, without any `(#N)`:
+    GitHub appends the PR number itself to the squash commit, and a task number would read as a PR.
+    A trailing `(#N)` in the submitted title is dropped. Raises WorkflowError if it does not follow the format."""
     title = _TASK_REF.sub("", title.strip())
     if len(title) > 100 or not CONVENTIONAL_TITLE.fullmatch(title) or not title.isascii():
         raise WorkflowError(
@@ -419,7 +419,7 @@ def conventional_title(title: str, pr_number: int | None = None) -> str:
             "The PR number is added for you.",
             code=ErrorCode.INVALID_PR_TITLE,
         )
-    return title if pr_number is None else f"{title} (#{pr_number})"
+    return title
 
 
 async def _adopt_open_pull_request(repo: str, project: Project, task: Task) -> None:
@@ -473,11 +473,9 @@ async def submit_for_review(
             body=f"{summary}\n\n_Palabre task #{task.id}, by {author.name}_",
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
-        # The PR number is only known now: it goes last in the title, which becomes the squash commit's
-        task.pr_title = conventional_title(bare_title, task.pr_number)
-        await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
+        task.pr_title = bare_title
     else:
-        task.pr_title = conventional_title(bare_title, task.pr_number)
+        task.pr_title = bare_title
         await github.set_pull_request_title(repo, task.pr_number, task.pr_title)
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
@@ -796,7 +794,7 @@ async def _merge_pinned(repo: str, task: Task, head: str) -> None:
     """Merge only if the PR head is still `head`: a moved head is a clear error, not a raw GitHub one."""
     try:
         await github.merge_pull_request(
-            repo, task.pr_number, task.pr_title or f"{FALLBACK_MERGE_TITLE} (#{task.pr_number})", sha=head
+            repo, task.pr_number, task.pr_title or FALLBACK_MERGE_TITLE, sha=head
         )
     except github.GitHubError as exc:
         if exc.status != github.HTTP_CONFLICT:

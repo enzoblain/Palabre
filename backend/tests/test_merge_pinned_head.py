@@ -137,5 +137,5 @@ async def test_without_a_pr_title_the_merge_title_is_the_english_fallback(merge,
 
     monkeypatch.setattr(github, "merge_pull_request", merge_pull_request)
     await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
-    assert titles == [f"chore: merge task (#{task.pr_number})"]
+    assert titles == ["chore: merge task"]
     assert task.title not in titles[0]
