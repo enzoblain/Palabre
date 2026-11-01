@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy.dialects import postgresql
+
 from app import workflow
 from app.config import settings
 from app.models import TaskStatus, Verdict
@@ -159,3 +161,39 @@ async def test_changes_verdict_of_qa_does_not_wake_the_waiting_reviewer(qa, monk
     s = ReviewSession([])
     await workflow.review_task(s, task.project_id, task.id, qa, "changes", "broken", "a" * 12)
     assert task.status == TaskStatus.changes_requested and not waking
+
+
+async def test_reminders_stop_at_the_cap_and_the_lead_is_told_once(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    task = silent_task(1000, reviewed_head="a" * 40)
+    s = SilenceSession([task], [reviewer])
+    for _ in range(settings.review_max_reminders + 3):
+        await merge_watch.watch_silent_reviews(s)
+    assert len(woken(s, "review_overdue")) == settings.review_max_reminders
+    [exhausted] = woken(s, "review_reminders_exhausted")
+    assert exhausted.target_role == "lead"
+
+
+async def test_a_new_head_resets_the_reminder_count(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    task = silent_task(1000, reviewed_head="a" * 40)
+    s = SilenceSession([task], [reviewer])
+    for _ in range(settings.review_max_reminders + 1):
+        await merge_watch.watch_silent_reviews(s)
+    task.reviewed_head = "b" * 40
+    await merge_watch.watch_silent_reviews(s)
+    assert len(woken(s, "review_overdue")) == settings.review_max_reminders + 1
+
+
+async def test_busy_reviewer_does_not_use_up_a_reminder(reviewer, monkeypatch):
+    patch_reviews(monkeypatch, [])
+    task = silent_task(1000)
+    s = SilenceSession([task], [reviewer], busy=7)
+    await merge_watch.watch_silent_reviews(s)
+    assert task.review_reminders == 0
+
+
+def test_reminder_query_is_valid_postgres_json_extraction():
+    # No Postgres in the test setup (see README, Tests): the SQL sent to it is checked instead
+    sql = str(merge_watch._overdue_reminders_query(make_task()).compile(dialect=postgresql.dialect()))
+    assert "CAST((events.payload ->> " in sql and "AS INTEGER)" in sql

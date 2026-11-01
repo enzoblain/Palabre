@@ -305,6 +305,10 @@ class Task(Base):
     stuck_sha: Mapped[str | None] = mapped_column(String(64))
     # Head SHA ("none" before any PR) for which the lead got the idle-task alert: once per SHA
     idle_alert_sha: Mapped[str | None] = mapped_column(String(64))
+    # Reminders sent to a silent reviewer for review_reminders_head (reviewed_head when counted);
+    # one more than the cap means the lead was told they stopped
+    review_reminders_head: Mapped[str | None] = mapped_column(String(64))
+    review_reminders: Mapped[int] = mapped_column(default=0, server_default="0")
     # Watchdog nudges sent to a dev who never started a todo or changes_requested task (reset on each wakeup)
     unstarted_nudges: Mapped[int] = mapped_column(default=0, server_default="0")
     # Set when merge_task was refused because the CI was running: the lead is woken when it ends

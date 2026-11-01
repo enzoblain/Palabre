@@ -109,7 +109,7 @@ A task never waits silently for its reviewer either: when QA or security post a 
 review, a reviewer whose last opinion is a comment without a verdict is woken up (`verification_done`)
 to give approve or changes. As a safety net, a task in review with no reviewer verdict for
 `REVIEW_SILENCE_MINUTES` (15 by default) wakes the reviewers again (`review_overdue`, when none is
-busy) and tells the lead (`review_stalled`), then waits another delay before the next reminder.
+busy) and tells the lead (`review_stalled`), then waits another delay before the next reminder. After `REVIEW_MAX_REMINDERS` reminders (3 by default) for the same reviewed commit, the reviewers are left alone and the lead is told once (`review_reminders_exhausted`); a new push starts the count over.
 
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its

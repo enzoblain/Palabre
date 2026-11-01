@@ -6,7 +6,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import github, projects, release, workflow
@@ -165,7 +165,8 @@ async def watch_idle_tasks(s: AsyncSession) -> None:
 
 async def watch_silent_reviews(s: AsyncSession) -> None:
     """A task in review with no reviewer verdict for review_silence_minutes: wake the reviewers up
-    again (when none is busy) and tell the lead. Waits another delay before the next reminder."""
+    again (when none is busy) and tell the lead. Waits another delay before the next reminder, and
+    stops after review_max_reminders per reviewed head: the lead is then told once."""
     cutoff = datetime.now(UTC) - timedelta(minutes=settings.review_silence_minutes)
     tasks = await s.scalars(select(Task).where(Task.status == TaskStatus.review, Task.pr_number.is_not(None)))
     roles = load_catalog()["roles"]
@@ -175,8 +176,22 @@ async def watch_silent_reviews(s: AsyncSession) -> None:
             continue
         if workflow.reviewer_gave_verdict(reviews, task, roles):
             continue
-        await _remind_reviewers(s, task, roles)
+        _reset_reminders_on_new_head(task)
+        if task.review_reminders > settings.review_max_reminders:
+            continue  # The lead was already told that the reminders stopped for this head
+        if task.review_reminders == settings.review_max_reminders:
+            task.review_reminders += 1
+            payload = {"task_id": task.id, "pr_url": task.pr_url, "reminders": settings.review_max_reminders}
+            emit_event(s, task.project_id, "review_reminders_exhausted", payload, role="lead")
+        elif await _remind_reviewers(s, task, roles):
+            task.review_reminders += 1
     await s.commit()
+
+
+def _reset_reminders_on_new_head(task: Task) -> None:
+    """The reminders are counted per reviewed head: a new push starts the count over."""
+    if task.review_reminders_head != task.reviewed_head:
+        task.review_reminders_head, task.review_reminders = task.reviewed_head, 0
 
 
 async def _review_silent_since(s: AsyncSession, task: Task, reviews: list[Review]) -> datetime:
@@ -184,28 +199,31 @@ async def _review_silent_since(s: AsyncSession, task: Task, reviews: list[Review
     moments = [_aware(r.created_at) for r in reviews]
     if task.submitted_at is not None:
         moments.append(_aware(task.submitted_at))
-    reminders = await s.scalars(
-        select(Event.created_at).where(
-            Event.type == "review_overdue", Event.project_id == task.project_id,
-            Event.payload["task_id"].as_integer() == task.id,
-        )
-    )  # fmt: skip
-    moments += [_aware(m) for m in reminders]
+    moments += [_aware(m) for m in await s.scalars(_overdue_reminders_query(task))]
     return max(moments, default=datetime.min.replace(tzinfo=UTC))
 
 
-async def _remind_reviewers(s: AsyncSession, task: Task, roles: dict[str, Role]) -> None:
+def _overdue_reminders_query(task: Task) -> Select:
+    return select(Event.created_at).where(
+        Event.type == "review_overdue", Event.project_id == task.project_id,
+        Event.payload["task_id"].as_integer() == task.id,
+    )  # fmt: skip
+
+
+async def _remind_reviewers(s: AsyncSession, task: Task, roles: dict[str, Role]) -> bool:
+    """Whether the reviewers were woken up (False when there is none or one is busy)."""
     employees = await s.scalars(select(Employee).where(Employee.project_id == task.project_id))
     reviewers = [e for e in employees if REVIEWER_KEY in held_role_keys(e.roles, roles) and e.id != task.assignee_id]
     busy = await s.scalar(
         select(Wakeup.id).where(Wakeup.employee_id.in_([e.id for e in reviewers]), Wakeup.finished_at.is_(None)).limit(1)
     )
     if not reviewers or busy is not None:
-        return
+        return False
     payload = {"task_id": task.id, "pr_url": task.pr_url, "minutes": settings.review_silence_minutes}
     for reviewer in reviewers:  # Not by role: the assignee must never be asked to review their own PR
         emit_event(s, task.project_id, "review_overdue", payload, employee_id=reviewer.id)
     emit_event(s, task.project_id, "review_stalled", payload, role="lead")
+    return True
 
 
 async def _idle_reason(s: AsyncSession, project: Project, task: Task) -> tuple[str, str | None]:
