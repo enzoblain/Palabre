@@ -207,7 +207,9 @@ async def test_limits_endpoint_exposes_models_and_team_size(api_client):
     response = await api_client.get("/api/catalog/limits")
 
     assert response.status_code == 200
-    assert response.json() == {"models": ["haiku", "sonnet", "opus"], "max_agents": 30}
+    assert response.json() == {
+        "models": ["haiku", "sonnet", "opus"], "max_agents": 30, "min_team_size": 4, "mandatory_role": "lead",
+    }
 
 
 def test_personality_pool_files_feed_the_catalog():

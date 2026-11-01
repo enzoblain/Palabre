@@ -1,37 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, type MemberIn, type Mode, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamMember, type TeamPreview, api } from "../api";
+import { ApiError, type MemberIn, type Mode, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type ProjectKind, type Role, type TeamPreview, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
-import { spreadAccounts } from "../util";
-import { AccountSelect } from "./AccountSelect";
-import { Avatar } from "./Avatar";
-import { ShuffleIcon } from "./Icons";
-import { MIN_COMPANY_TEAM_SIZE, isTeamTooSmall } from "../jobs";
-import { TeamEditor, mandatoryMember, teamProblems } from "./TeamEditor";
+import { autoTeamProblems, teamProblems } from "../jobs";
+import { CompanyTeamSection, type CreationMode } from "./CompanyTeamSection";
+import { ResearchTeamSection } from "./ResearchTeamSection";
+import { mandatoryMember, problemMessages } from "./TeamEditor";
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
-const MANDATORY_ROLE = "lead"; // The member every company team starts with (MANDATORY_ROLE on the server)
 const DEFAULT_MODE: Record<ProjectKind, string> = { company: "startup", research: "panel" };
-
-type CreationMode = "auto" | "manual";
-
-function teamSize(mode: Mode): number {
-  return mode.seats.reduce((n, seat) => n + (seat.count ?? 1), 0);
-}
-
-/** The strongest opinions of an employee, e.g. ["bold", "quality"]. */
-function traitChips(member: TeamMember, personality: Personality | null): { text: string; strong: boolean }[] {
-  if (!personality) return [];
-  return personality.axes
-    .map((axis) => ({ axis, level: member.traits[axis.key] ?? 0 }))
-    .filter(({ level }) => level !== 0)
-    .sort((a, b) => Math.abs(b.level) - Math.abs(a.level))
-    .slice(0, 3)
-    .map(({ axis, level }) => ({
-      text: (level > 0 ? axis.high : axis.low).split(" — ")[0],
-      strong: Math.abs(level) === 2,
-    }));
-}
 
 export function NewProject({ claudeAccounts, onCreated }: {
   claudeAccounts: number;
@@ -49,7 +26,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   // Company: the team is hired from a description (auto) or listed by hand (manual)
   const [creation, setCreation] = useState<CreationMode>("auto");
   const [description, setDescription] = useState("");
-  const [employeeCount, setEmployeeCount] = useState(MIN_COMPANY_TEAM_SIZE);
+  const [employeeCount, setEmployeeCount] = useState<number | null>(null);
   const research = kind === "research";
   const [team, setTeam] = useState<TeamPreview | null>(null);
   // Team built by hand (null: the team drawn at random is used)
@@ -107,7 +84,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   function chooseCreation(next: CreationMode) {
     setCreation(next);
     if (next === "auto") return setCustom(null);
-    if (personality) setCustom((current) => current ?? [mandatoryMember(personality, names, MANDATORY_ROLE)]);
+    if (personality && limits) setCustom((current) => current ?? [mandatoryMember(personality, names, limits.mandatory_role)]);
   }
 
   function draw(forMode: string) {
@@ -123,12 +100,15 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
   const sourceValid = research ? topic.trim().length > 0 : repoValid;
-  const autoProblems = !research && creation === "auto" && isTeamTooSmall(employeeCount, MIN_COMPANY_TEAM_SIZE)
-    ? [t("editor.problemTooSmall", { min: MIN_COMPANY_TEAM_SIZE })]
-    : [];
-  const problems = custom ? teamProblems(custom, !research, research ? 1 : MIN_COMPANY_TEAM_SIZE) : autoProblems;
-  const teamReady = research ? !!team : creation === "auto" || !!custom;
-  const effective = team ? spreadAccounts(team.employees.map((m) => accounts[m.name]), claudeAccounts) : [];
+  const minSize = research ? 1 : limits?.min_team_size ?? 1;
+  const maxSize = limits?.max_agents ?? Infinity;
+  // A company's automatic head count starts at the minimum the server asks for
+  const headCount = employeeCount ?? minSize;
+  const problemCodes = custom
+    ? teamProblems(custom, research ? null : limits?.mandatory_role ?? null, minSize, maxSize)
+    : !research && creation === "auto" ? autoTeamProblems(headCount, minSize, maxSize) : [];
+  const problems = problemMessages(problemCodes, minSize, maxSize);
+  const teamReady = research ? !!team : !!limits && (creation === "auto" || !!custom);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,7 +122,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
         ...(research
           ? { topic: topic.trim(), rapporteur: custom ? null : rapporteur, seed: team?.seed }
           : { repo_url: repoUrl.trim(), creation_mode: creation }),
-        ...(!research && creation === "auto" ? { description: description.trim(), employee_count: employeeCount } : {}),
+        ...(!research && creation === "auto" ? { description: description.trim(), employee_count: headCount } : {}),
         accounts: custom ? {} : accounts,
         ...(custom ? { employees: custom.map((m) => ({ ...m, name: m.name.trim() })) } : {}),
       });
@@ -194,140 +174,19 @@ export function NewProject({ claudeAccounts, onCreated }: {
       </section>
 
       {!research && (
-        <section className="panel">
-          <div className="team-head">
-            <h2>{t("new.yourTeam")}</h2>
-            <div className="segmented" role="tablist">
-              <button type="button" role="tab" aria-selected={creation === "auto"} className={creation === "auto" ? "selected" : ""}
-                onClick={() => chooseCreation("auto")}>{t("new.creationAuto")}</button>
-              <button type="button" role="tab" aria-selected={creation === "manual"} className={creation === "manual" ? "selected" : ""}
-                disabled={!roles || !personality || !presets || !limits} onClick={() => chooseCreation("manual")}>
-                {t("new.creationManual")}
-              </button>
-            </div>
-          </div>
-          {presetsFailed && (
-            <p className="error" role="alert">
-              {t("new.presetsFailed")}{" "}
-              <button type="button" onClick={() => loadPresets(kind)}>{t("new.presetsRetry")}</button>
-            </p>
-          )}
-          {creation === "auto" ? (
-            <>
-              <p className="muted">{t("new.introAuto")}</p>
-              <label>
-                {t("new.description")}
-                <textarea required rows={4} maxLength={10000} value={description}
-                  onChange={(e) => setDescription(e.target.value)} placeholder={t("new.descriptionPlaceholder")} />
-              </label>
-              <label className="narrow">
-                {t("new.employeeCount")}
-                <input type="number" min={MIN_COMPANY_TEAM_SIZE} max={limits?.max_agents} value={employeeCount}
-                  onChange={(e) => setEmployeeCount(Number(e.target.value))} />
-              </label>
-            </>
-          ) : (
-            <>
-              <p className="muted">{t("new.introManual", { min: MIN_COMPANY_TEAM_SIZE })}</p>
-              {custom && roles && personality && presets && limits && (
-                <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} presets={presets}
-                  names={names} claudeAccounts={claudeAccounts} limits={limits} mandatoryRole={MANDATORY_ROLE} />
-              )}
-            </>
-          )}
-          {problems.map((problem) => <p key={problem} className="error" role="alert">{problem}</p>)}
-        </section>
+        <CompanyTeamSection creation={creation} onCreationChange={chooseCreation} description={description}
+          onDescriptionChange={setDescription} employeeCount={headCount} onEmployeeCountChange={setEmployeeCount}
+          custom={custom} onCustomChange={setCustom} roles={roles} personality={personality} presets={presets}
+          limits={limits} names={names} claudeAccounts={claudeAccounts} presetsFailed={presetsFailed}
+          onRetryPresets={() => loadPresets(kind)} problems={problems} />
       )}
 
       {research && (
-      <section className="panel">
-        <div className="team-head">
-          <h2>{t("new.yourTeam")}</h2>
-          <div className="segmented" role="tablist">
-            <button type="button" role="tab" aria-selected={!custom} className={!custom ? "selected" : ""}
-              onClick={() => setCustom(null)}>{t("new.random")}</button>
-            <button type="button" role="tab" aria-selected={!!custom} className={custom ? "selected" : ""}
-              disabled={!roles || !personality || !presets || !limits} onClick={buildByHand}>{t("new.buildOwn")}</button>
-          </div>
-        </div>
-        {presetsFailed && (
-          <p className="error" role="alert">
-            {t("new.presetsFailed")}{" "}
-            <button type="button" onClick={() => loadPresets(kind)}>{t("new.presetsRetry")}</button>
-          </p>
-        )}
-        <p className="muted">
-          {research
-            ? custom ? t("new.introResearchCustom") : t("new.introResearch")
-            : custom ? t("new.introCompanyCustom") : t("new.introCompany")}
-        </p>
-        <div className="modes">
-          {modes && modes[mode] &&
-            Object.entries(modes).map(([key, m]) => (
-              <button type="button" key={key} className={`mode${key === mode ? " selected" : ""}`}
-                onClick={() => setMode(key)}>
-                <strong>{m.label}</strong>
-                {!custom && <span className="mode-size">{t("new.people", { count: teamSize(m) })}</span>}
-                <span className="mode-rule">{m.rules[0]}</span>
-              </button>
-            ))}
-        </div>
-
-        {custom && roles && personality && presets && limits ? (
-          <TeamEditor members={custom} onChange={setCustom} roles={roles} personality={personality} presets={presets} names={names}
-            claudeAccounts={claudeAccounts} limits={limits} />
-        ) : (
-          <>
-        <div className="team-head">
-          <h3>{t("new.drawn")}</h3>
-          <button type="button" className="btn btn-small" onClick={() => draw(mode)} disabled={!team}>
-            <ShuffleIcon size={14} /> {t("new.drawAnother")}
-          </button>
-        </div>
-        {team ? (
-          <ul className="team-grid">
-            {team.employees.map((member, i) => (
-              <li key={member.name} className="member-card">
-                <Avatar name={member.name} size={36} />
-                <div>
-                  <div className="member-name">{member.name} <span className="badge">{member.model}</span></div>
-                  <div className="member-title">
-                    {member.title}{research && member.name === rapporteur && t("new.alsoRapporteur")}
-                  </div>
-                  <div className="chips">
-                    {traitChips(member, personality).map((chip) => (
-                      <span key={chip.text} className={`chip${chip.strong ? " chip-strong" : ""}`}>{chip.text}</span>
-                    ))}
-                    <span className="chip chip-style">{member.style.tone}</span>
-                  </div>
-                  {claudeAccounts > 1 && (
-                    <AccountSelect value={accounts[member.name] ?? null} effective={effective[i]} count={claudeAccounts}
-                      onChange={(account) => setAccounts(({ [member.name]: _, ...rest }) =>
-                        account === null ? rest : { ...rest, [member.name]: account })} />
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">{t("new.drawing")}</p>
-        )}
-        {research && team && (
-          <label className="narrow">
-            {t("new.rapporteur")}
-            <select value={rapporteur ?? ""} onChange={(e) => setRapporteur(e.target.value || null)}>
-              <option value="">{t("new.drawn")}</option>
-              {team.employees.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
-            </select>
-          </label>
-        )}
-          </>
-        )}
-        {research && custom && custom.length > 0 && !custom.some((m) => m.roles.includes("rapporteur")) && (
-          <p className="muted">{t("new.noRapporteur")}</p>
-        )}
-        {problems.map((problem) => <p key={problem} className="error">{problem}</p>)}
-      </section>
+        <ResearchTeamSection modes={modes} mode={mode} onModeChange={setMode} team={team} onDrawAnother={() => draw(mode)}
+          accounts={accounts} onAccountsChange={setAccounts} rapporteur={rapporteur} onRapporteurChange={setRapporteur}
+          custom={custom} onCustomChange={setCustom} onBuildByHand={buildByHand} roles={roles} personality={personality}
+          presets={presets} limits={limits} names={names} claudeAccounts={claudeAccounts} presetsFailed={presetsFailed}
+          onRetryPresets={() => loadPresets(kind)} problems={problems} />
       )}
 
       {error && <p className="error">{error}</p>}

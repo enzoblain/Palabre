@@ -264,6 +264,7 @@ export const fr: Messages = {
   "editor.addAgent": "+ Ajouter un agent",
   "editor.mandatory": "Obligatoire",
   "editor.problemTooSmall": "Une équipe compte au moins {min} membres, lead compris.",
+  "editor.problemTooBig": "Une équipe compte au plus {max} membres.",
   "new.creationAuto": "Automatique",
   "new.creationManual": "Manuel",
   "new.introAuto": "Décris le projet et le nombre de personnes voulu : l'équipe est recrutée pour toi.",

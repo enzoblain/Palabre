@@ -1,7 +1,7 @@
 // Unit tests of src/jobs.ts, run with Node's built-in test runner (no extra dependency).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MIN_COMPANY_TEAM_SIZE, groupJobs, isTeamTooSmall, teamWarningThreshold } from "../src/jobs.ts";
+import { autoTeamProblems, groupJobs, teamProblems, teamWarningThreshold } from "../src/jobs.ts";
 
 const role = (key, category, order, title = key, description = "") => ({ key, category, order, title, description });
 const roles = {
@@ -40,8 +40,35 @@ test("historic categories come before the extended ones", () => {
     ["management", "engineering", "quality", "artificial_intelligence", "cybersecurity"]);
 });
 
+const member = (name, ...roles) => ({ name, roles });
+const team = (size, ...firstRoles) =>
+  Array.from({ length: size }, (_, i) => member(`Member${i}`, ...(i === 0 ? firstRoles : ["dev"])));
+
 test("a company team below four members, lead included, is too small", () => {
-  assert.equal(MIN_COMPANY_TEAM_SIZE, 4);
-  assert.equal(isTeamTooSmall(3, MIN_COMPANY_TEAM_SIZE), true);
-  assert.equal(isTeamTooSmall(4, MIN_COMPANY_TEAM_SIZE), false);
+  assert.deepEqual(teamProblems(team(3, "lead"), "lead", 4, 30), ["tooSmall"]);
+  assert.deepEqual(teamProblems([], "lead", 4, 30), ["none"]);
+});
+
+test("a company team needs its lead", () => {
+  assert.deepEqual(teamProblems(team(4, "dev"), "lead", 4, 30), ["noLead"]);
+  assert.deepEqual(teamProblems(team(4, "dev"), null, 4, 30), []);
+});
+
+test("a company team of four with a lead is fine, and the maximum is enforced", () => {
+  assert.deepEqual(teamProblems(team(4, "lead"), "lead", 4, 30), []);
+  assert.deepEqual(teamProblems(team(31, "lead"), "lead", 4, 30), ["tooBig"]);
+});
+
+test("members need distinct valid names and a role", () => {
+  assert.deepEqual(teamProblems([member("Ana", "lead"), member("ana", "dev")], "lead", 1, 30), ["duplicate"]);
+  assert.deepEqual(teamProblems([member("", "lead")], "lead", 1, 30), ["noName"]);
+  assert.deepEqual(teamProblems([member("a b", "lead")], "lead", 1, 30), ["badName"]);
+  assert.deepEqual(teamProblems([member("Ana")], null, 1, 30), ["noRole"]);
+});
+
+test("an automatic head count is bounded on both sides", () => {
+  assert.deepEqual(autoTeamProblems(3, 4, 30), ["tooSmall"]);
+  assert.deepEqual(autoTeamProblems(4, 4, 30), []);
+  assert.deepEqual(autoTeamProblems(30, 4, 30), []);
+  assert.deepEqual(autoTeamProblems(31, 4, 30), ["tooBig"]);
 });

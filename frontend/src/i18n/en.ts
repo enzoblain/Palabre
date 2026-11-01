@@ -263,6 +263,7 @@ export const en = {
   "editor.addAgent": "+ Add an agent",
   "editor.mandatory": "Required",
   "editor.problemTooSmall": "A team needs at least {min} members, the lead included.",
+  "editor.problemTooBig": "A team has at most {max} members.",
   "new.creationAuto": "Automatic",
   "new.creationManual": "Manual",
   "new.introAuto": "Describe the project and how many people you want: the team is hired for you.",

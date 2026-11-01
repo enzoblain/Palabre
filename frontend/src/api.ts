@@ -213,7 +213,7 @@ export type Role = {
 };
 
 /** Models an employee can run on and the biggest custom team (CatalogLimitsOut on the server). */
-export type CatalogLimits = { models: Model[]; max_agents: number };
+export type CatalogLimits = { models: Model[]; max_agents: number; min_team_size: number; mandatory_role: string };
 
 /** An agent of a team built by hand (MemberIn on the server). */
 export type MemberIn = {

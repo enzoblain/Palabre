@@ -1,4 +1,4 @@
-import type { CoreCategory, ExtendedCategory, Role, RoleCategory } from "./api";
+import type { CoreCategory, ExtendedCategory, MemberIn, Role, RoleCategory } from "./api";
 
 /** The historic roles' categories come first, so they stay at the top of the list. */
 const CORE_CATEGORIES: CoreCategory[] = ["management", "engineering", "quality", "product", "support", "research"];
@@ -32,10 +32,31 @@ export function teamWarningThreshold(maxAgents: number): number {
   return Math.ceil(maxAgents * TEAM_WARNING_RATIO);
 }
 
-/** A company needs at least this many members, the lead included (MIN_AUTO_TEAM_SIZE on the server). */
-export const MIN_COMPANY_TEAM_SIZE = 4;
+const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
 
-/** Whether a team of this size is below the minimum. */
-export function isTeamTooSmall(size: number, minSize: number): boolean {
-  return size < minSize;
+export type TeamProblem = "none" | "tooSmall" | "tooBig" | "noLead" | "duplicate" | "noName" | "badName" | "noRole";
+
+/** What keeps a team from being created (the server checks the same rules).
+ * leadRole: the role a company team cannot do without (null: none required).
+ * minSize / maxSize: the team size bounds, the lead included. */
+export function teamProblems(
+  members: Pick<MemberIn, "name" | "roles">[], leadRole: string | null, minSize: number, maxSize: number,
+): TeamProblem[] {
+  const problems: TeamProblem[] = [];
+  if (!members.length) problems.push("none");
+  else if (members.length < minSize) problems.push("tooSmall");
+  else if (members.length > maxSize) problems.push("tooBig");
+  if (leadRole && members.length && !members.some((m) => m.roles.includes(leadRole))) problems.push("noLead");
+  const names = members.map((m) => m.name.toLowerCase());
+  if (new Set(names).size !== names.length) problems.push("duplicate");
+  if (members.some((m) => !m.name)) problems.push("noName");
+  if (members.some((m) => m.name && !NAME_RE.test(m.name))) problems.push("badName");
+  if (members.some((m) => !m.roles.length)) problems.push("noRole");
+  return problems;
+}
+
+/** Problems of an automatic team, which is only a head count. */
+export function autoTeamProblems(employeeCount: number, minSize: number, maxSize: number): TeamProblem[] {
+  if (employeeCount < minSize) return ["tooSmall"];
+  return employeeCount > maxSize ? ["tooBig"] : [];
 }

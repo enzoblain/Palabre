@@ -8,9 +8,7 @@ import { ShuffleIcon } from "./Icons";
 import { JobPicker } from "./JobPicker";
 import { PersonalityPicker } from "./PersonalityPicker";
 import { applyPreset } from "../presets";
-import { isTeamTooSmall, teamWarningThreshold } from "../jobs";
-
-const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
+import { type TeamProblem, teamWarningThreshold } from "../jobs";
 
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -46,22 +44,19 @@ export function freeName(names: string[], taken: string[]): string {
   return free.length ? pick(free) : "";
 }
 
-/** Problems that keep the team from being created (the server checks them too).
- * needsLead: a company needs one (they organize the work and merge).
- * minSize: fewer members than this block the creation. */
-export function teamProblems(members: MemberIn[], needsLead: boolean, minSize = 1): string[] {
-  const problems: string[] = [];
-  if (!members.length) problems.push(translate("editor.problemNone"));
-  else if (isTeamTooSmall(members.length, minSize)) problems.push(translate("editor.problemTooSmall", { min: minSize }));
-  if (needsLead && members.length && !members.some((m) => m.roles.includes("lead"))) {
-    problems.push(translate("editor.problemLead"));
-  }
-  const names = members.map((m) => m.name.toLowerCase());
-  if (new Set(names).size !== names.length) problems.push(translate("editor.problemDuplicate"));
-  if (members.some((m) => !m.name)) problems.push(translate("editor.problemNoName"));
-  if (members.some((m) => m.name && !NAME_RE.test(m.name))) problems.push(translate("editor.problemBadName"));
-  if (members.some((m) => !m.roles.length)) problems.push(translate("editor.problemNoRole"));
-  return problems;
+/** The messages of the problems that keep the team from being created. */
+export function problemMessages(problems: TeamProblem[], minSize: number, maxSize: number): string[] {
+  const messages: Record<TeamProblem, () => string> = {
+    none: () => translate("editor.problemNone"),
+    tooSmall: () => translate("editor.problemTooSmall", { min: minSize }),
+    tooBig: () => translate("editor.problemTooBig", { max: maxSize }),
+    noLead: () => translate("editor.problemLead"),
+    duplicate: () => translate("editor.problemDuplicate"),
+    noName: () => translate("editor.problemNoName"),
+    badName: () => translate("editor.problemBadName"),
+    noRole: () => translate("editor.problemNoRole"),
+  };
+  return problems.map((problem) => messages[problem]());
 }
 
 function poleWord(text: string): string {
@@ -82,7 +77,8 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
   names: string[];
   claudeAccounts: number;
   limits: CatalogLimits;
-  // Role of the first member, who cannot be removed and keeps this role: only their personality changes
+  // Role of the first member, who cannot be removed and keeps this role: only their personality changes.
+  // The lead must stay first: the editor never reorders members and `resize` only trims or appends.
   mandatoryRole?: string;
 }) {
   const { t } = useI18n();
