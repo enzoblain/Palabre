@@ -5,9 +5,9 @@ from typing import Literal
 from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
-from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RoleOut, RoleToolsOut
+from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RandomPersonalityOut, RoleOut, RoleToolsOut
 from app.company.catalog import MAX_TEAM_SIZE, MODELS, Role, load_catalog
-from app.company.team import generate_team, personality_for
+from app.company.team import generate_team, personality_for, random_personality
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
 Kind = Literal["company", "research"]
@@ -51,6 +51,15 @@ async def personality_options(kind: Kind = "company") -> dict:
 async def list_personalities(kind: Kind = "company") -> dict:
     """Personality presets of a kind of project, to pick from and tweak."""
     return load_catalog()["personalities"][kind]
+
+
+@router.get("/roles/{role}/random-personality", response_model=RandomPersonalityOut)
+async def draw_personality(role: str) -> dict:
+    """A random valid personality for a role, for the "random" button (nothing is saved)."""
+    found = load_catalog()["roles"].get(role)
+    if found is None:
+        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.ROLE_NOT_FOUND, f"Unknown role: {role}")
+    return random_personality(found.kind)
 
 
 @router.get("/modes/{mode}/team")
