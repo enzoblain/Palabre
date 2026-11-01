@@ -426,6 +426,9 @@ async def _adopt_open_pull_request(repo: str, project: Project, task: Task) -> N
     (rollback): the clone's branch already has an open PR. Adopt it, or the retry would rename the
     branch from a new title and open a second PR for the same work."""
     current = (await github.git(task.worktree_path, "rev-parse", "--abbrev-ref", "HEAD")).strip()
+    # The clone is agent-controlled: only a branch named after this very task may be adopted
+    if not re.fullmatch(rf"[a-z]+/{task.id}(-[a-z0-9-]+)?", current):
+        return
     pr = await github.find_pull_request(repo, current, project.default_branch)
     if pr is not None:
         task.branch, task.pr_number, task.pr_url = current, pr["number"], pr["html_url"]

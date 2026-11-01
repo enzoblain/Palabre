@@ -410,9 +410,11 @@ async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
     assert not await check()
 
 
-async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(monkeypatch):
+@pytest.mark.parametrize("clone_branch, adopted", [("fix/7-handle-x", True), ("feat/99-other", False)])
+async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(monkeypatch, clone_branch, adopted):
     """The PR was opened, then the submission failed and the database rolled back: a retry with another
-    title must not rename the branch and open a second PR for the same work (#372)."""
+    title must not rename the branch and open a second PR for the same work (#372). A clone sitting on
+    another task's branch must never adopt that task's PR."""
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
         pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
@@ -431,13 +433,13 @@ async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(mo
 
     async def git(path, *args, **__):
         if args[:2] == ("rev-parse", "--abbrev-ref"):
-            return "fix/7-handle-x\n"  # renamed and pushed by the first, rolled back, attempt
+            return f"{clone_branch}\n"  # renamed and pushed by the first, rolled back, attempt
         if args[0] == "branch":
             renamed.append(args)
         return ""
 
     async def find_pr(repo, head, base):
-        return {"number": 3, "html_url": "u"} if head == "fix/7-handle-x" else None
+        return {"number": 3, "html_url": "u"} if head == clone_branch else None
 
     async def open_pr(repo, **kw):
         opened.append(kw)
@@ -463,6 +465,9 @@ async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(mo
     await workflow.submit_for_review(
         FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="feat(api): handle y"
     )
-    assert opened == [] and renamed == []
-    assert task.pr_number == 3 and task.branch == "fix/7-handle-x"
-    assert titles == [(3, "feat(api): handle y (#3)")]
+    if adopted:
+        assert opened == [] and renamed == []
+        assert task.pr_number == 3 and task.branch == "fix/7-handle-x"
+        assert titles == [(3, "feat(api): handle y (#3)")]
+    else:
+        assert task.pr_number == 4 and task.branch == "feat/7-handle-y" and titles == [(4, "feat(api): handle y (#4)")]
