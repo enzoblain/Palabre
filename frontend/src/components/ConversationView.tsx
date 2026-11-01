@@ -13,7 +13,7 @@ const PHASE_POLL_MS = 4000;
 const PHASES = ["research", "debate", "conclusion", "report"] as const satisfies readonly ResearchPhase[];
 
 /** Where the research question stands: research → debate → conclusion → report. */
-function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: number }) {
+function PhaseBar({ phase }: { phase: ResearchPhase }) {
   const { t } = useI18n();
   const current = phase === "done" ? PHASES.length : PHASES.findIndex((p) => p === phase);
   return (
@@ -23,7 +23,6 @@ function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: numbe
           {i < current ? "✓ " : ""}{t(`conv.phase.${p}`)}
         </span>
       ))}
-      {phase === "done" && <a className="phase-done" href={`#/p/${projectId}/report`}>{t("conv.readReport")}</a>}
     </div>
   );
 }
@@ -352,7 +351,7 @@ export function ConversationView({ conversation, room, project, projects, route,
         <span className="conv-members muted">{t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
-      {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
+      {research && phase && <PhaseBar phase={phase} />}
 
       <div className="messages" ref={listRef} onScroll={onScroll}>
         {messages === null && <p className="muted center">{t("common.loading")}</p>}

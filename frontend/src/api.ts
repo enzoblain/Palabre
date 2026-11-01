@@ -160,20 +160,6 @@ export type OrchestratorStatus = {
 export type Quota = { accounts: AccountQuota[] };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
-export type Decision = {
-  id: number;
-  room_id: number;
-  title: string;
-  rationale: string;
-  status: "proposed" | "validated" | "rejected";
-  proposed_by: string;
-  // A release: validating it merges this PR into production
-  pr_number: number | null;
-  pr_url: string | null;
-  created_at: string;
-  decided_at: string | null;
-};
-
 export type Axis = { key: string; label: string; low: string; high: string };
 export type Personality = {
   levels: number[];
@@ -464,10 +450,6 @@ export const api = {
   researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
   presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
-
-  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
-  decide: (decisionId: number, status: "validated" | "rejected") =>
-    call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

@@ -3,7 +3,7 @@ import type { Conversation, Presence, Project, ProjectDetail } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { Avatar } from "./Avatar";
-import { ConversationIcon, DocumentIcon, GearIcon, PlusIcon } from "./Icons";
+import { ConversationIcon, GearIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
@@ -142,10 +142,6 @@ export function TeamPanel({ project, route, presence, open, onClose, noProject }
                 <ConversationIcon size={15} /> {t("menu.conversation")}
               </a>
             )}
-            <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${project.detail.id}/report`}
-              aria-current={route.name === "report" ? "page" : undefined} onClick={onClose}>
-              <DocumentIcon size={15} /> {project.detail.kind === "research" ? t("menu.report") : t("menu.document")}
-            </a>
           </nav>
           <h2 className="section-label" id="people-label">{t("team.title")}</h2>
           <ul className="panel-list" aria-labelledby="people-label">
