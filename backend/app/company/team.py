@@ -253,15 +253,23 @@ def _render_roster(team: Team, me: Employee, boss: dict) -> str:
 
 def _render_role(role: Role) -> str:
     bullets = lambda items: "\n".join(f"- {i}" for i in items)  # noqa: E731
-    return (
-        f"## Position: {role.title}\n"
-        f"Mission: {role.mission}\n\n"
-        f"Responsibilities:\n{bullets(role.responsibilities)}\n\n"
-        f"You do NOT:\n{bullets(role.forbidden)}\n\n"
+    working_notes = [
+        "How you work:\n" + "\n".join(f"{n}. {step}" for n, step in enumerate(role.method, 1))
+        if role.method
+        else None,
+        f"Watch points:\n{bullets(role.watch_points)}" if role.watch_points else None,
+        f"A good deliverable: {role.deliverable_format}" if role.deliverable_format else None,
+    ]
+    sections = [
+        f"## Position: {role.title}\nMission: {role.mission}",
+        f"Responsibilities:\n{bullets(role.responsibilities)}",
+        f"You do NOT:\n{bullets(role.forbidden)}",
+        *(note for note in working_notes if note),
         f"Deliverables: {', '.join(role.deliverables)}\n"
         f"Escalation: {role.escalation}\n"
-        f"Success criterion: {role.success}"
-    )
+        f"Success criterion: {role.success}",
+    ]
+    return "\n\n".join(sections)
 
 
 def _render_personality(employee: Employee, personality: dict) -> str:

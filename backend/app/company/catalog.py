@@ -85,6 +85,10 @@ class Role(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
+    # How the role works; optional until every job has its working notes
+    method: list[str] = Field(default_factory=list)
+    watch_points: list[str] = Field(default_factory=list)
+    deliverable_format: str | None = None
     permissions: tuple[Permission, ...]
     wakes_on: tuple[EventType, ...]
 
