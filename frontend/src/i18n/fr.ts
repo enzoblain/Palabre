@@ -314,11 +314,8 @@ export const fr: Messages = {
   "request.withdrawn": "Retirée par le lead",
 
   "doc.report": "Rapport",
-  "doc.document": "Document",
   "doc.topic": "Sujet",
   "doc.reportEmpty": "Le rapporteur n’a pas encore rédigé le rapport. Il se remplit au fil de la recherche du groupe.",
-  "doc.conclusions": "Conclusions",
-  "doc.decisions": "Décisions",
   "doc.noneProposed": "Aucune proposée pour l’instant.",
   "doc.proposedBy": "proposée par {name} · {time}",
   "doc.mergePr": "Fusionner la PR #{number}",
