@@ -124,15 +124,17 @@ def prepare_run_dir(employee_id: int, resume_session_id: str | None, user: str |
     return run_dir
 
 
-def collect_run_dir(employee_id: int, run_dir: Path) -> bool:
-    """Keeps the sessions the run wrote in the employee's store, then deletes the run's config dir.
+def collect_run_dir(employee_id: int | None, run_dir: Path) -> bool:
+    """Keeps the sessions the run wrote in the employee's store, then deletes the run's config dir
+    (employee_id None: a run without employee, nothing is kept).
 
     Only `projects/` comes back: settings, hooks or anything else the run left there is dropped.
     Returns False if something of the run dir could not be deleted (the caller cleans it as the agent)."""
     try:
-        store = employee_store(employee_id)
-        store.mkdir(mode=0o700, parents=True, exist_ok=True)
-        _copy_tree(run_dir / "projects", store / "projects", file_mode=0o600, dir_mode=0o700)
+        if employee_id is not None:
+            store = employee_store(employee_id)
+            store.mkdir(mode=0o700, parents=True, exist_ok=True)
+            _copy_tree(run_dir / "projects", store / "projects", file_mode=0o600, dir_mode=0o700)
     except OSError:
         # A full disk must not turn a finished run into a failure that drops its result
         log.exception("Claude sessions of employee %s could not be saved", employee_id)
@@ -145,7 +147,7 @@ def collect_run_dir(employee_id: int, run_dir: Path) -> bool:
     return True
 
 
-async def collect(employee_id: int, run_dir: Path, user: str | None = None) -> None:
+async def collect(employee_id: int | None, run_dir: Path, user: str | None = None) -> None:
     """collect_run_dir, then, if the backend could not delete everything, the agent user empties it."""
     user = settings.agent_user if user is None else user
     if await asyncio.to_thread(collect_run_dir, employee_id, run_dir) or not user:

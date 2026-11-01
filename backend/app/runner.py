@@ -32,6 +32,10 @@ AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
 # Settings layers claude may load. Never project/local: an agent that can write in its cwd
 # could persist a .claude/settings.json (hooks run outside --tools) for its next run
 SETTING_SOURCES = "user"
+# A one-shot call answers in a single turn
+ONESHOT_MAX_TURNS = 1
+# Employee id of a run that belongs to nobody (no session kept, no toolchain)
+NO_EMPLOYEE = 0
 
 
 class ClaudeRunError(RuntimeError):
@@ -241,6 +245,59 @@ async def run_claude(spec: RunSpec) -> RunResult:
             return await _run_claude(spec, token, user)
     finally:
         run_tokens.revoke(token)
+
+
+async def run_oneshot(prompt: str, *, system_prompt: str, model: str, oauth_token: str | None, timeout_s: float) -> str:
+    """One short `claude -p` call with no tool and no MCP, for a question that belongs to no employee
+    (the prompt goes on stdin). Returns the answer text; raises ClaudeRunError on any failure."""
+    if not oauth_token:
+        raise ClaudeRunError("CLAUDE_CODE_OAUTH_TOKENS is not set (generate a token with `claude setup-token`)")
+    token = run_tokens.issue(NO_EMPLOYEE)
+    run_tokens.bind_credential(token, oauth_token)
+    try:
+        async with agent_pool.lease() as user:
+            return await _run_oneshot(prompt, system_prompt, model, token, user, timeout_s)
+    finally:
+        run_tokens.revoke(token)
+
+
+async def _run_oneshot(prompt: str, system_prompt: str, model: str, token: str, user: str, timeout_s: float) -> str:
+    system_prompt_file = _write_private_file("system-prompt", ".txt", system_prompt, user)
+    config_dir = None
+    try:
+        config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, NO_EMPLOYEE, None, user)
+        cmd = [
+            settings.claude_bin, "-p", "--output-format", "json", "--setting-sources", SETTING_SOURCES,
+            "--tools", "", "--max-turns", str(ONESHOT_MAX_TURNS), "--model", model, "--append-system-prompt-file", str(system_prompt_file),
+        ]  # fmt: skip
+        env = _env("Palabre", token, config_dir, config_dir, user, NO_EMPLOYEE)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *_command(cmd, env, user), cwd=config_dir, env=env, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=bool(user),
+            )  # fmt: skip
+        except OSError as exc:
+            raise ClaudeRunError(f"Cannot start {settings.claude_bin}: {exc}") from exc
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(prompt.encode()), timeout_s)
+        except (TimeoutError, asyncio.CancelledError) as exc:
+            await _terminate(proc, user)
+            await proc.wait()
+            if isinstance(exc, TimeoutError):
+                raise ClaudeRunError(f"Timed out after {timeout_s}s") from exc
+            raise
+    finally:
+        system_prompt_file.unlink(missing_ok=True)
+        # No clone to hand back: the lease kills what the run left, the config dir is just deleted
+        if config_dir:
+            await claude_store.collect(None, config_dir, user)
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError:
+        raise ClaudeRunError(f"claude exited with code {proc.returncode}: {stderr.decode(errors='replace')[-500:]}") from None
+    if data.get("is_error") or not isinstance(data.get("result"), str):
+        raise ClaudeRunError(f"The call ended with an error: {str(data.get('result'))[:200]}")
+    return data["result"]
 
 
 async def _take_back(owned: list[Path], user: str, dead: bool) -> None:

@@ -18,12 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github, release, services
-from app.accounts import assign_accounts, token_for
-from app.company import channel_planner
+from app.accounts import assign_accounts, team_token, token_for
+from app.company import channel_planner, team_selection
 from app.company.catalog import load_catalog
 from app.company.team import Employee as TeamMember
 from app.company.team import (
-    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, kind_of_mode, personality_for,
+    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, generate_team_from_roles, kind_of_mode, personality_for,
     reroll_employee,
 )  # fmt: skip
 from app.models import (
@@ -39,6 +39,7 @@ from app.worktrees import sync_repo
 log = logging.getLogger(__name__)
 
 _background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
+AUTO_TEAM_MODE = "enterprise"  # Process of an automatic team: reviewer and QA gate the merges
 RESEARCH_ROOM = "research"  # The one room of a research team (no generic channels elsewhere)
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
@@ -68,8 +69,13 @@ async def create_project(
     topic: str | None = None,
     rapporteur: str | None = None,
     kind: str | None = None,
+    creation_mode: str | None = None,
+    description: str | None = None,
+    employee_count: int | None = None,
 ) -> Project:
     """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
+    `creation_mode` "auto": `employee_count` employees whose roles are chosen for the `description`
+    (the enterprise process; the mode is ignored).
     A research project (research mode) has a `topic` and no repository, and a `rapporteur`
     (a peer's name; none: drawn at random, unless the team built by hand has one)."""
     kind = kind_of_mode(mode)
@@ -90,6 +96,11 @@ async def create_project(
             for i, m in enumerate(employees)
         ]
         team = Team(mode=mode, seed=seed, process=dict(load_catalog()["modes"][mode]["process"]), employees=members)
+    elif creation_mode == "auto":
+        if employee_count is None:
+            raise WorkflowError("An automatic team needs an employee count")
+        roles = await team_selection.select_roles(description or "", employee_count, team_token())
+        team = generate_team_from_roles(AUTO_TEAM_MODE, roles, seed)
     else:
         team = generate_team(mode, seed)
     if kind == "research":

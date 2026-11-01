@@ -36,3 +36,9 @@ def assign_accounts(employees: list[Employee]) -> dict[int, int]:
         load[least] += 1
         accounts[e.id] = least + 1
     return accounts
+
+
+def team_token() -> str | None:
+    """The token of a call that belongs to no employee yet: the first account that is not exhausted."""
+    exhausted = exhausted_accounts()
+    return token_for(next((a for a in range(1, account_count() + 1) if a not in exhausted), 1))

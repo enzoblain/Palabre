@@ -875,3 +875,17 @@ async def test_prompts_stay_out_of_argv(as_agent, monkeypatch, tmp_path):
     assert seen["stdin"] == b"SECRET-USER-PROMPT"
     assert seen["system_prompt"] == "SECRET-SYSTEM-PROMPT"
     assert list((tmp_path / "run").iterdir()) == []
+
+
+def test_run_without_employee_keeps_nothing_and_is_deleted(as_agent, monkeypatch, tmp_path):
+    from app import claude_store
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "store"))
+    run_dir = claude_store.prepare_run_dir(0, None)
+    session = run_dir / "projects" / "p" / "s.jsonl"
+    session.parent.mkdir(parents=True)
+    session.write_text("{}")
+
+    assert claude_store.collect_run_dir(None, run_dir) is True
+    assert not run_dir.exists()
+    assert not (tmp_path / "store").exists()
