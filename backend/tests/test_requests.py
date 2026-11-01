@@ -224,8 +224,8 @@ async def test_escalating_to_the_boss_is_a_request_in_direction():
     dev = make_employee("Léa", "dev_backend")
     s = FakeSession()
     msg = await services.escalate(s, 1, 4, dev, "boss", "Cloud budget to decide")
+    assert msg.conversation_id == 9 and msg.request_kind == "escalation" and msg.request_status == "pending"
     assert msg.employee_id == LEAD.id and msg.content == "Cloud budget to decide" and msg.request_author_id == dev.id
-    assert msg.employee_id == LEAD.id and msg.content.startswith("Léa: ")
     assert s.events == []
 
 
