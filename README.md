@@ -578,6 +578,8 @@ cd frontend && npm install && npm run tauri dev  # desktop app
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
 `frontend/`. No linter is configured yet.
 
+**Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool described in this README updates the README in the same PR. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
+
 Roles live in [`backend/app/company/catalog/`](backend/app/company/catalog), one TOML file per role
 (`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). The personality each kind draws from (axes, quirks, styles) is
 `<kind>/personality_pool.toml`. Company sizes, research

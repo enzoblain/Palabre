@@ -47,3 +47,9 @@ def test_assembled_reviewer_prompt_has_checklist_with_changes_verdict():
     assert CODE_STANDARDS not in prompt
     assert "verdict `changes`" in prompt
     assert "changes_requested" not in REVIEW_CHECKLIST
+
+
+def test_prompts_require_readme_update_in_same_pr():
+    assert "update the README in the same PR" in _prompt_for("dev_backend")
+    reviewer_prompt = _prompt_for("reviewer")
+    assert "README" in reviewer_prompt and "blocking" in reviewer_prompt
