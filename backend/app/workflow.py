@@ -421,6 +421,16 @@ def conventional_title(title: str, pr_number: int | None = None) -> str:
     return title if pr_number is None else f"{title} (#{pr_number})"
 
 
+async def _adopt_open_pull_request(repo: str, project: Project, task: Task) -> None:
+    """A previous submission may have opened the PR and then failed before the database kept it
+    (rollback): the clone's branch already has an open PR. Adopt it, or the retry would rename the
+    branch from a new title and open a second PR for the same work."""
+    current = (await github.git(task.worktree_path, "rev-parse", "--abbrev-ref", "HEAD")).strip()
+    pr = await github.find_pull_request(repo, current, project.default_branch)
+    if pr is not None:
+        task.branch, task.pr_number, task.pr_url = current, pr["number"], pr["html_url"]
+
+
 async def submit_for_review(
     s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
     message: str = "", title: str = "",
@@ -436,13 +446,15 @@ async def submit_for_review(
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet", code=ErrorCode.TASK_NO_BRANCH)
     bare_title = conventional_title(title)
+    repo = github.repo_slug(project.repo_url)
+    if task.pr_number is None:
+        await _adopt_open_pull_request(repo, project, task)
     if task.pr_number is None and github.is_task_branch_name(task.branch):
         # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
         await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting", code=ErrorCode.NO_COMMITS)
 
-    repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
     await push_task_branch(project, task)
