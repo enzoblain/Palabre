@@ -339,6 +339,15 @@ button:focus-visible, .btn:focus-visible, a:focus-visible { outline: 2px solid v
 .kind.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
 textarea { resize: vertical; line-height: 1.5; }
 
+/* --- Document / report --- */
+.document .markdown { font-size: 14px; }
+.decision { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.decision.proposed { background: var(--mention-me-bg); border-color: transparent; box-shadow: inset 3px 0 0 var(--mention-me-border); }
+.decision.validated { background: var(--bg-soft); }
+.decision.rejected { opacity: 0.6; margin-top: 6px; }
+.decision-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.decision-head .muted { font-size: 12px; }
+.questions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 details summary { cursor: pointer; margin-top: 6px; }
 
 /* --- Research phases --- */
@@ -346,6 +355,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 .phase { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .phase.past { color: var(--text); background: var(--bg-soft); }
 .phase.current { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.phase-done { margin-left: auto; color: var(--accent); font-weight: 500; }
 
 /* --- Projects in the settings --- */
 .project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -359,6 +369,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 .mobile-bar, .nav-backdrop { display: none; }
 .panel-close { display: none; margin-left: auto; }
 .topbar-nav { display: none; }
+.report-bar { display: flex; }
 @media (max-width: 900px) {
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
@@ -368,6 +379,10 @@ details summary { cursor: pointer; margin-top: 6px; }
   }
   .mobile-bar .sidebar-title { flex: 1; }
   .panel-close, .topbar-nav { display: inline-flex; }
+  /* .topbar is declared later and sets display:flex, so the selector needs the extra class to win */
+  .topbar.report-bar { display: none; }
+  /* The mobile bar already shows the project name; keep the heading for screen readers */
+  .document .doc-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .team-panel {
     position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;
     transform: translateX(-100%); transition: transform 0.2s ease; visibility: hidden;
@@ -471,6 +486,30 @@ details summary { cursor: pointer; margin-top: 6px; }
 .message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
 .request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }
 
+/* Document: summary card and collapsible sections */
+.doc-head { display: flex; flex-direction: column; gap: 2px; }
+.summary-card .markdown, .summary-card > p { font-size: 16px; line-height: 1.5; }
+.doc-stats { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.stat-link { background: none; border: none; padding: 6px 2px; min-height: 32px; font: inherit; font-size: 14px; color: var(--accent); text-decoration: underline; cursor: pointer; border-radius: 4px; }
+.stat-link:hover { background: var(--hover); }
+.accordion { border: 1px solid var(--border); border-radius: var(--radius); scroll-margin-top: 12px; }
+.accordion-title { margin: 0; font-size: 16px; }
+.accordion-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; min-height: 48px;
+  background: none; border: none; font: inherit; font-weight: 600; color: var(--text); text-align: left; cursor: pointer; border-radius: var(--radius);
+}
+.accordion-head:hover { background: var(--hover); }
+.accordion-name { flex: 1; }
+.count-badge { min-width: 24px; padding: 1px 8px; border-radius: 12px; background: var(--bg-soft); border: 1px solid var(--border); font-size: 13px; font-weight: 500; text-align: center; color: var(--muted); }
+.count-badge.attention { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+.chevron { display: inline-block; transition: transform 0.15s; color: var(--muted); }
+.accordion-head[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+.accordion-body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.accordion-body[hidden] { display: none; }
+.accordion-body p { margin: 0; }
+.sub-title { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.accordion-head:focus-visible, .stat-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
 .team-count { font-size: 13px; }
 .team-count.warning { color: var(--busy); font-weight: 600; }
 .link-btn { background: none; border: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }

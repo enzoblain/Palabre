@@ -134,7 +134,7 @@ Validate, Reject or Nuance (a free comment, required). You answer once; the answ
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
 Proposed decisions, releases and escalations to the boss become such requests on their own. Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
 The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
-channel: its decisions are only in the room document. On upgrade, what waited in the old
+channel: its conclusions are validated from the Report tab of the app. On upgrade, what waited in the old
 inbox is turned into requests in direction.
 
 A new project works on a `dev` branch, created from the repository's default branch if
@@ -173,7 +173,8 @@ on every question you ask in four phases:
 2. **Debate**: they confront their findings.
 3. **Conclusion**: each one states a final position.
 4. **Report**: the rapporteur writes it up: the short answer, the key findings with their
-   sources, the disagreements and the open questions.
+   sources, the disagreements and the open questions. You read it in the Report tab, which
+   is also where the proposed conclusions are validated. Company projects have no such tab.
 
 Groups come in three sizes: Duo (2), Panel (5) and Council (9). You choose the rapporteur,
 or leave it to chance.
