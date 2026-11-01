@@ -3,7 +3,7 @@
 import pytest
 
 from app.errors import WorkflowError
-from app.workflow import conventional_title
+from app.workflow import conventional_title, squash_title
 from app.github import is_task_branch_name
 from app.worktrees import branch_name, final_branch_name
 
@@ -75,3 +75,10 @@ def test_final_branch_name_from_title():
 def test_task_branch_recognition(branch, expected):
     assert is_task_branch_name(branch) is expected
 
+
+@pytest.mark.parametrize(
+    "title",
+    ["fix(x): y", "fix(x): y (#42)", "fix(x): y (#7)"],
+)
+def test_squash_title_ends_with_a_single_pr_number(title):
+    assert squash_title(title, 42) == "fix(x): y (#42)"
