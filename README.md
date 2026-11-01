@@ -105,6 +105,12 @@ nudged once; if it still does not start after another `IDLE_TASK_MINUTES`, the l
 because the CI is still running, the lead is woken (`merge_retry`) as soon as the CI is over,
 or as a mergeable task if every rule is then met.
 
+A task never waits silently for its reviewer either: when QA or security post a report on a task in
+review, a reviewer whose last opinion is a comment without a verdict is woken up (`verification_done`)
+to give approve or changes. As a safety net, a task in review with no reviewer verdict for
+`REVIEW_SILENCE_MINUTES` (15 by default) wakes the reviewers again (`review_overdue`, when none is
+busy) and tells the lead (`review_stalled`), then waits another delay before the next reminder.
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its
 clone. Only branches recorded on tasks are touched, never the default branch, `dev` or a
