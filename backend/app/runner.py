@@ -32,6 +32,8 @@ AGENT_PATH = "/usr/local/bin:/usr/bin:/bin"
 # Settings layers claude may load. Never project/local: an agent that can write in its cwd
 # could persist a .claude/settings.json (hooks run outside --tools) for its next run
 SETTING_SOURCES = "user"
+# Only the servers of --mcp-config exist: none from the user settings, ever
+STRICT_MCP_FLAG = "--strict-mcp-config"
 # A one-shot call answers in a single turn
 ONESHOT_MAX_TURNS = 1
 # Employee id of a run that belongs to nobody (no session kept, no toolchain)
@@ -267,7 +269,7 @@ async def _run_oneshot(prompt: str, system_prompt: str, model: str, token: str, 
     try:
         config_dir = await asyncio.to_thread(claude_store.prepare_run_dir, NO_EMPLOYEE, None, user)
         cmd = [
-            settings.claude_bin, "-p", "--output-format", "json", "--setting-sources", SETTING_SOURCES,
+            settings.claude_bin, "-p", "--output-format", "json", STRICT_MCP_FLAG, "--setting-sources", SETTING_SOURCES,
             "--tools", "", "--max-turns", str(ONESHOT_MAX_TURNS), "--model", model, "--append-system-prompt-file", str(system_prompt_file),
         ]  # fmt: skip
         env = _env("Palabre", token, config_dir, config_dir, user, NO_EMPLOYEE)
@@ -331,7 +333,7 @@ async def _run_claude(spec: RunSpec, token: str, user: str) -> RunResult:
         "-p",
         "--output-format", "json",
         "--mcp-config", str(mcp_config),
-        "--strict-mcp-config",
+        STRICT_MCP_FLAG,
         "--setting-sources", SETTING_SOURCES,
         # Only these built-in tools exist for the agent; the others cannot even be asked for
         "--tools", ",".join(spec.claude_tools),
