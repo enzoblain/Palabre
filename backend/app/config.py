@@ -99,6 +99,8 @@ class Settings(BaseSettings):
     claude_max_turns: int = 20
     claude_task_max_turns: int = 100
     agent_timeout_s: int = 1800
+    # The short model call that picks the roles of an automatic team
+    team_selection_timeout_s: int = 120
     # Seen from the `claude` processes, which run in the backend container
     mcp_url: str = "http://127.0.0.1:8000/mcp/"
 

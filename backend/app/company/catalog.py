@@ -47,6 +47,8 @@ UNIQUE_PERMISSIONS = ("ship_release", "manage_channels")
 
 # Biggest team a custom project can have (the API refuses more, the front reads it from /catalog/limits)
 MAX_TEAM_SIZE = 30
+MIN_TEAM_SIZE = 4  # Creation (manual and automatic): members wanted, the mandatory member included
+MANDATORY_ROLE = "lead"  # The member every company team starts with and cannot do without
 MODELS = get_args(Model)
 
 PERSONALITY_POOL_FILE = "personality_pool.toml"

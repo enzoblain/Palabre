@@ -210,17 +210,20 @@ async def write_notes(ctx: Context, content: str, append: bool = True) -> str:
 
 
 @tool
-async def add_decision(ctx: Context, title: str, rationale: str = "") -> dict:
+async def add_decision(ctx: Context, title: str, rationale: str = "", decided_by_boss: bool = False) -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
     validates or rejects it. title: the decision in one short sentence; rationale: the why in
     a few sentences (the boss reads it in full in direction, so keep it short and
     plain). Write both in the team's language. The boss's request is signed by the lead.
     The boss is not a developer: title and rationale use plain sentences, with no jargon and no
-    code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task."""
+    code references (files, identifiers, task or PR numbers); the technical detail goes in the room document or the task.
+    decided_by_boss (lead only): True when the boss already settled it in the conversation. The
+    decision is then recorded "validated" and the boss is not asked again; leave it False for a
+    decision the boss has not taken yet."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
-        decision = await services.add_decision(s, c.project_id, c.room_id, title, rationale, me)
+        decision = await services.add_decision(s, c.project_id, c.room_id, title, rationale, me, decided_by_boss)
     return {"id": decision.id, "status": decision.status.value}
 
 

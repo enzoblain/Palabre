@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-01
+
+### Added
+
+- projects: add manual and automatic creation modes and a random personality endpoint (#339)
+- decisions: record decisions already taken by the boss as validated (#343)
+- projects: refuse manual teams below the minimum size (#341)
+- front: new company creation screen with automatic and manual modes (#342)
+- projects: pick the roles of an automatic team from the description (#344)
+
+### Changed
+
+- settings: remove the usage section and its endpoint (#338)
+- frontend: remove the Document tab from company projects (#340)
+
+### Fixed
+
+- catalog: reword the monitoring step of technical_documentation_engineer as a specification (#345)
+- runner: pass --strict-mcp-config to the one-shot call (#349)
+- workflow: append the PR number once to the squash commit title (#350)
+
 ## [0.22.0] - 2026-11-01
 
 ### Added
@@ -575,7 +596,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/enzoblain/Palabre/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/enzoblain/Palabre/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/enzoblain/Palabre/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/enzoblain/Palabre/compare/v0.19.0...v0.20.0

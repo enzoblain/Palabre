@@ -5,8 +5,9 @@ software team builds your product: a lead organizes the work, developers open pu
 requests, reviewers and QA check them before anything is merged. Or give it a topic
 and a research group searches the web, debates and writes you a sourced report.
 
-You are the CEO. You talk to your team in chat rooms, like you would on Slack, from a
-desktop app or your phone's browser. The agents run on [Claude Code](https://claude.com/claude-code),
+You are the CEO. You talk only to the lead (the CTO), in the `#direction` channel, from a
+desktop app or your phone's browser; the lead relays to the team. The agents talk to each
+other in their own team channels, like colleagues on Slack, and you do not see those. The agents run on [Claude Code](https://claude.com/claude-code),
 billed on your Claude subscription, on a server you host yourself (a NAS is enough).
 
 - [How it works](#how-it-works)
@@ -62,7 +63,7 @@ From there the team works on its own:
    Everything that goes to GitHub is in English, whatever the team's language, in
    [Conventional Commits](https://www.conventionalcommits.org) format: the developer gives
    `submit_for_review` a title such as `feat(usage): show real Claude usage per model`, the backend
-   refuses a non-conforming one and adds the PR number once the PR is open (`... (#82)`; never the task number, which GitHub would read as another PR). That title is the PR's and
+   refuses a non-conforming one and never adds a number to it: a trailing `(#N)` is dropped, and the backend appends the PR number exactly once to the squash commit title when merging (`... (#82)`; never the task number, which GitHub would read as another PR). That title is the PR's and
    the squash commit's; the PR body says `Palabre task #60`. Review and QA comments and release notes are in English too (release notes keep the standard text, not Conventional Commits bullets).
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.
@@ -132,9 +133,9 @@ document, and asks you when something is yours to decide. There is no inbox: the
 what waits for you in the direction channel as a request, a message with three answers,
 Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
-Proposed decisions, releases and escalations to the boss become such requests on their own. Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
+Proposed decisions, releases and escalations to the boss become such requests on their own. A decision the boss already took in the conversation is recorded by the lead with `add_decision(decided_by_boss=True)`: it is saved `validated` right away, with no request in direction (any other role is refused). Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
 The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
-channel: its decisions are only in the room document. On upgrade, what waited in the old
+channel: its conclusions are validated from the Report tab of the app. On upgrade, what waited in the old
 inbox is turned into requests in direction.
 
 A new project works on a `dev` branch, created from the repository's default branch if
@@ -173,7 +174,8 @@ on every question you ask in four phases:
 2. **Debate**: they confront their findings.
 3. **Conclusion**: each one states a final position.
 4. **Report**: the rapporteur writes it up: the short answer, the key findings with their
-   sources, the disagreements and the open questions.
+   sources, the disagreements and the open questions. You read it in the Report tab, which
+   is also where the proposed conclusions are validated. Company projects have no such tab.
 
 Groups come in three sizes: Duo (2), Panel (5) and Council (9). You choose the rapporteur,
 or leave it to chance.
@@ -307,7 +309,6 @@ shows in Claude Code: the 5-hour session, the week (all models) and the week per
 each with the percentage used and its reset time. It is read from Claude's OAuth usage
 endpoint with the account's token, which never leaves the backend, and cached for about a
 minute. An account that fails returns an `error` without affecting the others.
-`GET /settings/usage` is different: it only sums tokens and cost of the runs Palabre made.
 
 **Credits exhausted**: when a run fails because the account hit its usage limit or has no
 credit left (recognised in the output of `claude -p`, with its reset time when it gives
@@ -455,6 +456,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
 | `CLAUDE_TASK_MAX_TURNS` | `100` | Turn limit of a task run |
 | `AGENT_TIMEOUT_S` | `1800` | Seconds before a run is stopped |
+| `TEAM_SELECTION_TIMEOUT_S` | `120` | Seconds before the model call that picks the roles of an automatic team is abandoned (the catalog order is used instead) |
 | `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. The build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
@@ -640,6 +642,8 @@ role or seat combines `merge` and `code`, and a key cannot exist in both kinds. 
 one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
 gate applies to them automatically.
 **Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist in the kind's `personality_pool.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
+
+**Creation modes (companies).** `POST /api/projects` takes an optional `creation_mode`. `manual`: the team is the `employees` list (role and personality per member) and has at least 4 members (the lead included; the composition is free, only the count is checked; below, 422 `team_too_small`, like `auto`) and must hold the mandatory member, the `lead`: without one, 422 `lead_required`. `auto`: `description` and `employee_count` (at least 4, the mandatory member included, at most the catalog's team size; below, 422 `team_too_small`), and no `employees` list; the roles are chosen in a later step, so for now the team is still drawn for the mode. Research projects refuse both (422 `invalid_creation_mode`). `GET /api/catalog/roles/{role}/random-personality` returns a valid random `traits`, `quirks` and `style` for the role's kind (the "random" button; nothing is saved; unknown role: 404 `role_not_found`).
 
 **Extended jobs.** `catalog/company/extended_roles.toml` indexes the extended jobs (English name, unique key, one of 20 categories, `archetype`; a name in several categories keeps the first). The archetype is a base company role (`lead`, `architect`, `product_owner`, `dev_backend`, `dev_frontend`, `reviewer`, `qa`, `scribe`, `devops`, `security`, `designer`): a role file with an `archetype` can leave out `permissions`, `wakes_on`, `model` and `effort`, which it takes from it, and it acts as that role in the merge gates and event targeting (`held_role_keys`). Extended jobs are only picked in a custom team: a mode's seats refuse them, so the random draw never uses them. The loader checks that each index line has a known category and a base archetype, and that a role file agrees with its line.
 

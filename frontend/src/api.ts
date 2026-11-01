@@ -120,25 +120,6 @@ export type AppSettings = {
   languages: Record<string, string>;
   claude_accounts: number;
 };
-export type UsageTotals = {
-  runs: number;
-  input_tokens: number;
-  output_tokens: number;
-  cache_creation_tokens: number;
-  cache_read_tokens: number;
-  cost_usd: number;
-  // Runs that reported no tokens / no cost: the sums leave them out
-  runs_without_tokens: number;
-  runs_without_cost: number;
-};
-export type UsagePeriod = "day" | "week" | "total";
-// id and name are null where unknown (account: runs before it was recorded)
-export type UsageEntry = { id: number | null; name: string | null } & Record<UsagePeriod, UsageTotals>;
-export type Usage = {
-  accounts: UsageEntry[];
-  employees: UsageEntry[];
-  projects: UsageEntry[];
-} & Record<UsagePeriod, UsageTotals>;
 // Real quota of a Claude account, as /usage shows it. `resets_at` is null when unknown
 export type QuotaWindow = { used_percent: number; resets_at: string | null };
 export type ModelQuota = QuotaWindow & { model: string };
@@ -232,7 +213,7 @@ export type Role = {
 };
 
 /** Models an employee can run on and the biggest custom team (CatalogLimitsOut on the server). */
-export type CatalogLimits = { models: Model[]; max_agents: number };
+export type CatalogLimits = { models: Model[]; max_agents: number; min_team_size: number; mandatory_role: string };
 
 /** An agent of a team built by hand (MemberIn on the server). */
 export type MemberIn = {
@@ -320,6 +301,9 @@ export const ERROR_CODES = [
   "unknown_roles",
   "unknown_personality",
   "lead_required",
+  "role_not_found",
+  "invalid_creation_mode",
+  "team_too_small",
   "invalid_team_permissions",
   "invalid_account",
   "research_has_no_repository",
@@ -430,7 +414,6 @@ export async function login(server: string, adminToken: string): Promise<Connect
 
 export const api = {
   getQuota: () => call<Quota>("/settings/quota"),
-  getUsage: () => call<Usage>("/settings/usage"),
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
@@ -455,8 +438,11 @@ export const api = {
     topic?: string;
     rapporteur?: string | null;
     mode: string;
-    seed: number;
+    seed?: number;
     accounts: Record<string, number>;
+    creation_mode?: "manual" | "auto";
+    description?: string;
+    employee_count?: number;
     employees?: MemberIn[];
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>

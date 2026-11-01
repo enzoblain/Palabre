@@ -8,9 +8,7 @@ import { ShuffleIcon } from "./Icons";
 import { JobPicker } from "./JobPicker";
 import { PersonalityPicker } from "./PersonalityPicker";
 import { applyPreset } from "../presets";
-import { teamWarningThreshold } from "../jobs";
-
-const NAME_RE = /^[\p{L}\p{N}_-]{1,40}$/u;
+import { type TeamProblem, teamWarningThreshold } from "../jobs";
 
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -41,32 +39,36 @@ export function newMember(personality: Personality): MemberIn {
 }
 
 /** A first name from the catalog nobody in the team has yet. */
-function freeName(names: string[], taken: string[]): string {
+export function freeName(names: string[], taken: string[]): string {
   const free = names.filter((n) => !taken.some((t) => t.toLowerCase() === n.toLowerCase()));
   return free.length ? pick(free) : "";
 }
 
-/** Problems that keep the team from being created (the server checks them too).
- * needsLead: a company needs one (they organize the work and merge). */
-export function teamProblems(members: MemberIn[], needsLead: boolean): string[] {
-  const problems: string[] = [];
-  if (!members.length) problems.push(translate("editor.problemNone"));
-  if (needsLead && members.length && !members.some((m) => m.roles.includes("lead"))) {
-    problems.push(translate("editor.problemLead"));
-  }
-  const names = members.map((m) => m.name.toLowerCase());
-  if (new Set(names).size !== names.length) problems.push(translate("editor.problemDuplicate"));
-  if (members.some((m) => !m.name)) problems.push(translate("editor.problemNoName"));
-  if (members.some((m) => m.name && !NAME_RE.test(m.name))) problems.push(translate("editor.problemBadName"));
-  if (members.some((m) => !m.roles.length)) problems.push(translate("editor.problemNoRole"));
-  return problems;
+/** The messages of the problems that keep the team from being created. */
+export function problemMessages(problems: TeamProblem[], minSize: number, maxSize: number): string[] {
+  const messages: Record<TeamProblem, () => string> = {
+    none: () => translate("editor.problemNone"),
+    tooSmall: () => translate("editor.problemTooSmall", { min: minSize }),
+    tooBig: () => translate("editor.problemTooBig", { max: maxSize }),
+    noLead: () => translate("editor.problemLead"),
+    duplicate: () => translate("editor.problemDuplicate"),
+    noName: () => translate("editor.problemNoName"),
+    badName: () => translate("editor.problemBadName"),
+    noRole: () => translate("editor.problemNoRole"),
+  };
+  return problems.map((problem) => messages[problem]());
 }
 
 function poleWord(text: string): string {
   return text.split(" — ")[0];
 }
 
-export function TeamEditor({ members, onChange, roles, personality, presets, names, claudeAccounts, limits }: {
+/** The member every company starts with: the lead, with a drawn name and personality. */
+export function mandatoryMember(personality: Personality, names: string[], role: string): MemberIn {
+  return { ...newMember(personality), ...randomPersonality(personality), name: freeName(names, []), roles: [role] };
+}
+
+export function TeamEditor({ members, onChange, roles, personality, presets, names, claudeAccounts, limits, mandatoryRole }: {
   members: MemberIn[];
   onChange: (members: MemberIn[]) => void;
   roles: Record<string, Role>;
@@ -75,6 +77,9 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
   names: string[];
   claudeAccounts: number;
   limits: CatalogLimits;
+  // Role of the first member, who cannot be removed and keeps this role: only their personality changes.
+  // The lead must stay first: the editor never reorders members and `resize` only trims or appends.
+  mandatoryRole?: string;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState<number | null>(null);
@@ -83,11 +88,14 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
   const update = (i: number, changes: Partial<MemberIn>) =>
     onChange(members.map((m, j) => (j === i ? { ...m, ...changes } : m)));
 
+  // A new agent starts with a drawn personality; the boss picks the role
+  const freshMember = (): MemberIn => ({ ...newMember(personality), ...randomPersonality(personality) });
+
   function resize(count: number) {
-    const n = Math.max(0, Math.min(limits.max_agents, count || 0));
+    const n = Math.max(mandatoryRole ? 1 : 0, Math.min(limits.max_agents, count || 0));
     if (n <= members.length) return onChange(members.slice(0, n));
     const added = [...members];
-    while (added.length < n) added.push(newMember(personality));
+    while (added.length < n) added.push(freshMember());
     onChange(added);
     setOpen(members.length); // Open the first new agent to fill it in
   }
@@ -111,45 +119,51 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
 
       {members.length === 0 && <p className="muted">{t("editor.empty")}</p>}
       <ul className="editor-list">
-        {members.map((m, i) => (
+        {members.map((m, i) => {
+          const locked = !!mandatoryRole && i === 0;
+          return (
           <li key={i} className="editor-card">
             <div className="editor-head">
               <Avatar name={m.name || "?"} size={32} />
-              <input className="editor-name" value={m.name} maxLength={40} aria-label={t("editor.nameAria")} placeholder={t("editor.namePlaceholder")}
+              <input className="editor-name" value={m.name} disabled={locked} maxLength={40} aria-label={t("editor.nameAria")} placeholder={t("editor.namePlaceholder")}
                 onChange={(e) => update(i, { name: e.target.value.replace(/\s/g, "") })} />
-              <button type="button" className="icon-btn" title={t("editor.pickName")}
+              {!locked && <button type="button" className="icon-btn" title={t("editor.pickName")}
                 onClick={() => update(i, { name: freeName(names, members.map((x) => x.name)) })}>
                 <ShuffleIcon size={14} />
-              </button>
+              </button>}
               <span className="muted truncate editor-summary">
                 {m.roles.map((r) => roles[r]?.title ?? r).join(" + ") || t("editor.noRole")}
               </span>
               <button type="button" className="btn btn-small" onClick={() => setOpen(open === i ? null : i)}>
                 {open === i ? t("common.close") : t("common.edit")}
               </button>
-              <button type="button" className="btn btn-small"
-                onClick={() => {
-                  onChange(members.filter((_, j) => j !== i));
-                  setOpen(null);
-                }}>{t("common.remove")}</button>
+              {locked ? (
+                <span className="badge">{t("editor.mandatory")}</span>
+              ) : (
+                <button type="button" className="btn btn-small"
+                  onClick={() => {
+                    onChange(members.filter((_, j) => j !== i));
+                    setOpen(null);
+                  }}>{t("common.remove")}</button>
+              )}
             </div>
 
             {open === i && (
               <div className="editor-details">
-                <JobPicker roles={roles} selected={m.roles}
-                  onChange={(selected) => update(i, { roles: selected })} />
+                {!locked && <JobPicker roles={roles} selected={m.roles}
+                  onChange={(selected) => update(i, { roles: selected })} />}
                 <PersonalityPicker presets={presets} personality={personality} selected={m.personality ?? null}
                   onSelect={(key) => update(i, key === null
                     ? { ...randomPersonality(personality), personality: null }
                     : applyPreset(presets[key], personality, m))} />
                 <div className="row">
-                  <label>
+                  {!locked && <label>
                     {t("editor.model")}
                     <select value={m.model ?? ""} onChange={(e) => update(i, { model: e.target.value || null })}>
                       <option value="">{t("editor.modelAuto")}</option>
                       {limits.models.map((model) => <option key={model} value={model}>{model}</option>)}
                     </select>
-                  </label>
+                  </label>}
                   {Object.entries(personality.style).map(([key, values]) => (
                     <label key={key}>
                       {key[0].toUpperCase() + key.slice(1)}
@@ -158,7 +172,7 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
                       </select>
                     </label>
                   ))}
-                  {claudeAccounts > 1 && (
+                  {claudeAccounts > 1 && !locked && (
                     <label>
                       {t("editor.account")}
                       <AccountSelect value={m.account} effective={effective[i]} count={claudeAccounts}
@@ -199,7 +213,8 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
               </div>
             )}
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <button type="button" className="btn btn-small" disabled={atLimit}

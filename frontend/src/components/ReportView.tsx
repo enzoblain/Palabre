@@ -6,23 +6,19 @@ import { Markdown } from "./Markdown";
 import type { ProjectState } from "./TeamPanel";
 
 const POLL_MS = 8000;
-const TASK_STATUSES = ["todo", "in_progress", "review", "changes_requested", "done", "cancelled"] as const;
 
 type Question = { id: number; question: string; asked_by: string; answer: string | null; resolved: boolean };
-type Task = { id: number; title: string; status: string; assignee: string | null; pr_url: string | null };
 type RoomDocument = {
   room: Pick<Room, "id" | "name" | "objective" | "summary" | "members">;
   decisions: Decision[];
   questions: Question[];
-  tasks: Task[];
 };
 
-type SectionKey = "proposed" | "questions" | "tasks" | "objective" | "members" | "past";
+type SectionKey = "proposed" | "questions" | "objective" | "members" | "past";
 
-/** The shared document of the general room: for a research group, its report. */
-export function DocumentView({ project }: { project: ProjectState }) {
+/** The report of a research group: the rapporteur's summary, with the conclusions to validate. */
+export function ReportView({ project }: { project: ProjectState }) {
   const { t } = useI18n();
-  const research = project.detail.kind === "research";
   const room = project.detail.rooms[0];
   const [doc, setDoc] = useState<RoomDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,20 +54,17 @@ export function DocumentView({ project }: { project: ProjectState }) {
   }
 
   if (!doc) return <p className="muted center">{t("common.loading")}</p>;
-  const taskStatus = (status: string) =>
-    (TASK_STATUSES as readonly string[]).includes(status) ? t(`task.${status as (typeof TASK_STATUSES)[number]}`) : status.replaceAll("_", " ");
   const byStatus = (status: Decision["status"]) => doc.decisions.filter((d) => d.status === status);
   const proposed = byStatus("proposed");
   const past = doc.decisions.filter((d) => d.status !== "proposed");
   const open = doc.questions.filter((q) => !q.resolved);
   const resolved = doc.questions.filter((q) => q.resolved);
-  const active = doc.tasks.filter((task) => task.status === "in_progress");
   const members = doc.room.members;
   const hasSummary = doc.room.summary.trim() !== "";
 
   const sections: { key: SectionKey; title: string; count: number; total?: number; badge?: boolean; body: React.ReactNode }[] = [
     {
-      key: "proposed", title: research ? t("doc.proposedConclusions") : t("doc.proposedDecisions"), count: proposed.length, badge: true,
+      key: "proposed", title: t("doc.proposedConclusions"), count: proposed.length, badge: true,
       body: proposed.map((d) => (
         <div key={d.id} className="decision proposed">
           <div className="decision-head">
@@ -108,24 +101,8 @@ export function DocumentView({ project }: { project: ProjectState }) {
         </>
       ),
     },
-  ];
-  if (!research) {
-    sections.push({
-      key: "tasks", title: t("doc.whoDoesWhat"), count: doc.tasks.filter((task) => task.status !== "cancelled").length,
-      body: (
-        <ul className="questions">
-          {doc.tasks.filter((task) => task.status !== "cancelled").map((task) => (
-            <li key={task.id}>
-              #{task.id} {task.title} <span className="muted">— {task.assignee ?? t("doc.unassigned")}, {taskStatus(task.status)}</span>
-            </li>
-          ))}
-        </ul>
-      ),
-    });
-  }
-  sections.push(
     {
-      key: "objective", title: research ? t("doc.topic") : t("doc.objective"), count: doc.room.objective ? 1 : 0,
+      key: "objective", title: t("doc.topic"), count: doc.room.objective ? 1 : 0,
       body: doc.room.objective ? <Markdown content={doc.room.objective} /> : null,
     },
     {
@@ -137,7 +114,7 @@ export function DocumentView({ project }: { project: ProjectState }) {
       ),
     },
     {
-      key: "past", title: research ? t("doc.pastConclusions") : t("doc.pastDecisions"), count: past.length,
+      key: "past", title: t("doc.pastConclusions"), count: past.length,
       body: past.map((d) => (
         <div key={d.id} className={`decision ${d.status}`}>
           <div className="decision-head">
@@ -148,12 +125,11 @@ export function DocumentView({ project }: { project: ProjectState }) {
         </div>
       )),
     },
-  );
+  ];
 
   const stats: { key: SectionKey; label: string }[] = [
     { key: "proposed", label: t("doc.statDecisions", { count: proposed.length }) },
     { key: "questions", label: t(open.length === 1 ? "doc.statQuestion" : "doc.statQuestions", { count: open.length }) },
-    ...(research ? [] : [{ key: "tasks" as const, label: t("doc.statTasks", { count: active.length }) }]),
   ];
 
   return (
@@ -164,11 +140,11 @@ export function DocumentView({ project }: { project: ProjectState }) {
       {error && <p className="error" role="alert">{error}</p>}
 
       <section className="panel summary-card" aria-labelledby={`${idPrefix}-summary`}>
-        <h2 id={`${idPrefix}-summary`}>{research ? t("doc.report") : t("doc.summary")}</h2>
+        <h2 id={`${idPrefix}-summary`}>{t("doc.report")}</h2>
         {hasSummary ? (
           <Markdown content={doc.room.summary} />
         ) : (
-          <p className="muted">{research ? t("doc.reportEmpty") : t("doc.summaryEmpty")}</p>
+          <p className="muted">{t("doc.reportEmpty")}</p>
         )}
         <ul className="doc-stats" aria-label={t("doc.statsLabel")}>
           {stats.map((st) => (

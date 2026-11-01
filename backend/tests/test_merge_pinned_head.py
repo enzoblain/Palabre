@@ -139,3 +139,16 @@ async def test_without_a_pr_title_the_merge_title_is_the_english_fallback(merge,
     await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
     assert titles == [f"chore: merge task (#{task.pr_number})"]
     assert task.title not in titles[0]
+
+
+async def test_the_squash_title_ends_with_a_single_pr_number(merge, monkeypatch):
+    task, lead, _ = merge
+    task.pr_title = "fix(x): y (#42)"
+    titles = []
+
+    async def merge_pull_request(_repo, _number, title, sha=None):
+        titles.append(title)
+
+    monkeypatch.setattr(github, "merge_pull_request", merge_pull_request)
+    await workflow.merge_task(WorkflowDb(0), 1, task.id, lead)
+    assert titles == ["fix(x): y (#42)"]

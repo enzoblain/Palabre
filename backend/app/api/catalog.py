@@ -5,9 +5,9 @@ from typing import Literal
 from fastapi import APIRouter, status
 
 from app.api.errors import ApiError, ErrorCode
-from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RoleOut, RoleToolsOut
-from app.company.catalog import MAX_TEAM_SIZE, MODELS, Role, load_catalog
-from app.company.team import generate_team, personality_for
+from app.api.schemas import CatalogLimitsOut, PersonalityPresetOut, RandomPersonalityOut, RoleOut, RoleToolsOut
+from app.company.catalog import MANDATORY_ROLE, MAX_TEAM_SIZE, MIN_TEAM_SIZE, MODELS, Role, load_catalog
+from app.company.team import generate_team, personality_for, random_personality
 from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
 Kind = Literal["company", "research"]
@@ -37,8 +37,10 @@ async def list_roles(kind: Kind = "company") -> dict[str, RoleOut]:
 
 @router.get("/limits")
 async def team_limits() -> CatalogLimitsOut:
-    """Models an employee can run on and the biggest custom team."""
-    return CatalogLimitsOut(models=list(MODELS), max_agents=MAX_TEAM_SIZE)
+    """Models an employee can run on, the team size bounds and the member every company needs."""
+    return CatalogLimitsOut(
+        models=list(MODELS), max_agents=MAX_TEAM_SIZE, min_team_size=MIN_TEAM_SIZE, mandatory_role=MANDATORY_ROLE
+    )
 
 
 @router.get("/personality")
@@ -51,6 +53,15 @@ async def personality_options(kind: Kind = "company") -> dict:
 async def list_personalities(kind: Kind = "company") -> dict:
     """Personality presets of a kind of project, to pick from and tweak."""
     return load_catalog()["personalities"][kind]
+
+
+@router.get("/roles/{role}/random-personality", response_model=RandomPersonalityOut)
+async def draw_personality(role: str) -> dict:
+    """A random valid personality for a role, for the "random" button (nothing is saved)."""
+    found = load_catalog()["roles"].get(role)
+    if found is None:
+        raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.ROLE_NOT_FOUND, f"Unknown role: {role}")
+    return random_personality(found.kind)
 
 
 @router.get("/modes/{mode}/team")
