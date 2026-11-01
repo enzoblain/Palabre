@@ -61,7 +61,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     await workflow.submit_for_review(
         FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="fix(api): handle x"
     )
-    assert calls[0] == ("title", 12, "fix(api): handle x (#12)")
+    assert calls[0] == ("title", 12, "fix(api): handle x")
 
 
 async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
@@ -122,9 +122,9 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     assert opened["title"] == "fix(api): handle x"
     assert "français" not in opened["body"]
     assert opened["body"].startswith("sum")
-    assert task.pr_title == "fix(api): handle x (#3)"
+    assert task.pr_title == "fix(api): handle x"
     assert "Palabre task #7" in opened["body"]
-    assert titles == [(3, "fix(api): handle x (#3)")]
+    assert titles == []
 
 
 async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
@@ -468,6 +468,6 @@ async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(mo
     if adopted:
         assert opened == [] and renamed == []
         assert task.pr_number == 3 and task.branch == "fix/7-handle-x"
-        assert titles == [(3, "feat(api): handle y (#3)")]
+        assert titles == [(3, "feat(api): handle y")]
     else:
-        assert task.pr_number == 4 and task.branch == "feat/7-handle-y" and titles == [(4, "feat(api): handle y (#4)")]
+        assert task.pr_number == 4 and task.branch == "feat/7-handle-y" and titles == []
