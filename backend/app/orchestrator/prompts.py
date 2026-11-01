@@ -20,7 +20,7 @@ REASONS: dict[str, str] = {
     "verification_done": "{by} posted the report you were waiting for on task #{task_id}. The verification you asked for is done: read it with get_task, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha. A comment alone is not a verdict.",
     "review_overdue": "Task #{task_id} has been waiting for your verdict for {minutes} minutes ({pr_url}). Read the reviews and reports with get_task and get_diff, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "review_stalled": "Task #{task_id} had no reviewer verdict for {minutes} minutes: the reviewer was woken up again. Step in if it stays stuck.",
-    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug.",
+    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable or MCP tool without updating the README, report it as a bug.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
     "release_ci": "The CI of the release PR #{pr_number} finished: {result}. If it is green, ship it with merge_release; otherwise get the failing checks fixed.",
@@ -154,6 +154,10 @@ CODE_STANDARDS_LIST: list[tuple[str, str]] = [
     ("Follow the existing patterns of the module you touch.", "The existing patterns of the module are respected."),
     ("Every new behavior has tests.", "Every new behavior has tests."),
     ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
+    (
+        "If your PR changes a behavior, a config variable, a command or an MCP tool described in the README, update the README in the same PR.",
+        "A PR that changes a behavior documented in the README, or adds a config variable or an MCP tool, updates the README in the same PR; otherwise it is blocking.",
+    ),
 ]
 
 
