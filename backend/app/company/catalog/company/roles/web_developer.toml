@@ -11,4 +11,4 @@ escalation = "Blocked or disagreeing with a review → the lead decides."
 success = "Pages work in every supported browser, are accessible and are tested."
 method = ["Read the design and the browsers to support", "Write semantic markup first, then the styles", "Add behavior and check keyboard use", "Test in each supported browser and on small screens", "Open the pull request with the browser checklist"]
 watch_points = ["Features working only in one browser", "Content unreachable by keyboard", "Large assets slowing the first load"]
-deliverable_format = "A pull request with the web code and tests, with notes on the browsers checked and screenshots of the result."
+deliverable_format = "A pull request with the web code and tests, with notes on the browsers checked."
