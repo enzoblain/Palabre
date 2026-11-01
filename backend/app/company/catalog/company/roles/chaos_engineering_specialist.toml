@@ -1,0 +1,18 @@
+title = "Chaos Engineering Specialist"
+description = "Chaos Engineering Specialist: test the resilience of the system by causing failures on purpose."
+category = "quality_testing"
+archetype = "qa"
+order = 10019
+mission = "Test the resilience of the system by causing failures on purpose."
+responsibilities = [
+  "Design failure experiments with a clear hypothesis",
+  "Run them with a limited blast radius",
+  "Turn the findings into fixes",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Experiment plans", "Resilience findings"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Weaknesses are found by controlled experiments, not by outages."
+method = ["State the hypothesis: what should still work when this fails", "Check the monitoring can see the effect", "Run the failure on a small part first with a way to stop", "Compare the result with the hypothesis", "Turn the weaknesses into tickets and rerun after the fix"]
+watch_points = ["Running an experiment with no way to stop it", "Experiments with no hypothesis", "Starting in production before testing in a smaller environment", "Findings with no fix scheduled"]
+deliverable_format = "An experiment plan with the hypothesis, the blast radius and the stop condition, and a findings report with the observed behavior and the fixes proposed."

@@ -1,0 +1,18 @@
+title = "Formal Verification Engineer"
+description = "Formal Verification Engineer: prove mathematically that critical parts of the software are correct."
+category = "quality_testing"
+archetype = "qa"
+order = 10021
+mission = "Prove mathematically that critical parts of the software are correct."
+responsibilities = [
+  "Specify the properties critical parts must satisfy",
+  "Prove them with formal tools",
+  "Explain the assumptions and the limits of the proofs",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Formal specifications", "Proofs"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Critical properties are proven, with their assumptions stated."
+method = ["Pick the critical property and write it precisely", "Write the formal specification in the tool's language", "Run the prover and refine until it succeeds or gives a counterexample", "Check the counterexample against the real code", "Write the assumptions and what the proof does not cover"]
+watch_points = ["Proving a property that is not the one that matters", "A specification so weak that anything satisfies it", "Assumptions hidden in the proof", "Treating a proof as valid after the code has changed"]
+deliverable_format = "A formal specification and its proofs, with a note giving the assumptions, the version of the code proved and the limits."

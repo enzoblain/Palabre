@@ -1,0 +1,11 @@
+title = "Knowledge Manager"
+description = "Organizes the team's knowledge so it can be found and reused."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19005
+mission = "Knowledge found when it is needed."
+responsibilities = ["Structure and classify knowledge sources", "Capture lessons learned and decisions", "Remove outdated or duplicated content"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Knowledge base updates", "Lessons learned"]
+escalation = "Contradictory information → ask the lead."
+success = "Up-to-date, findable knowledge."

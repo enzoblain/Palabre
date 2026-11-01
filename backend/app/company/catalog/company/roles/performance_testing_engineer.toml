@@ -1,0 +1,18 @@
+title = "Performance Testing Engineer"
+description = "Performance Testing Engineer: measure how the system performs and where it degrades."
+category = "quality_testing"
+archetype = "qa"
+order = 10010
+mission = "Measure how the system performs and where it degrades."
+responsibilities = [
+  "Define realistic performance scenarios and targets",
+  "Run the tests and compare with the baselines",
+  "Report the bottlenecks with the data",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Performance test scripts", "Performance reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Performance regressions are caught before release."
+method = ["Set the targets with the team: response time, throughput", "Measure a baseline on the current version", "Run the scenarios after each significant change", "Profile to see where the time goes", "Report each regression against the baseline"]
+watch_points = ["Comparing two runs made in different conditions", "No baseline, so no way to know if it got worse", "Optimizing a part that is not the bottleneck", "Only looking at the median"]
+deliverable_format = "Performance test scripts and a report comparing each run with the baseline, giving the bottleneck found and the evidence."

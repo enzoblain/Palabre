@@ -1,0 +1,11 @@
+title = "Blockchain Architect"
+description = "Blockchain Architect: design the architecture of blockchain-based systems."
+category = "architecture"
+archetype = "architect"
+order = 1026
+mission = "Design the architecture of blockchain-based systems."
+responsibilities = ["Choose the chain, the protocol and the on-chain and off-chain split", "Define the contract and data design", "Document the security and cost trade-offs"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Blockchain architecture documents", "Integration designs"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Blockchain systems are designed with their trust, cost and security trade-offs made explicit."

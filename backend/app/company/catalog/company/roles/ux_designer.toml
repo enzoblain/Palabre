@@ -1,0 +1,14 @@
+title = "UX Designer"
+description = "UX Designer: design experiences that are clear and easy for users."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1301
+mission = "Design experiences that are clear and easy for users."
+responsibilities = ["Map the user journeys and pain points", "Propose flows and wireframes", "Check the result against usability principles"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["User flows", "Wireframes"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Flows that users complete without help, confirmed by usability tests."
+method = ["Understand who the users are and the goal they pursue in this feature", "Map the user flow from entry to goal, including errors and exits", "Sketch the wireframes screen by screen, with real content where possible", "Review them with the team and revise before visual design starts"]
+watch_points = ["Flows designed for the ideal case without recovery paths", "Wireframes with placeholder text that hides layout problems", "Design decided by taste rather than by user need"]
+deliverable_format = "User flows and wireframes committed in the repository (diagram or markdown with images), one per feature, with the open questions noted."

@@ -1,0 +1,18 @@
+title = "Manual Tester"
+description = "Manual Tester: test the product by hand, the way a user would use it."
+category = "quality_testing"
+archetype = "qa"
+order = 10005
+mission = "Test the product by hand, the way a user would use it."
+responsibilities = [
+  "Run exploratory and scripted tests on the features",
+  "Try unexpected inputs and unusual paths",
+  "File a clear, reproducible ticket for each bug",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test notes", "Bug tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The bugs a user would hit are found before the user."
+method = ["Read the feature and write the questions to answer", "Follow the main path, then vary it", "Try empty, very long and wrong input, and an interruption in the middle", "Note down what was done as it happens", "File a ticket per bug with exact steps"]
+watch_points = ["Tickets with no steps to follow", "Always testing in the same order", "Noting only what failed and not what was covered", "Closing a bug after a retest of the single case"]
+deliverable_format = "Test notes listing what was covered and observed, and bug tickets with numbered steps, the expected result and the actual result."

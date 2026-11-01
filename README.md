@@ -105,6 +105,14 @@ nudged once; if it still does not start after another `IDLE_TASK_MINUTES`, the l
 because the CI is still running, the lead is woken (`merge_retry`) as soon as the CI is over,
 or as a mergeable task if every rule is then met.
 
+A task never waits silently for its reviewer either: when QA or security post a report on a task in
+review, a reviewer whose last opinion is a comment without a verdict is woken up (`verification_done`)
+to give approve or changes. As a safety net, a task in review with no reviewer verdict for
+`REVIEW_SILENCE_MINUTES` (15 by default) wakes the reviewers again (`review_overdue`, when none is
+busy) and tells the lead (`review_stalled`), then waits another delay before the next reminder.
+Reminders are capped per head SHA by `MAX_REVIEW_REMINDERS` (3 by default, QA and security reports
+included); past it the lead gets one last notification (`review_abandoned`). A new head starts again from zero.
+
 Finished tasks clean up after themselves: once a task is merged or cancelled, the backend
 closes its PR if still open and deletes its branch (`task/<id>...` or `<type>/<id>-<slug>`, on GitHub) and its
 clone. Only branches recorded on tasks are touched, never the default branch, `dev` or a
@@ -124,7 +132,7 @@ document, and asks you when something is yours to decide. There is no inbox: the
 what waits for you in the direction channel as a request, a message with three answers,
 Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
 in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
-Proposed decisions, releases and escalations to the boss become such requests on their own. Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, and starts with that member's name. A decision shows its title and a rationale truncated to a few hundred characters (the full text stays in the room document).
+Proposed decisions, releases and escalations to the boss become such requests on their own. Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
 The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
 channel: its decisions are only in the room document. On upgrade, what waited in the old
 inbox is turned into requests in direction.
@@ -212,7 +220,6 @@ Four values in `.env` are required:
 | Variable | What it is |
 |---|---|
 | `ADMIN_TOKEN` | Protects the API; the apps ask for it. At least 32 characters (startup fails otherwise), e.g. `openssl rand -hex 32`. After 10 failed attempts within 5 minutes, an IP gets `429` until the window passes |
-| `SESSION_TTL_SECONDS` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`). Default `43200` (12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
 | `CLAUDE_CODE_OAUTH_TOKENS` | Run `claude setup-token`. Several accounts: separate their tokens with `\|` |
 | `GITHUB_TOKEN` | Fine-grained token on your repositories: Contents and Pull requests (read/write), Checks and Metadata (read) |
 | `POSTGRES_PASSWORD` | At least 32 characters: letters, digits, `-` and `_` |
@@ -225,7 +232,7 @@ See [Remote access](#remote-access) to reach the server from another machine.
 Upgrading from a version before secret files: keep your `.env` as it is, the four secrets are
 still read from it. Compose now mounts them as files (`/run/secrets`) instead of environment
 variables, so you need Compose 2.30 or later, and any other variable you set must be one of
-those listed in [Configuration](#configuration): the container no longer gets the whole
+those listed in the first table of [Configuration](#configuration): the container no longer gets the whole
 `.env`, so settings like `CORS_ORIGINS`, `CLAUDE_MAX_TURNS`, `AGENT_TIMEOUT_S`,
 `IDLE_MINUTES`, `MAX_REVIEW_ROUNDS` or `CI_MISSING_MINUTES` must now be added to the
 `environment:` of the `backend` service in `docker-compose.yml`. Recreate the containers: `docker compose pull && docker compose up -d`. Nothing
@@ -408,7 +415,8 @@ different versions fails. If that happens, run the compile commands above by han
 
 ## Configuration
 
-All optional, in `.env`:
+Compose only passes the variables below to the containers (the secrets as files, the rest as
+environment); all are optional, in `.env`:
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -418,21 +426,65 @@ All optional, in `.env`:
 | `PALABRE_WEB_BIND` | `127.0.0.1` | Host address the web app port is published on; `0.0.0.0` exposes `/api` on every interface in clear HTTP |
 | `COMPOSE_PROFILES` | | `autoupdate` turns automatic updates on |
 | `PALABRE_UPDATE_INTERVAL` | `300` | Seconds between update checks |
+| `POSTGRES_USER` / `POSTGRES_DB` | `palabre` | Database user and name |
 | `TZ` | `UTC` | Time zone, e.g. `Europe/Paris` |
 | `DAILY_TIME` | `09:30` | Time of the daily stand-up (weekdays); empty to turn it off |
-| `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
-| `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
 | `MERGE_REMINDER_MINUTES` | `10` | Minutes a mergeable task waits before the lead is reminded (once) |
 | `RELEASE_WAIT_MINUTES` | `5` | Minutes of calm, with no open task, before the lead is told changes wait for a release (once per head SHA) |
+| `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
+| `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (build argument, needs a local build) |
+
+The other settings of `backend/app/config.py` (the variable is the field name in upper case) keep
+their default unless you add them to the `environment:` of the `backend` service in `docker-compose.yml`:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SESSION_TTL_SECONDS` | `43200` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`, 12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
+| `AUTH_MAX_FAILURES` / `AUTH_FAIL_WINDOW_SECONDS` | `10` / `300` | Failed authentications from one IP within the window before it gets `429` |
+| `TRUSTED_PROXY_HOSTS` | `["web"]` | JSON list of hosts whose `X-Real-IP` is believed (the web container's nginx) |
+| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere |
+| `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
+| `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
+| `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
+| `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
+| `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
+| `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |
+| `MAX_REVIEW_REMINDERS` | `3` | Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it |
+| `MAX_REVIEW_ROUNDS` | `3` | Rounds of "changes requested" on a task before the lead has to step in |
+| `MAX_RUNS_PER_CONVERSATION_HOUR` | `20` | Chatter runs per employee per hour before their wakeups are held |
 | `CLAUDE_MAX_TURNS` | `20` | Turn limit (`claude --max-turns`) of a conversation run |
 | `CLAUDE_TASK_MAX_TURNS` | `100` | Turn limit of a task run |
-| `MAX_CONCURRENT_AGENTS` | `3` | Agents running at the same time, per Claude account |
-| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. Build argument of the same name sets how many accounts the image creates |
+| `AGENT_TIMEOUT_S` | `1800` | Seconds before a run is stopped |
+| `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. The build argument of the same name sets how many accounts the image creates |
 | `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude task session (for one employee) serves before the next run on that subject starts a new session instead of resuming it. Conversation wakeups never resume: each starts a new session, as the prompt cache has expired between two wakeups. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
-| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere. Add it to the `environment:` of the `backend` service |
-| `EXTRA_APT_PACKAGES` | | System packages the agents need, e.g. `nodejs npm` (needs a local build) |
+| `EGRESS_ALLOWED_HOSTS` / `EGRESS_ALLOWED_PORTS` | npm, PyPI and Go registries, `statsig.anthropic.com` / `[443]` | JSON lists of what the agents' egress proxy may reach, see [Security](#security) |
+| `EGRESS_MAX_TUNNELS` | `64` | Concurrent tunnels of the egress proxy |
+| `ANTHROPIC_ALLOWED_PATHS` / `ANTHROPIC_ALLOWED_SERVER_TOOLS` | `v1/messages`, `v1/messages/count_tokens` / `web_search` | JSON lists of what the Anthropic reverse proxy forwards |
+| `ANTHROPIC_MAX_BODY_BYTES` / `ANTHROPIC_TIMEOUT_S` | `67108864` (64 MiB) / `600` | Largest request body (bytes) and seconds before a request to the Anthropic reverse proxy is cut |
+| `FETCH_TIMEOUT_S` / `FETCH_MAX_BYTES` / `FETCH_MAX_CHARS` / `FETCH_MAX_REDIRECTS` | `20` / `2000000` / `30000` / `3` | Bounds of the research groups' `fetch_page` tool |
+| `DATABASE_URL` | `postgresql+asyncpg://palabre:palabre@localhost:5432/palabre` | Database URL. When set explicitly (external database) it wins; otherwise, with a `POSTGRES_PASSWORD`, it is built from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST` and `POSTGRES_DB` |
+| `POSTGRES_PASSWORD` / `POSTGRES_HOST` | secret file / `db` | Database password (a secret read from a file, at least 32 characters, never an environment variable) and host used to build `DATABASE_URL` |
+| `GITHUB_TOKEN` | | Secret read from a file. Used by the backend only (push, pull requests, merges), never given to agents |
+| `CLAUDE_CODE_OAUTH_TOKENS` | | Secret read from a file: one Claude token per account, separated by `\|`; the employees are spread over the accounts |
+| `CLAUDE_BIN` | `claude` | Command that launches the agents' Claude Code |
+| `PROJECTS_DIR` / `RUNTIME_DIR` | `/data/projects` / `/data/runtime` | Local clones of the projects and temporary files of runs (MCP configs), kept outside the repositories |
+| `TOOLCHAINS_DIR` | `/data/toolchains` | Where the toolchains installed for the whole team live |
+| `CLAUDE_STORE_DIR` | `CLAUDE_CONFIG_DIR` | The backend's private store of Claude sessions, one directory per employee |
+| `AGENT_RUN_DIR` | `/data/run` | Holds the MCP configs of runs when the agent user must read them (`RUNTIME_DIR` is the backend's only) |
+| `EGRESS_PROXY_PORT` | `3128` | Port of the local CONNECT proxy through which agents reach the Internet |
+| `ANTHROPIC_PROXY_URL` / `ANTHROPIC_API_URL` | `http://127.0.0.1:8000/anthropic` / `https://api.anthropic.com` | Local reverse proxy Claude Code talks to (it holds the account token) and the Anthropic API it forwards to |
+| `ANTHROPIC_MAX_BODY_BYTES` / `ANTHROPIC_TIMEOUT_S` | `67108864` / `600` | Largest request body and timeout of the Anthropic reverse proxy |
+| `MCP_URL` | `http://127.0.0.1:8000/mcp/` | MCP server URL, as seen from the `claude` processes (in the backend container) |
+| `ORCHESTRATOR_ENABLED` | `true` | Turns the orchestrator (wakeups, scheduler) on or off |
+| `POLL_INTERVAL_S` | `2.0` | Seconds between two polls of the orchestrator |
+| `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |
+| `EGRESS_FILTER` | `on` | Read by the entrypoint, not by `config.py`: `off` runs without the agents' firewall |
+
+This list is not exhaustive: the settings that only wire the container (database URL and host, directories,
+proxy URLs and ports, `MCP_URL`, `CLAUDE_BIN`, `ORCHESTRATOR_ENABLED`, `POLL_INTERVAL_S`...) are set by the
+image and rarely need changing; read `config.py` for them.
 
 The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
 Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
@@ -482,8 +534,8 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   Paths are matched exactly (`v1/messages`, `v1/messages/count_tokens`): no batches, no OAuth endpoints.
   A CONNECT proxy cannot filter by method, so `registry.npmjs.org` still allows an `npm publish`
   with an attacker-supplied npm token: a known, accepted risk.
-- Agents run as another system user. The server runs as `palabre` (uid 1000); each `claude`
-  process is started as `agent` (uid 1001) through one `sudo` rule that only allows the
+- Agents run as other system users. The server runs as `palabre` (uid 1000); each `claude`
+  process is started as an `agent` account (`agent1..N` with the pool) through one `sudo` rule that only allows the
   `claude` binary, so an agent cannot read the server's environment, `/proc/<pid>/environ`,
   database URL or tokens. In `/data`, only the server can read the project's reference
   clone and `runtime/`; agents write in their task and desk clones, Claude's sessions and
@@ -512,21 +564,17 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   only) and deletes the directory. A `settings.json` or hook an agent writes there dies with
   the run and never reaches another employee's. Sessions of a volume made before this change
   are purged at the first start (agents begin a new session).
-  Known limit: all agents share the one `agent` user, so a run can still read another run's
-  process (its token, its MCP config path, its `CLAUDE_CONFIG_DIR`): while a run is live, another
-  run can write into its session, which is then collected into that employee's store.
-  The isolation is between agents and the server, not between agents. Per-run users or `hidepid` on `/proc` would be the next step.
+  Known limit: the isolation holds between runs only with the pool (`AGENT_POOL_SIZE` above 0); in the shared-account mode all
+  runs share one uid and can read each other's processes, tokens and sessions.
   To check an image, see [Checking the isolation](#checking-the-isolation).
-  Agents still share the container's network, so keep Postgres' password strong.
+  Agents still share the container's network (limited by the egress firewall), so keep Postgres' password strong.
 - Each run gets its own random MCP token, held in server memory: it is revoked when the
   run ends, and the `--mcp-config` file holding it is deleted on the first MCP request.
   A token stolen from another run (`ps`, the config file) stops working once that run is
   over. The token is tied to the run and to its task or conversation (the headers must match
   the scope recorded at start), not to one MCP session: `claude` reopens sessions during a
-  run, so each `MCP initialize` is only logged by the backend. Residual risk: all runs share the `agent` uid, so while a run is live another run
-  can still read its `/proc/<pid>/environ` or the config file in that short window. The
-  real fix is one uid per run (or per sensitive role, the lead) or a sandbox per run
-  (bubblewrap, user namespace).
+  run, so each `MCP initialize` is only logged by the backend. With the pool, each run has its own uid, so another run cannot read the token;
+  in the shared-account mode it still could while the run is live.
 - Each agent's tools come from its role. Merge rules are enforced by the server, not by
   the agents' good will.
 - The API is protected by `ADMIN_TOKEN`. The server port is published on `127.0.0.1` only;
@@ -572,6 +620,8 @@ cd frontend && npm install && npm run tauri dev  # desktop app
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
 `frontend/`. No linter is configured yet.
 
+**Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool described in this README updates the README in the same PR. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
+
 Roles live in [`backend/app/company/catalog/`](backend/app/company/catalog), one TOML file per role
 (`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). The personality each kind draws from (axes, quirks, styles) is
 `<kind>/personality_pool.toml`. Company sizes, research
@@ -590,6 +640,8 @@ role or seat combines `merge` and `code`, and a key cannot exist in both kinds. 
 one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
 gate applies to them automatically.
 **Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist in the kind's `personality_pool.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
+
+**Extended jobs.** `catalog/company/extended_roles.toml` indexes the extended jobs (English name, unique key, one of 20 categories, `archetype`; a name in several categories keeps the first). The archetype is a base company role (`lead`, `architect`, `product_owner`, `dev_backend`, `dev_frontend`, `reviewer`, `qa`, `scribe`, `devops`, `security`, `designer`): a role file with an `archetype` can leave out `permissions`, `wakes_on`, `model` and `effort`, which it takes from it, and it acts as that role in the merge gates and event targeting (`held_role_keys`). Extended jobs are only picked in a custom team: a mode's seats refuse them, so the random draw never uses them. The loader checks that each index line has a known category and a base archetype, and that a role file agrees with its line.
 
 A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 

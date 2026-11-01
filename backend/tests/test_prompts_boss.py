@@ -1,9 +1,10 @@
 """Tests for the rules about messages addressed to the boss."""
 
 from app.company.team import generate_team
+from app.mcp_server import tools
 from app.models import Project
 from app.orchestrator.dispatcher import build_system_prompt
-from app.orchestrator.prompts import language_rule, lead_boss_rule
+from app.orchestrator.prompts import boss_messages_rule, language_rule
 
 
 def test_language_rule_applies_project_language_to_boss_requests():
@@ -13,17 +14,17 @@ def test_language_rule_applies_project_language_to_boss_requests():
     assert "Never paste a long technical document" in rule
 
 
-def test_lead_gets_short_simple_direction_messages_in_project_language():
-    rule = lead_boss_rule(["lead"], "français")
-    assert rule is not None
+def test_boss_messages_rule_is_plain_and_in_project_language():
+    rule = boss_messages_rule("français")
     assert "direction" in rule
     assert "français" in rule
     assert "short sentences" in rule
     assert "no code references" in rule.lower()
+    assert "task or PR numbers" in rule
 
 
-def test_other_roles_do_not_get_the_lead_rule():
-    assert lead_boss_rule(["dev_backend"], "français") is None
+def test_boss_requests_rule_points_to_the_messages_rule():
+    assert "Messages to the boss" in language_rule("français")
 
 
 def _prompt_for(role: str) -> str:
@@ -39,7 +40,13 @@ def test_assembled_lead_prompt_has_the_direction_rule():
     assert "## Requests to the boss" in prompt
 
 
-def test_assembled_developer_prompt_has_boss_requests_but_not_the_lead_rule():
+def test_assembled_developer_prompt_has_both_boss_rules():
     prompt = _prompt_for("dev_backend")
     assert "## Requests to the boss" in prompt
-    assert "## Messages to the boss" not in prompt
+    assert "## Messages to the boss" in prompt
+
+
+def test_boss_facing_tools_ask_for_plain_text_without_code_references():
+    for tool in (tools.add_decision, tools.escalate, tools.ask_ceo, tools.propose_release):
+        doc = " ".join((tool.__doc__ or "").split())
+        assert "no code references" in doc, tool.__name__

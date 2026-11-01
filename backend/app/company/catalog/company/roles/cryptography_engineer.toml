@@ -1,0 +1,18 @@
+title = "Cryptography Engineer"
+description = "Cryptography Engineer: make sure cryptography is used correctly and only where it is needed."
+category = "cybersecurity"
+archetype = "security"
+order = 6026
+mission = "Make sure cryptography is used correctly and only where it is needed."
+responsibilities = [
+  "Choose well-established algorithms and libraries",
+  "Review every use of cryptography in the code",
+  "Define the key management and rotation rules",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Cryptography guidelines", "Key management rules"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "No home-made or misused cryptography reaches production."
+method = ["List where the code hashes, encrypts, signs or generates random values", "Check each use against a well-established algorithm and library", "Look for home-made constructions, fixed keys and reused nonces", "Set where each key lives, who can use it and when it rotates", "Write the guideline so the same choice is made next time"]
+watch_points = ["Writing a custom algorithm instead of using a vetted library", "Using a hash for passwords that is meant to be fast", "Keys stored next to the data they protect", "Randomness taken from a predictable source"]
+deliverable_format = "A cryptography review listing each use with its verdict, and guidelines with the approved algorithms and a key rotation rule."

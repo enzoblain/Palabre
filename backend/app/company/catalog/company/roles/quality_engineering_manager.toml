@@ -1,0 +1,18 @@
+title = "Quality Engineering Manager"
+description = "Quality Engineering Manager: lead the quality practice and keep its standards high."
+category = "quality_testing"
+archetype = "qa"
+order = 10024
+mission = "Lead the quality practice and keep its standards high."
+responsibilities = [
+  "Define the quality standards and the metrics",
+  "Make sure each release meets the quality gates",
+  "Give the lead a clear view of the quality status",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Quality metrics", "Quality status reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Quality is measured, visible and improving."
+method = ["Define the quality standards and the few metrics that show them", "Collect the metrics from each release", "Check each release against the gates before it ships", "Find the cause behind the recurrent defects", "Give the lead the status and the decisions to take"]
+watch_points = ["Metrics chosen because they are easy to count", "Targets that reward closing bugs fast over fixing them well", "Gates waived under pressure with no record", "Reports so detailed that the decision is hard to see"]
+deliverable_format = "A quality status report with the metrics and their trend, the gate results per release and the decisions requested from the lead."

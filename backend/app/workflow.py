@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
-from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, load_catalog
+from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
 from app.config import settings
 from app.errors import ErrorCode, WorkflowError
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
@@ -28,7 +28,9 @@ from app.worktrees import (
 
 MAX_DIFF_CHARS = 100_000
 SHORT_SHA_LENGTH = 8
+NO_HEAD = "none"  # head key of a review round that recorded no head SHA
 MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
+FALLBACK_MERGE_TITLE = "chore: merge task"  # squash title when no PR title was recorded; never the (French) task title
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
 TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
@@ -367,7 +369,7 @@ def _latest_verdicts(reviews: list[Review]) -> dict[int, Review]:
     return latest
 
 
-async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
+async def task_reviews(s: AsyncSession, task: Task) -> list[Review]:
     reviews = await s.scalars(
         select(Review).where(Review.task_id == task.id).options(selectinload(Review.reviewer)).order_by(Review.id)
     )
@@ -376,7 +378,7 @@ async def _task_reviews(s: AsyncSession, task: Task) -> list[Review]:
 
 async def _changes_pending(s: AsyncSession, task: Task) -> bool:
     """A reviewer's latest verdict on the current head is 'changes'."""
-    current = [r for r in await _task_reviews(s, task) if not _is_stale(r, task)]
+    current = [r for r in await task_reviews(s, task) if not _is_stale(r, task)]
     return any(r.verdict == Verdict.changes for r in _latest_verdicts(current).values())
 
 
@@ -420,6 +422,19 @@ def conventional_title(title: str, pr_number: int | None = None) -> str:
     return title if pr_number is None else f"{title} (#{pr_number})"
 
 
+async def _adopt_open_pull_request(repo: str, project: Project, task: Task) -> None:
+    """A previous submission may have opened the PR and then failed before the database kept it
+    (rollback): the clone's branch already has an open PR. Adopt it, or the retry would rename the
+    branch from a new title and open a second PR for the same work."""
+    current = (await github.git(task.worktree_path, "rev-parse", "--abbrev-ref", "HEAD")).strip()
+    # The clone is agent-controlled: only a branch named after this very task may be adopted
+    if not re.fullmatch(rf"[a-z]+/{task.id}(-[a-z0-9-]+)?", current):
+        return
+    pr = await github.find_pull_request(repo, current, project.default_branch)
+    if pr is not None:
+        task.branch, task.pr_number, task.pr_url = current, pr["number"], pr["html_url"]
+
+
 async def submit_for_review(
     s: AsyncSession, project_id: int, task_id: int, author: Employee, summary: str, sensitive: bool,
     message: str = "", title: str = "",
@@ -435,28 +450,27 @@ async def submit_for_review(
     if not task.branch or not task.worktree_path:
         raise WorkflowError("This task has no branch yet", code=ErrorCode.TASK_NO_BRANCH)
     bare_title = conventional_title(title)
+    repo = github.repo_slug(project.repo_url)
+    if task.pr_number is None:
+        await _adopt_open_pull_request(repo, project, task)
     if task.pr_number is None and github.is_task_branch_name(task.branch):
         # First submission: the branch gets its standard `<type>/<id>-<slug>` name before any push
         await rename_branch(task, final_branch_name(bare_title, task.id))
     if await _commits_ahead(project, task) == 0:
         raise WorkflowError("No commits on your branch: commit your work before submitting", code=ErrorCode.NO_COMMITS)
 
-    repo = github.repo_slug(project.repo_url)
     # The task branch belongs to its assignee alone: a rebased branch is force-pushed,
     # unless someone else pushed to it in the meantime (lease)
     await push_task_branch(project, task)
     changed_files = await _changed_files(project, task)
     if task.pr_number is None:
-        criteria = "\n".join(f"- [ ] {c}" for c in task.acceptance_criteria) or "_None_"
         pr = await github.open_pull_request(
             repo,
             head=task.branch,
             base=project.default_branch,
             title=bare_title,
-            body=(
-                f"{task.description}\n\n**Acceptance criteria**\n{criteria}\n\n"
-                f"**Summary from {author.name}**\n{summary}\n\n_Palabre task #{task.id}_"
-            ),
+            # Only the author's English summary: the task's own text is in the team's language
+            body=f"{summary}\n\n_Palabre task #{task.id}, by {author.name}_",
         )
         task.pr_number, task.pr_url = pr["number"], pr["html_url"]
         # The PR number is only known now: it goes last in the title, which becomes the squash commit's
@@ -584,11 +598,62 @@ async def review_task(
         await wake_dev(s, task, "changes_requested", payload)
     await s.commit()
 
+    if task.status == TaskStatus.review:  # A changes verdict sends the task back to its dev
+        await _wake_waiting_reviewers(s, task, reviewer)
     blockers = await merge_blockers(s, project, task) if task.status == TaskStatus.review else []
     if review.verdict == Verdict.approve and not blockers:
         await mark_merge_ready(s, task, reviewer.name)
         await s.commit()
     return blockers
+
+
+def _commenting_reviewers(reviews: list[Review], task: Task) -> list[Employee]:
+    """Reviewers whose last opinion on the current head is a comment: they may be waiting for something."""
+    last: dict[int, Review] = {r.reviewer_id: r for r in reviews if not _is_stale(r, task)}
+    return [r.reviewer for r in last.values() if r.verdict == Verdict.comment]
+
+
+def reviewer_gave_verdict(reviews: list[Review], task: Task, roles: dict[str, Role]) -> bool:
+    """Whether someone of the reviewer position approved or requested changes on the current head."""
+    return any(
+        r.verdict != Verdict.comment and REVIEWER_KEY in held_role_keys(r.reviewer.roles, roles)
+        for r in reviews
+        if not _is_stale(r, task)
+    )
+
+
+def head_key(task: Task) -> str:
+    """The head SHA review reminders are counted per; "none" while the round has no recorded head."""
+    return task.reviewed_head or NO_HEAD
+
+
+async def review_reminders_sent(s: AsyncSession, task: Task, *event_types: str) -> list[str]:
+    """The type of each reminder event of these types already sent for the task's current head SHA."""
+    return list(
+        await s.scalars(
+            select(Event.type).where(
+                Event.type.in_(event_types), Event.project_id == task.project_id,
+                Event.payload["task_id"].as_integer() == task.id,
+                Event.payload["head_sha"].as_string() == head_key(task),
+            )
+        )
+    )  # fmt: skip
+
+
+async def _wake_waiting_reviewers(s: AsyncSession, task: Task, author: Employee) -> None:
+    """A QA or security report is in: wake the reviewers who commented without a verdict, probably
+    waiting for it, up to max_review_reminders per head SHA. A reviewer who already gave a verdict
+    is not woken."""
+    roles = load_catalog()["roles"]
+    if not held_role_keys(author.roles, roles) & {QA_KEY, SECURITY_KEY}:
+        return
+    sent = len(await review_reminders_sent(s, task, "verification_done"))
+    for waiting in _commenting_reviewers(await task_reviews(s, task), task):
+        if waiting.id != author.id and sent < settings.max_review_reminders:
+            sent += 1
+            payload = {"task_id": task.id, "by": author.name, "head_sha": head_key(task)}
+            emit_event(s, task.project_id, "verification_done", payload, employee_id=waiting.id)
+    await s.commit()
 
 
 async def mark_merge_ready(s: AsyncSession, task: Task, by: str) -> None:
@@ -612,11 +677,26 @@ def _outdated_opinions(reviews: list[Review], latest: dict[int, Review], task: T
     return [r for reviewer_id, r in outdated.items() if reviewer_id not in latest]
 
 
+def _approval_seats(approvers: list[Employee], task: Task, roles: dict[str, Role]) -> dict[str, int]:
+    """How many approvals each gate gets: an approver fills a single gate (the scarcest first, so one
+    employee with several jobs cannot clear them all) and the task's assignee fills none (decision #48)."""
+    seats = dict.fromkeys((SECURITY_KEY, QA_KEY, REVIEWER_KEY), 0)
+    free = [(e, held_role_keys(e.roles, roles)) for e in approvers if e.id != task.assignee_id]
+    for gate in seats:
+        # Take first the approvers who cannot serve a later gate
+        free.sort(key=lambda held: len(held[1] & seats.keys()))
+        matching = [entry for entry in free if gate in entry[1]]
+        picked = matching if gate == REVIEWER_KEY else matching[:1]
+        seats[gate] = len(picked)
+        free = [entry for entry in free if entry not in picked]
+    return seats
+
+
 async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head: str | None = None) -> list[str]:
     """Everything that prevents merging this task under the company's mode.
     ci_head: the commit whose CI is checked (the one about to be merged); default, the PR's current head."""
     process = mode_process(project.mode)
-    reviews = await _task_reviews(s, task)
+    reviews = await task_reviews(s, task)
     # Latest approve/changes verdict of each reviewer on the current head
     latest = _latest_verdicts([r for r in reviews if not _is_stale(r, task)])
     approvers = [r.reviewer for r in latest.values() if r.verdict == Verdict.approve]
@@ -628,12 +708,12 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
         f"{r.reviewer.name}'s opinion ({r.verdict.value}) is on an outdated commit: {r.reviewer.name} must review the new version"
         for r in _outdated_opinions(reviews, latest, task)
     ]
-    reviewer_approvals = sum(REVIEWER_KEY in e.roles for e in approvers)
-    if reviewer_approvals < process["required_approvals"]:
-        blockers.append(f"{reviewer_approvals}/{process['required_approvals']} reviewer approval(s)")
-    if process["qa_gate"] and not any(QA_KEY in e.roles for e in approvers):
+    seats = _approval_seats(approvers, task, load_catalog()["roles"])
+    if seats[REVIEWER_KEY] < process["required_approvals"]:
+        blockers.append(f"{seats[REVIEWER_KEY]}/{process['required_approvals']} reviewer approval(s)")
+    if process["qa_gate"] and not seats[QA_KEY]:
         blockers.append("QA has not approved")
-    if process["security_gate"] and task.sensitive and not any(SECURITY_KEY in e.roles for e in approvers):
+    if process["security_gate"] and task.sensitive and not seats[SECURITY_KEY]:
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, sha=ci_head):
@@ -716,7 +796,7 @@ async def _merge_pinned(repo: str, task: Task, head: str) -> None:
     """Merge only if the PR head is still `head`: a moved head is a clear error, not a raw GitHub one."""
     try:
         await github.merge_pull_request(
-            repo, task.pr_number, task.pr_title or f"[#{task.id}] {task.title}", sha=head
+            repo, task.pr_number, task.pr_title or f"{FALLBACK_MERGE_TITLE} (#{task.pr_number})", sha=head
         )
     except github.GitHubError as exc:
         if exc.status != github.HTTP_CONFLICT:

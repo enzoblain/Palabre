@@ -1,0 +1,14 @@
+title = "Level Designer"
+description = "Level Designer: design the levels the players go through."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1517
+mission = "Design the levels the players go through."
+responsibilities = ["Lay out spaces, challenges and pacing", "Build and test the levels", "Iterate with playtest feedback"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Level layouts", "Playtest notes"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Levels that are playable, readable and paced as intended, confirmed by playtests."
+method = ["Define the goal of the level and what the player learns or faces in it", "Block out the layout with simple geometry and test the flow", "Place the encounters, rewards and landmarks to guide the player", "Playtest with someone new, and note where they get lost or stuck"]
+watch_points = ["Players unable to tell where to go", "A difficulty spike with no preparation before it", "Detailing the art before the layout has been tested"]
+deliverable_format = "Level layout files committed in the repository, with markdown playtest notes (tester, where they got stuck, change made)."

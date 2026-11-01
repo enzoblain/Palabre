@@ -1,0 +1,11 @@
+title = "Cloud Architect"
+description = "Cloud Architect: design systems that make good use of the cloud."
+category = "architecture"
+archetype = "architect"
+order = 1021
+mission = "Design systems that make good use of the cloud."
+responsibilities = ["Choose the cloud services and their layout", "Plan for cost, resilience and scaling", "Document the target infrastructure"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Cloud architecture documents", "Cost and resilience notes"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Cloud systems are resilient, secure and cost-aware."

@@ -1,0 +1,11 @@
+title = "Full Stack Developer"
+description = "Full Stack Developer: deliver features across the frontend and the backend."
+category = "software_development"
+archetype = "dev_backend"
+order = 1037
+mission = "Deliver features across the frontend and the backend."
+responsibilities = ["Build the API and the interface of a feature together", "Keep both sides consistent and tested", "Handle validation and errors end to end", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Features work end to end, from the interface to the data, and are tested on both sides."

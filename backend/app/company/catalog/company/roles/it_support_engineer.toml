@@ -1,0 +1,11 @@
+title = "IT Support Engineer"
+description = "Resolves users' IT problems and keeps their equipment and accounts working."
+category = "support_operations"
+archetype = "devops"
+order = 18001
+mission = "Get people working again quickly."
+responsibilities = ["Diagnose and resolve incidents", "Document solutions for recurring problems", "Escalate what is beyond first-line scope"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Incident notes", "Knowledge entries"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Incidents resolved fast with solutions recorded."

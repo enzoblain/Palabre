@@ -1,0 +1,11 @@
+title = "Developer Advocate"
+description = "Represents developers' needs and helps them succeed with the product through content and feedback."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19007
+mission = "Developers succeed with the product."
+responsibilities = ["Create examples, tutorials and talks", "Collect developer feedback and relay it", "Test the developer experience end to end"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Content", "Feedback summaries"]
+escalation = "Contradictory information → ask the lead."
+success = "Developers' problems heard and solved."

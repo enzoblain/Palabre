@@ -1,0 +1,11 @@
+title = "Digital Preservation Specialist"
+description = "Keeps digital content readable and authentic over the long term."
+category = "specialized_roles"
+archetype = "dev_backend"
+order = 20012
+mission = "Today's data readable in the future."
+responsibilities = ["Choose durable formats and storage strategies", "Plan format migration and integrity checks", "Document provenance and metadata"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Preservation plans", "Integrity reports"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Data that stays accessible and verifiable."

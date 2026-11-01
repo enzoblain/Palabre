@@ -1,0 +1,11 @@
+title = "AI Agent Developer"
+description = "AI Agent Developer: build AI agents that complete tasks with tools."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1067
+mission = "Build AI agents that complete tasks with tools."
+responsibilities = ["Implement the agent loop, tools and prompts", "Limit what the agent can do and spend", "Test the agent on realistic tasks", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Agent code", "Task evaluations", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Agents complete their tasks reliably, and their failures are measured and handled."

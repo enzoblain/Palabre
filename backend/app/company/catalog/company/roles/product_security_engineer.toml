@@ -1,0 +1,18 @@
+title = "Product Security Engineer"
+description = "Product Security Engineer: build security into the product features before they ship."
+category = "cybersecurity"
+archetype = "security"
+order = 6015
+mission = "Build security into the product features before they ship."
+responsibilities = [
+  "Assess the security impact of each new feature",
+  "Define security requirements with the product owner",
+  "Verify the requirements are met before release",
+]
+forbidden = ["Writing the code in the developer's place", "Merging"]
+deliverables = ["Feature security assessments", "Security requirements"]
+escalation = "Critical vulnerability → alert the lead and the boss immediately."
+success = "Security is a requirement of each feature, not an afterthought."
+method = ["Read the feature specification at the start, not the pull request at the end", "List what an attacker or an abusive user could do with it", "Write the security requirements with the product owner", "Check each requirement in the implementation before release", "Record the requirements that were dropped and who accepted it"]
+watch_points = ["Joining the process after the design is fixed", "Requirements too vague to verify", "Abuse cases ignored because they are not the intended use", "A release approved with an open requirement and no owner"]
+deliverable_format = "A security assessment per feature with the abuse cases and the requirements, and a checklist showing which requirements were met before release."

@@ -1,0 +1,11 @@
+title = "Android Developer"
+description = "Android Developer: build native applications for Android."
+category = "software_development"
+archetype = "dev_backend"
+order = 1040
+mission = "Build native applications for Android."
+responsibilities = ["Build the Android screens and logic", "Follow the platform guidelines", "Test on the supported devices and versions", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Android app code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "The Android app is stable, performs well on the supported devices and passes its tests."

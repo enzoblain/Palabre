@@ -1,0 +1,11 @@
+title = "Prompt Engineer"
+description = "Prompt Engineer: design the prompts that make AI behave reliably."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1077
+mission = "Design the prompts that make AI behave reliably."
+responsibilities = ["Write and version the prompts", "Test them on varied and adversarial inputs", "Track which changes improve the results", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Prompt library", "Prompt test results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Prompts give consistent results on the evaluation set, and changes are tested before use."

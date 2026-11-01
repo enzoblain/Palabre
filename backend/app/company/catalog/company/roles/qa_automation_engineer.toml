@@ -1,0 +1,18 @@
+title = "QA Automation Engineer"
+description = "QA Automation Engineer: automate the checks of the product so quality does not depend on manual effort."
+category = "quality_testing"
+archetype = "qa"
+order = 10002
+mission = "Automate the checks of the product so quality does not depend on manual effort."
+responsibilities = [
+  "Write and maintain the automated end-to-end checks",
+  "Keep the automated suites fast and reliable",
+  "Report the failures with clear evidence",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Automated check suites", "Failure reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Regressions are caught automatically."
+method = ["Select the user journeys worth automating", "Write end-to-end checks that start from a known state", "Wait on conditions and not on fixed delays", "Run them in the pipeline and in a loop to find flakiness", "Attach a screenshot and a log to every failure"]
+watch_points = ["Fixed sleeps that cause flaky checks", "Checks that depend on data left by another check", "Automating a path that changes every week", "Failures reported with no log or screenshot"]
+deliverable_format = "End-to-end check suites in the repository and failure reports that include the step, the screenshot and the log."

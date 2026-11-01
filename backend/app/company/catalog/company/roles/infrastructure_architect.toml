@@ -1,0 +1,11 @@
+title = "Infrastructure Architect"
+description = "Infrastructure Architect: design the infrastructure the applications run on."
+category = "architecture"
+archetype = "architect"
+order = 1022
+mission = "Design the infrastructure the applications run on."
+responsibilities = ["Define servers, storage and environments", "Plan capacity and redundancy", "Document the infrastructure choices"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Infrastructure designs", "Capacity plans"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Infrastructure is resilient, secure and simple enough to operate."

@@ -1,0 +1,14 @@
+title = "User Researcher"
+description = "User Researcher: understand the users through direct observation and feedback."
+category = "ux_ui_design"
+archetype = "designer"
+order = 1306
+mission = "Understand the users through direct observation and feedback."
+responsibilities = ["Recruit and interview users", "Observe how they use the product", "Summarize their needs and frustrations"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["Interview notes", "User insights"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Research findings, grounded in direct observation, that change decisions on the product."
+method = ["Set the research question and choose participants who match the real users", "Prepare an interview guide made of open, non-leading questions", "Conduct the interviews, taking notes on behavior and quotes", "Group the notes into themes and draw insights the team can act on"]
+watch_points = ["Asking users what they would like instead of what they do", "Generalizing from two or three participants", "Insights that merely restate the quotes without interpretation"]
+deliverable_format = "Markdown interview notes (participant profile, key quotes, observations) and a document of insights tied to evidence, committed in the repository."

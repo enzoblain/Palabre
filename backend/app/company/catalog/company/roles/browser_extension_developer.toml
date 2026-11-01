@@ -1,0 +1,11 @@
+title = "Browser Extension Developer"
+description = "Browser Extension Developer: build browser extensions that are safe and useful."
+category = "software_development"
+archetype = "dev_frontend"
+order = 1058
+mission = "Build browser extensions that are safe and useful."
+responsibilities = ["Implement the extension and its permissions", "Keep it working across supported browsers", "Test it in real browsers", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the backend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Extension code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Extensions work across the supported browsers, request minimal permissions and stay safe."

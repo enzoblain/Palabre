@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-01
+
+### Added
+
+- catalog: add extended job schema with archetype inheritance and the jobs index (#309)
+- catalog: refuse permissions and wakes_on in extended job files (#311)
+- front: group the extended jobs by category and search by name (#312)
+- catalog: add extended jobs of categories 16 to 20 (#314)
+- catalog: add the extended jobs of categories 6 to 10 (#316)
+- catalog: add the extended jobs of categories 1 to 5 (#315)
+- orchestrator: wake the reviewer when the verification they asked for is done (#319)
+- prompts: require README updates when a PR changes documented behavior (#320)
+- orchestrator: cap silent review reminders per head SHA (#322)
+- catalog: add the extended jobs of categories 11 to 15 (#313)
+- catalog: add "how it works" fields to role sheets (#328)
+- catalog: add method, watch points and deliverable format to categories 11 to 15 (#331)
+- catalog: write the working notes of the jobs of categories 6 to 10 (#332)
+
+### Changed
+
+- catalog: make Role permissions and wakes_on immutable (#310)
+
+### Fixed
+
+- catalog: guard extended_roles.toml as sensitive and require company kind for archetype roles (#317)
+- github: stop copying French task text onto GitHub (#318)
+- workflow: reuse the open PR when a submission is retried after a rollback (#327)
+- direction: show boss requests in full and without the author's name (#329)
+- direction: write decisions and escalations for a non-developer boss (#335)
+
 ## [0.20.0] - 2026-10-31
 
 ### Added
@@ -538,7 +568,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/enzoblain/Palabre/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/enzoblain/Palabre/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/enzoblain/Palabre/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/enzoblain/Palabre/compare/v0.17.1...v0.18.0

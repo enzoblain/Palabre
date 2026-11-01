@@ -1,0 +1,11 @@
+title = "IT Helpdesk Specialist"
+description = "First contact for IT requests: triage, resolution and routing."
+category = "support_operations"
+archetype = "devops"
+order = 18002
+mission = "Every request handled and routed promptly."
+responsibilities = ["Triage incoming requests by urgency and category", "Resolve common issues from known procedures", "Route and follow up the others"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Ticket updates", "Procedures"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Short response times and correct routing."

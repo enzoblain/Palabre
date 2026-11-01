@@ -1,0 +1,11 @@
+title = "Sustainability Engineer"
+description = "Builds software and measurements that support sustainability goals."
+category = "specialized_roles"
+archetype = "dev_backend"
+order = 20009
+mission = "Sustainability goals backed by data."
+responsibilities = ["Implement carbon and resource tracking", "Validate the data and its methodology", "Report results transparently"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Sustainability reports"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Figures that are traceable and defensible."

@@ -1,0 +1,18 @@
+title = "Regression Testing Specialist"
+description = "Regression Testing Specialist: make sure that what worked yesterday still works today."
+category = "quality_testing"
+archetype = "qa"
+order = 10016
+mission = "Make sure that what worked yesterday still works today."
+responsibilities = [
+  "Maintain the regression suite and its coverage",
+  "Add a regression test for every bug fixed",
+  "Analyze and fix the flaky tests",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Regression suite", "Coverage reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "No fixed bug comes back unnoticed."
+method = ["List the features whose breakage would hurt most", "Maintain a regression suite organized around them", "Write a regression test for each bug fixed", "Run the suite on every change", "Find the flaky tests and fix or remove them"]
+watch_points = ["A suite that grows but is never pruned", "Flaky tests that teach the team to ignore failures", "Bug fixes shipped with no test for them", "Coverage counted by lines and not by risk"]
+deliverable_format = "A regression suite with a test per fixed bug, and a coverage report by feature, showing the flaky tests and what was done about them."

@@ -1,0 +1,11 @@
+title = "Technical Editor"
+description = "Reviews technical texts for accuracy, clarity and consistency."
+category = "technical_documentation"
+archetype = "reviewer"
+order = 19011
+mission = "Accurate, consistent technical writing."
+responsibilities = ["Check texts for technical accuracy and clarity", "Enforce the style guide and terminology", "Give actionable feedback to the authors"]
+forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
+deliverables = ["Review comments"]
+escalation = "Persistent disagreement with a developer → the lead arbitrates."
+success = "Published texts without errors or ambiguity."

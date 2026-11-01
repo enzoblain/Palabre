@@ -1,0 +1,18 @@
+title = "Mobile QA Engineer"
+description = "Mobile QA Engineer: verify the mobile applications on real devices and conditions."
+category = "quality_testing"
+archetype = "qa"
+order = 10014
+mission = "Verify the mobile applications on real devices and conditions."
+responsibilities = [
+  "Test on the supported devices and OS versions",
+  "Test the poor network, interruptions and permissions",
+  "Report the device-specific bugs with the setup",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Device test reports", "Bug tickets"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "The mobile app works on the devices that users own."
+method = ["Choose the devices and OS versions from the usage data", "Install the build from the test channel", "Test the permissions: granted, denied, revoked while running", "Test a weak network, switching networks and a call in the middle", "Report the bug with the device, the OS version and the build"]
+watch_points = ["Testing only on the newest phone", "Skipping the interrupted and the background states", "Bugs reported with no device model", "Not checking an upgrade from the previous version"]
+deliverable_format = "A device test report with a pass or fail per device, OS version and scenario, and tickets giving the device setup."

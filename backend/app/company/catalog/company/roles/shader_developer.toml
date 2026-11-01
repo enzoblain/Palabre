@@ -1,0 +1,14 @@
+title = "Shader Developer"
+description = "Shader Developer: write the shaders that define how surfaces look."
+category = "games_3d_multimedia"
+archetype = "dev_backend"
+order = 1522
+mission = "Write the shaders that define how surfaces look."
+responsibilities = ["Write and optimize shaders", "Support the target graphics APIs", "Profile their GPU cost", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Shader code", "GPU profiles", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Shaders that give the intended look and run within the GPU budget on the target hardware."
+method = ["Understand the look wanted from the art reference and the target platforms", "Write the shader with the inputs the artists need to control", "Profile the instruction count and texture fetches on target GPUs", "Provide cheaper variants for lower quality settings"]
+watch_points = ["Dynamic branches and heavy math in the fragment stage", "Precision problems on mobile GPUs", "Shader variants multiplying until compile times and memory explode"]
+deliverable_format = "A pull request with the shader code and GPU profile figures (instructions, time per frame on each target)."

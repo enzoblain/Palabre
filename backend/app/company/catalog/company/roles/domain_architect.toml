@@ -1,0 +1,11 @@
+title = "Domain Architect"
+description = "Domain Architect: design the architecture of one business domain."
+category = "architecture"
+archetype = "architect"
+order = 1034
+mission = "Design the architecture of one business domain."
+responsibilities = ["Model the domain and its boundaries", "Define the interfaces with other domains", "Keep the domain design consistent over time"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Domain models", "Boundary definitions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The domain model and its boundaries stay clear, and teams can evolve it independently."

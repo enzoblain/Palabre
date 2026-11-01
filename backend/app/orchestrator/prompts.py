@@ -17,7 +17,11 @@ REASONS: dict[str, str] = {
     "merge_retry": "You tried to merge task #{task_id} while its CI was running. The CI is over: {result}. Try merge_task again if every rule is met.",
     "task_idle": "Task #{task_id} ({status}) has not moved for {minutes} minutes: {reason}. Unblock it or reassign it.",
     "review_requested": "Task #{task_id} is waiting for review ({pr_url}). Read it with get_task and get_diff, then give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
-    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug.",
+    "verification_done": "{by} posted the report you were waiting for on task #{task_id}. The verification you asked for is done: read it with get_task, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha. A comment alone is not a verdict.",
+    "review_overdue": "Task #{task_id} has been waiting for your verdict for {minutes} minutes ({pr_url}). Read the reviews and reports with get_task and get_diff, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
+    "review_stalled": "Task #{task_id} had no reviewer verdict for {minutes} minutes: the reviewer was woken up again. Step in if it stays stuck.",
+    "review_abandoned": "Task #{task_id} ({pr_url}) still has no reviewer verdict on head {head_sha} after {reminders} reminders: no more will be sent. Decide: ask a reviewer yourself, reassign the review, or review it.",
+    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable or MCP tool without updating the README, report it as a bug.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
     "release_ci": "The CI of the release PR #{pr_number} finished: {result}. If it is green, ship it with merge_release; otherwise get the failing checks fixed.",
@@ -110,25 +114,22 @@ Your personality and style below set your tone; these rules set the format."""
 
 LANGUAGE_RULE = """## Language
 Write in {language}: your messages in the chat, tasks, decisions, questions, notes and documents. Code and identifiers follow the repository's conventions.
-Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Titles and commit messages (not release notes, which list the changes by type and then keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
+Everything that goes to GitHub is in English, whatever the team's language: commit messages, pull request titles and descriptions, the comments of your reviews and QA reports, release notes. Every tool field marked as going to GitHub (submit_for_review title and summary, review_task body, close_pull_request reason, propose_release and merge_release title and summary) is written in English, even when the task you are working from is in another language: never paste its text as it is, translate it. Titles and commit messages (not release notes, which list the changes by type and then keep the standard text of the release workflow) follow Conventional Commits: `type(scope): description` (feat, fix, chore, docs, refactor, test, ci, perf, build, style, revert), for example `feat(usage): show real Claude usage per model`."""
 
 BOSS_REQUESTS_RULE = """## Requests to the boss
-Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Keep them short and plain. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
+Decisions, questions and escalations the boss will read are written in {language}, whatever the team's other habits. Follow the rule "Messages to the boss" below: the title and the reason of a decision, an escalation to the boss, an ask_ceo and a release request are read by the boss, not by a developer. Keep them short. Never paste a long technical document in them: put it in a file or in the room document and point to it in one sentence."""
 
-LEAD_BOSS_RULE = """## Messages to the boss
-In the direction channel, the boss is not a developer. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them."""
+BOSS_MESSAGES_RULE = """## Messages to the boss
+The boss is not a developer, in the direction channel and in every decision, escalation or request they read. Write in {language}, in short sentences with simple words. No jargon and no code references (files, lines, identifiers, commit hashes, task or PR numbers) unless the boss asks for them. Say what matters: what is done, what is blocked, what you need from them. The technical detail goes in the room document or the task."""
 
 PROJECT_INSTRUCTIONS_RULE = """## Project instructions (CLAUDE.md)
 The repository's CLAUDE.md, read from the reference clone. Follow it as the project's conventions and code map.
 
 {content}"""
 
-LEAD_ROLES = {"lead"}
-
-
-def lead_boss_rule(roles: list[str], language: str) -> str | None:
-    """Return the rule on messages to the boss, for the lead only."""
-    return LEAD_BOSS_RULE.format(language=language) if LEAD_ROLES & set(roles) else None
+def boss_messages_rule(language: str) -> str:
+    """Return the rule on messages to the boss, given to every role."""
+    return BOSS_MESSAGES_RULE.format(language=language)
 
 
 VERSION_RULE = """## Versions
@@ -151,6 +152,10 @@ CODE_STANDARDS_LIST: list[tuple[str, str]] = [
     ("Follow the existing patterns of the module you touch.", "The existing patterns of the module are respected."),
     ("Every new behavior has tests.", "Every new behavior has tests."),
     ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
+    (
+        "If your PR changes a behavior, a config variable, a command or an MCP tool described in the README, update the README in the same PR.",
+        "A PR that changes a behavior documented in the README, or adds a config variable or an MCP tool, updates the README in the same PR; otherwise it is blocking.",
+    ),
 ]
 
 

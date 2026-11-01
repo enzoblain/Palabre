@@ -1,0 +1,14 @@
+title = "3D Artist"
+description = "3D Artist: create the 3D assets of the game."
+category = "games_3d_multimedia"
+archetype = "designer"
+order = 1510
+mission = "Create the 3D assets of the game."
+responsibilities = ["Model and texture assets", "Respect the technical budgets", "Deliver them ready for the engine"]
+forbidden = ["Coding", "Merging"]
+deliverables = ["3D assets", "Asset specs"]
+escalation = "Product disagreement → the product owner, then the boss."
+success = "Assets that import cleanly, stay within the polygon and texture budgets and look right in the engine."
+method = ["Read the art direction and the technical budget for the asset", "Model it in low and high resolution, then bake the details onto the low version", "Texture it with the engine's material set up", "Import it in the game and check it under the game's lighting"]
+watch_points = ["A look that holds in the modelling tool but not under the game's lighting", "Polygon or texture budgets exceeded", "Inconsistent texel density between assets of the same scene"]
+deliverable_format = "The 3D assets committed in the asset directory in the engine's import format, with a markdown asset spec (polygon count, texture sizes, material names)."

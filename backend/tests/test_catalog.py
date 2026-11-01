@@ -3,17 +3,19 @@
 import hashlib
 import json
 import shutil
+import tomllib
 from typing import get_args
 
 import pytest
+from pydantic import ValidationError
 
 from app.company import catalog as catalog_module
 from app.company.catalog import (
-    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, Permission, Role, load_catalog, load_personality_pools, load_roles,
-    team_permission_error,
+    CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, ExtendedCategory, Permission, Role, held_role_keys, load_catalog,
+    load_extended_index, load_personality_pools, load_roles, team_permission_error,
     validate_catalog,
 )
-from app.company.team import generate_team
+from app.company.team import _render_role, generate_team
 from app.mcp_server.permissions import CLAUDE_TOOLS, MCP_TOOLS
 from app.orchestrator import event_types
 
@@ -191,7 +193,7 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
             "mcp": sorted(mcp_tools_for(permissions, task_run=True)),
             "claude": claude_tools_for(permissions),
         }
-        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, **expected[key].model_dump(exclude_none=True)}
+        assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, "archetype": None, "deliverable_format": None, **expected[key].model_dump(mode="json", exclude_none=True)}
 
 
 async def test_roles_endpoint_filters_by_kind(api_client):
@@ -233,3 +235,207 @@ def test_personality_pool_axis_typo_names_the_file_and_field(catalog_copy):
     path.write_text(path.read_text().replace('label = "Risk-taking"', 'lable = "Risk-taking"', 1))
     with pytest.raises(CatalogError, match=r"(?s)company/personality_pool\.toml.*axes\.0\.lable"):
         load_personality_pools()
+
+
+def test_loaded_role_permissions_and_wakes_on_are_immutable():
+    role = load_catalog()["roles"]["lead"]
+
+    assert isinstance(role.permissions, tuple)
+    assert isinstance(role.wakes_on, tuple)
+    with pytest.raises(AttributeError):
+        role.permissions.append("merge")
+    with pytest.raises(ValidationError):
+        role.permissions = ()
+
+
+EXTENDED_JOB = """title = "Kernel Developer"
+description = "Works on kernels."
+category = "software_development"
+archetype = "dev_backend"
+order = 500
+mission = "Deliver kernel code."
+responsibilities = ["Code"]
+forbidden = []
+deliverables = ["Commits"]
+escalation = "The lead decides."
+success = "Reliable."
+"""
+
+
+def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
+    index = load_extended_index()
+    roles = load_roles()
+    base = {k for k, r in roles.items() if r.kind == "company" and r.archetype is None}
+    assert len(index) > 400
+    assert {e.category for e in index.values()} >= set(get_args(ExtendedCategory))
+    for entry in index.values():
+        assert entry.archetype in base, entry.key
+        assert entry.category in get_args(ExtendedCategory) or roles[entry.key].category == entry.category
+        assert entry.existing == (entry.key in roles and roles[entry.key].archetype is None), entry.key
+
+
+def test_extended_jobs_of_lot_1_have_a_file_each():
+    lot_categories = {
+        "direction_strategy", "architecture", "software_development", "artificial_intelligence", "data_databases",
+    }
+    roles = load_roles()
+    expected = {e.key for e in load_extended_index().values() if e.category in lot_categories and not e.existing}
+    assert len(expected) == 120
+    assert expected <= roles.keys()
+
+
+def test_no_extended_job_uses_the_lead_or_its_own_permissions():
+    roles = load_roles()
+    for entry in load_extended_index().values():
+        assert entry.archetype != "lead" or entry.existing, entry.key
+    extended = [r for r in roles.values() if r.archetype is not None]
+    for role in extended:
+        assert role.archetype != "lead", role.key
+        assert roles[role.archetype].kind == "company" and roles[role.archetype].archetype is None, role.key
+        assert (role.permissions, role.wakes_on) == (roles[role.archetype].permissions, roles[role.archetype].wakes_on)
+    for path in CATALOG_DIR.glob("*/roles/*.toml"):
+        raw = tomllib.loads(path.read_text())
+        if "archetype" in raw:
+            assert not {"permissions", "wakes_on"} & raw.keys(), path.name
+
+
+def test_extended_job_cannot_have_the_lead_as_archetype(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "lead"))
+    with pytest.raises(CatalogError, match="lead cannot be an archetype"):
+        load_roles()
+
+
+def test_index_entry_pointing_to_the_lead_is_refused_unless_existing(catalog_copy):
+    index = catalog_copy / "company/extended_roles.toml"
+    index.write_text(index.read_text().replace('archetype = "architect"', 'archetype = "lead"', 1))
+    with pytest.raises(CatalogError, match="lead cannot be an archetype"):
+        load_extended_index()
+
+
+def test_extended_index_has_unique_names():
+    names = [e.name.casefold() for e in load_extended_index().values()]
+    assert len(names) == len(set(names))
+
+
+def test_extended_job_inherits_the_archetype_permissions(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    roles = load_roles()
+    assert roles["kernel_developer"].permissions == roles["dev_backend"].permissions
+    assert roles["kernel_developer"].wakes_on == roles["dev_backend"].wakes_on
+    assert roles["kernel_developer"].model == roles["dev_backend"].model
+
+
+@pytest.mark.parametrize("field", ["permissions", "wakes_on"])
+def test_extended_job_cannot_set_archetype_only_fields(catalog_copy, field):
+    value = '["merge"]' if field == "permissions" else '["task_created"]'
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(f"{EXTENDED_JOB}\n{field} = {value}\n")
+    with pytest.raises(CatalogError, match=rf"kernel_developer.toml.*cannot set {field}"):
+        load_roles()
+
+
+def test_extended_job_acts_as_its_archetype(catalog_copy):
+    (catalog_copy / "company/roles/unlisted_job.toml").write_text(EXTENDED_JOB.replace("dev_backend", "reviewer"))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        roles = load_catalog()["roles"]
+        assert held_role_keys(["unlisted_job"], roles) == {"unlisted_job", "reviewer"}
+        assert held_role_keys(["qa"], roles) == {"qa"}
+        assert held_role_keys(["removed_job"], roles) == {"removed_job"}
+    finally:
+        catalog_module.load_catalog.cache_clear()
+
+
+def test_extended_job_with_unknown_archetype_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "nobody"))
+    with pytest.raises(CatalogError, match="kernel_developer.toml.*not a base role"):
+        load_roles()
+
+
+def test_extended_job_cannot_be_an_archetype(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    (catalog_copy / "company/roles/driver_developer.toml").write_text(
+        EXTENDED_JOB.replace("dev_backend", "kernel_developer")
+    )
+    with pytest.raises(CatalogError, match="not a base role"):
+        load_roles()
+
+
+def test_role_file_disagreeing_with_the_index_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB.replace("dev_backend", "qa"))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        with pytest.raises(CatalogError, match="disagrees"):
+            load_catalog()
+    finally:
+        catalog_module.load_catalog.cache_clear()
+
+
+def test_mode_seat_with_an_extended_job_is_refused(catalog_copy):
+    (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
+    roles = load_roles()
+    mode = {"kind": "company", "seats": [{"roles": ["kernel_developer"]}]}
+    with pytest.raises(CatalogError, match="at random"):
+        validate_catalog(roles, {"m": mode}, [])
+
+
+def test_every_job_of_the_security_to_quality_categories_has_its_file():
+    lot = {"cybersecurity", "cloud_devops_infrastructure", "networks_telecom", "blockchain_web3", "quality_testing"}
+    roles = load_roles()
+    for entry in load_extended_index().values():
+        if entry.category in lot and not entry.existing:
+            assert entry.key in roles, entry.key
+            assert roles[entry.key].archetype == entry.archetype, entry.key
+            assert roles[entry.key].category == entry.category, entry.key
+
+
+def test_research_role_with_an_archetype_is_refused(catalog_copy):
+    base = next(p for p in (catalog_copy / "research/roles").glob("*.toml"))
+    (catalog_copy / "research/roles/kernel_researcher.toml").write_text(EXTENDED_JOB.replace("dev_backend", base.stem))
+    catalog_module.load_catalog.cache_clear()
+    try:
+        with pytest.raises(CatalogError, match="only company roles"):
+            load_catalog()
+    finally:
+        catalog_module.load_catalog.cache_clear()
+
+
+def test_extended_jobs_of_lot_3_have_a_file_each():
+    lot_categories = {
+        "performance_reliability", "product_project_management", "ux_ui_design", "iot_robotics_embedded", "games_3d_multimedia",
+    }
+    roles = load_roles()
+    expected = {e.key for e in load_extended_index().values() if e.category in lot_categories and not e.existing}
+    assert len(expected) == 109
+    assert expected <= roles.keys()
+
+
+def test_every_base_role_describes_how_it_works():
+    base_roles = [r for r in load_roles().values() if r.archetype is None]
+    assert base_roles
+    for role in base_roles:
+        assert role.method and role.watch_points and role.deliverable_format, role.key
+
+
+def test_working_notes_are_optional_and_validated(catalog_copy):
+    path = catalog_copy / "company/roles/scribe.toml"
+    path.write_text(path.read_text().replace("method = ", "method_ = ", 1))
+    with pytest.raises(CatalogError, match="method_"):
+        load_roles()
+    path.write_text(path.read_text().replace("method_ = [", "method = [", 1))
+    assert load_roles()["scribe"].method
+
+
+def test_working_notes_are_rendered_in_the_prompt():
+    role = load_roles()["dev_backend"]
+    prompt = _render_role(role)
+    assert f"1. {role.method[0]}" in prompt
+    assert f"- {role.watch_points[0]}" in prompt
+    assert f"A good deliverable: {role.deliverable_format}" in prompt
+
+
+def test_prompt_omits_absent_working_notes():
+    role = load_roles()["dev_backend"].model_copy(update={"method": [], "watch_points": [], "deliverable_format": None})
+    prompt = _render_role(role)
+    assert "How you work" not in prompt
+    assert "Watch points" not in prompt
+    assert "A good deliverable" not in prompt

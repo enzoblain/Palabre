@@ -1,0 +1,11 @@
+title = "Data Architect"
+description = "Data Architect: design how data is stored, moved and shared."
+category = "architecture"
+archetype = "architect"
+order = 1024
+mission = "Design how data is stored, moved and shared."
+responsibilities = ["Define the data models and flows", "Choose the storage technologies", "Set the rules for data consistency and access"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Data architecture documents", "Data flow diagrams"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Data is stored and shared in a consistent, secure and scalable way."

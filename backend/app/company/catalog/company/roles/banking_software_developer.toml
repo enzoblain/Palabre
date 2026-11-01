@@ -1,0 +1,11 @@
+title = "Banking Software Developer"
+description = "Develops core banking and banking-channel software: accounts, transfers, statements."
+category = "ecommerce_fintech_business"
+archetype = "dev_backend"
+order = 17019
+mission = "Reliable banking software."
+responsibilities = ["Implement account and transaction processing", "Ensure consistency, idempotency and auditability", "Test integration with legacy and partner systems"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Tests"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Transactions that are consistent and traceable."

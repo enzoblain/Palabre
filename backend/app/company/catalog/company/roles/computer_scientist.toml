@@ -1,0 +1,11 @@
+title = "Computer Scientist"
+description = "Applies computer science theory (algorithms, complexity, data structures) to the problems of the task."
+category = "advanced_research"
+archetype = "dev_backend"
+order = 16001
+mission = "Ground the implementation in sound computer science."
+responsibilities = ["Analyze the complexity and correctness of the approach", "Implement the core algorithms and data structures", "Document the assumptions and limits of the solution"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Analysis notes"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Solutions that are correct and well understood."

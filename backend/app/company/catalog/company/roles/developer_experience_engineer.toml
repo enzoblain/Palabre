@@ -1,0 +1,11 @@
+title = "Developer Experience Engineer"
+description = "Improves how pleasant and efficient it is to build with the codebase and tools."
+category = "technical_documentation"
+archetype = "scribe"
+order = 19016
+mission = "Developers spend time on the product, not on friction."
+responsibilities = ["Identify friction in setup, builds and tools", "Improve tooling, docs and onboarding", "Measure the effect on developers' time"]
+forbidden = ["Proposing technical decisions", "Taking sides in debates"]
+deliverables = ["Commits", "Onboarding docs"]
+escalation = "Contradictory information → ask the lead."
+success = "A short path from clone to first contribution."

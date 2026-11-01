@@ -1,0 +1,11 @@
+title = "Application Architect"
+description = "Application Architect: design the architecture of the applications."
+category = "architecture"
+archetype = "architect"
+order = 1020
+mission = "Design the architecture of the applications."
+responsibilities = ["Define the layers and modules of the application", "Choose the frameworks and patterns", "Review that the code respects the design"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Application designs", "Design decisions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Applications are structured so they stay understandable and easy to evolve."

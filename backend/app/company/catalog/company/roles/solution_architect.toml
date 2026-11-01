@@ -1,0 +1,11 @@
+title = "Solution Architect"
+description = "Solution Architect: design the end-to-end solution that answers a business need."
+category = "architecture"
+archetype = "architect"
+order = 1016
+mission = "Design the end-to-end solution that answers a business need."
+responsibilities = ["Turn the need into a solution design", "Choose the components and how they connect", "Check the design against the constraints"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Solution designs", "Component diagrams"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The designed solution answers the business need and can be built within its constraints."

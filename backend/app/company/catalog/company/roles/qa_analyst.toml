@@ -1,0 +1,18 @@
+title = "QA Analyst"
+description = "QA Analyst: analyze the requirements and the results to find quality risks."
+category = "quality_testing"
+archetype = "qa"
+order = 10004
+mission = "Analyze the requirements and the results to find quality risks."
+responsibilities = [
+  "Derive the test cases from the requirements",
+  "Analyze the failures and look for patterns",
+  "Report the quality status clearly",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Test cases", "Quality status reports"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "Quality risks are visible before the release."
+method = ["Read the requirements and list what could go wrong", "Write test cases from each requirement", "Check the results and group the failures by cause", "Look for the areas that fail repeatedly", "Report the status with the risks left"]
+watch_points = ["Test cases that restate the requirement without a check", "Requirements with no test", "Reporting counts and not risks", "Failures grouped by symptom and not by cause"]
+deliverable_format = "A set of test cases traced to the requirements, and a status report with the pass rate, the main failure patterns and the open risks."

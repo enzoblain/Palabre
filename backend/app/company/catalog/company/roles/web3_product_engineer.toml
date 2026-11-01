@@ -1,0 +1,18 @@
+title = "Web3 Product Engineer"
+description = "Web3 Product Engineer: ship Web3 features that users can actually use."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9017
+mission = "Ship Web3 features that users can actually use."
+responsibilities = [
+  "Implement the product features across the contracts and the backend",
+  "Hide the blockchain complexity from the user where possible",
+  "Test the full user flows",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Commits", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Web3 features work end to end for real users."
+method = ["Read the user story and the contracts and services it touches", "Decide what the user must see and what stays hidden: gas, networks, signatures", "Implement the flow across the contract call and the backend", "Handle pending, failed and replaced transactions in the interface", "Test the whole flow with a test wallet, then submit"]
+watch_points = ["Showing a success before the transaction is confirmed", "A user stuck when the wallet is on the wrong network", "Failure messages that expose a raw contract error", "Flows that work only with one wallet"]
+deliverable_format = "A focused pull request with the flow implemented end to end, tests for pending and failed transactions and a note on the wallets tested."

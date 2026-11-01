@@ -1,0 +1,11 @@
+title = "System Architect"
+description = "System Architect: design how the parts of the system work together."
+category = "architecture"
+archetype = "architect"
+order = 1018
+mission = "Design how the parts of the system work together."
+responsibilities = ["Define the components and their interfaces", "Plan for load, failures and growth", "Document the system behavior"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["System designs", "Interface definitions"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "The parts of the system fit together through clear interfaces and can evolve separately."

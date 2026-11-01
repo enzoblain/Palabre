@@ -1,0 +1,18 @@
+title = "Software Validation Engineer"
+description = "Software Validation Engineer: check that the software meets the real needs of its users."
+category = "quality_testing"
+archetype = "qa"
+order = 10022
+mission = "Check that the software meets the real needs of its users."
+responsibilities = [
+  "Validate the software against the user needs and scenarios",
+  "Confirm the acceptance criteria with the product owner",
+  "Report the gaps between the need and the result",
+]
+forbidden = ["Fixing bugs yourself", "Merging"]
+deliverables = ["Validation reports", "Acceptance records"]
+escalation = "Disputed blocking bug → the lead decides."
+success = "What ships solves the problem it was built for."
+method = ["Write down the users' needs and the scenarios in which they arise", "Run each scenario on the product as the user would", "Check the result with the product owner against the acceptance criteria", "List the gap between the need and what was built", "Record the acceptance decision"]
+watch_points = ["Validating against the specification and not against the need", "Scenarios chosen by the people who built the feature", "Gaps closed by changing the need on paper", "No record of who accepted and on what basis"]
+deliverable_format = "A validation report with the scenarios run and the result for each, and an acceptance record stating who accepted it and the gaps remaining."

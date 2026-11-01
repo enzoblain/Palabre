@@ -1,0 +1,11 @@
+title = "Quantum Software Developer"
+description = "Builds the software around quantum computing: SDK usage, compilation, tooling and hybrid workflows."
+category = "advanced_research"
+archetype = "dev_backend"
+order = 16009
+mission = "Provide reliable software on top of quantum backends."
+responsibilities = ["Integrate quantum SDKs and backends behind clean interfaces", "Implement hybrid classical-quantum workflows", "Test on simulators before hardware runs"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Commits", "Tests and usage docs"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Quantum workflows that are testable and reproducible."

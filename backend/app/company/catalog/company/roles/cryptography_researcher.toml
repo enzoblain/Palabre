@@ -1,0 +1,11 @@
+title = "Cryptography Researcher"
+description = "Studies cryptographic schemes and their security, and prototypes new or improved constructions."
+category = "advanced_research"
+archetype = "dev_backend"
+order = 16018
+mission = "Know exactly what a cryptographic design guarantees."
+responsibilities = ["Analyze the security assumptions of a scheme", "Prototype and benchmark candidate constructions", "Report weaknesses and recommended parameters"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Analyses", "Prototypes"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Recommendations backed by a clear security argument."

@@ -1,0 +1,11 @@
+title = "Integration Developer"
+description = "Integration Developer: connect systems so they exchange data reliably."
+category = "software_development"
+archetype = "dev_backend"
+order = 1056
+mission = "Connect systems so they exchange data reliably."
+responsibilities = ["Implement the connectors between systems", "Handle retries, mapping and failures", "Test with realistic data", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Integration code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Integrations exchange data reliably, handle errors and are tested against the real contracts."

@@ -1,0 +1,11 @@
+title = "Blockchain Developer"
+description = "Blockchain Developer: build the software that runs on or talks to a blockchain."
+category = "software_development"
+archetype = "dev_backend"
+order = 1047
+mission = "Build the software that runs on or talks to a blockchain."
+responsibilities = ["Implement the chain-facing logic and integrations", "Handle transactions, fees and failures", "Test against a local or test network", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Blockchain code", "Tests", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "On-chain and off-chain code behaves correctly and is covered by tests."

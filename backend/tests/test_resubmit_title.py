@@ -8,6 +8,10 @@ from app import github, workflow, worktrees
 from app.models import TaskStatus
 
 
+async def no_pr(*_):
+    return None
+
+
 class FakeSession:
     async def get(self, model, pk):
         return SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev", mode=None)
@@ -50,6 +54,7 @@ async def test_resubmission_patches_the_pr_title(monkeypatch):
     monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": False})
     monkeypatch.setattr(github, "git", git)
     monkeypatch.setattr(workflow, "push_task_branch", noop)
+    monkeypatch.setattr(github, "find_pull_request", no_pr)
     monkeypatch.setattr(github, "set_pull_request_title", set_title)
     monkeypatch.setattr(github, "comment_pull_request", comment)
 
@@ -63,7 +68,8 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     gits = []
     task = SimpleNamespace(
         id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
-        pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
+        pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=["Un critère en français"],
+        description="Une description en français", review_round=0,
         sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
     )
     opened = {}
@@ -103,6 +109,7 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(workflow, "push_task_branch", push)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
+    monkeypatch.setattr(github, "find_pull_request", no_pr)
     monkeypatch.setattr(github, "set_pull_request_title", set_title)
 
     await workflow.submit_for_review(
@@ -113,6 +120,8 @@ async def test_first_submission_renames_the_branch_before_the_push(monkeypatch):
     assert ("push", "fix/7-handle-x") in gits
     assert opened["head"] == "fix/7-handle-x"
     assert opened["title"] == "fix(api): handle x"
+    assert "français" not in opened["body"]
+    assert opened["body"].startswith("sum")
     assert task.pr_title == "fix(api): handle x (#3)"
     assert "Palabre task #7" in opened["body"]
     assert titles == [(3, "fix(api): handle x (#3)")]
@@ -162,6 +171,7 @@ async def test_failed_push_after_rename_can_be_resubmitted(monkeypatch):
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(workflow, "push_task_branch", push)
     monkeypatch.setattr(github, "open_pull_request", open_pr)
+    monkeypatch.setattr(github, "find_pull_request", no_pr)
     monkeypatch.setattr(github, "set_pull_request_title", noop)
 
     author = SimpleNamespace(id=1, name="Mehdi")
@@ -398,3 +408,66 @@ async def test_pure_rebase_with_real_git(tmp_path, monkeypatch):
     # Unknown reviewed commit: fail closed
     task.reviewed_head = "0" * 40
     assert not await check()
+
+
+@pytest.mark.parametrize("clone_branch, adopted", [("fix/7-handle-x", True), ("feat/99-other", False)])
+async def test_resubmission_after_a_rolled_back_submission_reuses_the_open_pr(monkeypatch, clone_branch, adopted):
+    """The PR was opened, then the submission failed and the database rolled back: a retry with another
+    title must not rename the branch and open a second PR for the same work (#372). A clone sitting on
+    another task's branch must never adopt that task's PR."""
+    task = SimpleNamespace(
+        id=7, project_id=1, assignee_id=1, status=TaskStatus.in_progress, branch="task/7", worktree_path="/tmp/w",
+        pr_number=None, pr_url=None, pr_title=None, acceptance_criteria=[], description="", review_round=0,
+        sensitive=False, conversation_id=1, title="T", merge_ready_at=None, lead_reminded_at=None, reviewed_head=None,
+    )
+    opened, renamed, titles = [], [], []
+
+    async def noop(*_, **__):
+        pass
+
+    async def get_task(*_):
+        return task
+
+    async def commits_ahead(*_):
+        return 1
+
+    async def git(path, *args, **__):
+        if args[:2] == ("rev-parse", "--abbrev-ref"):
+            return f"{clone_branch}\n"  # renamed and pushed by the first, rolled back, attempt
+        if args[0] == "branch":
+            renamed.append(args)
+        return ""
+
+    async def find_pr(repo, head, base):
+        return {"number": 3, "html_url": "u"} if head == clone_branch else None
+
+    async def open_pr(repo, **kw):
+        opened.append(kw)
+        return {"number": 4, "html_url": "u2"}
+
+    async def set_title(repo, number, title):
+        titles.append((number, title))
+
+    monkeypatch.setattr(workflow, "get_task", get_task)
+    monkeypatch.setattr(workflow, "_commits_ahead", commits_ahead)
+    monkeypatch.setattr(workflow, "announce", noop)
+    monkeypatch.setattr(workflow, "post_message", noop)
+    monkeypatch.setattr(workflow, "emit_event", lambda *_, **__: None)
+    monkeypatch.setattr(workflow, "mode_process", lambda _: {"qa_gate": False, "security_gate": False})
+    monkeypatch.setattr(github, "git", git)
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(workflow, "push_task_branch", noop)
+    monkeypatch.setattr(github, "find_pull_request", find_pr)
+    monkeypatch.setattr(github, "open_pull_request", open_pr)
+    monkeypatch.setattr(github, "set_pull_request_title", set_title)
+    monkeypatch.setattr(github, "comment_pull_request", noop)
+
+    await workflow.submit_for_review(
+        FakeSession(), 1, 7, SimpleNamespace(id=1, name="Mehdi"), "sum", False, title="feat(api): handle y"
+    )
+    if adopted:
+        assert opened == [] and renamed == []
+        assert task.pr_number == 3 and task.branch == "fix/7-handle-x"
+        assert titles == [(3, "feat(api): handle y (#3)")]
+    else:
+        assert task.pr_number == 4 and task.branch == "feat/7-handle-y" and titles == [(4, "feat(api): handle y (#4)")]

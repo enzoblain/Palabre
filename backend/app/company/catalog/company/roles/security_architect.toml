@@ -1,0 +1,11 @@
+title = "Security Architect"
+description = "Security Architect: design security into the architecture from the start."
+category = "architecture"
+archetype = "architect"
+order = 1027
+mission = "Design security into the architecture from the start."
+responsibilities = ["Define the security controls of the design", "Review the designs for threats", "Document the security requirements"]
+forbidden = ["Merging", "Coding features"]
+deliverables = ["Security architecture documents", "Threat-aware designs"]
+escalation = "Fundamental disagreement with the lead → the boss arbitrates."
+success = "Security controls are designed in from the start and known threats are covered."

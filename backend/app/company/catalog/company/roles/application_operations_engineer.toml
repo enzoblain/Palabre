@@ -1,0 +1,11 @@
+title = "Application Operations Engineer"
+description = "Operates applications day to day: deployments, monitoring, routine maintenance."
+category = "support_operations"
+archetype = "devops"
+order = 18016
+mission = "Applications run smoothly in production."
+responsibilities = ["Run routine operations and maintenance tasks", "Monitor health and react to alerts", "Automate repetitive operations"]
+forbidden = ["Merging", "Changing application code outside infrastructure"]
+deliverables = ["Runbooks", "Operation reports"]
+escalation = "Structural infrastructure choice → decision proposed to the architect and the boss."
+success = "Stable applications with automated routines."

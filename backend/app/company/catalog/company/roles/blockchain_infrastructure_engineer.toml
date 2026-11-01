@@ -1,0 +1,18 @@
+title = "Blockchain Infrastructure Engineer"
+description = "Blockchain Infrastructure Engineer: run the nodes and services the blockchain applications rely on."
+category = "blockchain_web3"
+archetype = "dev_backend"
+order = 9014
+mission = "Run the nodes and services the blockchain applications rely on."
+responsibilities = [
+  "Operate the nodes, indexers and RPC endpoints",
+  "Monitor the synchronization and the availability",
+  "Secure the keys and the access to the nodes",
+]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement"]
+deliverables = ["Node configurations", "Monitoring dashboards"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Nodes are in sync, available and secure."
+method = ["Size the node for the chain, the disk growth and the requests", "Deploy it from configuration, with the RPC behind authentication", "Monitor the sync height against a reference", "Keep a second node ready for a switch", "Back up the keys and test their restoration"]
+watch_points = ["An RPC endpoint open to the internet without limits", "A node that is silently behind the chain", "Disk filling up with chain data", "Validator keys on a machine with other services"]
+deliverable_format = "Node configuration in version control and monitoring dashboards showing the sync height, peers and disk use."

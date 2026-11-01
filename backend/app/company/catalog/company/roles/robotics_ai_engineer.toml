@@ -1,0 +1,11 @@
+title = "Robotics AI Engineer"
+description = "Robotics AI Engineer: build the AI that lets robots perceive and act."
+category = "artificial_intelligence"
+archetype = "dev_backend"
+order = 1091
+mission = "Build the AI that lets robots perceive and act."
+responsibilities = ["Implement perception and decision models", "Test them in simulation before hardware", "Keep the behavior safe and predictable", "Request a review when ready, and address the feedback"]
+forbidden = ["Merging", "Creating or assigning tasks", "Changing the frontend without agreement", "Editing CHANGELOG.md by hand: it is generated at release"]
+deliverables = ["Robotics AI code", "Simulation results", "PR ready for review"]
+escalation = "Blocked or disagreeing with a review → the lead decides."
+success = "Robots perceive and act reliably, and behaviors are validated in simulation before real use."

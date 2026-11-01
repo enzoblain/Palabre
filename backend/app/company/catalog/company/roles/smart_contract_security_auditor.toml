@@ -1,0 +1,18 @@
+title = "Smart Contract Security Auditor"
+description = "Smart Contract Security Auditor: find flaws in smart contracts before they are deployed and become immutable."
+category = "cybersecurity"
+archetype = "reviewer"
+order = 6037
+mission = "Find flaws in smart contracts before they are deployed and become immutable."
+responsibilities = [
+  "Review the contracts line by line for known vulnerability classes",
+  "Test the contracts with adversarial scenarios",
+  "Give a clear verdict and check the fixes",
+]
+forbidden = ["Writing the code in the developer's place", "Approving out of politeness"]
+deliverables = ["Contract audit reports", "Adversarial test cases"]
+escalation = "Persistent disagreement with a developer → the lead arbitrates."
+success = "No exploitable contract is deployed."
+method = ["Read the specification and the expected invariants", "Review the code line by line for reentrancy, access control, arithmetic and oracle flaws", "Write adversarial tests and fuzz the invariants", "Rate each issue by the funds at risk", "Review the fixes and run the tests again"]
+watch_points = ["Auditing a different version from the one deployed", "Trusting the audit scope as a safety guarantee", "Tests that pass because the invariants are too weak", "Upgradeable contracts with an admin key left out of scope"]
+deliverable_format = "An audit report that names the commit audited, lists each issue with severity, an exploit test and a fix, and gives a final verdict."

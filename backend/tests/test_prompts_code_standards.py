@@ -3,7 +3,7 @@
 from app.company.team import generate_team
 from app.models import Project
 from app.orchestrator.dispatcher import build_system_prompt
-from app.orchestrator.prompts import CODE_STANDARDS, CODE_STANDARDS_LIST, REVIEW_CHECKLIST, code_standards_rule
+from app.orchestrator.prompts import REASONS, CODE_STANDARDS, CODE_STANDARDS_LIST, REVIEW_CHECKLIST, code_standards_rule
 
 
 def test_developers_get_the_code_standards():
@@ -47,3 +47,15 @@ def test_assembled_reviewer_prompt_has_checklist_with_changes_verdict():
     assert CODE_STANDARDS not in prompt
     assert "verdict `changes`" in prompt
     assert "changes_requested" not in REVIEW_CHECKLIST
+
+
+def test_prompts_require_readme_update_in_same_pr():
+    assert "update the README in the same PR" in _prompt_for("dev_backend")
+    reviewer_prompt = _prompt_for("reviewer")
+    assert "README" in reviewer_prompt and "blocking" in reviewer_prompt
+
+
+def test_qa_reminded_to_report_missing_readme_update():
+    reason = REASONS["pr_ready"]
+    assert "README" in reason and "report_bug" in reason
+    assert "without updating the README, report it as a bug" in reason
