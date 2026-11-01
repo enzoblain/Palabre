@@ -165,7 +165,8 @@ async def watch_idle_tasks(s: AsyncSession) -> None:
 
 async def watch_silent_reviews(s: AsyncSession) -> None:
     """A task in review with no reviewer verdict for review_silence_minutes: wake the reviewers up
-    again (when none is busy) and tell the lead. Waits another delay before the next reminder."""
+    again (when none is busy) and tell the lead. Waits another delay before the next reminder.
+    Past max_review_reminders for the head SHA, the lead gets one last notification and that is all."""
     cutoff = datetime.now(UTC) - timedelta(minutes=settings.review_silence_minutes)
     tasks = await s.scalars(select(Task).where(Task.status == TaskStatus.review, Task.pr_number.is_not(None)))
     roles = load_catalog()["roles"]
@@ -174,6 +175,13 @@ async def watch_silent_reviews(s: AsyncSession) -> None:
         if await _review_silent_since(s, task, reviews) >= cutoff:
             continue
         if workflow.reviewer_gave_verdict(reviews, task, roles):
+            continue
+        sent = await workflow.review_reminders_sent(s, task, "review_stalled", "review_abandoned")
+        if "review_abandoned" in sent:
+            continue
+        if sent.count("review_stalled") >= settings.max_review_reminders:
+            payload = {"task_id": task.id, "pr_url": task.pr_url, "head_sha": workflow.head_key(task), "reminders": len(sent)}
+            emit_event(s, task.project_id, "review_abandoned", payload, role="lead")
             continue
         await _remind_reviewers(s, task, roles)
     await s.commit()
@@ -202,7 +210,10 @@ async def _remind_reviewers(s: AsyncSession, task: Task, roles: dict[str, Role])
     )
     if not reviewers or busy is not None:
         return
-    payload = {"task_id": task.id, "pr_url": task.pr_url, "minutes": settings.review_silence_minutes}
+    payload = {
+        "task_id": task.id, "pr_url": task.pr_url, "minutes": settings.review_silence_minutes,
+        "head_sha": workflow.head_key(task),
+    }  # fmt: skip
     for reviewer in reviewers:  # Not by role: the assignee must never be asked to review their own PR
         emit_event(s, task.project_id, "review_overdue", payload, employee_id=reviewer.id)
     emit_event(s, task.project_id, "review_stalled", payload, role="lead")

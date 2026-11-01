@@ -130,6 +130,8 @@ class Settings(BaseSettings):
     idle_task_minutes: int = 10
     # Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told
     review_silence_minutes: int = Field(15, ge=1)
+    # Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it
+    max_review_reminders: int = Field(3, ge=1)
     # Minutes of calm on the team's branch, with no open task, before the lead is told changes wait for a release
     release_wait_minutes: int = 5
     # Seconds during which further changes of a task do not wake the lead again
