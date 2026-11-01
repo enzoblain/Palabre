@@ -15,11 +15,18 @@ from app.api.errors import ApiError, ErrorCode, api_error, validation_error
 from app.api.projects import _check_creation_mode
 from app.db import get_session
 from app.api.schemas import MemberIn, ProjectDetail, ProjectIn
-from app.company.catalog import MIN_AUTO_TEAM_SIZE, load_catalog
+from app.company.catalog import MIN_TEAM_SIZE, load_catalog
 from app.company.team import personality_for, random_personality
 
 LEAD = MemberIn(name="Elise", roles=["lead"])
 DEV = MemberIn(name="Mehdi", roles=["dev_backend"])
+TEAM = [LEAD, DEV, MemberIn(name="Malik", roles=["dev_backend"]), MemberIn(name="Nathan", roles=["reviewer"])]
+TEAM_PAYLOAD = [
+    {"name": "Elise", "roles": ["lead"]},
+    {"name": "Mehdi", "roles": ["dev_backend"]},
+    {"name": "Malik", "roles": ["dev_backend"]},
+    {"name": "Nathan", "roles": ["reviewer"]},
+]
 
 
 def _project(**fields) -> ProjectIn:
@@ -34,7 +41,12 @@ def _refused(body: ProjectIn, code: ErrorCode) -> None:
 
 
 def test_manual_accepts_a_team_with_its_mandatory_member():
-    _check_creation_mode(_project(creation_mode="manual", employees=[LEAD, DEV]), "company")
+    _check_creation_mode(_project(creation_mode="manual", employees=TEAM), "company")
+
+
+def test_manual_refuses_a_team_below_the_minimum():
+    body = _project(creation_mode="manual", employees=TEAM[: MIN_TEAM_SIZE - 1])
+    _refused(body, ErrorCode.TEAM_TOO_SMALL)
 
 
 def test_manual_refuses_a_missing_team():
@@ -42,12 +54,12 @@ def test_manual_refuses_a_missing_team():
 
 
 def test_auto_accepts_the_minimum_team():
-    body = _project(creation_mode="auto", description="A CRM", employee_count=MIN_AUTO_TEAM_SIZE)
+    body = _project(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE)
     _check_creation_mode(body, "company")
 
 
 def test_auto_refuses_a_team_below_the_minimum():
-    body = _project(creation_mode="auto", description="A CRM", employee_count=MIN_AUTO_TEAM_SIZE - 1)
+    body = _project(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE - 1)
     _refused(body, ErrorCode.TEAM_TOO_SMALL)
 
 
@@ -154,16 +166,15 @@ def _payload(**fields) -> dict:
 
 
 async def test_manual_creation_passes_only_the_team_to_the_project(projects_client):
-    team = [{"name": "Elise", "roles": ["lead"]}, {"name": "Mehdi", "roles": ["dev_backend"]}]
-    response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=team))
+    response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=TEAM_PAYLOAD))
     assert response.status_code == 201
     [fields] = projects_client.created
     assert not fields.keys() & projects_api.CREATION_FIELDS
-    assert [e["name"] for e in fields["employees"]] == ["Elise", "Mehdi"]
+    assert [e["name"] for e in fields["employees"]] == ["Elise", "Mehdi", "Malik", "Nathan"]
 
 
 async def test_auto_creation_does_not_pass_the_creation_fields(projects_client):
-    body = _payload(creation_mode="auto", description="A CRM", employee_count=MIN_AUTO_TEAM_SIZE)
+    body = _payload(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE)
     response = await projects_client.post("/projects", json=body)
     assert response.status_code == 201
     [fields] = projects_client.created
@@ -171,7 +182,7 @@ async def test_auto_creation_does_not_pass_the_creation_fields(projects_client):
 
 
 async def test_manual_creation_without_the_lead_is_refused(projects_client):
-    team = [{"name": "Mehdi", "roles": ["dev_backend"]}]
+    team = [{**member, "roles": ["dev_backend"]} for member in TEAM_PAYLOAD]
     response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=team))
     assert response.status_code == 422
     assert response.json()["code"] == ErrorCode.LEAD_REQUIRED
@@ -185,8 +196,16 @@ async def test_manual_creation_without_a_team_is_refused(projects_client):
 
 
 async def test_auto_creation_below_the_minimum_is_refused(projects_client):
-    body = _payload(creation_mode="auto", description="A CRM", employee_count=MIN_AUTO_TEAM_SIZE - 1)
+    body = _payload(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE - 1)
     response = await projects_client.post("/projects", json=body)
+    assert response.status_code == 422
+    assert response.json()["code"] == ErrorCode.TEAM_TOO_SMALL
+    assert projects_client.created == []
+
+
+async def test_manual_creation_below_the_minimum_is_refused(projects_client):
+    team = TEAM_PAYLOAD[: MIN_TEAM_SIZE - 1]
+    response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=team))
     assert response.status_code == 422
     assert response.json()["code"] == ErrorCode.TEAM_TOO_SMALL
     assert projects_client.created == []

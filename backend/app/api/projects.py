@@ -19,7 +19,7 @@ from app.api.schemas import (
     ProjectIn,
     ProjectOut,
 )
-from app.company.catalog import MANDATORY_ROLE, MIN_AUTO_TEAM_SIZE, load_catalog, team_permission_error
+from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
 from app.company.team import kind_of_mode, render_system_prompt
 from app.models import Employee, Project
 from app.orchestrator.dispatcher import orchestrator
@@ -95,8 +95,8 @@ def _invalid_creation(code: ErrorCode, message: str) -> ApiError:
 
 
 def _check_creation_mode(body: ProjectIn, kind: str) -> None:
-    """Manual: the team is listed and holds the mandatory member. Automatic: a description
-    and at least MIN_AUTO_TEAM_SIZE employees, no list."""
+    """Manual: the team is listed, has at least MIN_TEAM_SIZE members and holds the mandatory
+    member. Automatic: a description and at least MIN_TEAM_SIZE employees, no list."""
     if body.creation_mode is None:
         return
     if kind != "company":
@@ -104,14 +104,18 @@ def _check_creation_mode(body: ProjectIn, kind: str) -> None:
     if body.creation_mode == "manual":
         if body.employees is None:  # a listed team is checked by `_check_team`
             raise _invalid_creation(ErrorCode.LEAD_REQUIRED, f"A manual team is listed and holds the {MANDATORY_ROLE}")
+        if len(body.employees) < MIN_TEAM_SIZE:
+            raise _invalid_creation(
+                ErrorCode.TEAM_TOO_SMALL, f"A manual team needs at least {MIN_TEAM_SIZE} members"
+            )
         return
     if body.employees is not None:
         raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "An automatic team is not listed by hand")
     if not (body.description or "").strip():
         raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "An automatic team needs a project description")
-    if body.employee_count is None or body.employee_count < MIN_AUTO_TEAM_SIZE:
+    if body.employee_count is None or body.employee_count < MIN_TEAM_SIZE:
         raise _invalid_creation(
-            ErrorCode.TEAM_TOO_SMALL, f"An automatic team needs at least {MIN_AUTO_TEAM_SIZE} employees"
+            ErrorCode.TEAM_TOO_SMALL, f"An automatic team needs at least {MIN_TEAM_SIZE} employees"
         )
 
 
