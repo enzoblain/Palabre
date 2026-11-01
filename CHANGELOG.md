@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-01
+
+### Added
+
+- catalog: add "how it works" fields to the jobs of categories 16 to 20 (#336)
+- catalog: add how-it-works fields to the jobs of categories 1 to 5 (#333)
+
 ## [0.21.0] - 2026-11-01
 
 ### Added
@@ -568,7 +575,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/enzoblain/Palabre/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/enzoblain/Palabre/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/enzoblain/Palabre/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/enzoblain/Palabre/compare/v0.18.0...v0.19.0
