@@ -29,7 +29,7 @@ from app.models import (
 # NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
 from app.errors import ErrorCode, NothingToRelease, WorkflowError
 from app import worktrees
-from app.worktrees import sync_repo
+from app.worktrees import follow_main_branch, sync_repo
 
 log = logging.getLogger(__name__)
 
@@ -411,6 +411,21 @@ async def change_branch(s: AsyncSession, project: Project, branch: str, by: Empl
     await s.commit()
     await sync_repo(project)
     return await load_project(s, project.id)
+
+
+async def change_main_branch(project: Project, branch: str) -> str | None:
+    """Make an existing branch the repository's default (production) branch on GitHub, and
+    the local clone follow it. Creates and deletes no branch, and leaves the open PRs and
+    tasks alone (they target the team's branch).
+    Returns a warning when the team's branch was the old main branch, which stays as it is."""
+    repo = github.repo_slug(project.repo_url)
+    previous = await github.production_branch(repo)
+    if branch != previous:
+        await github.set_default_branch(repo, branch)
+    await follow_main_branch(project, branch)  # Also when already main: a retry heals a clone left behind
+    if branch != previous and project.default_branch == previous:
+        return f"The team still works on {previous}, the previous main branch: it was not moved to {branch}"
+    return None
 
 
 async def propose_release(s: AsyncSession, project: Project, room_id: int, title: str, summary: str, by: Employee) -> Decision:

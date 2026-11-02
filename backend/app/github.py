@@ -224,6 +224,11 @@ async def create_branch(repo: str, branch: str, from_branch: str) -> None:
     await _api("POST", f"/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": ref["object"]["sha"]})
 
 
+async def set_default_branch(repo: str, branch: str) -> None:
+    """Make an existing branch the repository's default (production) branch."""
+    await _api("PATCH", f"/repos/{repo}", json={"default_branch": branch})
+
+
 async def set_pull_request_base(repo: str, number: int, base: str) -> None:
     await _api("PATCH", f"/repos/{repo}/pulls/{number}", json={"base": base})
 

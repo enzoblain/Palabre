@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Model, Permission
 from app.github import BRANCH_PATTERN
@@ -227,16 +227,39 @@ class ProjectDetail(ProjectOut):
 
 
 class ProjectPatch(BaseModel):
-    """Editable infos of a project: only the name. The description is generated and the repository is fixed."""
+    """Editable infos of a project: its name and its main (production) branch, at least one of
+    them. The description is generated and the repository is fixed."""
 
-    name: str = Field(min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
+    name: str | None = Field(default=None, min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
+    main_branch: str | None = None
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str) -> str:
+    def _name_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         if not value.strip():
             raise ValueError("name must not be blank")
         return value.strip()
+
+    @field_validator("main_branch")
+    @classmethod
+    def _valid_main_branch(cls, value: str | None) -> str | None:
+        if value is not None and not re.match(BRANCH_PATTERN, value):
+            raise ValueError("not a valid branch name")
+        return value
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "ProjectPatch":
+        if self.name is None and self.main_branch is None:
+            raise ValueError("name or main_branch is required")
+        return self
+
+
+class ProjectUpdated(ProjectDetail):
+    """The project after an edit, with a warning when the change deserves the boss's attention."""
+
+    warning: str | None = None
 
 
 class ProjectsDelete(BaseModel):
