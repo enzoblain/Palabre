@@ -204,7 +204,7 @@ class ProjectOut(ORM):
 
 
 class ProjectListItem(ProjectOut):
-    # The lead's messages in direction the boss has not read yet
+    # The team's messages in direction the boss has not read yet
     unread_count: int
     # The lead has an open run in direction: the front shows the "typing" dots
     lead_writing: bool

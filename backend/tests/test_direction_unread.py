@@ -90,3 +90,47 @@ async def test_lead_not_writing_when_the_run_is_over_or_orphan(db):
     ])  # fmt: skip
     await db.flush()
     assert await presence.leads_writing(db) == set()
+
+
+@pytest.fixture
+async def api(db):
+    from httpx import ASGITransport, AsyncClient
+
+    from app.db import get_session
+    from app.main import app
+
+    async def session():
+        yield db
+
+    app.dependency_overrides[get_session] = session
+    headers = {"Authorization": f"Bearer {settings.admin_token}"}
+    transport = ASGITransport(app=app, client=("4.4.4.4", 1))
+    async with AsyncClient(transport=transport, base_url="http://t", headers=headers) as client:
+        yield client
+    app.dependency_overrides.pop(get_session, None)
+
+
+async def test_project_list_exposes_unread_count_and_lead_writing(db, api):
+    project, lead, direction, _ = await _project(db)
+    db.add_all([_say(direction, lead), _say(direction, lead), _run(lead, direction)])
+    await db.flush()
+    response = await api.get("/api/projects")
+    assert response.status_code == 200
+    item = next(p for p in response.json() if p["id"] == project.id)
+    assert item["unread_count"] == 2
+    assert item["lead_writing"] is True
+
+
+async def test_mark_direction_read_endpoint_resets_the_counter(db, api):
+    project, lead, direction, _ = await _project(db)
+    db.add(_say(direction, lead))
+    await db.flush()
+    response = await api.post(f"/api/projects/{project.id}/direction/read")
+    assert response.status_code == 200
+    assert response.json()["unread_count"] == 0
+    assert response.json()["lead_writing"] is False
+
+
+async def test_mark_direction_read_unknown_project_is_404(api):
+    response = await api.post("/api/projects/999/direction/read")
+    assert response.status_code == 404
