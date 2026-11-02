@@ -35,12 +35,21 @@ function formatSentAt(value: string): string {
   return parseDate(value).toLocaleString(locale(), { dateStyle: "long", timeStyle: "medium" });
 }
 
+const COPY_LABEL_KEYS = {
+  idle: "conv.copy",
+  copied: "conv.copied",
+  failed: "conv.copyFailed",
+} as const;
+
 /** The Copy and Info actions of a bubble; Info shows when the message was sent. */
 function BubbleMenu({ message, onClose }: { message: Message; onClose: () => void }) {
   const { t } = useI18n();
   const [showInfo, setShowInfo] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
   useEffect(() => {
     ref.current?.querySelector("button")?.focus();
@@ -59,13 +68,14 @@ function BubbleMenu({ message, onClose }: { message: Message; onClose: () => voi
   }, [onClose]);
 
   async function copy() {
-    setCopied(await copyText(message.content));
-    window.setTimeout(onClose, COPIED_FEEDBACK_MS);
+    const succeeded = await copyText(message.content);
+    setCopyState(succeeded ? "copied" : "failed");
+    if (succeeded) closeTimer.current = window.setTimeout(onClose, COPIED_FEEDBACK_MS);
   }
 
   return (
     <div className="bubble-menu" role="menu" ref={ref}>
-      <button role="menuitem" onClick={copy}>{copied ? t("conv.copied") : t("conv.copy")}</button>
+      <button role="menuitem" onClick={copy}>{t(COPY_LABEL_KEYS[copyState])}</button>
       <button role="menuitem" aria-expanded={showInfo} onClick={() => setShowInfo(true)}>{t("conv.info")}</button>
       {showInfo && <p className="bubble-info" role="status">{t("conv.sentAt", { date: formatSentAt(message.created_at) })}</p>}
     </div>
