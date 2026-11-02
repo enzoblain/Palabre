@@ -491,6 +491,42 @@ def test_upgrade_adds_missing_check_on_existing_postgres_table():
     assert alters[0].endswith("NOT VALID")
 
 
+def _fake_postgres_connection(stored_definition, ran):
+    from types import SimpleNamespace
+
+    class Result:
+        def scalar(self):
+            return stored_definition
+
+    def execute(statement, params):
+        ran.append(("select", str(statement), params))
+        return Result()
+
+    return SimpleNamespace(
+        dialect=SimpleNamespace(name="postgresql"),
+        execute=execute,
+        exec_driver_sql=lambda sql: ran.append(("raw", sql, None)),
+    )
+
+
+@pytest.mark.parametrize(
+    ("stored_definition", "dropped"),
+    [("CHECK (request_status IN ('pending'))", True), ("CHECK (request_status IN ('answered'))", False), (None, False)],
+)
+def test_widen_request_status_check_drops_only_a_stale_constraint(stored_definition, dropped):
+    from app import db
+    from app.models import REQUEST_STATUS_CHECK
+
+    ran = []
+    db._widen_request_status_check(_fake_postgres_connection(stored_definition, ran))
+    kind, statement, params = ran[0]
+    assert kind == "select" and ":name" in statement and "%s" not in statement
+    assert params == {"name": REQUEST_STATUS_CHECK}
+    drops = [sql for kind, sql, _ in ran if kind == "raw"]
+    assert bool(drops) is dropped
+    assert all(REQUEST_STATUS_CHECK in sql and sql.startswith("ALTER TABLE messages DROP") for sql in drops)
+
+
 # --- The boss answers in the chat ----------------------------------------------------
 
 
