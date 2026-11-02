@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app import models  # noqa: F401 (registers tables)
 from app import agent_pool, anthropic_proxy, egress_proxy, services
@@ -18,7 +19,7 @@ from app.company.catalog import load_catalog
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
-from app.worktrees import remove_stale_desks
+from app.worktrees import remove_project_files, remove_stale_desks
 from app.hardening import make_non_dumpable
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
@@ -40,6 +41,14 @@ mcp_app = mcp.streamable_http_app(
 )
 
 
+async def upgrade_database(database_engine: AsyncEngine) -> None:
+    """Upgrade the schema, then remove the on-disk files of the projects it dropped."""
+    async with database_engine.begin() as conn:
+        dropped_project_ids = await conn.run_sync(upgrade_schema)
+    for project_id in dropped_project_ids:
+        await remove_project_files(project_id)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     for name in removed_settings_present():
@@ -52,8 +61,7 @@ async def lifespan(_: FastAPI):
     agent_pool.check()
     load_catalog()  # an invalid catalog file stops the backend here, with its name
     # TODO: Alembic migrations
-    async with engine.begin() as conn:
-        await conn.run_sync(upgrade_schema)
+    await upgrade_database(engine)
     async with SessionLocal() as s:
         await services.load_app_settings(s)
         await refresh_permissions(s)

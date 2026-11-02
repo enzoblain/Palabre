@@ -175,9 +175,10 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
         await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
         await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
         with caplog.at_level("INFO", logger="app.db"):
-            await conn.run_sync(_drop_research_projects)
+            dropped = await conn.run_sync(_drop_research_projects)
         assert "1 research project" in caplog.text
-        await conn.run_sync(_drop_research_projects)  # idempotent
+        assert dropped == [research.id]  # the caller removes their files
+        assert await conn.run_sync(_drop_research_projects) == []  # idempotent: nothing left to clean
         columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
         remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
         children = {
@@ -189,3 +190,32 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
     assert remaining == [company.id]
     assert children == {"employees": {company.id}, "rooms": {company.id}}
     assert messages == 1
+
+
+async def test_upgrade_database_removes_the_files_of_dropped_research_projects_only(db, tmp_path, monkeypatch):
+    from sqlalchemy import text
+
+    from app.config import settings
+    from app.db import RESEARCH_COLUMNS
+    from app.main import upgrade_database
+
+    monkeypatch.setattr(settings, "projects_dir", tmp_path)
+    research = await make_project(db, "scaleup")
+    company = await make_project(db, "startup")
+    await db.commit()
+    async with db.bind.begin() as conn:
+        for column in RESEARCH_COLUMNS:
+            await conn.execute(text(f"ALTER TABLE projects ADD COLUMN {column} TEXT"))
+        await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
+        await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
+    research_dir, company_dir = tmp_path / f"project-{research.id}", tmp_path / f"project-{company.id}"
+    for folder in (research_dir, company_dir):
+        (folder / "desks").mkdir(parents=True)
+        (folder / "desks" / "draft.md").write_text("notes")
+
+    await upgrade_database(db.bind)
+    assert not research_dir.exists()
+    assert (company_dir / "desks" / "draft.md").read_text() == "notes"
+
+    await upgrade_database(db.bind)  # second pass: nothing more to remove
+    assert (company_dir / "desks" / "draft.md").exists()
