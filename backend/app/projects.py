@@ -784,7 +784,8 @@ async def settle_decision_for_boss(
     s: AsyncSession, project_id: int, lead: Employee, decision_id: int, answer: RequestAnswer, comment: str
 ) -> Decision:
     """The lead records the boss's reply to a decision (the boss answers in the chat, the lead interprets it).
-    A validated release is refused: merge_release ships it after its checks."""
+    A validated release is refused: merge_release ships it after its checks,
+    and so is a validation while the boss has not answered any request about the decision."""
     decision = await s.scalar(
         select(Decision)
         .where(Decision.id == decision_id, Decision.room_id.in_(select(Room.id).where(Room.project_id == project_id)))
@@ -796,9 +797,20 @@ async def settle_decision_for_boss(
         raise WorkflowError(f"Decision #{decision_id} is already {decision.status.value}")
     if decision.pr_number is not None and answer == RequestAnswer.validated:
         raise WorkflowError(f"Decision #{decision_id} is a release: ship it with merge_release")
+    if answer == RequestAnswer.validated:
+        await _require_boss_reply(s, decision)
     await settle_decision(s, decision, answer, comment.strip(), wake_proposer=decision.proposed_by != lead.name)
     await s.commit()
     return decision
+
+
+async def _require_boss_reply(s: AsyncSession, decision: Decision) -> None:
+    """Refuse to validate a decision whose requests to the boss have no answer yet."""
+    statuses = set(await s.scalars(select(Message.request_status).where(Message.request_decision_id == decision.id)))
+    if statuses and RequestStatus.answered.value not in statuses:
+        raise WorkflowError(
+            f"Decision #{decision.id} has requests to the boss but none is answered: wait for their reply in direction"
+        )
 
 
 async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:

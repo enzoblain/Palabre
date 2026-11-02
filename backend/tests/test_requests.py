@@ -584,10 +584,34 @@ async def test_the_lead_settles_a_decision_for_the_boss(tidy_db):
     assert done.status == DecisionStatus.rejected and done.decided_at is not None
 
 
+async def test_validation_needs_a_boss_reply_when_requests_exist(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, linked = await _linked_request(s, project, lead)
+    with pytest.raises(WorkflowError, match="none is answered"):
+        await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
+    assert decision.status == DecisionStatus.proposed
+    await services.answer_pending_requests(s, project.id, await _reply(s, project, linked.conversation_id))
+    done = await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
+    assert done.status == DecisionStatus.validated
+
+
+async def test_a_decision_without_request_can_be_validated(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    room_id = await s.scalar(select(Room.id).where(Room.kind == "direction"))
+    decision = Decision(room_id=room_id, title="D", proposed_by="Louise")
+    s.add(decision)
+    await s.flush()
+    done = await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
+    assert done.status == DecisionStatus.validated
+
+
 async def test_a_decision_is_settled_once(tidy_db):
     s = tidy_db
     project, lead, _ = await _direction(s)
-    decision, _ = await _linked_request(s, project, lead)
+    decision, linked = await _linked_request(s, project, lead)
+    await services.answer_pending_requests(s, project.id, await _reply(s, project, linked.conversation_id))
     await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
     with pytest.raises(WorkflowError, match="already validated"):
         await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.rejected, "")
