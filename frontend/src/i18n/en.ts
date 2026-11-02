@@ -73,6 +73,7 @@ export const en = {
   "error.github_not_configured": "GitHub is not configured for this project",
   "error.invalid_github_url": "Invalid GitHub URL",
   "error.github_branch_missing": "The branch does not exist on GitHub",
+  "error.invalid_main_branch": "This branch cannot be the main branch",
   "error.production_branch_boss_only": "Only the boss can change the production branch",
   "error.not_found": "Not found",
 

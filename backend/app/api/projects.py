@@ -186,15 +186,31 @@ async def get_project(project_id: int, s: SessionDep):
     return _detail(await _project(s, project_id))
 
 
+def _check_main_branch_allowed(project: Project, branch: str) -> None:
+    """The team's branch or a task branch as main would send agent merges straight to production."""
+    if branch == project.default_branch:
+        reason = "it is the team's working branch"
+    elif github.is_task_branch_name(branch):
+        reason = "it is a task branch"
+    else:
+        return
+    raise ApiError(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        ErrorCode.INVALID_MAIN_BRANCH,
+        f"The branch '{branch}' cannot be the main branch: {reason}",
+    )
+
+
 @router.patch("/projects/{project_id}", response_model=ProjectUpdated)
 async def update_project(project_id: int, body: ProjectPatch, s: SessionDep):
     """Rename a project and/or change its main (production) branch, which must already exist
-    on GitHub (422 `github_branch_missing` otherwise; no branch is created or deleted). The
+    on GitHub (422 `github_branch_missing` otherwise; 422 `invalid_main_branch` for the team's branch or a task branch; no branch is created or deleted). The
     `warning` says so when the team still works on the previous main branch. The description
     and the GitHub repository cannot be edited."""
     project = await _project(s, project_id)
     warning = None
     if body.main_branch is not None:
+        _check_main_branch_allowed(project, body.main_branch)
         if not await github.branch_exists(github.repo_slug(project.repo_url), body.main_branch):
             raise ApiError(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,

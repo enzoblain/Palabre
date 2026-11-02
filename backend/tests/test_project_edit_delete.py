@@ -166,3 +166,14 @@ async def test_update_to_the_current_main_branch_still_syncs_the_clone(db, githu
     detail = await api.update_project(project.id, ProjectPatch(main_branch="main"), db)
     assert github_calls["default"] == [] and github_calls["followed"] == ["main"]
     assert detail.warning is None
+
+
+@pytest.mark.parametrize("branch", ["dev", "task/429", "feat/12-main-branch"])
+async def test_update_refuses_the_team_branch_and_task_branches_as_main(db, github_calls, branch):
+    project = await _project(db)
+    project.default_branch = "dev"
+    github_calls["existing"].add(branch)
+    with pytest.raises(ApiError) as error:
+        await api.update_project(project.id, ProjectPatch(main_branch=branch, name="New"), db)
+    assert error.value.status_code == 422 and error.value.code == ErrorCode.INVALID_MAIN_BRANCH
+    assert github_calls["default"] == [] and github_calls["followed"] == [] and project.name == "P"

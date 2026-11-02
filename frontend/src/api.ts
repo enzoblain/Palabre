@@ -281,6 +281,7 @@ export const ERROR_CODES = [
   "invalid_github_url",
   "github_branch_missing",
   "production_branch_boss_only",
+  "invalid_main_branch",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 

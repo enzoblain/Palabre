@@ -74,6 +74,7 @@ export const fr: Messages = {
   "error.github_not_configured": "GitHub n’est pas configuré pour ce projet",
   "error.invalid_github_url": "URL GitHub invalide",
   "error.github_branch_missing": "La branche n’existe pas sur GitHub",
+  "error.invalid_main_branch": "Cette branche ne peut pas être la branche principale",
   "error.production_branch_boss_only": "Seul le boss peut changer la branche de production",
   "error.not_found": "Introuvable",
 
