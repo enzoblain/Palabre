@@ -153,7 +153,6 @@ export const fr: Messages = {
   "settings.connectedTo": "Connecté à {server}",
   "settings.disconnect": "Se déconnecter",
 
-
   "new.title": "Nouveau projet",
   "new.sectionProject": "Projet",
   "new.name": "Nom",
@@ -266,7 +265,6 @@ export const fr: Messages = {
   "request.link": "la demande #{id}",
   "request.mergedAnother": "Fusionnée dans une autre demande",
   "request.withdrawn": "Retirée par le lead",
-
 
   "task.todo": "à faire",
   "task.in_progress": "en cours",

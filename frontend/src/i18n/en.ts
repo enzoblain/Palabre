@@ -152,7 +152,6 @@ export const en = {
   "settings.connectedTo": "Connected to {server}",
   "settings.disconnect": "Disconnect",
 
-
   "new.title": "New project",
   "new.sectionProject": "Project",
   "new.name": "Name",
@@ -265,7 +264,6 @@ export const en = {
   "request.link": "request #{id}",
   "request.mergedAnother": "Merged into another request",
   "request.withdrawn": "Withdrawn by the lead",
-
 
   "task.todo": "to do",
   "task.in_progress": "in progress",
