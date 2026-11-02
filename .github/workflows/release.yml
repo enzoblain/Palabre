@@ -68,5 +68,5 @@ jobs:
               repo: context.repo.repo,
               tag_name: tag,
               name: `Palabre ${tag}`,
-              body: `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see the README).`,
+              body: `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see docs/install.md).`,
             });

@@ -2,7 +2,7 @@
 
 The server port only listens on `127.0.0.1`, so the `ADMIN_TOKEN` never crosses the network in
 clear text. To use the app from another machine, put a reverse proxy with TLS in front of
-the web port (Caddy, nginx, Traefik...) and open its `https://` address. For example
+the server port `2710` (Caddy, nginx, Traefik...) and open its `https://` address. For example
 with Caddy, which gets the certificate by itself:
 
 ```
