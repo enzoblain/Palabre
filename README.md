@@ -130,11 +130,14 @@ token, `204`): earlier runs stop counting and held wakeups of that conversation 
 
 Along the way the team holds a daily stand-up, records decisions in each room's shared
 document, and asks you when something is yours to decide. There is no inbox: the lead puts
-what waits for you in the direction channel as a request, a message with three answers,
-Validate, Reject or Nuance (a free comment, required). You answer once; the answer shows
-in the thread and wakes the lead up with your comment (`POST /api/messages/{id}/answer`).
+what waits for you in the direction channel as a request: a normal message from the lead, with
+no button. You answer in plain words, like in any chat. Your next message in direction closes every
+request still waiting (status `answered`, your message as comment, so none stays open) and wakes the
+lead up with your reply and the requests it answers (`ceo_answer`); the lead interprets it ("ok" is a
+yes, a condition is not) and acts. For a decision the lead records the outcome with `settle_decision`
+(`validated` or `rejected`).
 Proposed decisions, releases and escalations to the boss become such requests on their own. A decision the boss already took in the conversation is recorded by the lead with `add_decision(decided_by_boss=True)`: it is saved `validated` right away, with no request in direction (any other role is refused). Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
-The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
+The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it, by replying in the chat. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
 channel: its conclusions are validated from the Report tab of the app. On upgrade, what waited in the old
 inbox is turned into requests in direction.
 
@@ -143,9 +146,10 @@ missing (an empty repository gets its default branch, `main` unless GitHub says 
 task's pull request targets it. Only a release reaches production. To switch an existing
 project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
 (`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
-request from `dev` to production and asks you in direction: Validate merges it, Reject closes
-it, Nuance leaves it open for the lead to rework. The lead never merges into the
-repository's default branch: that one is yours.
+request from `dev` to production and asks you in direction. You answer in the chat: when you say yes the lead
+ships it with `merge_release`, when you say no the lead closes it with `settle_decision` (`rejected`), and
+anything else is a request to rework it. Without your go the lead does not merge into the
+repository's default branch.
 
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is
 green on it, whatever the company size, and only if the PR has not moved since (a task
@@ -156,7 +160,7 @@ Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump t
 a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
 wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
 already exists, or a version that differs from `frontend/package.json`, its lock or `docker-compose.yml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json` and `docker-compose.yml` (edited directly, no npm on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It is recomputed on every call (a commit merged after the bump joins the entry, and the version follows the bump level) and commits only if a file changes, never an empty commit. It refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
-the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
+the catalog); `propose_release` and your chat reply stay available when the lead wants your opinion.
 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
 shows every open one, and `close_pull_request` closes one with a comment and deletes its

@@ -262,6 +262,7 @@ async def post_system_message(s: AsyncSession, conversation_id: int, content: st
 
 REQUEST_KINDS = {"decision", "release", "escalation", "question"}
 MAX_MERGED_REQUESTS = 50
+ANSWERED_REQUEST_PREVIEW = 400
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
@@ -295,7 +296,7 @@ async def ask_boss(
     decision_id: int | None = None,
     commit: bool = True,
 ) -> Message | None:
-    """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    """Post a message in direction that the boss answers by writing in the channel.
     Only the lead speaks in direction: a request from another member is stored under the lead,
     who owns every request in direction (the author is kept in request_author_id, not in the text).
     Returns None where there is no direction (research groups): the boss reads the room instead."""
@@ -316,6 +317,39 @@ async def ask_boss(
         request_kind=kind, request_decision_id=decision_id,
         request_author_id=request_author_id, commit=commit,
     )  # fmt: skip
+
+
+async def answer_pending_requests(s: AsyncSession, project_id: int, reply: Message) -> list[Message]:
+    """The boss's message answers every request of direction still pending: they are closed with it as
+    their comment, so none stays open. Returns them, oldest first, for the lead to interpret."""
+    pending = list(
+        await s.scalars(
+            select(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .join(Room, Room.id == Conversation.room_id)
+            .where(
+                Room.project_id == project_id,
+                Room.kind == DIRECTION,
+                Message.request_kind.is_not(None),
+                Message.request_status == RequestStatus.pending.value,
+                Message.id < reply.id,
+            )
+            .order_by(Message.id)
+            .with_for_update(of=Message)  # the lead withdrawing at the same time: one of the two wins
+        )
+    )
+    for message in pending:
+        _close_request(message, RequestStatus.answered, reply.content)
+    return pending
+
+
+def describe_answered_requests(requests: list[Message]) -> str:
+    """The closed requests as the lead reads them in the wakeup: id, kind, decision and content."""
+    lines = []
+    for message in requests:
+        about = f", about decision #{message.request_decision_id}" if message.request_decision_id is not None else ""
+        lines.append(f"#{message.id} ({message.request_kind}{about}): {message.content[:ANSWERED_REQUEST_PREVIEW]}")
+    return "\n".join(lines)
 
 
 def _pending_requests_query(project_id: int, author: Employee) -> Select:
@@ -353,7 +387,7 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
                 Room.kind == DIRECTION,
                 Message.request_kind.is_not(None),
             )
-            .with_for_update()  # the boss answering at the same time: one of the two wins
+            .with_for_update(of=Message)  # the boss answering at the same time: one of the two wins
         )
     }
     for request_id in ids:

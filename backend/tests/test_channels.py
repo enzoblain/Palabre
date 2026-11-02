@@ -10,7 +10,7 @@ from app.api import conversations
 from app.api.schemas import MessageIn
 from app.company.catalog import load_catalog
 from app.errors import WorkflowError
-from app.models import Conversation, Event, Project, Room
+from app.models import Conversation, Event, Message, Project, Room
 from app.orchestrator.prompts import reason_for
 
 from .conftest import make_employee
@@ -43,7 +43,7 @@ class FakeApiSession:
 @pytest.fixture
 def posted(monkeypatch):
     """Records what the boss posted, and the events that follow."""
-    log = SimpleNamespace(messages=[], events=[])
+    log = SimpleNamespace(messages=[], events=[], payloads=[], answered=[])
 
     async def post_message(_s, _project_id, conversation_id, content, author):
         log.messages.append((conversation_id, content, author))
@@ -51,8 +51,13 @@ def posted(monkeypatch):
 
     def emit_event(_s, _project_id, type, payload=None, *, employee_id=None, role=None):
         log.events.append((type, role))
+        log.payloads.append(payload)
+
+    async def answer_pending_requests(_s, _project_id, _reply):
+        return log.answered
 
     monkeypatch.setattr(conversations.services, "post_message", post_message)
+    monkeypatch.setattr(conversations.services, "answer_pending_requests", answer_pending_requests)
     monkeypatch.setattr(conversations.services, "emit_event", emit_event)
     monkeypatch.setattr(conversations, "start_question", lambda *_: log.events.append(("research", None)))
     return log
@@ -69,6 +74,13 @@ async def test_boss_writes_in_direction_and_only_the_lead_is_woken(posted):
     await conversations.post_message(1, MessageIn(content="hello"), FakeApiSession("direction"))
     assert posted.messages == [(1, "hello", None)]
     assert posted.events == [("boss_message", "lead")]
+
+
+async def test_boss_reply_wakes_the_lead_with_the_requests_it_answers(posted):
+    posted.answered.append(Message(id=4, request_kind="release", request_decision_id=2, content="Ship 1.2?"))
+    await conversations.post_message(1, MessageIn(content="ok"), FakeApiSession("direction"))
+    assert posted.events == [("ceo_answer", "lead")]
+    assert posted.payloads[0]["requests"] == "#4 (release, about decision #2): Ship 1.2?"
 
 
 async def test_research_group_has_no_direction(posted):
@@ -368,3 +380,8 @@ def test_research_report_stays_the_summary_exception() -> None:
 def test_scribe_summary_responsibility_targets_the_project() -> None:
     scribe = load_catalog()["roles"]["scribe"]
     assert any("summary of the project" in item for item in scribe.responsibilities)
+
+
+def test_the_lead_wakeup_lists_the_answered_requests():
+    reason = reason_for("ceo_answer", {"message_id": 9, "requests": "#4 (question): Ship it?"})
+    assert "#4 (question): Ship it?" in reason and "interpret" in reason

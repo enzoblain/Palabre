@@ -39,6 +39,7 @@ MCP_TOOLS: dict[str, set[str]] = {
     "ask_ceo": {"manage_channels"},  # the lead, who alone talks to the boss
     "list_pending_requests": {"manage_channels"},
     "withdraw_request": {"manage_channels"},
+    "settle_decision": {"manage_channels"},  # the lead records the boss's reply to a decision
     "merge_requests": {"manage_channels"},
     "install_toolchain": {"manage_toolchains"},
     "fetch_page": {"research"},  # run by the backend: the agents' sandbox has no free network

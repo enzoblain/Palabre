@@ -618,7 +618,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     )
     if pending is not None:
         await settle_decision(
-            s, pending, RequestAnswer.validated, "Merged by the lead, without the boss's answer",
+            s, pending, RequestAnswer.validated, "Merged by the lead",
             wake_proposer=False, merge_sha=head_sha,
         )  # fmt: skip
         await s.commit()
@@ -755,22 +755,15 @@ async def settle_decision(
     wake_proposer: bool = True,
     merge_sha: str | None = None,
 ) -> None:
-    """Apply the boss's answer to a decision. A release is merged when validated and closed
-    when rejected (GitHub refusing the merge raises and leaves everything as it was). A
-    nuanced answer leaves a decision proposed; a nuanced release is dropped but its PR stays
-    open, so the lead can reshape it and propose it again."""
+    """Apply an answer to a decision. A release is merged when validated and closed when rejected
+    (GitHub refusing the merge raises and leaves everything as it was)."""
     room = await s.get(Room, decision.room_id)
-    is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
-    if is_release and answer != RequestAnswer.nuanced:
+    if decision.pr_number is not None and decision.status == DecisionStatus.proposed:
         project = await load_project(s, room.project_id)
         await settle_release(project, decision, answer == RequestAnswer.validated, merge_sha)
-    if answer == RequestAnswer.nuanced:
-        status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
-    else:
-        status = DecisionStatus(answer.value)
+    status = DecisionStatus(answer.value)
     now = datetime.now(UTC)
-    if status != DecisionStatus.proposed:
-        decision.status, decision.decided_at = status, now
+    decision.status, decision.decided_at = status, now
     payload = {"decision_id": decision.id, "status": answer.value, "room_id": room.id}
     services.emit_event(s, room.project_id, "decision_changed", payload)
     if wake_proposer:
@@ -779,7 +772,7 @@ async def settle_decision(
         )
         if proposer is not None:
             services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
-    # The requests asking the boss about this decision are answered
+    # The requests asking the boss about this decision are settled with it
     await s.execute(
         update(Message)
         .where(Message.request_decision_id == decision.id, Message.request_status == "pending")
@@ -787,36 +780,25 @@ async def settle_decision(
     )
 
 
-async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer, comment: str = "") -> Message:
-    """The boss answers a request of the lead, once. The answer is stored on the message and
-    wakes the lead up with it; a request about a decision or a release settles it too."""
-    message = await s.get(Message, message_id, with_for_update=True)  # two clicks: one answer
-    if message is None or message.request_kind is None:
-        raise WorkflowError(f"Message #{message_id} does not ask anything")
-    if message.request_status != "pending":
-        raise WorkflowError(f"Message #{message_id} was already answered ({message.request_status})")
-    conversation = await s.get(Conversation, message.conversation_id)
-    room = await s.get(Room, conversation.room_id)
-    comment = comment.strip()
-    employees = await s.scalars(select(Employee).where(Employee.project_id == room.project_id))
-    lead = next((e for e in employees if "lead" in e.roles), None)
-    if message.request_decision_id is not None:
-        decision = await s.get(Decision, message.request_decision_id)
-        if decision is not None:
-            # The lead is woken by the answer itself: no second wakeup for their own proposal
-            await settle_decision(s, decision, answer, comment, wake_proposer=lead is None or decision.proposed_by != lead.name)
-    message.request_status = answer.value
-    message.request_comment = comment or None
-    message.request_answered_at = datetime.now(UTC)
-    if lead is not None:
-        payload = {
-            "conversation_id": message.conversation_id, "message_id": message.id,
-            "answer": answer.value, "comment": comment or "(no comment)", "request": message.request_kind,
-            "asked_by": message.author_name,
-        }  # fmt: skip
-        services.emit_event(s, room.project_id, "ceo_answer", payload, employee_id=lead.id)
+async def settle_decision_for_boss(
+    s: AsyncSession, project_id: int, lead: Employee, decision_id: int, answer: RequestAnswer, comment: str
+) -> Decision:
+    """The lead records the boss's reply to a decision (the boss answers in the chat, the lead interprets it).
+    A validated release is refused: merge_release ships it after its checks."""
+    decision = await s.scalar(
+        select(Decision)
+        .where(Decision.id == decision_id, Decision.room_id.in_(select(Room.id).where(Room.project_id == project_id)))
+        .with_for_update()
+    )
+    if decision is None:
+        raise WorkflowError(f"Decision #{decision_id} does not exist")
+    if decision.status != DecisionStatus.proposed:
+        raise WorkflowError(f"Decision #{decision_id} is already {decision.status.value}")
+    if decision.pr_number is not None and answer == RequestAnswer.validated:
+        raise WorkflowError(f"Decision #{decision_id} is a release: ship it with merge_release")
+    await settle_decision(s, decision, answer, comment.strip(), wake_proposer=decision.proposed_by != lead.name)
     await s.commit()
-    return message
+    return decision
 
 
 async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:

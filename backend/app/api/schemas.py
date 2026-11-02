@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Kind, Model, Permission
 from app.github import BRANCH_PATTERN
@@ -329,17 +329,6 @@ class MessageOut(ORM):
     request_merged_into: int | None = None
     request_decision_id: int | None = None
     request_author_id: int | None = None
-
-
-class RequestAnswerIn(BaseModel):
-    answer: Literal["validated", "rejected", "nuanced"]
-    comment: str = ""
-
-    @model_validator(mode="after")
-    def nuance_needs_a_comment(self):
-        if self.answer == "nuanced" and not self.comment.strip():
-            raise ValueError("A nuanced answer needs a comment")
-        return self
 
 
 # --- Tasks -------------------------------------------------------------------------

@@ -46,18 +46,20 @@ class DecisionStatus(str, enum.Enum):
 
 
 class RequestAnswer(str, enum.Enum):
-    """How the boss answers a request of the lead (Message.request_status)."""
+    """How a decision is settled (Decision.status, and the requests asking about it)."""
 
     validated = "validated"
     rejected = "rejected"
-    nuanced = "nuanced"
 
 
 class RequestStatus(str, enum.Enum):
     """Where a request to the boss stands (Message.request_status): waiting, answered by the
-    boss (RequestAnswer values), or closed by the lead without an answer."""
+    boss's next message (answered), settled with its decision (RequestAnswer values), or closed by the
+    lead without an answer. nuanced is no longer produced: it only labels requests answered before the
+    boss replied in free text."""
 
     pending = "pending"
+    answered = "answered"
     validated = "validated"
     rejected = "rejected"
     nuanced = "nuanced"
@@ -248,8 +250,8 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    # A request to the boss ("decision", "release", "escalation", "question"), answered
-    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then,
+    # A request to the boss ("decision", "release", "escalation", "question"); request_status is
+    # "pending" until the boss's next message closes it ("answered", the comment is their reply),
     # or until the lead withdraws it (the comment is their reason) or merges it into another
     request_kind: Mapped[str | None] = mapped_column(String(20))
     request_status: Mapped[str | None] = mapped_column(String(20))

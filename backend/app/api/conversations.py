@@ -6,11 +6,11 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import github, projects, services
+from app import services
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
-from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut, RequestAnswerIn
-from app.models import Conversation, Employee, Event, Message, Project, RequestAnswer, Room, Wakeup
+from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut
+from app.models import Conversation, Employee, Event, Message, Project, Room, Wakeup
 from app.orchestrator.dispatcher import orchestrator
 from app.orchestrator.research import start_question
 
@@ -74,6 +74,7 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
             "The boss only writes in the direction channel; the other channels are read-only",
         )
     message = await services.post_message(s, room.project_id, conversation_id, body.content, None)
+    answered = [] if project.kind == "research" else await services.answer_pending_requests(s, room.project_id, message)
     mentioned = await s.scalar(
         select(Event.id).where(
             Event.type == "mention",
@@ -81,19 +82,25 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
             Event.payload["message_id"].as_integer() == message.id,
         )
     )
-    if mentioned is None:
-        if project.kind == "research":
+    if project.kind == "research":
+        if mentioned is None:
             # A new question for the group: it goes through the research phases again
             start_question(s, project, conversation_id, message.id)
-        else:
-            services.emit_event(
-                s, room.project_id, "boss_message", {"conversation_id": conversation_id, "message_id": message.id},
-                role="lead",
-            )  # fmt: skip
+    elif mentioned is None or answered:  # a mention does not tell the lead which requests were answered
+        _wake_lead(s, room.project_id, conversation_id, message, answered)
     # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
     await _clear_throttle(s, conversation_id)
     await s.commit()
     return message
+
+
+def _wake_lead(s: AsyncSession, project_id: int, conversation_id: int, message: Message, answered: list[Message]) -> None:
+    """The boss wrote to the lead. Their message answered the pending requests (already closed): the lead
+    is woken up with them, to interpret the reply."""
+    payload = {"conversation_id": conversation_id, "message_id": message.id}
+    if answered:
+        payload["requests"] = services.describe_answered_requests(answered)
+    services.emit_event(s, project_id, "ceo_answer" if answered else "boss_message", payload, role="lead")
 
 
 async def _clear_throttle(s: AsyncSession, conversation_id: int) -> None:
@@ -123,18 +130,3 @@ async def lift_rate_limit(conversation_id: int, s: SessionDep):
     await orchestrator.lift_rate_limit(s, room.project_id, conversation_id)
     await _clear_throttle(s, conversation_id)
     await s.commit()
-
-
-@router.post("/messages/{message_id}/answer", response_model=MessageOut)
-async def answer_request(message_id: int, body: RequestAnswerIn, s: SessionDep):
-    """The boss answers a request of the lead: validate, reject or nuance (with a comment).
-    Only once. Validating a release merges its pull request. The lead is woken up with the answer."""
-    await get_or_404(s, Message, message_id)
-    try:
-        return await projects.answer_request(s, message_id, RequestAnswer(body.answer), body.comment)
-    except github.GitHubError as exc:
-        raise ApiError(
-            status.HTTP_409_CONFLICT,
-            ErrorCode.GITHUB_MERGE_REFUSED,
-            f"GitHub refused the merge: {exc}",
-        ) from None

@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type RequestAnswer, type ResearchPhase, type Room, api } from "../api";
-import { type Key, useI18n } from "../i18n";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type ResearchPhase, type Room, api } from "../api";
+import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
 import { Avatar } from "./Avatar";
@@ -28,45 +28,9 @@ function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: numbe
   );
 }
 
-const ANSWERED = { validated: "request.youValidated", rejected: "request.youRejected", nuanced: "request.youNuanced" } as const satisfies Record<RequestAnswer, Key>;
-const ANSWER_LABEL = { validated: "request.validated", rejected: "request.rejected", nuanced: "request.nuanced" } as const satisfies Record<RequestAnswer, Key>;
-
-/** The lead asks the CEO something: Validate / Reject / Nuance, then the answer takes the buttons' place. */
-function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: (m: Message) => void }) {
+/** What became of a request of the lead: the boss answers in the chat, so only the closed states show. */
+function RequestBox({ message: m }: { message: Message }) {
   const { t, tr } = useI18n();
-  const [mode, setMode] = useState<"reject" | "nuance" | null>(null);
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [announce, setAnnounce] = useState("");
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (mode) areaRef.current?.focus();
-  }, [mode]);
-
-  async function answer(answer: RequestAnswer, text = "") {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await api.answerRequest(m.id, answer, text.trim());
-      setAnnounce(t(ANSWERED[answer]));
-      onAnswered(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function close() {
-    setMode(null);
-    setComment("");
-    triggerRef.current?.focus();
-  }
-
   if (m.request_status === "withdrawn" || m.request_status === "merged") {
     return (
       <div className="request">
@@ -84,57 +48,12 @@ function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: 
       </div>
     );
   }
-  if (m.request_status && m.request_status !== "pending") {
-    return (
-      <div className="request">
-        <p className="request-answer">
-          {t(ANSWER_LABEL[m.request_status])}{m.request_comment ? <> : <q>{m.request_comment}</q></> : ""}
-          {m.request_answered_at && <time className="muted"> · {formatTime(m.request_answered_at)}</time>}
-        </p>
-        <span className="sr-only" role="status" aria-live="polite">{announce}</span>
-      </div>
-    );
-  }
-  const nuance = mode === "nuance";
-  return (
-    <div className="request">
-      <div className="request-actions" role="group" aria-label={t("request.answerGroup")}>
-        <button className="btn btn-primary" disabled={busy} onClick={() => answer("validated")}>{t("request.validate")}</button>
-        <button className="btn btn-danger-outline" disabled={busy}
-          onClick={(e) => { triggerRef.current = e.currentTarget; setMode("reject"); }}>{t("request.reject")}</button>
-        <button className="btn" disabled={busy}
-          onClick={(e) => { triggerRef.current = e.currentTarget; setMode("nuance"); }}>{t("request.nuance")}</button>
-      </div>
-      {mode && (
-        <div className="request-form">
-          <label className="muted" htmlFor={`request-${m.id}`}>{nuance ? t("request.yourNuance") : t("request.why")}</label>
-          <textarea id={`request-${m.id}`} ref={areaRef} value={comment} maxLength={2000}
-            onChange={(e) => setComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") close();
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && (!nuance || comment.trim())) {
-                answer(nuance ? "nuanced" : "rejected", comment);
-              }
-            }} />
-          <div className="row">
-            <button className="btn btn-primary" disabled={busy || (nuance && !comment.trim())}
-              onClick={() => answer(nuance ? "nuanced" : "rejected", comment)}>
-              {nuance ? t("common.send") : t("request.confirmReject")}
-            </button>
-            <button className="btn" onClick={close}>{t("common.cancel")}</button>
-          </div>
-        </div>
-      )}
-      {error && <p className="error" role="alert">{error}</p>}
-      <span className="sr-only" role="status" aria-live="polite">{announce}</span>
-    </div>
-  );
+  return null;
 }
 
 /** One message. Memoized: re-parsing every message's Markdown on each render made typing slow. */
-const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, forYou, onAnswered }: {
+const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, forYou }: {
   message: Message;
-  onAnswered: (m: Message) => void;
   grouped: boolean;
   title: string | undefined;
   selfNames: string[];
@@ -162,7 +81,7 @@ const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNa
           </div>
         )}
         {closed ? <details className="request-closed-body"><summary>{t("conv.originalRequest")}</summary>{body}</details> : body}
-        {m.request_status && !boss && !system && <RequestBox message={m} onAnswered={onAnswered} />}
+        {m.request_status && !boss && !system && <RequestBox message={m} />}
       </div>
     </div>
   );
@@ -335,10 +254,6 @@ export function ConversationView({ conversation, room, project, projects, route,
     }
   }
 
-  const onAnswered = useCallback((answered: Message) => {
-    setMessages((prev) => prev && prev.map((m) => (m.id === answered.id ? answered : m)));
-  }, []);
-
   const busyHere = statuses.filter((s) => s.status === "working" && s.conversation_id === conversation.id);
   const empty = messages !== null && messages.length === 0;
 
@@ -372,7 +287,7 @@ export function ConversationView({ conversation, room, project, projects, route,
           const prev = messages[i - 1];
           const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
           const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} forYou={room.kind === "direction" && m.employee_id !== null && m.employee_id === lead?.id} onAnswered={onAnswered} />;
+          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} forYou={room.kind === "direction" && m.employee_id !== null && m.employee_id === lead?.id} />;
         })}
       </div>
 

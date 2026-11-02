@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy import CheckConstraint, Connection, inspect
+from sqlalchemy import CheckConstraint, Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -40,6 +40,7 @@ def upgrade_schema(conn: Connection) -> None:
                     conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    _widen_request_status_check(conn)
     _add_missing_checks(conn)
     _drop_request_author_foreign_key(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
@@ -59,6 +60,21 @@ def _add_missing_checks(conn: Connection) -> None:
                 conn.exec_driver_sql(
                     f'ALTER TABLE {table.name} ADD CONSTRAINT {constraint.name} CHECK ({constraint.sqltext}) NOT VALID'
                 )
+
+
+def _widen_request_status_check(conn: Connection) -> None:
+    """The request status CHECK predates the "answered" status: replace it so the boss's replies can be stored
+    (idempotent). _add_missing_checks then recreates it from the model. Only PostgreSQL has it in production."""
+    if conn.dialect.name != "postgresql":
+        return
+    from app.models import REQUEST_STATUS_CHECK, RequestStatus  # models import this module
+
+    definition = conn.execute(
+        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :name"),
+        {"name": REQUEST_STATUS_CHECK},
+    ).scalar()
+    if definition is not None and RequestStatus.answered.value not in definition:
+        conn.exec_driver_sql(f"ALTER TABLE messages DROP CONSTRAINT {REQUEST_STATUS_CHECK}")
 
 
 def _drop_request_author_foreign_key(conn: Connection) -> None:
