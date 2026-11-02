@@ -84,7 +84,8 @@ class Role(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
-    # How the role works; optional until every job has its working notes
+    # How the role works (expertise, steps, pitfalls); optional until every job has its working notes
+    expertise: list[str] = Field(default_factory=list)
     method: list[str] = Field(default_factory=list)
     watch_points: list[str] = Field(default_factory=list)
     deliverable_format: str | None = None

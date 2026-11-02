@@ -376,6 +376,11 @@ def test_every_base_role_describes_how_it_works():
         assert role.method and role.watch_points and role.deliverable_format, role.key
 
 
+def test_technical_roles_state_their_expertise():
+    for key in ("dev_backend", "dev_frontend", "architect", "reviewer", "qa", "devops", "security"):
+        assert load_roles()[key].expertise, key
+
+
 def test_working_notes_are_optional_and_validated(catalog_copy):
     path = catalog_copy / "company/roles/scribe.toml"
     path.write_text(path.read_text().replace("method = ", "method_ = ", 1))
@@ -388,14 +393,17 @@ def test_working_notes_are_optional_and_validated(catalog_copy):
 def test_working_notes_are_rendered_in_the_prompt():
     role = load_roles()["dev_backend"]
     prompt = _render_role(role)
+    assert f"- {role.expertise[0]}" in prompt
+    assert prompt.index("You are an expert in") < prompt.index("How you work")
     assert f"1. {role.method[0]}" in prompt
     assert f"- {role.watch_points[0]}" in prompt
     assert f"A good deliverable: {role.deliverable_format}" in prompt
 
 
 def test_prompt_omits_absent_working_notes():
-    role = load_roles()["dev_backend"].model_copy(update={"method": [], "watch_points": [], "deliverable_format": None})
+    role = load_roles()["dev_backend"].model_copy(update={"expertise": [], "method": [], "watch_points": [], "deliverable_format": None})
     prompt = _render_role(role)
+    assert "You are an expert in" not in prompt
     assert "How you work" not in prompt
     assert "Watch points" not in prompt
     assert "A good deliverable" not in prompt

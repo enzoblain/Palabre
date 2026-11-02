@@ -31,6 +31,7 @@ Role (job):
 - `title`: str, `description`: str (new: one or two sentences for the inventory card)
 - `model`: `Literal["haiku", "sonnet", "opus"]`, `effort`: `Literal["low", "medium", "high", "xhigh", "max"] | None`
 - `mission`: str, `responsibilities`: list[str] (min 1), `forbidden`: list[str], `deliverables`: list[str], `escalation`: str, `success`: str
+- `expertise`: list[str], `method`: list[str], `watch_points`: list[str], `deliverable_format`: str (all optional on extended jobs; the base roles fill them). `expertise` lists the technologies and practices the role masters, rendered as "You are an expert in" before "How you work"; the generic rules (code standards, how Palabre works) stay in the shared prompt, never repeated here
 - `permissions`: list[Permission], `wakes_on`: list[EventType]
 - `category`: `Literal["management", "engineering", "quality", "product", "support", "research"]` (groups the inventory)
 
