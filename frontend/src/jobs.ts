@@ -1,7 +1,7 @@
 import type { CoreCategory, ExtendedCategory, MemberIn, Role, RoleCategory } from "./api";
 
 /** The historic roles' categories come first, so they stay at the top of the list. */
-const CORE_CATEGORIES: CoreCategory[] = ["management", "engineering", "quality", "product", "support", "research"];
+const CORE_CATEGORIES: CoreCategory[] = ["management", "engineering", "quality", "product", "support"];
 
 /** Display order of the extended categories (the server sends the keys). */
 const EXTENDED_CATEGORIES: ExtendedCategory[] = [

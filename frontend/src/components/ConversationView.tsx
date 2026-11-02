@@ -194,9 +194,6 @@ export function ConversationView({ conversation, room, project, projects, route,
 
   const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
-  const research = project.kind === "research";
-  const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
-  usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
   const myNames = useMemo(() => bossNames(bossName), [bossName]);
 
   function append(incoming: Message[]) {
@@ -267,19 +264,14 @@ export function ConversationView({ conversation, room, project, projects, route,
         <span className="conv-members muted">{t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
-      {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 
       <div className="messages" ref={listRef} onScroll={onScroll}>
         {messages === null && <p className="muted center">{t("common.loading")}</p>}
         {empty && (
           <div className="intro">
-            <h2>
-              {research ? t("conv.introResearchTitle") : t("conv.introTitle", { project: project.name })}
-            </h2>
+            <h2>{t("conv.introTitle", { project: project.name })}</h2>
             <p className="muted">
-              {research
-                ? t("conv.introResearch")
-                : [t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
+              {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
             </p>
           </div>
         )}
@@ -297,9 +289,7 @@ export function ConversationView({ conversation, room, project, projects, route,
       {error && <p className="error composer-error">{error}</p>}
       <Composer key={conversation.id} onSend={send}
         placeholder={
-          research
-            ? t("conv.placeholderResearch")
-            : empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
+          empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
         } />
     </div>
   );

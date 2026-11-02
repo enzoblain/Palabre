@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 from typing import TypeVar
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -20,7 +20,6 @@ from app.models import (
     Message,
     Note,
     OpenQuestion,
-    Project,
     RequestStatus,
     Room,
     Task,
@@ -32,7 +31,7 @@ MENTION_RE = re.compile(r"@([\w-]+)")
 
 # What a chat message from an agent may look like (the boss is free). Links count by
 # their text, code blocks not at all: sources and snippets are welcome.
-CHAT_MAX_CHARS = {"company": 450, "research": 700}
+CHAT_MAX_CHARS = 450
 CHAT_MAX_LIST_ITEMS = 4
 _CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
@@ -47,19 +46,16 @@ T = TypeVar("T", bound=tuple)
 
 
 def boss_rooms(q: Select[T]) -> Select[T]:
-    """Keeps in a query on rooms what the boss sees: the direction channel of a company, every room of a research group.
+    """Keeps in a query on rooms what the boss sees: the direction channel.
 
     The query must have Room in its FROM. Team channels and DMs are the team's own.
     """
-    research = select(Project.id).where(Project.kind == "research")
-    return q.where(or_(Room.kind == DIRECTION, Room.project_id.in_(research)))
+    return q.where(Room.kind == DIRECTION)
 
 
-async def boss_sees(s: AsyncSession, room: Room) -> bool:
+def boss_sees(room: Room) -> bool:
     """Whether the boss may read this room (same rule as boss_rooms)."""
-    if room.kind == DIRECTION:
-        return True
-    return await s.scalar(select(Project.kind).where(Project.id == room.project_id)) == "research"
+    return room.kind == DIRECTION
 
 
 # Languages the team can work in: key (stored) → name in that language (shown in the UI)
@@ -107,7 +103,7 @@ def team_language() -> str:
     return _app_settings["language"]
 
 
-def check_chat_message(content: str, kind: str) -> None:
+def check_chat_message(content: str) -> None:
     """Refuse what nobody writes in a team chat, and say how to fix it."""
     text = _LINK_RE.sub(lambda m: m.group(1) or "link", _CODE_BLOCK_RE.sub("", content)).strip()
     problems = []
@@ -117,9 +113,8 @@ def check_chat_message(content: str, kind: str) -> None:
         problems.append("no headings")
     if len(_LIST_ITEM_RE.findall(text)) > CHAT_MAX_LIST_ITEMS:
         problems.append(f"no list of more than {CHAT_MAX_LIST_ITEMS} items")
-    limit = CHAT_MAX_CHARS.get(kind, CHAT_MAX_CHARS["company"])
-    if len(text) > limit:
-        problems.append(f"at most {limit} characters (this one has {len(text)})")
+    if len(text) > CHAT_MAX_CHARS:
+        problems.append(f"at most {CHAT_MAX_CHARS} characters (this one has {len(text)})")
     if problems:
         raise WorkflowError(
             "Not sent: this reads like a report, not a chat message (" + "; ".join(problems) + "). "
@@ -266,7 +261,7 @@ ANSWERED_REQUEST_PREVIEW = 400
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
-    """The active conversation of the direction channel (research groups have none)."""
+    """The active conversation of the direction channel."""
     return await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
@@ -299,7 +294,7 @@ async def ask_boss(
     """Post a message in direction that the boss answers by writing in the channel.
     Only the lead speaks in direction: a request from another member is stored under the lead,
     who owns every request in direction (the author is kept in request_author_id, not in the text).
-    Returns None where there is no direction (research groups): the boss reads the room instead."""
+    Returns None where the project has no direction channel."""
     if kind not in REQUEST_KINDS:
         raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
     conversation_id = await direction_conversation_id(s, project_id)

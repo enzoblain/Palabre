@@ -21,11 +21,11 @@ Backend, in `backend/app/`:
 - `release.py`: SemVer next version, version files and CHANGELOG entry (pure functions); `projects.prepare_release` (run by `merge_release`) commits them on the team's branch through `worktrees.commit_release`.
 - `worktrees.py`: local clone of each project and one clone per task and per desk.
 - `projects.py`, `company/team.py`: project creation and random team generation from the catalog.
-- `company/catalog/<kind>/roles/<key>.toml` and `<kind>/personalities/<key>.toml`, `<kind>/personality_pool.toml`: one file per role and per personality preset, one personality pool (axes, quirks, styles) per kind; `company/catalog.py` loads and validates them (Pydantic) at startup, with the team constraints; `catalog.load_catalog()` returns `Role` models in `roles` and the shared `catalog.toml` sections (boss, channels, modes, names) as dicts.
-- `company/catalog.toml`: boss prompts, channels, modes (company sizes, research groups) and first names.
+- `company/catalog/company/roles/<key>.toml` and `company/personalities/<key>.toml`, `company/personality_pool.toml`: one file per role and per personality preset, one personality pool (axes, quirks, styles); `company/catalog.py` loads and validates them (Pydantic) at startup, with the team constraints; `catalog.load_catalog()` returns `Role` models in `roles` and the shared `catalog.toml` sections (boss, channels, modes, names) as dicts.
+- `company/catalog.toml`: boss prompts, channels, modes (company sizes) and first names.
 - `runner.py`: launches one agent run (`claude -p`) on the employee's Claude account; `accounts.py` picks the account.
 - `toolchains.py`: toolchains agents install for the whole team, without root.
-- `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals, retries and research phases (`scheduler.py`, `retries.py`, `research.py`), and resets agents' Claude sessions every N tasks or runs (`context_reset.py`).
+- `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals and retries (`scheduler.py`, `retries.py`), and resets agents' Claude sessions every N tasks or runs (`context_reset.py`).
 - `mcp_server/`: the agents' tools (`tools.py`), which role gets which (`permissions.py`), request auth (`auth.py`), server setup (`server.py`).
 
 Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`).

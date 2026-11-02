@@ -10,9 +10,8 @@ from app import services
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import ConversationIn, ConversationOut, MessageIn, MessageOut
-from app.models import Conversation, Employee, Event, Message, Project, Room, Wakeup
+from app.models import Conversation, Employee, Event, Message, Room, Wakeup
 from app.orchestrator.dispatcher import orchestrator
-from app.orchestrator.research import start_question
 
 router = APIRouter(tags=["conversations"])
 
@@ -20,7 +19,7 @@ router = APIRouter(tags=["conversations"])
 async def get_visible_room(s: AsyncSession, room_id: int) -> Room:
     """The room, or 404 when it is not one the boss sees (a team channel or a DM)."""
     room = await get_or_404(s, Room, room_id)
-    if not await services.boss_sees(s, room):
+    if not services.boss_sees(room):
         raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.ROOM_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -63,18 +62,17 @@ async def list_messages(
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
 async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
     """Post as the boss. In a company the boss only writes in the direction channel, and
-    only the lead is woken up. A research group starts researching the question instead."""
+    only the lead is woken up."""
     conversation = await get_or_404(s, Conversation, conversation_id)
     room = await get_visible_room(s, conversation.room_id)
-    project = await get_or_404(s, Project, room.project_id)
-    if project.kind == "company" and room.kind != services.DIRECTION:
+    if room.kind != services.DIRECTION:
         raise ApiError(
             status.HTTP_403_FORBIDDEN,
             ErrorCode.BOSS_READ_ONLY_ROOM,
             "The boss only writes in the direction channel; the other channels are read-only",
         )
     message = await services.post_message(s, room.project_id, conversation_id, body.content, None)
-    answered = [] if project.kind == "research" else await services.answer_pending_requests(s, room.project_id, message)
+    answered = await services.answer_pending_requests(s, room.project_id, message)
     mentioned = await s.scalar(
         select(Event.id).where(
             Event.type == "mention",
@@ -82,11 +80,7 @@ async def post_message(conversation_id: int, body: MessageIn, s: SessionDep):
             Event.payload["message_id"].as_integer() == message.id,
         )
     )
-    if project.kind == "research":
-        if mentioned is None:
-            # A new question for the group: it goes through the research phases again
-            start_question(s, project, conversation_id, message.id)
-    elif mentioned is None or answered:  # a mention does not tell the lead which requests were answered
+    if mentioned is None or answered:  # a mention does not tell the lead which requests were answered
         _wake_lead(s, room.project_id, conversation_id, message, answered)
     # Posting lifts the throttle of this conversation (see Orchestrator._check_rate)
     await _clear_throttle(s, conversation_id)

@@ -43,6 +43,7 @@ def upgrade_schema(conn: Connection) -> None:
     _widen_request_status_check(conn)
     _add_missing_checks(conn)
     _drop_request_author_foreign_key(conn)
+    _drop_research_projects(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
 
@@ -85,3 +86,17 @@ def _drop_request_author_foreign_key(conn: Connection) -> None:
     for foreign_key in inspect(conn).get_foreign_keys("messages"):
         if foreign_key["constrained_columns"] == ["request_author_id"]:
             conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')
+
+
+RESEARCH_COLUMNS = ("kind", "topic", "research_phase")
+
+
+def _drop_research_projects(conn: Connection) -> None:
+    """The research feature is gone: delete the research projects (their rooms, messages and
+    employees go with them) and drop the columns that only served it (idempotent)."""
+    present = {c["name"] for c in inspect(conn).get_columns("projects")}
+    if "kind" in present:
+        conn.exec_driver_sql("DELETE FROM projects WHERE kind = 'research'")
+    for column in RESEARCH_COLUMNS:
+        if column in present:
+            conn.exec_driver_sql(f'ALTER TABLE projects DROP COLUMN "{column}"')

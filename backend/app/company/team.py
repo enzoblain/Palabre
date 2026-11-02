@@ -3,9 +3,6 @@
 When a project is created: `team = generate_team("startup")`, store `team.to_dict()`,
 then `render_system_prompt(team, employee, boss_name)` gives each employee's prompt.
 
-Two kinds of projects: "company" (a software company working on a repository) and
-"research" (peers investigating a topic). Their roles and modes share one namespace
-(each one carries its `kind`); each kind has its own personality axes and boss prompt.
 """
 
 import random
@@ -28,26 +25,12 @@ def effort_for(role_keys: list[str]) -> str | None:
     return max(levels, key=EFFORT_LEVELS.index)
 
 
-def kind_of_mode(mode: str) -> str:
-    return load_catalog()["modes"][mode]["kind"]
-
-
-def personality_for(kind: str) -> dict:
-    catalog = load_catalog()
-    return catalog["research"]["personality"] if kind == "research" else catalog["personality"]
-
-
-def personality_preset(kind: str, key: str) -> dict:
-    """A personality preset of this kind of project; ValueError when it does not exist."""
-    presets = load_catalog()["personalities"][kind]
+def personality_preset(key: str) -> dict:
+    """A personality preset; ValueError when it does not exist."""
+    presets = load_catalog()["personalities"]
     if key not in presets:
         raise ValueError(f"Unknown personality: {key} (choices: {', '.join(presets)})")
     return presets[key]
-
-
-def boss_for(kind: str) -> dict:
-    catalog = load_catalog()
-    return catalog["research"]["boss"] if kind == "research" else catalog["boss"]
 
 
 @dataclass
@@ -101,7 +84,7 @@ def generate_team_from_roles(mode: str, role_keys: list[str], seed: int | None =
 
 def _draw_team(rng: random.Random, catalog: dict, mode: str, seed: int, seats: list[list[str]]) -> Team:
     mode_cfg = catalog["modes"][mode]
-    personality = personality_for(mode_cfg["kind"])
+    personality = load_catalog()["personality"]
     names = rng.sample(catalog["people"]["names"], len(seats))
     traits = _draw_traits(rng, personality, len(seats))
     employees = [
@@ -120,19 +103,18 @@ def custom_employee(
     preset: str | None = None,
     model: str | None = None,
     seed: int | None = None,
-    kind: str = "company",
 ) -> Employee:
-    """An employee chosen by the boss. The roles (of this kind of project) set the title,
+    """An employee chosen by the boss. The roles set the title,
     permissions and default model. The personality preset applies first, then the explicit
     traits, quirks and style override it; whatever is still left out is drawn at random."""
     catalog = load_catalog()
     roles = list(dict.fromkeys(roles))
-    unknown = [r for r in roles if (role := catalog["roles"].get(r)) is None or role.kind != kind]
+    unknown = [r for r in roles if r not in catalog["roles"]]
     if not roles or unknown:
         raise ValueError(f"Unknown roles: {', '.join(unknown)}" if unknown else "An employee needs a role")
-    preset_data = personality_preset(kind, preset) if preset is not None else None
+    preset_data = personality_preset(preset) if preset is not None else None
     rng = random.Random(seed)
-    personality = personality_for(kind)
+    personality = catalog["personality"]
     drawn = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
     preset_traits = {a["key"]: preset_data["traits"].get(a["key"], 0) for a in personality["axes"]} if preset_data else {}
     member = _make_employee(rng, catalog, personality, roles, name, {**drawn, **preset_traits, **(traits or {})})
@@ -148,52 +130,21 @@ def custom_employee(
     return member
 
 
-RAPPORTEUR = "rapporteur"
-
-
-def appoint_rapporteur(employees: list[Employee], name: str | None = None) -> None:
-    """A research group has a rapporteur on top of their own angle: the peer the boss
-    chose, else whoever already has the role (team built by hand), else one drawn at random."""
-    holders = [e for e in employees if RAPPORTEUR in e.roles]
-    if name is not None:
-        chosen = next((e for e in employees if e.name == name), None)
-        if chosen is None:
-            raise ValueError(f"No peer named {name} to be the rapporteur")
-    elif holders or not employees:
-        return
-    else:
-        chosen = random.SystemRandom().choice(employees)
-    for e in holders:
-        # A peer who is only the rapporteur keeps the role: they would have none left
-        if e is not chosen and len(e.roles) > 1:
-            _set_roles(e, [r for r in e.roles if r != RAPPORTEUR])
-    if RAPPORTEUR not in chosen.roles:
-        _set_roles(chosen, [*chosen.roles, RAPPORTEUR])
-
-
-def _set_roles(employee: Employee, role_keys: list[str]) -> None:
-    """New roles, with the title and permissions they give (personality and model kept)."""
-    roles = [load_catalog()["roles"][k] for k in role_keys]
-    employee.roles = list(role_keys)
-    employee.title = " + ".join(r.title for r in roles)
-    employee.permissions = sorted({p for r in roles for p in r.permissions})
-
-
 def reroll_employee(team: Team, index: int, seed: int | None = None) -> Employee:
     """Redraw one employee's personality (roles and name are kept)."""
     catalog = load_catalog()
     rng = random.Random(seed)
     old = team.employees[index]
-    personality = personality_for(kind_of_mode(team.mode))
+    personality = catalog["personality"]
     traits = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
     team.employees[index] = _make_employee(rng, catalog, personality, old.roles, old.name, traits)
     return team.employees[index]
 
 
-def random_personality(kind: str, seed: int | None = None) -> dict:
-    """A random but valid personality (traits, quirks and style) of this kind of project."""
+def random_personality(seed: int | None = None) -> dict:
+    """A random but valid personality (traits, quirks and style)."""
     rng = random.Random(seed)
-    personality = personality_for(kind)
+    personality = load_catalog()["personality"]
     traits = {a["key"]: rng.choice(personality["levels"]) for a in personality["axes"]}
     return {
         "traits": traits,
@@ -248,23 +199,18 @@ def render_system_prompt(team: Team, employee: Employee, boss_name: str) -> str:
     """`boss_name` is the name of the person using Palabre (the CEO)."""
     catalog = load_catalog()
     mode = catalog["modes"][team.mode]
-    kind = mode["kind"]
-    boss = {**boss_for(kind), "name": boss_name}
-    if kind == "research":
-        intro = catalog["research"]["intro"].format(name=employee.name, title=employee.title, label=mode["label"])
-    else:
-        intro = (
-            f"You are {employee.name}, {employee.title}, in a software development company "
-            f"organized as a {mode['label']}."
-        )
+    boss = {**catalog["boss"], "name": boss_name}
+    intro = (
+        f"You are {employee.name}, {employee.title}, in a software development company "
+        f"organized as a {mode['label']}."
+    )
     sections = [
         intro,
         "## Your boss\n" + boss["prompt"].strip().format(**boss),
         "## The team\n" + _render_roster(team, employee, boss),
         *(_render_role(catalog["roles"][k]) for k in employee.roles),
-        "## Your personality\n" + _render_personality(employee, personality_for(kind)),
-        ("## Group rules\n" if kind == "research" else "## Company process\n")
-        + "\n".join(f"- {r}" for r in mode["rules"]),
+        "## Your personality\n" + _render_personality(employee, catalog["personality"]),
+        "## Company process\n" + "\n".join(f"- {r}" for r in mode["rules"]),
     ]
     return "\n\n".join(sections)
 

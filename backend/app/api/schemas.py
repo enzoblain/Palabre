@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Kind, Model, Permission
+from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Model, Permission
 from app.github import BRANCH_PATTERN
 from app.models import RequestStatus
 
@@ -47,7 +47,6 @@ class RoleOut(BaseModel):
     """A job of the catalog, with the tools its permissions give."""
 
     key: str
-    kind: Kind
     title: str
     description: str
     category: Category | ExtendedCategory
@@ -140,7 +139,7 @@ class MemberIn(BaseModel):
     traits: dict[str, int] | None = None
     quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
     style: dict[str, str] | None = None
-    # Key of a personality preset of the project's kind; traits, quirks and style given here override it
+    # Key of a personality preset; traits, quirks and style given here override it
     personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     account: int | None = Field(default=None, ge=1)
 
@@ -149,7 +148,6 @@ class PersonalityPresetOut(BaseModel):
     """A named personality: the axes it leans on (the others are neutral), quirks and style."""
 
     key: str
-    kind: Literal["company", "research"]
     label: str
     description: str
     traits: dict[str, int]
@@ -167,15 +165,10 @@ class RandomPersonalityOut(BaseModel):
 
 class ProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    # Mode: company (startup...) or research (duo...). It sets the rules and, without
-    # `employees`, the seats
+    # Mode (startup...). It sets the rules and, without `employees`, the seats
     mode: str = "startup"
-    # Company: the GitHub repository
+    # The GitHub repository
     repo_url: str = ""
-    # Research: what the group investigates (posted as your first message)
-    topic: str | None = Field(default=None, max_length=10000)
-    # Research: the peer who writes the report (a name); none: drawn at random
-    rapporteur: str | None = None
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
@@ -192,10 +185,6 @@ class ProjectIn(BaseModel):
 class ProjectOut(ORM):
     id: int
     name: str
-    kind: str
-    topic: str | None
-    # Research: research, debate, conclusion, report or done
-    research_phase: str | None
     repo_url: str
     default_branch: str
     mode: str
@@ -252,13 +241,6 @@ class BranchChange(BaseModel):
 
 
 # --- Rooms and their document ------------------------------------------------------
-
-
-class RoomIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    objective: str = ""
-    # Default: the whole company
-    member_ids: list[int] | None = None
 
 
 class RoomPatch(BaseModel):

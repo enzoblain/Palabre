@@ -17,11 +17,11 @@ from .conftest import make_employee
 
 
 class FakeApiSession:
-    def __init__(self, room_kind: str, project_kind: str = "company"):
+    def __init__(self, room_kind: str):
         self.objects = {
             Conversation: SimpleNamespace(id=1, room_id=2),
             Room: SimpleNamespace(id=2, project_id=3, kind=room_kind),
-            Project: SimpleNamespace(id=3, kind=project_kind),
+            Project: SimpleNamespace(id=3),
         }
         self.events: list[Event] = []
 
@@ -29,8 +29,6 @@ class FakeApiSession:
         return self.objects[model]
 
     async def scalar(self, query):
-        if "projects.kind" in str(query):
-            return self.objects[Project].kind
         return None  # no @mention
 
     async def execute(self, _statement):
@@ -59,7 +57,6 @@ def posted(monkeypatch):
     monkeypatch.setattr(conversations.services, "post_message", post_message)
     monkeypatch.setattr(conversations.services, "answer_pending_requests", answer_pending_requests)
     monkeypatch.setattr(conversations.services, "emit_event", emit_event)
-    monkeypatch.setattr(conversations, "start_question", lambda *_: log.events.append(("research", None)))
     return log
 
 
@@ -81,11 +78,6 @@ async def test_boss_reply_wakes_the_lead_with_the_requests_it_answers(posted):
     await conversations.post_message(1, MessageIn(content="ok"), FakeApiSession("direction"))
     assert posted.events == [("ceo_answer", "lead")]
     assert posted.payloads[0]["requests"] == "#4 (release, about decision #2): Ship 1.2?"
-
-
-async def test_research_group_has_no_direction(posted):
-    await conversations.post_message(1, MessageIn(content="why?"), FakeApiSession("team", "research"))
-    assert len(posted.messages) == 1
 
 
 class FakeServiceSession:
@@ -267,13 +259,13 @@ def test_dm_wake_prompt_is_not_a_mention():
 
 
 class _BossDb:
-    """A session answering the room lookups: the room, then its project's kind."""
+    """A session answering the room lookups."""
 
-    def __init__(self, room, project_kind="company"):
-        self.room, self.project_kind = room, project_kind
+    def __init__(self, room):
+        self.room = room
 
     async def scalar(self, q):
-        return self.project_kind if "projects.kind" in str(q) else self.room
+        return self.room
 
     async def get(self, model, _id):
         from app.models import Conversation
@@ -311,13 +303,11 @@ async def test_boss_gets_404_on_every_room_route_but_direction(kind):
         assert exc.value.status_code == 404
 
 
-async def test_boss_sees_direction_and_research_rooms():
+async def test_boss_sees_the_direction_room():
     from app.api import conversations
 
     direction = Room(id=1, project_id=1, name="direction", kind="direction", members=[])
     assert await conversations.get_visible_room(_BossDb(direction), 1) is direction
-    team = Room(id=2, project_id=1, name="room", kind="team", members=[])
-    assert await conversations.get_visible_room(_BossDb(team, "research"), 2) is team
 
 
 async def test_lead_cannot_post_in_a_dm_by_its_name():
@@ -340,28 +330,13 @@ def test_project_detail_only_lists_direction():
     from app.models import Project
 
     now = datetime(2026, 1, 1)
-    project = Project(id=1, name="p", kind="company", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
+    project = Project(id=1, name="p", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
     project.employees = []
     project.rooms = [
         Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, updated_at=now, members=[])
         for i, kind in enumerate(("direction", "team", "dm"), 1)
     ]
     assert [r.id for r in projects_api._detail(project).rooms] == [1]
-    project.kind = "research"
-    assert [r.id for r in projects_api._detail(project).rooms] == [1, 2, 3]
-
-
-async def test_boss_cannot_create_a_room_in_a_company():
-    from app.api import rooms as rooms_api
-    from app.api.schemas import RoomIn
-
-    class S(FakeApiSession):
-        async def get(self, model, _id):
-            return self.objects[Project]
-
-    with pytest.raises(HTTPException) as exc:
-        await rooms_api.create_room(3, RoomIn(name="side"), S("direction"))
-    assert exc.value.status_code == 403
 
 
 def test_conversation_idle_asks_for_a_project_summary() -> None:
@@ -369,12 +344,6 @@ def test_conversation_idle_asks_for_a_project_summary() -> None:
     assert "project" in reason
     assert "not of the conversation" in reason
     assert "team's language" in reason
-
-
-def test_research_report_stays_the_summary_exception() -> None:
-    reason = reason_for("research_report", {})
-    assert "update_summary" in reason
-    assert "exception" in reason
 
 
 def test_scribe_summary_responsibility_targets_the_project() -> None:

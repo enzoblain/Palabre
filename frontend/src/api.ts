@@ -5,17 +5,9 @@ export const pageServer: string | null = import.meta.env.DEV ? null : location.o
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
-export type ProjectKind = "company" | "research";
-export type ResearchPhase = "research" | "debate" | "conclusion" | "report" | "done";
-
 export type Project = {
   id: number;
   name: string;
-  // "company": a software company on a GitHub repository; "research": peers on a topic
-  kind: ProjectKind;
-  topic: string | null;
-  // Research: where the current question stands
-  research_phase: ResearchPhase | null;
   repo_url: string;
   default_branch: string;
   mode: string;
@@ -144,20 +136,6 @@ export type OrchestratorStatus = {
 export type Quota = { accounts: AccountQuota[] };
 export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
-export type Decision = {
-  id: number;
-  room_id: number;
-  title: string;
-  rationale: string;
-  status: "proposed" | "validated" | "rejected";
-  proposed_by: string;
-  // A release: validating it merges this PR into production
-  pr_number: number | null;
-  pr_url: string | null;
-  created_at: string;
-  decided_at: string | null;
-};
-
 export type Axis = { key: string; label: string; low: string; high: string };
 export type Personality = {
   levels: number[];
@@ -170,7 +148,6 @@ export type Personality = {
 /** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
 export type PersonalityPreset = {
   key: string;
-  kind: ProjectKind;
   label: string;
   description: string;
   traits: Record<string, number>;
@@ -181,7 +158,7 @@ export type PersonalityPreset = {
 export type Model = "haiku" | "sonnet" | "opus";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Categories of the historic roles. */
-export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support";
 /** Categories of the extended jobs (extended_roles.toml on the server). */
 export type ExtendedCategory =
   | "direction_strategy" | "architecture" | "software_development" | "artificial_intelligence" | "data_databases"
@@ -197,7 +174,6 @@ export type RoleTools = { mcp: string[]; claude: string[] };
 /** A job of the catalog (RoleOut on the server). */
 export type Role = {
   key: string;
-  kind: ProjectKind;
   title: string;
   description: string;
   category: RoleCategory;
@@ -298,7 +274,6 @@ export const ERROR_CODES = [
   "question_not_found",
   "mode_not_found",
   "unknown_mode",
-  "research_topic_required",
   "invalid_repository",
   "duplicate_employee_name",
   "unknown_roles",
@@ -309,14 +284,10 @@ export const ERROR_CODES = [
   "team_too_small",
   "invalid_team_permissions",
   "invalid_account",
-  "research_has_no_repository",
   "direction_room_immutable",
   "dm_immutable",
-  "boss_direction_only",
   "boss_read_only_room",
-  "members_not_in_project",
   "employee_other_project",
-  "direction_room_reserved",
   "conversation_not_in_room",
   "invalid_language",
   "not_found",
@@ -422,10 +393,10 @@ export const api = {
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),
 
-  modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
-  personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
-  personalities: (kind: ProjectKind) => call<Record<string, PersonalityPreset>>(`/catalog/personalities?kind=${kind}`),
-  roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
+  modes: () => call<Record<string, Mode>>("/catalog/modes"),
+  personality: () => call<Personality>("/catalog/personality"),
+  personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
   limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),
   previewTeam: (mode: string, seed?: number) =>
@@ -438,8 +409,6 @@ export const api = {
   createProject: (body: {
     name: string;
     repo_url?: string;
-    topic?: string;
-    rapporteur?: string | null;
     mode: string;
     seed?: number;
     accounts: Record<string, number>;
@@ -450,13 +419,8 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
-  researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
   presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
-
-  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
-  decide: (decisionId: number, status: "validated" | "rejected") =>
-    call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

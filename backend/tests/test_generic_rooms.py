@@ -8,7 +8,7 @@ from app import projects
 from app.company.catalog import load_catalog
 from app.company.team import generate_team
 from app.models import AgentRun, Base, Conversation, Decision, Employee, Message, OpenQuestion, Project, Room, Task
-from app.projects import RESEARCH_ROOM, drop_generic_rooms, load_project
+from app.projects import drop_generic_rooms, load_project
 
 
 @pytest.fixture
@@ -26,9 +26,9 @@ async def db():
     await engine.dispose()
 
 
-async def make_project(s, mode="enterprise", kind="company") -> Project:
+async def make_project(s, mode="enterprise") -> Project:
     team = generate_team(mode, 1)
-    project = Project(name="P", repo_url="https://github.com/o/r", mode=mode, seed=1, kind=kind)
+    project = Project(name="P", repo_url="https://github.com/o/r", mode=mode, seed=1)
     project.employees = [Employee(**e.__dict__, mcp_token=f"{e.name}{mode}") for e in team.employees]
     s.add(project)
     await s.flush()
@@ -132,25 +132,6 @@ async def test_a_generic_room_holding_tasks_is_kept_without_a_direction_room(db)
     assert await names(db) == {"general"}
 
 
-async def test_research_general_room_is_renamed_not_deleted(db):
-    project = await make_project(db, mode="duo", kind="research")
-    await add_room(db, project, "general", list(project.employees))
-    await db.commit()
-    await drop_generic_rooms(db)
-    assert await names(db) == {RESEARCH_ROOM}
-    await drop_generic_rooms(db)
-    assert await names(db) == {RESEARCH_ROOM}
-
-
-async def test_change_mode_newcomers_join_a_migrated_research_room(db):
-    project = await make_project(db, mode="duo", kind="research")
-    await add_room(db, project, "general", list(project.employees))
-    await db.commit()
-    await drop_generic_rooms(db)
-    project = await load_project(db, project.id)
-    assert [r.name for r in project.rooms] == [RESEARCH_ROOM]  # what change_mode matches on
-
-
 def test_no_cleanup_path_touches_dms():
     """Only the admin delete removes a room, and it refuses a DM; nothing else deletes rooms."""
     from pathlib import Path
@@ -176,3 +157,21 @@ async def test_agent_runs_of_a_deleted_room_survive_detached(db):
     await drop_generic_rooms(db)
     await db.refresh(run)
     assert run.conversation_id is None and run.cost_usd == 1.5
+
+
+async def test_research_projects_and_columns_are_dropped_from_an_existing_schema(db):
+    from sqlalchemy import inspect, text
+
+    from app.db import _drop_research_projects
+
+    async with db.bind.begin() as conn:
+        for column in ("kind", "topic", "research_phase"):
+            await conn.execute(text(f"ALTER TABLE projects ADD COLUMN {column} TEXT"))
+        await conn.execute(text("INSERT INTO projects (id, name, repo_url, default_branch, mode, seed, kind) VALUES "
+                                "(1, 'A', '', 'main', 'duo', 1, 'research'), (2, 'B', 'https://github.com/o/r', 'main', 'startup', 1, 'company')"))
+        await conn.run_sync(_drop_research_projects)
+        await conn.run_sync(_drop_research_projects)  # idempotent
+        columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
+        remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
+    assert not {"kind", "topic", "research_phase"} & columns
+    assert remaining == [2]

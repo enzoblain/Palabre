@@ -2,8 +2,7 @@
 
 **A company of AI agents that works for you.** Give it a GitHub repository and a
 software team builds your product: a lead organizes the work, developers open pull
-requests, reviewers and QA check them before anything is merged. Or give it a topic
-and a research group searches the web, debates and writes you a sourced report.
+requests, reviewers and QA check them before anything is merged.
 
 You are the CEO. You talk only to the lead (the CTO), in the `#direction` channel, from a
 browser, on your computer or your phone; the lead relays to the team. The agents talk to each
@@ -36,7 +35,7 @@ You only talk to the lead, in `#direction`: it is the one channel you can write 
 it holds only you and the lead. The team works in its own channels (`#dev`,
 `#quality`...) and the lead can open more (`create_channel`: `#backend`, `#front`...).
 You see no other conversation: the API hides the team channels and the DMs from you (404; you cannot create a channel either), and only
-the lead is woken by what you post. Tasks and their reviews stay visible as tasks. A research group has no direction channel, so all its rooms are yours to read. What you do see is whether each employee is busy or
+the lead is woken by what you post. Tasks and their reviews stay visible as tasks. What you do see is whether each employee is busy or
 available (`GET /projects/{id}/presence`). `GET /projects` also gives each project an `unread_count` (the lead's messages in direction after your read position; your own messages and automatic lines do not count) `last_message` (the latest message of direction: `content`, `author`, `created_at`; `null` when there is none) and `lead_writing` (the lead has a run open in direction, for a "typing" indicator); `POST /projects/{id}/direction/read` moves the read position to the last message and returns the project with `unread_count` 0. The lead relays between direction and
 the team, and posts in direction only what needs your attention. Employees also have DMs
 (`@Name`, one per pair, never with you as a participant): a DM is for an exchange between two people, a channel
@@ -51,9 +50,10 @@ At startup, existing projects lose their old generic channels (`#general`, `#eng
 `#product`, `#equipe`, `#couts-claude`) with their messages. The rule is the kind (a channel,
 never a DM or `#direction`) and the name, unless the catalog targets that name; membership
 does not matter. Their tasks, decisions (releases included) and open questions move to
-`#direction` first. `#direction`, targeted channels and all DMs are kept, and the `#general`
-of a research project becomes `#research`. This runs once, guarded by a marker in the app
+`#direction` first. `#direction`, targeted channels and all DMs are kept. This runs once, guarded by a marker in the app
 settings: a `#product` created afterwards survives restarts.
+
+The research groups feature was removed (it is kept on the `archive/research` branch). At startup, any leftover research project is deleted with its data, and the columns that only served it (`kind`, `topic`, `research_phase` of `projects`) are dropped; company projects are untouched.
 
 From there the team works on its own:
 
@@ -137,8 +137,8 @@ lead up with your reply and the requests it answers (`ceo_answer`); the lead int
 yes, a condition is not) and acts. For a decision the lead records the outcome with `settle_decision`
 (`validated` or `rejected`); `validated` is refused while the decision has requests in direction and the boss has answered none of them.
 Proposed decisions, releases and escalations to the boss become such requests on their own. A decision the boss already took in the conversation is recorded by the lead with `add_decision(decided_by_boss=True)`: it is saved `validated` right away, with no request in direction (any other role is refused). Only the lead speaks in direction: a request from another member is signed by the lead, who owns it, without that member's name in the text (the app keeps who it is for). A decision shows its title and its whole rationale. Every request the boss reads (decisions, escalations, `ask_ceo`, releases) is written for a non-developer: plain sentences, no jargon, no code references (files, identifiers, task or PR numbers); the technical detail stays in the room document or the task. Every agent gets this rule ("Messages to the boss") in its prompt.
-The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it, by replying in the chat. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn. A research group has no direction
-channel: its conclusions are validated from the Report tab of the app. On upgrade, what waited in the old
+The lead can ask for anything else with `ask_ceo`. The lead keeps the list short. `list_pending_requests` shows their requests still waiting. `withdraw_request` drops one that became useless (status `withdrawn`, with a reason). `merge_requests` replaces several by one new request: they become `merged`, pointing to it via `request_merged_into`. An answered request cannot be withdrawn or merged. A request relayed for a member keeps its real author in `request_author_id`; an escalation relayed that way (`escalate(to="boss")`) can be neither withdrawn nor merged by the lead, only the boss answers it, by replying in the chat. Withdrawing a relayed decision rejects it with a reason saying the boss did not answer. A request linked to a decision cannot be merged, and withdrawing it rejects the decision with the reason. A release request can be neither merged nor withdrawn.
+On upgrade, what waited in the old
 inbox is turned into requests in direction.
 
 A new project works on a `dev` branch, created from the repository's default branch if
@@ -166,22 +166,6 @@ The lead also triages pull requests no task owns, such as Dependabot's: `list_pu
 shows every open one, and `close_pull_request` closes one with a comment and deletes its
 branch. It refuses a task's pull request (cancel the task instead) and the release one, and
 never deletes production, the team's branch or a fork's branch, nor a branch named like a task's (`feat/12-foo`).
-
-### Research group
-
-You give a topic instead of a repository. A group of peers of equal standing, each with
-their own angle (explorer, skeptic, data analyst, devil's advocate, historian...), works
-on every question you ask in four phases:
-
-1. **Research**: everyone searches the web and posts sourced findings.
-2. **Debate**: they confront their findings.
-3. **Conclusion**: each one states a final position.
-4. **Report**: the rapporteur writes it up: the short answer, the key findings with their
-   sources, the disagreements and the open questions. You read it in the Report tab, which
-   is also where the proposed conclusions are validated. Company projects have no such tab.
-
-Groups come in three sizes: Duo (2), Panel (5) and Council (9). You choose the rapporteur,
-or leave it to chance.
 
 ### Architecture
 
@@ -456,7 +440,6 @@ their default unless you add them to the `environment:` of the `backend` service
 | `EGRESS_MAX_TUNNELS` | `64` | Concurrent tunnels of the egress proxy |
 | `ANTHROPIC_ALLOWED_PATHS` / `ANTHROPIC_ALLOWED_SERVER_TOOLS` | `v1/messages`, `v1/messages/count_tokens` / `web_search` | JSON lists of what the Anthropic reverse proxy forwards |
 | `ANTHROPIC_MAX_BODY_BYTES` / `ANTHROPIC_TIMEOUT_S` | `67108864` (64 MiB) / `600` | Largest request body (bytes) and seconds before a request to the Anthropic reverse proxy is cut |
-| `FETCH_TIMEOUT_S` / `FETCH_MAX_BYTES` / `FETCH_MAX_CHARS` / `FETCH_MAX_REDIRECTS` | `20` / `2000000` / `30000` / `3` | Bounds of the research groups' `fetch_page` tool |
 | `DATABASE_URL` | `postgresql+asyncpg://palabre:palabre@localhost:5432/palabre` | Database URL. When set explicitly (external database) it wins; otherwise, with a `POSTGRES_PASSWORD`, it is built from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST` and `POSTGRES_DB` |
 | `POSTGRES_PASSWORD` / `POSTGRES_HOST` | secret file / `db` | Database password (a secret read from a file, at least 32 characters, never an environment variable) and host used to build `DATABASE_URL` |
 | `GITHUB_TOKEN` | | Secret read from a file. Used by the backend only (push, pull requests, merges), never given to agents |
@@ -512,10 +495,7 @@ image upgrade to another Python minor, the venv is recreated by the next `instal
   `HTTPS_PROXY` in their environment. If the capability is missing the container refuses to start;
   `EGRESS_FILTER=off` opts out. `check-isolation.sh` checks the database and Internet are unreachable.
   Consequences and residual risk: `WebFetch` is run client-side by Claude Code, so it is not available to the
-  research role (`WebSearch` is served by Anthropic and still works).
-  Research groups read pages through the `fetch_page` MCP tool instead, run by the backend (`app/web_fetch.py`): `GET` over https on port 443 only, at most
-  `FETCH_MAX_REDIRECTS` redirects each checked again, never to a non-public address (checked at connection time, as
-  for the proxy), bounded by `FETCH_TIMEOUT_S`, `FETCH_MAX_BYTES` and `FETCH_MAX_CHARS`, returning extracted text.
+  agents (`WebSearch` is served by Anthropic and still works).
   The proxy caps concurrent tunnels
   (`EGRESS_MAX_TUNNELS`). The Anthropic API is reached through a local reverse proxy
   (`app/anthropic_proxy.py`, `/anthropic` on the server, `ANTHROPIC_BASE_URL`): the agent's
@@ -616,29 +596,28 @@ To check the frontend (TypeScript typecheck, then Vite build), run `npm run chec
 **Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool described in this README updates the README in the same PR. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
 
 Roles live in [`backend/app/company/catalog/`](backend/app/company/catalog), one TOML file per role
-(`<kind>/roles/<key>.toml`, the key is the file name, the kind the folder). The personality each kind draws from (axes, quirks, styles) is
-`<kind>/personality_pool.toml`. Company sizes, research
-angles' modes, channels and first names are in
+(`company/roles/<key>.toml`, the key is the file name). The personality the employees draw from (axes, quirks, styles) is
+`company/personality_pool.toml`. Company sizes, channels and first names are in
 [`backend/app/company/catalog.toml`](backend/app/company/catalog.toml). The backend validates every
 file at startup and refuses to start, naming the file and the field, if one is invalid.
 
 **Adding a job.** Copy an existing file (e.g. `catalog/company/roles/qa.toml`) to
-`catalog/<kind>/roles/<key>.toml`, fill in the fields (permissions come from
+`catalog/company/roles/<key>.toml`, fill in the fields (permissions come from
 `backend/app/mcp_server/permissions.py`; `order` sets the position in lists), optionally add the key to a
 mode's seats or a channel in `catalog.toml`, then run `python -m pytest tests/test_catalog.py` and restart
 the backend (existing teams get the new permissions). A new job gets no gate behavior: the keys `lead`,
 `reviewer`, `qa` and `security` are read by the workflow (`GATED_ROLE_KEYS`). Rules enforced at load: no
-role or seat combines `merge` and `code`, and a key cannot exist in both kinds. A custom team gets a 422
+role or seat combines `merge` and `code`. A custom team gets a 422
 `invalid_team_permissions` when one employee combines `merge` and `code`, or when it does not have exactly
 one carrier of `ship_release` and one of `manage_channels`. Role files are sensitive paths: the security
 gate applies to them automatically.
-**Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/<kind>/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist in the kind's `personality_pool.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities?kind=` lists them. In a hand-made team, a member's `personality` (a preset key of the project's kind) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
+**Adding a personality.** Personality presets are named personalities the boss can pick, then tweak (random draw stays the default). Copy a file (e.g. `catalog/company/personalities/pragmatic.toml`) to `catalog/company/personalities/<key>.toml`, set `label`, `description`, `order`, the levels (-2 to 2) of the axes you care about under `[traits]` (an axis left out is neutral), up to 5 `quirks` and the `[style]`. Axes and style values must exist in `personality_pool.toml`: the backend refuses to start otherwise, naming the file and the field. `GET /api/catalog/personalities` lists them. In a hand-made team, a member's `personality` (a preset key) is applied first, then its explicit `traits`, `quirks` and `style` override it; an unknown key gets a 422 `unknown_personality`.
 
-**Creation modes (companies).** `POST /api/projects` takes an optional `creation_mode`. `manual`: the team is the `employees` list (role and personality per member) and has at least 4 members (the lead included; the composition is free, only the count is checked; below, 422 `team_too_small`, like `auto`) and must hold the mandatory member, the `lead`: without one, 422 `lead_required`. `auto`: `description` and `employee_count` (at least 4, the mandatory member included, at most the catalog's team size; below, 422 `team_too_small`), and no `employees` list; the roles are chosen in a later step, so for now the team is still drawn for the mode. Research projects refuse both (422 `invalid_creation_mode`). `GET /api/catalog/roles/{role}/random-personality` returns a valid random `traits`, `quirks` and `style` for the role's kind (the "random" button; nothing is saved; unknown role: 404 `role_not_found`).
+**Creation modes (companies).** `POST /api/projects` takes an optional `creation_mode`. `manual`: the team is the `employees` list (role and personality per member) and has at least 4 members (the lead included; the composition is free, only the count is checked; below, 422 `team_too_small`, like `auto`) and must hold the mandatory member, the `lead`: without one, 422 `lead_required`. `auto`: `description` and `employee_count` (at least 4, the mandatory member included, at most the catalog's team size; below, 422 `team_too_small`), and no `employees` list; the roles are chosen in a later step, so for now the team is still drawn for the mode. `GET /api/catalog/roles/{role}/random-personality` returns a valid random `traits`, `quirks` and `style` for a role (the "random" button; nothing is saved; unknown role: 404 `role_not_found`).
 
 **Extended jobs.** `catalog/company/extended_roles.toml` indexes the extended jobs (English name, unique key, one of 20 categories, `archetype`; a name in several categories keeps the first). The archetype is a base company role (`lead`, `architect`, `product_owner`, `dev_backend`, `dev_frontend`, `reviewer`, `qa`, `scribe`, `devops`, `security`, `designer`): a role file with an `archetype` can leave out `permissions`, `wakes_on`, `model` and `effort`, which it takes from it, and it acts as that role in the merge gates and event targeting (`held_role_keys`). Extended jobs are only picked in a custom team: a mode's seats refuse them, so the random draw never uses them. The loader checks that each index line has a known category and a base archetype, and that a role file agrees with its line.
 
-A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer, scribe and the research angles, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
+A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer and scribe, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64

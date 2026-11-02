@@ -21,15 +21,11 @@ from app.accounts import assign_accounts, team_token, token_for
 from app.company import channel_planner, team_selection
 from app.company.catalog import load_catalog
 from app.company.team import Employee as TeamMember
-from app.company.team import (
-    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, generate_team_from_roles, kind_of_mode, personality_for,
-    reroll_employee,
-)  # fmt: skip
+from app.company.team import Team, custom_employee, generate_team, generate_team_from_roles, reroll_employee
 from app.models import (
     AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, RequestStatus, Room, Task,
     TaskStatus,
 )  # fmt: skip
-from app.orchestrator.research import start_question
 # NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
 from app.errors import ErrorCode, NothingToRelease, WorkflowError
 from app import worktrees
@@ -39,7 +35,6 @@ log = logging.getLogger(__name__)
 
 _background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
 AUTO_TEAM_MODE = "enterprise"  # Process of an automatic team: reviewer and QA gate the merges
-RESEARCH_ROOM = "research"  # The one room of a research team (no generic channels elsewhere)
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
@@ -65,32 +60,22 @@ async def create_project(
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,
-    topic: str | None = None,
-    rapporteur: str | None = None,
-    kind: str | None = None,
     creation_mode: str | None = None,
     description: str | None = None,
     employee_count: int | None = None,
 ) -> Project:
     """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
     `creation_mode` "auto": `employee_count` employees whose roles are chosen for the `description`
-    (the enterprise process; the mode is ignored).
-    A research project (research mode) has a `topic` and no repository, and a `rapporteur`
-    (a peer's name; none: drawn at random, unless the team built by hand has one)."""
-    kind = kind_of_mode(mode)
-    default_branch = "main"  # model default; research has no repository
-    if kind == "company":
-        repo_url = github.https_url(repo_url)  # GitHub URLs only
-        default_branch = await working_branch(repo_url)
-    else:
-        repo_url = ""
+    (the enterprise process; the mode is ignored)."""
+    repo_url = github.https_url(repo_url)  # GitHub URLs only
+    default_branch = await working_branch(repo_url)
     if employees:
         seed = random.SystemRandom().randrange(2**32) if seed is None else seed
         accounts = {**(accounts or {}), **{m["name"]: m["account"] for m in employees if m.get("account")}}
         members = [
             custom_employee(
                 m["roles"], m["name"], traits=m.get("traits"), quirks=m.get("quirks"), style=m.get("style"),
-                preset=m.get("personality"), model=m.get("model"), seed=seed + i, kind=kind,
+                preset=m.get("personality"), model=m.get("model"), seed=seed + i,
             )  # fmt: skip
             for i, m in enumerate(employees)
         ]
@@ -102,43 +87,19 @@ async def create_project(
         team = generate_team_from_roles(AUTO_TEAM_MODE, roles, seed)
     else:
         team = generate_team(mode, seed)
-    if kind == "research":
-        try:
-            appoint_rapporteur(team.employees, rapporteur)
-        except ValueError as exc:
-            raise WorkflowError(str(exc)) from None
     project = Project(
         name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
-        kind=kind, topic=topic if kind == "research" else None,
     )
     project.employees = [
         Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))
         for member in team.employees
     ]
     s.add(project)
-    if kind == "research":
-        # The research room holds everyone: the topic is posted there (see _kick_off_research)
-        await _open_rooms(s, project, [(RESEARCH_ROOM, list(project.employees))])
-    elif not employees:
+    if not employees:
         await _open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
     await ensure_direction(s, project)
     await s.commit()
-    if kind == "research" and topic:
-        await _kick_off_research(s, project, topic)
     return project
-
-
-async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
-    """The topic becomes the objective of the research room and the boss's first message,
-    which starts the research (phase 1)."""
-    room = next((r for r in project.rooms if r.name == RESEARCH_ROOM), None)
-    if room is None:
-        raise WorkflowError(f"The {RESEARCH_ROOM} room of project {project.id} is missing")
-    room.objective = topic
-    conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
-    message = await services.post_message(s, project.id, conversation_id, topic, None)
-    start_question(s, project, conversation_id, message.id)
-    await s.commit()
 
 
 def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]:
@@ -224,7 +185,7 @@ async def ensure_direction(s: AsyncSession, project: Project) -> None:
     """A company has a "direction" channel: the boss and the lead, nobody else. It is
     created after the team channels, so the first room stays the team's."""
     lead = next((e for e in project.employees if "lead" in e.roles), None)
-    if project.kind != "company" or lead is None:
+    if lead is None:
         return
     existing = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
     if existing is not None:
@@ -238,7 +199,7 @@ async def ensure_direction(s: AsyncSession, project: Project) -> None:
 
 async def ensure_all_directions(s: AsyncSession) -> None:
     """Existing companies get their direction channel (their rooms stay team channels)."""
-    for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
+    for project_id in list(await s.scalars(select(Project.id))):
         await ensure_direction(s, await load_project(s, project_id))
     await s.commit()
 
@@ -256,8 +217,7 @@ def _is_generic_room(room: Room, targeted: set[str]) -> bool:
 
 
 async def drop_generic_rooms(s: AsyncSession) -> None:
-    """There are no generic channels anymore: delete the old ones with their messages, and give
-    the "general" room of a research project its new name. Their tasks, decisions and open
+    """There are no generic channels anymore: delete the old ones with their messages. Their tasks, decisions and open
     questions move to the project's direction room first (they would cascade with the room).
     Direction, targeted channels and DMs are never touched. One-shot: a persistent marker stops
     later runs, so a #product created afterwards survives restarts."""
@@ -266,11 +226,6 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
     targeted = {c["name"] for c in load_catalog()["channels"]}
     for project_id in list(await s.scalars(select(Project.id))):
         project = await load_project(s, project_id)
-        if project.kind == "research":
-            general = next((r for r in project.rooms if r.name == "general"), None)
-            if general is not None and not any(r.name == RESEARCH_ROOM for r in project.rooms):
-                general.name = RESEARCH_ROOM
-            continue
         direction = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
         direction_conversation = None
         if direction is not None:
@@ -367,10 +322,10 @@ async def reroll_personality(s: AsyncSession, employee: Employee) -> Employee:
 
 
 def validate_personality(
-    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False, kind: str = "company"
+    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False
 ) -> None:
     """partial: some axes or style keys may be left out (they are drawn at random)."""
-    personality = personality_for(kind)
+    personality = load_catalog()["personality"]
     if traits is not None:
         axes = {a["key"] for a in personality["axes"]}
         if (not set(traits) <= axes) if partial else (set(traits) != axes):
@@ -396,8 +351,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     kept: list[Employee] = []
     hired: list[Employee] = []
     for member in new_team.employees:
-        # The rapporteur is not a seat: they keep their own angle's seat
-        match = next((e for e in remaining if [r for r in e.roles if r != RAPPORTEUR] == member.roles), None)
+        match = next((e for e in remaining if e.roles == member.roles), None)
         if match is not None:
             remaining.remove(match)
             kept.append(match)
@@ -415,14 +369,10 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         room.members = [m for m in room.members if m not in remaining]
         if room.kind == services.DIRECTION:
             continue
-        # Newcomers join the research room (everyone) and the channels of their roles
+        # Newcomers join the channels of their roles
         channel = channels.get(room.name)
-        room.members.extend(
-            e for e in hired if room.name == RESEARCH_ROOM or (channel and _channel_members(channel, [e]))
-        )
+        room.members.extend(e for e in hired if channel and _channel_members(channel, [e]))
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
-    if project.kind == "research":
-        appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur
     project.mode = mode
     await _open_channels(s, project)  # A bigger company gets the channels it lacked
     await ensure_direction(s, project)
