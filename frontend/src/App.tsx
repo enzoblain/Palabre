@@ -129,7 +129,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        projects={projects} route={route} bossName={bossName} />;
+        projects={projects} route={route} bossName={bossName}
+        leadWriting={projects.find((p) => p.id === project.detail.id)?.lead_writing ?? false} onRead={reloadProjects} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">{t("app.conversationMissing")}</p>;
     } else {
