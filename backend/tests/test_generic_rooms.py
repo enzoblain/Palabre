@@ -175,9 +175,10 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
         await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
         await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
         with caplog.at_level("INFO", logger="app.db"):
-            await conn.run_sync(_drop_research_projects)
+            dropped = await conn.run_sync(_drop_research_projects)
         assert "1 research project" in caplog.text
-        await conn.run_sync(_drop_research_projects)  # idempotent
+        assert dropped == [research.id]  # the caller removes their files
+        assert await conn.run_sync(_drop_research_projects) == []  # idempotent: nothing left to clean
         columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
         remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
         children = {

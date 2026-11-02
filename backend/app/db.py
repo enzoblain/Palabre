@@ -25,9 +25,10 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def upgrade_schema(conn: Connection) -> None:
+def upgrade_schema(conn: Connection) -> list[int]:
     """Create missing tables, and add the columns added since a table was created:
-    nullable ones, or ones with a text server default (until Alembic migrations exist)."""
+    nullable ones, or ones with a text server default (until Alembic migrations exist).
+    Returns the ids of the projects deleted along the way, so the caller can remove their files."""
     Base.metadata.create_all(conn)
     existing = inspect(conn)
     for table in Base.metadata.sorted_tables:
@@ -47,9 +48,10 @@ def upgrade_schema(conn: Connection) -> None:
     _widen_request_status_check(conn)
     _add_missing_checks(conn)
     _drop_request_author_foreign_key(conn)
-    _drop_research_projects(conn)
+    dropped_project_ids = _drop_research_projects(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
+    return dropped_project_ids
 
 
 def _add_missing_checks(conn: Connection) -> None:
@@ -92,14 +94,18 @@ def _drop_request_author_foreign_key(conn: Connection) -> None:
             conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')
 
 
-def _drop_research_projects(conn: Connection) -> None:
+def _drop_research_projects(conn: Connection) -> list[int]:
     """The research feature is gone: delete the research projects (their rooms, messages and
-    employees go with them) and drop the columns that only served it (idempotent)."""
+    employees go with them) and drop the columns that only served it (idempotent).
+    Returns the deleted project ids: empty once the columns are gone."""
     present = {c["name"] for c in inspect(conn).get_columns("projects")}
+    removed_ids: list[int] = []
     if "kind" in present:
-        removed = conn.exec_driver_sql("DELETE FROM projects WHERE kind = 'research'").rowcount
-        if removed:
-            logger.info("Removed %d research project(s) with their data", removed)
+        removed_ids = list(conn.exec_driver_sql("SELECT id FROM projects WHERE kind = 'research'").scalars())
+        if removed_ids:
+            conn.exec_driver_sql("DELETE FROM projects WHERE kind = 'research'")
+            logger.info("Removed %d research project(s) with their data", len(removed_ids))
     for column in RESEARCH_COLUMNS:
         if column in present:
             conn.exec_driver_sql(f'ALTER TABLE projects DROP COLUMN "{column}"')
+    return removed_ids
