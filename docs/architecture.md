@@ -1,4 +1,4 @@
-## Architecture
+# Architecture
 
 ```
  Phone / browser ──► :2810  Web app (nginx) ─► :2710  Server (FastAPI) ──── PostgreSQL

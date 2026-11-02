@@ -7,7 +7,7 @@ for software projects, a GitHub token.
 mkdir palabre && cd palabre
 curl -fsSLO https://raw.githubusercontent.com/enzoblain/Palabre/main/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/enzoblain/Palabre/main/.env.example -o .env
-# Fill in .env (see below), then:
+# Fill in .env (see [Configuration](configuration.md)), then:
 docker compose pull
 docker compose up -d
 ```

@@ -1,4 +1,4 @@
-## Remote access
+# Remote access
 
 The server port only listens on `127.0.0.1`, so the `ADMIN_TOKEN` never crosses the network in
 clear text. To use the app from another machine, put a reverse proxy with TLS in front of

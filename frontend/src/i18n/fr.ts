@@ -220,7 +220,7 @@ export const fr: Messages = {
   "editor.quirkPlaceholder": "Votre propre manie, p. ex. Vous citez Linus Torvalds dans chaque revue.",
   "jobs.title": "Métiers",
   "jobs.searchPlaceholder": "Chercher un métier…",
-  "jobs.none": "Aucun métier disponible. Les métiers s'ajoutent dans le dépôt, voir le README (Adding a job).",
+  "jobs.none": "Aucun métier disponible. Les métiers s'ajoutent dans le dépôt, voir docs/develop.md.",
   "jobs.noMatch": "Aucun métier ne correspond à \"{search}\".",
   "jobs.clearSearch": "Effacer la recherche",
   "jobs.showDetails": "Voir le détail",
