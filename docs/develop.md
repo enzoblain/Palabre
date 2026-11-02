@@ -8,7 +8,7 @@ cd frontend && npm install && npm run dev        # Vite dev server on localhost:
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
 `frontend/`. No linter is configured yet.
 
-**Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool described updates the right file of `docs/` in the same PR; the README stays short. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
+**Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool documented in `docs/` updates the right file of `docs/` in the same PR; the README stays short. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
 
 Roles live in [`backend/app/company/catalog/`](../backend/app/company/catalog), one TOML file per role
 (`company/roles/<key>.toml`, the key is the file name). The personality the employees draw from (axes, quirks, styles) is
@@ -34,6 +34,6 @@ gate applies to them automatically.
 
 A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`), passed to `claude --effort`; it is `low` for the product owner, designer and scribe, and absent (claude's default) elsewhere. An employee with several roles gets the highest, or the default if one of their roles sets none.
 
-The lead normally ships with `merge_release` and `publish_version` (see [How it works](how-it-works.md)). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
+The lead normally ships with `merge_release` and `publish_version` (see [How it works](how-it-works.md)). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](../CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64
 (`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`); the release notes read the changes, then the server image line.

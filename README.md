@@ -23,7 +23,7 @@ docker compose pull
 docker compose up -d
 ```
 
-The server listens on port `2710` and the web app on port `2810`, both on `127.0.0.1` by default.
+The server listens on port `2710` and the web app on port `2810`, both on `127.0.0.1` by default (to reach them from another machine, see [Remote access](docs/remote-access.md)).
 
 ## Documentation
 
