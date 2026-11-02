@@ -53,11 +53,11 @@ class Settings(BaseSettings):
     projects_dir: Path = Path("/data/projects")
     # Temporary files of runs (MCP configs), kept outside the repositories
     runtime_dir: Path = Path("/data/runtime")
-    # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
+    # System user the agents' `claude` runs as, through sudo (see docs/security.md).
     # Empty = same user as the backend (local dev without sudo).
     agent_user: str = ""
     # Number of per-run accounts `<agent_user>1..N` (0 = every run shares agent_user). A run takes
-    # a free one for its whole life, so no two live runs share a uid (see "Security" in the README).
+    # a free one for its whole life, so no two live runs share a uid (see docs/security.md).
     agent_pool_size: int = 0
     # The backend's private store of Claude sessions, one directory per employee (default: CLAUDE_CONFIG_DIR)
     claude_store_dir: Path | None = None

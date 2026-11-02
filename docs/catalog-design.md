@@ -60,7 +60,7 @@ Rules the loader and the custom team validation enforce, because code reads them
 3. Optional: add it to a mode's seats or a channel in `catalog.toml`.
 4. Run `cd backend && python -m pytest tests/test_catalog.py`, then restart the backend (`refresh_permissions` applies the change to existing teams).
 
-Limit: a new job gets no gate behavior (merge approval, lead duties) unless code reads its key; the README says which keys are special.
+Limit: a new job gets no gate behavior (merge approval, lead duties) unless code reads its key; [Develop](develop.md) says which keys are special.
 
 ## Adding a personality
 1. Copy `catalog/company/personalities/<any>.toml` to `<key>.toml`.

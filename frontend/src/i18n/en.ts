@@ -193,7 +193,7 @@ export const en = {
   "editor.quirkPlaceholder": "Your own quirk, e.g. You quote Linus Torvalds in every review.",
   "jobs.title": "Jobs",
   "jobs.searchPlaceholder": "Search a job…",
-  "jobs.none": "No job available. Jobs are added in the repository, see the README (Adding a job).",
+  "jobs.none": "No job available. Jobs are added in the repository, see docs/develop.md.",
   "jobs.noMatch": "No job matches \"{search}\".",
   "jobs.clearSearch": "Clear search",
   "jobs.showDetails": "Show details",

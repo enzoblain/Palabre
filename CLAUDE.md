@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Palabre is a company of AI agents that works for its CEO (the user): a lead splits work into tasks, developers open pull requests, reviewers and QA check them. Agents are `claude -p` runs that act through an MCP server. See the [README](README.md#how-it-works) for the product and [Architecture](README.md#architecture) for the big picture; this file only maps the code.
+Palabre is a company of AI agents that works for its CEO (the user): a lead splits work into tasks, developers open pull requests, reviewers and QA check them. Agents are `claude -p` runs that act through an MCP server. See the [README](README.md) and [How it works](docs/how-it-works.md) for the product and [Architecture](docs/architecture.md) for the big picture; this file only maps the code.
 
 ## Stack
 
@@ -12,7 +12,7 @@ Palabre is a company of AI agents that works for its CEO (the user): a lead spli
 Backend, in `backend/app/`:
 
 - `main.py`: FastAPI app, startup, mounts the API, the MCP server and the scheduler.
-- `config.py`: settings from environment variables (see [Configuration](README.md#configuration)).
+- `config.py`: settings from environment variables (see [Configuration](docs/configuration.md)).
 - `db.py`, `models.py`: engine/session and SQLAlchemy models.
 - `api/`: REST routers for the apps (projects, rooms, conversations, tasks, settings, catalog, monitoring); `schemas.py` holds the Pydantic models.
 - `services.py`: conversations, room document, notes and events, shared by the API and the MCP server.
@@ -32,18 +32,18 @@ Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `component
 
 ## Run and check
 
-How to run the app: see [Develop](README.md#develop). Checks:
+How to run the app: see [Develop](docs/develop.md). Checks:
 
 ```sh
-cd backend && python -m pytest   # backend tests, fixtures in the README's Tests section
+cd backend && python -m pytest   # backend tests, fixtures in docs/tests.md
 cd frontend && npm run check     # front check
 ```
 
-Details: [Tests](README.md#tests).
+Details: [Tests](docs/tests.md).
 
 ## Conventions
 
-- Everything in the repo (code, comments, docs) is in English. So is everything that goes to GitHub (commit messages, PR titles and descriptions, review comments, release notes). Commits and PR titles use Conventional Commits (`feat(scope): ...`); release notes list the changes grouped by type, then keep the standard text of `release.yml`; see [How it works](README.md#how-it-works). Versions follow Semantic Versioning 2.0.0, computed from the Conventional Commits since the last `vX.Y.Z` tag (`fix`/`perf` patch, `feat` minor, `!` or `BREAKING CHANGE` major, minor while in 0.x); see [How it works](README.md#how-it-works). The chat and tasks stay in the team's language.
+- Everything in the repo (code, comments, docs) is in English. So is everything that goes to GitHub (commit messages, PR titles and descriptions, review comments, release notes). Commits and PR titles use Conventional Commits (`feat(scope): ...`); release notes list the changes grouped by type, then keep the standard text of `release.yml`; see [How it works](docs/how-it-works.md). Versions follow Semantic Versioning 2.0.0, computed from the Conventional Commits since the last `vX.Y.Z` tag (`fix`/`perf` patch, `feat` minor, `!` or `BREAKING CHANGE` major, minor while in 0.x); see [How it works](docs/how-it-works.md). The chat and tasks stay in the team's language.
 - Code standards, injected into the developers' prompts and enforced as a checklist by the Reviewer (`orchestrator/prompts.py`; a missed point means `changes_requested`): code, comments, docstrings and identifiers in English; explicit names, no obscure abbreviations; strict typing (Python type hints, no `any` in TypeScript); short functions with a single responsibility; no hardcoded magic values (use config or constants); follow the existing patterns of the module; tests for every new behavior; no dead code and no TODO without a ticket.
 - Each backend module starts with a one-line docstring saying what it is for; keep that style, and comments short and about the why.
 - Async everywhere on the backend; no blocking calls in request or orchestrator paths.
