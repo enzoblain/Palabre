@@ -75,30 +75,6 @@ export type Message = {
   request_decision_id: number | null;
 };
 
-export type EmployeeStatus = {
-  employee_id: number;
-  name: string;
-  title: string;
-  status: "working" | "waiting" | "resting" | "offline";
-  account: number;
-  kind: string | null;
-  conversation_id: number | null;
-  task_id: number | null;
-  since: string | null;
-};
-
-/** Who is busy right now ("blocked" is not derived by the server yet). */
-export type Presence = {
-  employee_id: number;
-  name: string;
-  roles: string[];
-  state: "working" | "idle";
-  kind: string | null;
-  task_id: number | null;
-  conversation_id: number | null;
-  last_run_at: string | null;
-};
-
 export type AppSettings = {
   boss_name: string;
   // Language the agents speak and write in: a key of `languages` (key → native name)
@@ -405,8 +381,6 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
-  presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
-  teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),

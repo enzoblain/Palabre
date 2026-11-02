@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { BottomBar } from "./components/BottomBar";
-import { MenuIcon } from "./components/Icons";
+import { InfoIcon, MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
+import { ProjectBar, ProjectInfo } from "./components/ProjectInfo";
 import { Projects } from "./components/Projects";
 import { Settings } from "./components/Settings";
 import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
 import { I18nProvider, useI18n } from "./i18n";
-import { go, useRoute } from "./router";
+import { go, goBack, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
-const STATUS_POLL_MS = 3000;
 const CREDITS_POLL_MS = 15000;
 const PROJECTS_POLL_MS = 5000;
 
@@ -81,10 +81,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
-  const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
   // Small screens: the team panel is a drawer over the page, and closes once a link is followed
   const [navOpen, setNavOpen] = useState(false);
-  const [presence, setPresence] = useState<Presence[]>([]);
   useEffect(() => setNavOpen(false), [route]);
 
   const reloadProjects = useCallback(() => api.listProjects().then(setProjects).catch(() => {}), []);
@@ -97,26 +95,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   }, [reloadProjects]);
 
   usePolling(reloadProjects, PROJECTS_POLL_MS, [reloadProjects]); // unread counts and previews
-
-  useEffect(() => setStatuses([]), [projectId]);
-  usePolling(
-    projectId === null ? null : async () => {
-      const result = await api.teamStatus(projectId);
-      setStatuses(result);
-    },
-    STATUS_POLL_MS,
-    [projectId],
-  );
-
-  useEffect(() => setPresence([]), [projectId]);
-  usePolling(
-    projectId === null ? null : async () => {
-      const result = await api.presence(projectId);
-      setPresence(result);
-    },
-    STATUS_POLL_MS,
-    [projectId],
-  );
 
   // Claude accounts out of credits: the whole team is paused until they come back
   const [exhausted, setExhausted] = useState<ExhaustedAccount[]>([]);
@@ -143,13 +121,15 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   } else if (route.name === "settings") {
     main = <Settings settings={settings} projects={projects} onSaved={setSettings}
       onProjectsChanged={reloadProjects} onDisconnect={onDisconnect} />;
+  } else if (route.name === "info") {
+    main = error ? <p className="error center">{error}</p> : <ProjectInfo project={project} />;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        projects={projects} route={route} statuses={statuses} bossName={bossName} />;
+        projects={projects} route={route} bossName={bossName} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">{t("app.conversationMissing")}</p>;
     } else {
@@ -159,22 +139,20 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     main = <Projects projects={projects} />;
   }
 
-  const inProject = projectId !== null && route.name !== "settings" && route.name !== "new";
+  const inProject = route.name === "project" || route.name === "info";
   return (
     <div className={`shell${navOpen ? " nav-open" : ""}`}>
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-      <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} presence={presence} open={navOpen}
+      <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} open={navOpen}
         onClose={() => setNavOpen(false)} />
       <main className={`main${inProject ? "" : " with-bottom-bar"}`}>
-        {inProject ? (
-          <header className="mobile-bar">
-            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
-              aria-expanded={navOpen}>
-              <MenuIcon />
+        {route.name === "project" ? (
+          <ProjectBar phoneOnly name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"} onBack={() => goBack("/")}>
+            <button className="icon-btn" onClick={() => go(`/p/${route.projectId}/info`)} aria-label={t("info.open")}>
+              <InfoIcon size={22} />
             </button>
-            <span className="sidebar-title truncate">{project?.detail.name ?? "Palabre"}</span>
-          </header>
-        ) : (
+          </ProjectBar>
+        ) : route.name === "info" ? null : (
           <header className="topbar">
             <button className="icon-btn topbar-nav" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
               aria-expanded={navOpen}>
