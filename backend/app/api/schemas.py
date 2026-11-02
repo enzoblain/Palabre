@@ -129,7 +129,6 @@ class EmployeePatch(BaseModel):
 PERSONALITY_KEY_MAX_LENGTH = 40
 PROJECT_NAME_MAX_LENGTH = 200
 PROJECTS_DELETE_MAX = 100
-PROJECT_DESCRIPTION_MAX_LENGTH = 10000
 
 
 class MemberIn(BaseModel):
@@ -179,7 +178,7 @@ class ProjectIn(BaseModel):
     # (`description` and `employee_count`); none: drawn for the mode, as before
     creation_mode: Literal["manual", "auto"] | None = None
     # Auto: what the project is about, and how many employees to hire (the lead included)
-    description: str | None = Field(default=None, max_length=PROJECT_DESCRIPTION_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=10000)
     employee_count: int | None = Field(default=None, le=MAX_TEAM_SIZE)
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=MAX_TEAM_SIZE)
@@ -188,7 +187,6 @@ class ProjectIn(BaseModel):
 class ProjectOut(ORM):
     id: int
     name: str
-    description: str
     repo_url: str
     default_branch: str
     mode: str
@@ -229,22 +227,16 @@ class ProjectDetail(ProjectOut):
 
 
 class ProjectPatch(BaseModel):
-    """Editable infos of a project; a field left out is kept. The repository is not editable."""
+    """Editable infos of a project: only the name. The description is generated and the repository is fixed."""
 
-    name: str | None = Field(default=None, max_length=PROJECT_NAME_MAX_LENGTH)
-    description: str | None = Field(default=None, max_length=PROJECT_DESCRIPTION_MAX_LENGTH)
-
-    @field_validator("description")
-    @classmethod
-    def _strip_description(cls, value: str | None) -> str | None:
-        return value.strip() if value is not None else None
+    name: str = Field(min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
+    def _name_not_blank(cls, value: str) -> str:
+        if not value.strip():
             raise ValueError("name must not be blank")
-        return value.strip() if value is not None else None
+        return value.strip()
 
 
 class ProjectsDelete(BaseModel):

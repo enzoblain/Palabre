@@ -40,28 +40,24 @@ def removed(monkeypatch):
 async def _project(s, name: str = "P") -> Project:
     project = Project(name=name, repo_url="https://github.com/o/r", mode="enterprise", seed=1)
     project.employees = [
-        Employee(name=f"{name}-lead", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token=name)
+        Employee(
+            name=f"{name}-lead", title="Lead", model="opus", permissions=[],
+            traits={}, quirks=[], style={}, roles=["lead"], mcp_token=name,
+        )  # fmt: skip
     ]
     s.add(project)
     await s.commit()
     return project
 
 
-async def test_update_changes_name_and_description_only(db):
+async def test_update_changes_the_name_only(db):
     project = await _project(db)
-    detail = await api.update_project(project.id, ProjectPatch(name="  New  ", description=" About "), db)
-    assert (detail.name, detail.description) == ("New", "About")
+    detail = await api.update_project(project.id, ProjectPatch(name="  New  "), db)
+    assert detail.name == "New"
     assert detail.repo_url == "https://github.com/o/r"
 
 
-async def test_update_keeps_fields_left_out(db):
-    project = await _project(db)
-    await api.update_project(project.id, ProjectPatch(description="About"), db)
-    detail = await api.update_project(project.id, ProjectPatch(name="Other"), db)
-    assert (detail.name, detail.description) == ("Other", "About")
-
-
-@pytest.mark.parametrize("fields", [{"name": "   "}, {"name": ""}, {"name": "x" * (PROJECT_NAME_MAX_LENGTH + 1)}])
+@pytest.mark.parametrize("fields", [{}, {"name": None}, {"name": "   "}, {"name": ""}, {"name": "x" * (PROJECT_NAME_MAX_LENGTH + 1)}])
 def test_update_refuses_an_invalid_name(fields):
     with pytest.raises(ValidationError):
         ProjectPatch(**fields)

@@ -112,7 +112,6 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text, default="", server_default="")
     repo_url: Mapped[str] = mapped_column(String(500))
     default_branch: Mapped[str] = mapped_column(String(200), default="main")
     # Mode (catalog.toml) and the seed the team was drawn with

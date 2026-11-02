@@ -187,19 +187,19 @@ async def get_project(project_id: int, s: SessionDep):
 
 @router.patch("/projects/{project_id}", response_model=ProjectDetail)
 async def update_project(project_id: int, body: ProjectPatch, s: SessionDep):
-    """Edit the name and the description. The GitHub repository cannot be changed."""
+    """Rename a project. Its description and GitHub repository cannot be edited."""
     project = await _project(s, project_id)
-    for field, value in body.model_dump(exclude_none=True).items():
-        setattr(project, field, value)
+    project.name = body.name
     await s.commit()
     return _detail(project)
 
 
 async def _delete_project_data(s, project: Project) -> None:
     employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project.id)))
-    await orchestrator.cancel_runs(employee_ids)
     await s.delete(project)
     await s.commit()
+    # Rows first, so the dispatcher cannot start a new run that recreates a desk after the files are gone
+    await orchestrator.cancel_runs(employee_ids)
     await remove_project_files(project.id)
 
 

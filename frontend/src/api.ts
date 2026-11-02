@@ -8,7 +8,6 @@ export const pageServer: string | null = import.meta.env.DEV ? null : location.o
 export type Project = {
   id: number;
   name: string;
-  description: string;
   repo_url: string;
   default_branch: string;
   mode: string;
@@ -393,8 +392,8 @@ export const api = {
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
-  updateProject: (id: number, body: { name?: string; description?: string }) =>
-    call<ProjectDetail>(`/projects/${id}`, "PATCH", body),
+  updateProject: (id: number, name: string) =>
+    call<ProjectDetail>(`/projects/${id}`, "PATCH", { name }),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
   changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
