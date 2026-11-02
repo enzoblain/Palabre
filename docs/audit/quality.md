@@ -137,7 +137,7 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 ### Q16. Tests rely on real time and sleeps
 
 - Problem: `asyncio.sleep(0.05)` and a 0.05 s agent timeout make the tests depend on the machine speed; they can flake on a loaded CI runner.
-- Where: `backend/tests/test_claude_usage.py:97`, `backend/tests/test_agent_isolation.py:118,132`.
+- Where: `backend/tests/test_agent_isolation.py:118,132`.
 - Severity: low
 - Fix: use `asyncio.Event` to synchronise, and a fake clock for the timeout.
 - Effort: S

@@ -16,12 +16,6 @@ catalog (roles, company sizes, personalities) and the server's error messages ar
 
 **API errors**: every error of the REST API returns `{"detail": "<English text>", "code": "<snake_case code>"}` with the usual HTTP status. The codes are the values of `ErrorCode` in `backend/app/errors.py` and never change (the text may); `detail` is the fallback when a client has no translation. Request validation errors (422) use `validation_error` with FastAPI's list in `detail`. Domain errors from the workflow and GitHub layers use `workflow_error` (409) and `github_error` (502) unless the raising code names a more specific `ErrorCode` (`WorkflowError(..., code=...)`, `GitHubError(..., code)`); `GitHubError` messages are scrubbed of the token and URL credentials. Unmapped lookups use `not_found`. `code` is absent on Starlette's own 404/405 (unknown route or method): clients must treat it as optional.
 
-**Account quota**: `GET /settings/quota` returns, for each Claude account, what `/usage`
-shows in Claude Code: the 5-hour session, the week (all models) and the week per model,
-each with the percentage used and its reset time. It is read from Claude's OAuth usage
-endpoint with the account's token, which never leaves the backend, and cached for about a
-minute. An account that fails returns an `error` without affecting the others.
-
 **Credits exhausted**: when a run fails because the account hit its usage limit or has no
 credit left (recognised in the output of `claude -p`, with its reset time when it gives
 one, otherwise a 30-minute estimate), the account is paused until then: no new run starts
