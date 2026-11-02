@@ -39,4 +39,3 @@ async def update_settings(body: AppSettingsIn, s: SessionDep):
     if body.language is not None:
         await services.set_app_setting(s, "language", body.language)
     return _settings()
-
