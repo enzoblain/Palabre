@@ -60,6 +60,7 @@ class RoleOut(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
+    expertise: list[str] = []
     method: list[str] = []
     watch_points: list[str] = []
     deliverable_format: str | None = None

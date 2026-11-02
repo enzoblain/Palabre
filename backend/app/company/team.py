@@ -224,6 +224,7 @@ def _render_roster(team: Team, me: Employee, boss: dict) -> str:
 def _render_role(role: Role) -> str:
     bullets = lambda items: "\n".join(f"- {i}" for i in items)  # noqa: E731
     working_notes = [
+        f"You are an expert in:\n{bullets(role.expertise)}" if role.expertise else None,
         "How you work:\n" + "\n".join(f"{n}. {step}" for n, step in enumerate(role.method, 1))
         if role.method
         else None,
