@@ -59,6 +59,8 @@ class ErrorCode(StrEnum):
     INVALID_GITHUB_URL = "invalid_github_url"
     GITHUB_BRANCH_MISSING = "github_branch_missing"
     PRODUCTION_BRANCH_BOSS_ONLY = "production_branch_boss_only"
+    MAIN_BRANCH_IS_TEAM_BRANCH = "main_branch_is_team_branch"
+    MAIN_BRANCH_IS_TASK_BRANCH = "main_branch_is_task_branch"
 
 
 class WorkflowError(Exception):

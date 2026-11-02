@@ -74,6 +74,8 @@ export const en = {
   "error.invalid_github_url": "Invalid GitHub URL",
   "error.github_branch_missing": "The branch does not exist on GitHub",
   "error.production_branch_boss_only": "Only the boss can change the production branch",
+  "error.main_branch_is_team_branch": "The team's working branch cannot be the main branch",
+  "error.main_branch_is_task_branch": "A task branch cannot be the main branch",
   "error.not_found": "Not found",
 
   "common.back": "Back",
