@@ -59,6 +59,8 @@ export const fr: Messages = {
   "error.invalid_branch_name": "Nom de branche invalide",
   "error.branch_already_used": "Cette branche est déjà utilisée par une autre tâche",
   "error.no_name_left": "Plus aucun nom d’employé disponible pour cette équipe",
+  "error.lead_protected": "Le lead ne peut être ni retiré ni changer de rôle",
+  "error.team_too_large": "L’équipe a déjà atteint sa taille maximale",
   "error.task_wrong_status": "Cette tâche n’a pas le bon statut pour cette action",
   "error.stale_review_head": "La pull request a changé depuis le début de cette review",
   "error.pr_head_moved": "La tête de la pull request a bougé depuis sa review",

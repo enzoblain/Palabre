@@ -58,6 +58,8 @@ export const en = {
   "error.invalid_branch_name": "Invalid branch name",
   "error.branch_already_used": "This branch is already used by another task",
   "error.no_name_left": "No employee name left for this team",
+  "error.lead_protected": "The lead cannot be removed or change roles",
+  "error.team_too_large": "The team is already at its maximum size",
   "error.task_wrong_status": "This task is not in the right status for this action",
   "error.stale_review_head": "The pull request moved since this review was started",
   "error.pr_head_moved": "The pull request head moved since it was reviewed",

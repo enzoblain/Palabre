@@ -265,6 +265,8 @@ export const ERROR_CODES = [
   "invalid_branch_name",
   "branch_already_used",
   "no_name_left",
+  "lead_protected",
+  "team_too_large",
   "task_wrong_status",
   "stale_review_head",
   "pr_head_moved",
