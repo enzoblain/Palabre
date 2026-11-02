@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type ResearchPhase, type Room, api } from "../api";
+import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
@@ -9,25 +9,6 @@ import { Markdown, bossNames, mentionsAny } from "./Markdown";
 import { ProjectMenu } from "./TeamPanel";
 
 const POLL_MS = 2000;
-const PHASE_POLL_MS = 4000;
-const PHASES = ["research", "debate", "conclusion", "report"] as const satisfies readonly ResearchPhase[];
-
-/** Where the research question stands: research → debate → conclusion → report. */
-function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: number }) {
-  const { t } = useI18n();
-  const current = phase === "done" ? PHASES.length : PHASES.findIndex((p) => p === phase);
-  return (
-    <div className="phase-bar">
-      {PHASES.map((p, i) => (
-        <span key={p} className={`phase${i < current ? " past" : i === current ? " current" : ""}`}>
-          {i < current ? "✓ " : ""}{t(`conv.phase.${p}`)}
-        </span>
-      ))}
-      {phase === "done" && <a className="phase-done" href={`#/p/${projectId}/report`}>{t("conv.readReport")}</a>}
-    </div>
-  );
-}
-
 /** What became of a request of the lead: the boss answers in the chat, so only the closed states show. */
 function RequestBox({ message: m }: { message: Message }) {
   const { t, tr } = useI18n();
@@ -194,9 +175,6 @@ export function ConversationView({ conversation, room, project, projects, route,
 
   const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
-  const research = project.kind === "research";
-  const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
-  usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
   const myNames = useMemo(() => bossNames(bossName), [bossName]);
 
   function append(incoming: Message[]) {
@@ -267,19 +245,14 @@ export function ConversationView({ conversation, room, project, projects, route,
         <span className="conv-members muted">{t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
         <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
       </header>
-      {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 
       <div className="messages" ref={listRef} onScroll={onScroll}>
         {messages === null && <p className="muted center">{t("common.loading")}</p>}
         {empty && (
           <div className="intro">
-            <h2>
-              {research ? t("conv.introResearchTitle") : t("conv.introTitle", { project: project.name })}
-            </h2>
+            <h2>{t("conv.introTitle", { project: project.name })}</h2>
             <p className="muted">
-              {research
-                ? t("conv.introResearch")
-                : [t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
+              {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
             </p>
           </div>
         )}
@@ -297,9 +270,7 @@ export function ConversationView({ conversation, room, project, projects, route,
       {error && <p className="error composer-error">{error}</p>}
       <Composer key={conversation.id} onSend={send}
         placeholder={
-          research
-            ? t("conv.placeholderResearch")
-            : empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
+          empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
         } />
     </div>
   );

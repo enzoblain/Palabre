@@ -5,17 +5,9 @@ export const pageServer: string | null = import.meta.env.DEV ? null : location.o
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
-export type ProjectKind = "company" | "research";
-export type ResearchPhase = "research" | "debate" | "conclusion" | "report" | "done";
-
 export type Project = {
   id: number;
   name: string;
-  // "company": a software company on a GitHub repository; "research": peers on a topic
-  kind: ProjectKind;
-  topic: string | null;
-  // Research: where the current question stands
-  research_phase: ResearchPhase | null;
   repo_url: string;
   default_branch: string;
   mode: string;
@@ -107,15 +99,6 @@ export type Presence = {
   last_run_at: string | null;
 };
 
-export type Mode = {
-  label: string;
-  seats: { roles: string[]; count?: number }[];
-  rules: string[];
-  process: Record<string, unknown>;
-};
-
-export type TeamMember = Omit<Employee, "id" | "project_id" | "account">;
-
 export type AppSettings = {
   boss_name: string;
   // Language the agents speak and write in: a key of `languages` (key → native name)
@@ -142,7 +125,6 @@ export type OrchestratorStatus = {
   exhausted_accounts: ExhaustedAccount[];
 };
 export type Quota = { accounts: AccountQuota[] };
-export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
 export type Decision = {
   id: number;
@@ -170,7 +152,6 @@ export type Personality = {
 /** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
 export type PersonalityPreset = {
   key: string;
-  kind: ProjectKind;
   label: string;
   description: string;
   traits: Record<string, number>;
@@ -181,7 +162,7 @@ export type PersonalityPreset = {
 export type Model = "haiku" | "sonnet" | "opus";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Categories of the historic roles. */
-export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support";
 /** Categories of the extended jobs (extended_roles.toml on the server). */
 export type ExtendedCategory =
   | "direction_strategy" | "architecture" | "software_development" | "artificial_intelligence" | "data_databases"
@@ -197,7 +178,6 @@ export type RoleTools = { mcp: string[]; claude: string[] };
 /** A job of the catalog (RoleOut on the server). */
 export type Role = {
   key: string;
-  kind: ProjectKind;
   title: string;
   description: string;
   category: RoleCategory;
@@ -417,14 +397,11 @@ export const api = {
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),
 
-  modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
-  personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
-  personalities: (kind: ProjectKind) => call<Record<string, PersonalityPreset>>(`/catalog/personalities?kind=${kind}`),
-  roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
+  personality: () => call<Personality>("/catalog/personality"),
+  personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
   limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),
-  previewTeam: (mode: string, seed?: number) =>
-    call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
@@ -433,11 +410,7 @@ export const api = {
   createProject: (body: {
     name: string;
     repo_url?: string;
-    topic?: string;
-    rapporteur?: string | null;
     mode: string;
-    seed?: number;
-    accounts: Record<string, number>;
     creation_mode?: "manual" | "auto";
     description?: string;
     employee_count?: number;
@@ -445,11 +418,9 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
-  researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
   presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
-  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>
