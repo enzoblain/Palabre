@@ -182,27 +182,9 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 label.narrow { max-width: 240px; }
 .actions { justify-content: flex-end; }
 
-.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-.mode {
-  display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 14px; border-radius: var(--radius);
-  border: 1px solid var(--border); background: var(--bg); cursor: pointer;
-}
-.mode:hover { border-color: var(--accent); }
-.mode.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
-.mode-size { color: var(--accent); font-weight: 500; font-size: 13px; }
-.mode-rule { color: var(--muted); font-size: 12px; }
-
 .team-head { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 .team-head h3 { font-size: 14px; }
-.team-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
-.member-card { display: flex; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
-.member-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.member-title { color: var(--muted); font-size: 13px; }
 .badge { font-size: 11px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
-.chip-strong { border-color: var(--accent); color: var(--accent); }
-.chip-style { color: var(--muted); }
 
 /* --- Conversation --- */
 .conversation { display: flex; flex-direction: column; height: 100%; min-height: 0; }

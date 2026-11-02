@@ -421,7 +421,6 @@ export const api = {
   presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
-  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>
