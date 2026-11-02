@@ -4,13 +4,12 @@ from fastapi import APIRouter, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app import github, projects, services
+from app import services
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     DecisionOut,
-    DecisionPatch,
     QuestionIn,
     QuestionOut,
     QuestionPatch,
@@ -18,7 +17,7 @@ from app.api.schemas import (
     RoomPatch,
     TaskOut,
 )
-from app.models import Decision, Employee, OpenQuestion, Project, RequestAnswer, Room, Task
+from app.models import Decision, Employee, OpenQuestion, Project, Room, Task
 
 router = APIRouter(tags=["rooms"])
 
@@ -131,24 +130,6 @@ async def get_document(room_id: int, s: SessionDep) -> dict:
         "questions": [QuestionOut.model_validate(q) for q in questions],
         "tasks": [TaskOut.model_validate(t) for t in tasks],
     }
-
-
-@router.patch("/decisions/{decision_id}", response_model=DecisionOut)
-async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
-    """Validate or reject a decision from the room document. A release is merged into
-    production when validated (and stays proposed if GitHub refuses), closed when rejected.
-    The request in direction about it, if any, is answered the same way."""
-    decision = await get_or_404(s, Decision, decision_id)
-    try:
-        await projects.settle_decision(s, decision, RequestAnswer(body.status))
-    except github.GitHubError as exc:
-        raise ApiError(
-            status.HTTP_409_CONFLICT,
-            ErrorCode.GITHUB_MERGE_REFUSED,
-            f"GitHub refused the merge: {exc}",
-        ) from None
-    await s.commit()
-    return decision
 
 
 @router.post("/rooms/{room_id}/questions", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)

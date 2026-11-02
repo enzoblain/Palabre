@@ -450,8 +450,6 @@ export const api = {
   teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
 
   roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
-  decide: (decisionId: number, status: "validated" | "rejected") =>
-    call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

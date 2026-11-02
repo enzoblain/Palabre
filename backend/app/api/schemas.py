@@ -262,10 +262,6 @@ class DecisionOut(ORM):
     decided_at: datetime | None
 
 
-class DecisionPatch(BaseModel):
-    status: Literal["validated", "rejected"]
-
-
 class QuestionIn(BaseModel):
     question: str = Field(min_length=1)
 
