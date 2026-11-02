@@ -18,7 +18,7 @@ from app.company.catalog import load_catalog
 from app.config import removed_settings_present, settings
 from app.db import SessionLocal, engine, upgrade_schema
 from app.github import GitHubError
-from app.worktrees import remove_stale_desks
+from app.worktrees import remove_project_files, remove_stale_desks
 from app.hardening import make_non_dumpable
 from app.mcp_server.auth import AgentAuthMiddleware
 from app.mcp_server import tools  # noqa: F401 (registers the tools)
@@ -53,7 +53,9 @@ async def lifespan(_: FastAPI):
     load_catalog()  # an invalid catalog file stops the backend here, with its name
     # TODO: Alembic migrations
     async with engine.begin() as conn:
-        await conn.run_sync(upgrade_schema)
+        removed_project_ids = await conn.run_sync(upgrade_schema)
+    for project_id in removed_project_ids:
+        await remove_project_files(project_id)
     async with SessionLocal() as s:
         await services.load_app_settings(s)
         await refresh_permissions(s)

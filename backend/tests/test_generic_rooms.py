@@ -175,9 +175,9 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
         await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
         await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
         with caplog.at_level("INFO", logger="app.db"):
-            await conn.run_sync(_drop_research_projects)
+            removed_ids = await conn.run_sync(_drop_research_projects)
         assert "1 research project" in caplog.text
-        await conn.run_sync(_drop_research_projects)  # idempotent
+        assert await conn.run_sync(_drop_research_projects) == []  # idempotent
         columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
         remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
         children = {
@@ -186,6 +186,26 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
         }
         messages = (await conn.execute(text("SELECT count(*) FROM messages"))).scalar_one()
     assert not set(RESEARCH_COLUMNS) & columns
+    assert removed_ids == [research.id]
     assert remaining == [company.id]
     assert children == {"employees": {company.id}, "rooms": {company.id}}
     assert messages == 1
+
+
+async def test_removed_research_projects_lose_their_desk_folders(monkeypatch, tmp_path):
+    from app import worktrees
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "projects_dir", tmp_path)
+    monkeypatch.setattr(worktrees.claude_store, "session_dirs", lambda project_id: [])
+    desk = tmp_path / "project-7" / "desks" / "employee-1"
+    desk.mkdir(parents=True)
+    (desk / "notes.txt").write_text("old")
+    kept = tmp_path / "project-8"
+    kept.mkdir()
+
+    await worktrees.remove_project_files(7)
+    await worktrees.remove_project_files(7)  # second pass: the folder is already gone
+
+    assert not (tmp_path / "project-7").exists()
+    assert kept.exists()
