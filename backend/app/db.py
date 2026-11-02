@@ -1,5 +1,6 @@
 """Database engine, sessions and schema setup."""
 
+import logging
 from collections.abc import AsyncIterator
 
 from sqlalchemy import CheckConstraint, Connection, inspect, text
@@ -7,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+RESEARCH_COLUMNS = ("kind", "topic", "research_phase")
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
@@ -43,6 +47,7 @@ def upgrade_schema(conn: Connection) -> None:
     _widen_request_status_check(conn)
     _add_missing_checks(conn)
     _drop_request_author_foreign_key(conn)
+    _drop_research_projects(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
 
@@ -85,3 +90,16 @@ def _drop_request_author_foreign_key(conn: Connection) -> None:
     for foreign_key in inspect(conn).get_foreign_keys("messages"):
         if foreign_key["constrained_columns"] == ["request_author_id"]:
             conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')
+
+
+def _drop_research_projects(conn: Connection) -> None:
+    """The research feature is gone: delete the research projects (their rooms, messages and
+    employees go with them) and drop the columns that only served it (idempotent)."""
+    present = {c["name"] for c in inspect(conn).get_columns("projects")}
+    if "kind" in present:
+        removed = conn.exec_driver_sql("DELETE FROM projects WHERE kind = 'research'").rowcount
+        if removed:
+            logger.info("Removed %d research project(s) with their data", removed)
+    for column in RESEARCH_COLUMNS:
+        if column in present:
+            conn.exec_driver_sql(f'ALTER TABLE projects DROP COLUMN "{column}"')

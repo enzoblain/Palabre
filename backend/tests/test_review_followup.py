@@ -217,7 +217,7 @@ async def db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with async_sessionmaker(engine, expire_on_commit=False)() as session:
-        session.add(Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company"))
+        session.add(Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1))
         await session.flush()
         yield session
     await engine.dispose()

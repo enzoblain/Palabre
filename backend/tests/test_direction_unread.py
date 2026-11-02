@@ -21,7 +21,7 @@ async def db():
 
 
 async def _project(s, name: str = "P"):
-    project = Project(name=name, repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
+    project = Project(name=name, repo_url="https://github.com/o/r", mode="enterprise", seed=1)
     s.add(project)
     await s.flush()
     lead = Employee(project_id=project.id, name="Louise", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token=name)

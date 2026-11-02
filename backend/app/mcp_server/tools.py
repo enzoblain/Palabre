@@ -4,11 +4,11 @@ from typing import Literal
 
 from mcp.server.mcpserver import Context
 
-from app import projects, services, toolchains, web_fetch, workflow
+from app import projects, services, toolchains, workflow
 from app.db import SessionLocal
 from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
-from app.models import Employee, Project, RequestAnswer
+from app.models import Employee, RequestAnswer
 
 # --- Conversation (everyone) -------------------------------------------------------
 
@@ -37,11 +37,6 @@ async def read_messages(ctx: Context, since_id: int | None = None, limit: int = 
     ]
 
 
-async def _check_chat(s, project_id: int, content: str) -> None:
-    project = await s.get(Project, project_id)
-    services.check_chat_message(content, project.kind)
-
-
 @tool
 async def send_message(ctx: Context, content: str, channel: str | None = None) -> dict:
     """Post a message in the current conversation, signed with your name: a short chat
@@ -52,7 +47,7 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
     Only the lead may post in "direction"."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         conversation_id = c.conversation_id
         if channel is not None:
@@ -89,7 +84,7 @@ async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "questio
     detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         msg = await services.ask_boss(s, c.project_id, me, content, kind)
     if msg is None:
@@ -117,7 +112,7 @@ async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
     reason. reason: why, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, reason)
+        services.check_chat_message(reason)
         me = await s.get(Employee, c.employee_id)
         msg = await projects.withdraw_request(s, c.project_id, me, request_id, reason)
     return {"id": msg.id, "status": msg.request_status}
@@ -130,7 +125,7 @@ async def merge_requests(ctx: Context, request_ids: list[int], content: str) -> 
     already answered, or about a decision or a release, is refused. content: the new request, short and self-contained, with your recommendation."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         msg = await services.merge_requests(s, c.project_id, me, request_ids, content)
     return {"message_id": msg.id, "merged": request_ids, "status": "waiting for the boss"}
@@ -186,7 +181,7 @@ async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lea
     room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, reason)
+        services.check_chat_message(reason)
         me = await s.get(Employee, c.employee_id)
         msg = await services.escalate(s, c.project_id, c.conversation_id, me, to, reason)
     return {"message_id": msg.id}
@@ -330,7 +325,7 @@ async def report_progress(ctx: Context, message: str) -> dict:
     """Tell the team how your task is going, in a short chat message."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         msg = await services.post_message(s, c.project_id, c.conversation_id, message, me)
     return {"id": msg.id}
@@ -349,7 +344,7 @@ async def submit_for_review(ctx: Context, title: str, summary: str, message: str
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive, message, title)
         return workflow.task_summary(task)
@@ -423,8 +418,7 @@ async def report_bug(
 async def update_summary(ctx: Context, summary: str) -> dict:
     """Replace the room's summary with a short project summary, not a recap of the conversation.
 
-    Cover what the project is, its goal, where it stands and what was delivered, in the team's language.
-    Research rooms are the exception: there the summary is the final research report."""
+    Cover what the project is, its goal, where it stands and what was delivered, in the team's language."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await services.update_summary(s, c.room_id, summary)
@@ -451,7 +445,7 @@ async def merge_task(ctx: Context, task_id: int, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me, message=message))
 
@@ -465,7 +459,7 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.change_branch(s, await projects.load_project(s, c.project_id), branch.strip(), by=me)
         await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} (branch: `{branch.strip()}`)", me)
@@ -489,7 +483,7 @@ async def close_pull_request(ctx: Context, number: int, reason: str, message: st
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         result = await projects.close_outside_pull_request(s, project, number, reason)
@@ -510,7 +504,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     identifiers, task or PR numbers)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         decision = await projects.propose_release(s, project, c.room_id, title.strip(), summary.strip(), me)
@@ -534,7 +528,7 @@ async def merge_release(ctx: Context, summary: str, message: str, title: str = "
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         pr_url, number = await projects.merge_release(s, project, title.strip(), summary.strip())
@@ -557,7 +551,7 @@ async def publish_version(ctx: Context, version: str, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         url = await projects.publish_version(project, version)
@@ -573,7 +567,7 @@ async def fix_release(ctx: Context, version: str, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         url = await projects.fix_release(project, version)
@@ -600,15 +594,3 @@ async def install_toolchain(
     result = await toolchains.install(name, version, packages)
     commands = ", ".join(sorted(toolchains.installed()))
     return f"{result}\nInstalled commands: {commands}"
-
-
-# --- Research groups -----------------------------------------------------------------
-
-
-@tool
-async def fetch_page(ctx: Context, url: str) -> str:
-    """Read a web page: GET over https only, run by the backend (your sandbox has no
-    network). Returns the page's text, cut to a size limit. Pages on private or local
-    addresses are refused."""
-    current_caller(ctx)
-    return await web_fetch.fetch_page(url)

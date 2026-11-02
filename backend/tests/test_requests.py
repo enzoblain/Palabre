@@ -163,7 +163,7 @@ async def test_escalating_to_the_boss_is_a_request_in_direction():
     assert s.events == []
 
 
-async def test_a_research_group_has_no_direction_to_ask_in():
+async def test_a_project_without_direction_has_nowhere_to_ask():
     s = FakeSession(direction_id=None)
     assert await services.ask_boss(s, 1, LEAD, "why?", "question") is None
 
@@ -212,7 +212,7 @@ async def tidy_db():
 
 
 async def _direction(s):
-    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
+    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1)
     s.add(project)
     await s.flush()
     lead = Employee(project_id=project.id, name="Louise", title="Lead", model="opus", permissions=[], traits={}, quirks=[], style={}, roles=["lead"], mcp_token="a")

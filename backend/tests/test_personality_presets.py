@@ -11,7 +11,7 @@ from app.api.projects import _check_team
 from app.api.schemas import MemberIn
 from app.company import catalog as catalog_module
 from app.company.catalog import CATALOG_DIR, CatalogError, load_catalog, load_personalities
-from app.company.team import custom_employee, personality_for
+from app.company.team import custom_employee
 
 
 @pytest.fixture
@@ -23,21 +23,20 @@ def catalog_copy(tmp_path, monkeypatch):
     return copy
 
 
-@pytest.mark.parametrize("kind", ["company", "research"])
-def test_every_kind_has_valid_presets(kind):
-    presets = load_personalities()[kind]
-    files = {p.stem for p in (CATALOG_DIR / kind / "personalities").glob("*.toml")}
+def test_every_preset_file_is_valid():
+    presets = load_personalities()
+    files = {p.stem for p in (CATALOG_DIR / "company" / "personalities").glob("*.toml")}
     assert set(presets) == files
     assert 4 <= len(presets) <= 6
-    personality = personality_for(kind)
+    personality = load_catalog()["personality"]
     assert all(set(p.traits) <= {a["key"] for a in personality["axes"]} for p in presets.values())
     assert all(p.style.verbosity in personality["style"]["verbosity"] for p in presets.values())
 
 
-def test_catalog_exposes_the_presets_by_kind_in_file_order():
+def test_catalog_exposes_the_presets_in_file_order():
     presets = load_catalog()["personalities"]
-    assert list(presets["company"])[:2] == ["pragmatic", "perfectionist"]
-    assert {"label", "description", "traits", "quirks", "style", "kind"} <= set(presets["company"]["pragmatic"])
+    assert list(presets)[:2] == ["pragmatic", "perfectionist"]
+    assert {"label", "description", "traits", "quirks", "style"} <= set(presets["pragmatic"])
 
 
 def test_unknown_axis_names_the_file(catalog_copy):
@@ -46,17 +45,6 @@ def test_unknown_axis_names_the_file(catalog_copy):
     load_catalog.cache_clear()
     try:
         with pytest.raises(CatalogError, match=r"pragmatic.*courage"):
-            load_catalog()
-    finally:
-        load_catalog.cache_clear()
-
-
-def test_research_axis_is_refused_in_a_company_preset(catalog_copy):
-    path = catalog_copy / "company/personalities/pragmatic.toml"
-    path.write_text(path.read_text().replace("risk = 1", "skepticism = 1"))
-    load_catalog.cache_clear()
-    try:
-        with pytest.raises(CatalogError, match="skepticism"):
             load_catalog()
     finally:
         load_catalog.cache_clear()
@@ -103,9 +91,9 @@ def test_preset_cannot_set_its_key(catalog_copy):
 
 
 def test_preset_fills_traits_quirks_and_style_and_neutralizes_missing_axes():
-    preset = load_catalog()["personalities"]["company"]["pragmatic"]
+    preset = load_catalog()["personalities"]["pragmatic"]
     member = custom_employee(["dev"], "Ada", preset="pragmatic", seed=7)
-    axes = [a["key"] for a in personality_for("company")["axes"]]
+    axes = [a["key"] for a in load_catalog()["personality"]["axes"]]
     assert member.traits == {k: preset["traits"].get(k, 0) for k in axes}
     assert member.quirks == preset["quirks"]
     assert member.style == preset["style"]
@@ -125,12 +113,9 @@ def test_without_a_preset_the_draw_is_unchanged():
     assert custom_employee(["dev"], "Ada", seed=7) == custom_employee(["dev"], "Ada", seed=7, preset=None)
 
 
-def test_unknown_preset_is_refused_and_kinds_do_not_mix():
+def test_unknown_preset_is_refused():
     with pytest.raises(ValueError, match="Unknown personality"):
         custom_employee(["dev"], "Ada", preset="nobody")
-    with pytest.raises(ValueError, match="Unknown personality"):
-        custom_employee(["explorer"], "Ada", preset="pragmatic", kind="research")
-    assert custom_employee(["explorer"], "Ada", preset="rigorous", kind="research").traits["skepticism"] == 2
 
 
 def test_check_team_refuses_an_unknown_preset():
@@ -138,22 +123,14 @@ def test_check_team_refuses_an_unknown_preset():
         MemberIn(name="Ada", roles=["lead", "reviewer"], personality="nobody"),
     ]
     with pytest.raises(ApiError) as error:
-        _check_team(team, "company")
+        _check_team(team)
     assert error.value.status_code == 422
     assert error.value.code == ErrorCode.UNKNOWN_PERSONALITY
 
 
-def test_check_team_refuses_a_preset_of_the_other_kind():
-    member = MemberIn(name="Ada", roles=["explorer"], personality="pragmatic")
-    with pytest.raises(ApiError) as error:
-        _check_team([member], "research")
-    assert error.value.code == ErrorCode.UNKNOWN_PERSONALITY
-
-
-async def test_endpoint_lists_the_presets_of_a_kind():
-    presets = await list_personalities("research")
-    assert set(presets) == set(load_catalog()["personalities"]["research"])
-    assert all(p["kind"] == "research" for p in presets.values())
+async def test_endpoint_lists_the_presets():
+    presets = await list_personalities()
+    assert set(presets) == set(load_catalog()["personalities"])
 
 
 @pytest.mark.parametrize("key", ["../etc", "Guardian", "x" * 41, ""])

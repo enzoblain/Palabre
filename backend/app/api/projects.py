@@ -22,7 +22,7 @@ from app.api.schemas import (
     ProjectOut,
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
-from app.company.team import kind_of_mode, render_system_prompt
+from app.company.team import render_system_prompt
 from app.models import Employee, Message, Project
 from app.orchestrator.dispatcher import orchestrator
 from app.worktrees import remove_project_files
@@ -44,8 +44,7 @@ async def _project(s, project_id: int) -> Project:
 def _detail(project: Project) -> ProjectDetail:
     """The project's payload; its rooms are only what the boss sees (same rule as list_rooms)."""
     detail = ProjectDetail.model_validate(project)
-    if project.kind != "research":
-        detail.rooms = [r for r in detail.rooms if r.kind == services.DIRECTION]
+    detail.rooms = [r for r in detail.rooms if r.kind == services.DIRECTION]
     return detail
 
 
@@ -80,35 +79,26 @@ async def mark_direction_read(project_id: int, s: SessionDep):
 
 @router.post("/projects", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
 async def create_project(body: ProjectIn, s: SessionDep):
-    """Create a project: a company on a GitHub repository, or a research group on a topic
-    (the mode says which). The team is drawn at random for the mode, or built by hand."""
+    """Create a project: a company on a GitHub repository. The team is drawn at random for the
+    mode, or built by hand."""
     if body.mode not in load_catalog()["modes"]:
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_MODE, f"Unknown mode: {body.mode}"
         )
-    kind = kind_of_mode(body.mode)
-    if kind == "research":
-        if not (body.topic or "").strip():
-            raise ApiError(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                ErrorCode.RESEARCH_TOPIC_REQUIRED,
-                "A research project needs a topic",
-            )
-    else:
-        try:
-            await github.resolve_branch(github.repo_slug(body.repo_url), "")  # fail early on an unreachable repository
-        except github.GitHubError as exc:
-            raise ApiError(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                ErrorCode.INVALID_REPOSITORY,
-                str(exc),
-            ) from None
-    _check_creation_mode(body, kind)
+    try:
+        await github.resolve_branch(github.repo_slug(body.repo_url), "")  # fail early on an unreachable repository
+    except github.GitHubError as exc:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.INVALID_REPOSITORY,
+            str(exc),
+        ) from None
+    _check_creation_mode(body)
     _check_accounts(body.accounts.values())
     if body.employees is not None:
-        _check_team(body.employees, kind)
+        _check_team(body.employees)
     project = await projects.create_project(s, **body.model_dump())
-    if body.employees and kind == "company":
+    if body.employees:
         projects.plan_custom_channels_later(project.id)
     return _detail(await _project(s, project.id))
 
@@ -117,13 +107,11 @@ def _invalid_creation(code: ErrorCode, message: str) -> ApiError:
     return ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, code, message)
 
 
-def _check_creation_mode(body: ProjectIn, kind: str) -> None:
+def _check_creation_mode(body: ProjectIn) -> None:
     """Manual: the team is listed, has at least MIN_TEAM_SIZE members and holds the mandatory
     member. Automatic: a description and at least MIN_TEAM_SIZE employees, no list."""
     if body.creation_mode is None:
         return
-    if kind != "company":
-        raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "Manual and automatic creation are for companies")
     if body.creation_mode == "manual":
         if body.employees is None:  # a listed team is checked by `_check_team`
             raise _invalid_creation(ErrorCode.LEAD_REQUIRED, f"A manual team is listed and holds the {MANDATORY_ROLE}")
@@ -142,12 +130,12 @@ def _check_creation_mode(body: ProjectIn, kind: str) -> None:
         )
 
 
-def _check_team(employees: list[MemberIn], kind: str) -> None:
+def _check_team(employees: list[MemberIn]) -> None:
     """A team built by hand: valid roles and personalities, unique names, for a company a
     lead (they organize the work and merge), and the permission rules of the catalog."""
     catalog = load_catalog()
-    roles = {k for k, r in catalog["roles"].items() if r.kind == kind}
-    presets = catalog["personalities"][kind]
+    roles = catalog["roles"]
+    presets = catalog["personalities"]
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
         raise ApiError(
@@ -162,20 +150,20 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
                 ErrorCode.UNKNOWN_ROLES,
                 f"{e.name}: unknown roles {', '.join(unknown)}",
             )
-        projects.validate_personality(e.traits, e.style, partial=True, kind=kind)
+        projects.validate_personality(e.traits, e.style, partial=True)
         if e.personality is not None and e.personality not in presets:
             raise ApiError(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 ErrorCode.UNKNOWN_PERSONALITY,
                 f"{e.name}: unknown personality {e.personality}",
             )
-    if kind == "company" and not any(MANDATORY_ROLE in e.roles for e in employees):
+    if not any(MANDATORY_ROLE in e.roles for e in employees):
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.LEAD_REQUIRED,
             f"The team needs a {MANDATORY_ROLE} (they organize and merge)",
         )
-    if problem := team_permission_error([e.roles for e in employees], kind):
+    if problem := team_permission_error([e.roles for e in employees]):
         raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_TEAM_PERMISSIONS, problem)
     _check_accounts([e.account for e in employees if e.account is not None])
 
@@ -212,11 +200,11 @@ async def delete_project(project_id: int, s: SessionDep):
 async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     """Grow or shrink the company (e.g. startup → scaleup)."""
     project = await _project(s, project_id)
-    if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
+    if body.mode not in load_catalog()["modes"]:
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.UNKNOWN_MODE,
-            f"Unknown {project.kind} mode: {body.mode}",
+            f"Unknown mode: {body.mode}",
         )
     return _detail(await projects.change_mode(s, project, body.mode))
 
@@ -226,12 +214,6 @@ async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
 async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
     """The branch the team works from and merges into (created on GitHub if missing)."""
     project = await _project(s, project_id)
-    if project.kind != "company":
-        raise ApiError(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            ErrorCode.RESEARCH_HAS_NO_REPOSITORY,
-            "A research project has no repository",
-        )
     if body.branch == project.default_branch:
         return _detail(project)
     return _detail(await projects.change_branch(s, project, body.branch))
@@ -268,7 +250,7 @@ async def update_employee(employee_id: int, body: EmployeePatch, s: SessionDep):
     """Edit an employee's personality, model or Claude account by hand."""
     employee = await get_or_404(s, Employee, employee_id)
     project = await get_or_404(s, Project, employee.project_id)
-    projects.validate_personality(body.traits, body.style, kind=project.kind)
+    projects.validate_personality(body.traits, body.style)
     for field, value in body.model_dump(exclude_none=True, exclude={"account"}).items():
         setattr(employee, field, value)
     if "account" in body.model_fields_set:  # null puts the employee back in the automatic spread

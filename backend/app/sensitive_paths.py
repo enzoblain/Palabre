@@ -20,7 +20,7 @@ SENSITIVE_NAMES = {
 SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
 # Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
 SENSITIVE_ROLE_DIRS = (
-    "catalog/company/roles/", "catalog/research/roles/", "catalog/company/personalities/", "catalog/research/personalities/",
+    "catalog/company/roles/", "catalog/company/personalities/",
 )
 
 

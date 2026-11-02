@@ -91,31 +91,6 @@ async def test_create_project_stores_dev_for_a_company(repo, monkeypatch):
     assert project.default_branch == "dev"
 
 
-async def test_research_project_is_untouched(repo, monkeypatch):
-    async def no_channels(*_args):
-        pass
-
-    async def no_kickoff(*_args):
-        pass
-
-    class Session:
-        def add(self, _obj):
-            pass
-
-        async def flush(self):
-            pass
-
-        async def commit(self):
-            pass
-
-    monkeypatch.setattr(projects, "_open_channels", no_channels)
-    monkeypatch.setattr(projects, "_kick_off_research", no_kickoff)
-    mode = next(m for m in load_catalog()["modes"] if projects.kind_of_mode(m) == "research")
-    project = await projects.create_project(Session(), name="R", repo_url="", mode=mode, topic="x")
-    assert project.default_branch == "main"
-    assert repo.created == []
-
-
 @pytest.fixture
 def api(monkeypatch):
     state = SimpleNamespace(repo={"default_branch": "main"}, branches=set())

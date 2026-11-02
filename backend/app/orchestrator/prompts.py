@@ -41,10 +41,6 @@ REASONS: dict[str, str] = {
     "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, ask them with ask_ceo (or tell the lead); otherwise reassign or split the task.",
-    "research_start": "Phase 1, research. The boss asked a question (message #{message_id}). Research it from your angle: search the web, read the sources, then post what you found in the chat, one finding per message with its link. Do not wait for the others and do not answer for the whole group.",
-    "research_debate": "Phase 2, debate. Everyone has posted their first findings. Read them all. Challenge what looks weak or contradicts your sources, confirm what you could check, search again where it matters, and answer the people concerned with @Name.",
-    "research_conclude": "Phase 3, conclusion. The debate has settled. In one short message, give your final answer to the boss's question, how sure you are, and the source that convinced you most. If you still disagree with someone, say on what.",
-    "research_report": "Phase 4, report. Write the final report with update_summary (the one exception to the project-summary rule: in a research room the summary is the report): the question, the short answer, the key findings with their sources, the disagreements that remain, the open questions. Propose the main conclusion with add_decision. Then give the boss the answer in the chat, in one or two sentences, and tell them the report is ready.",
     "conversation_idle": "The conversation has gone quiet. Update the room document. The summary (update_summary) is a short summary of the project, not of the conversation: what it is, its goal, where it stands, what was delivered and decided, in the team's language. Rewrite it only if the project moved (delivery, validated decision); keep it to a few lines. Update the open questions too.",
 }
 
@@ -73,25 +69,6 @@ _OPERATING_RULES = """## How Palabre works
 def operating_rules() -> str:
     return _OPERATING_RULES
 
-
-RESEARCH_RULES = """## How Palabre works
-- You only communicate through the "palabre" MCP tools. Anything you write outside send_message is seen by nobody.
-- You are woken up when something concerns you: the boss posted, someone mentioned you, a conclusion was decided. Do your part, then stop.
-- Mention a colleague with @Name only when you need them: it wakes them up.
-- Your notebook (read_notes / write_notes) is how you remember things from one session to the next.
-- Your current directory is your own drafts folder: keep notes there if it helps. Nobody else sees it.
-
-## How you research
-- You are not building anything: there is no product, no team to staff, no budget or roadmap. The boss wants an answer to a question, backed by evidence. If it depends on details you do not have (their budget, their team...), do not ask: answer for the typical cases and state your assumptions.
-- A question goes through four phases, and each wake-up tells you which one you are in: research (everyone searches and posts findings), debate (you confront them), conclusion (everyone states a final position), report (the rapporteur writes it up). Do what the phase asks, then stop.
-- Search the web (WebSearch) before stating facts; to read a page in full, use the fetch_page tool (https only, text extracted, size-limited): your sandbox has no network of its own. Prefer primary, recent and reputable sources, and check their dates.
-- Every factual claim you bring comes with its source, as a link. Say how sure you are and why.
-- Read the conversation first: do not redo a search a colleague already did, and take the angle your position gives you.
-- You are peers: nobody has the last word except the boss. Challenge claims with evidence, answer challenges with evidence, and change your mind when the evidence says so (say it).
-- Keep facts, interpretations and opinions apart.
-- When the group agrees on something important, propose it as a conclusion with add_decision: the title is the conclusion, the rationale holds the evidence and the links. The boss validates or rejects it. What remains unsettled goes in add_question.
-- Stay on the boss's topic and questions.
-- In the chat, bring one finding at a time with its link, like you would drop it to a colleague ("Farcaster only keeps identities on-chain, messages live on hubs: [docs](…)"). The full evidence goes in a conclusion's rationale (add_decision) or in the report, not in the chat."""
 
 CHAT_RULES = """## How you talk in the chat
 You are a colleague on the team chat, not an assistant writing a report. Write exactly the way people text each other at work.

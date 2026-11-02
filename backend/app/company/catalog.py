@@ -1,4 +1,4 @@
-"""Typed catalog: every role, personality preset and personality pool is a TOML file under catalog/<kind>/, validated when the backend starts."""
+"""Typed catalog: every role, personality preset and personality pool is a TOML file under catalog/company/, validated when the backend starts."""
 
 import tomllib
 from functools import cache
@@ -11,12 +11,10 @@ from app.orchestrator.event_types import EventType
 
 CATALOG_DIR = Path(__file__).with_name("catalog")
 SHARED_PATH = Path(__file__).with_name("catalog.toml")
-KINDS = ("company", "research")
 
-Kind = Literal["company", "research"]
 Model = Literal["haiku", "sonnet", "opus"]
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
-Category = Literal["management", "engineering", "quality", "product", "support", "research"]
+Category = Literal["management", "engineering", "quality", "product", "support"]
 # Categories of the extended jobs (extended_roles.toml)
 ExtendedCategory = Literal[
     "direction_strategy", "architecture", "software_development", "artificial_intelligence", "data_databases",
@@ -28,7 +26,7 @@ ExtendedCategory = Literal[
 # Keep in sync with mcp_server/permissions.py (MCP_TOOLS values and CLAUDE_TOOLS keys): a test checks it
 Permission = Literal[
     "conversation", "propose_decision", "manage_tasks", "request_review", "review", "read_code", "report_bug",
-    "edit_room_document", "merge", "ship_release", "manage_channels", "manage_toolchains", "research", "code",
+    "edit_room_document", "merge", "ship_release", "manage_channels", "manage_toolchains", "code",
     "run_tests", "edit_docs",
 ]
 
@@ -72,7 +70,6 @@ class Role(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str = Field(pattern=KEY_PATTERN)
-    kind: Kind
     title: str
     description: str
     category: Category | ExtendedCategory
@@ -136,7 +133,6 @@ class PersonalityPool(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str = Field(pattern=KEY_PATTERN)
-    kind: Kind
     levels: list[int] = Field(min_length=1)
     quirks: list[str]
     axes: list[PersonalityAxis] = Field(min_length=1)
@@ -156,7 +152,6 @@ class PersonalityPreset(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str = Field(pattern=KEY_PATTERN)
-    kind: Kind
     label: str
     description: str
     order: int  # position in the list (the files have no natural order)
@@ -170,12 +165,12 @@ def merge_and_code_conflict(permissions: set[str] | list[str]) -> bool:
     return {MERGE, CODE} <= set(permissions)
 
 
-# Set by the loader from the file name and the folder
-RESERVED_ROLE_FIELDS = frozenset({"key", "kind"})
+# Set by the loader from the file name
+RESERVED_ROLE_FIELDS = frozenset({"key"})
 
 
 def _read_entry(path: Path) -> dict:
-    """The fields of one catalog file; its key and kind come from the file name and folder."""
+    """The fields of one catalog file; its key comes from the file name."""
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
@@ -184,21 +179,21 @@ def _read_entry(path: Path) -> dict:
     if reserved := sorted(RESERVED_ROLE_FIELDS & data.keys()):
         raise CatalogError(
             f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {', '.join(reserved)} "
-            "come from the file name and folder, not from the file"
+            "comes from the file name, not from the file"
         )
     return data
 
 
-def _build_entry[T: BaseModel](model: type[T], path: Path, kind: str, data: dict) -> T:
+def _build_entry[T: BaseModel](model: type[T], path: Path, data: dict) -> T:
     try:
-        return model(key=path.stem, kind=kind, **data)
+        return model(key=path.stem, **data)
     except ValidationError as exc:
         raise CatalogError(f"Invalid catalog file {path.relative_to(CATALOG_DIR)}: {exc}") from exc
 
 
-def _load_entry[T: BaseModel](model: type[T], path: Path, kind: str) -> T:
+def _load_entry[T: BaseModel](model: type[T], path: Path) -> T:
     """One catalog file as a `model`."""
-    return _build_entry(model, path, kind, _read_entry(path))
+    return _build_entry(model, path, _read_entry(path))
 
 
 def _inherit(data: dict, archetypes: dict[str, Role], path: Path) -> dict:
@@ -218,21 +213,12 @@ def _inherit(data: dict, archetypes: dict[str, Role], path: Path) -> dict:
 
 
 def load_roles() -> dict[str, Role]:
-    """Every role, company then research, each kind ordered by its `order` field. Extended jobs
-    (with an `archetype`) are built after the base roles they inherit from."""
-    roles: dict[str, Role] = {}
-    for kind in KINDS:
-        entries = {p: _read_entry(p) for p in sorted((CATALOG_DIR / kind / "roles").glob("*.toml"))}
-        base = {p.stem: _build_entry(Role, p, kind, d) for p, d in entries.items() if "archetype" not in d}
-        extended = (_build_entry(Role, p, kind, _inherit(d, base, p)) for p, d in entries.items() if "archetype" in d)
-        for role in sorted([*base.values(), *extended], key=lambda r: (r.order, r.key)):
-            if role.key in roles:
-                raise CatalogError(
-                    f"Role key '{role.key}' exists in both company and research: gates are read by key, "
-                    "a shadowing key would change who can approve"
-                )
-            roles[role.key] = role
-    return roles
+    """Every role, ordered by its `order` field. Extended jobs (with an `archetype`) are built
+    after the base roles they inherit from."""
+    entries = {p: _read_entry(p) for p in sorted((CATALOG_DIR / "company" / "roles").glob("*.toml"))}
+    base = {p.stem: _build_entry(Role, p, d) for p, d in entries.items() if "archetype" not in d}
+    extended = (_build_entry(Role, p, _inherit(d, base, p)) for p, d in entries.items() if "archetype" in d)
+    return {role.key: role for role in sorted([*base.values(), *extended], key=lambda r: (r.order, r.key))}
 
 
 def load_extended_index() -> dict[str, ExtendedRoleEntry]:
@@ -246,77 +232,72 @@ def load_extended_index() -> dict[str, ExtendedRoleEntry]:
         raise CatalogError(f"Invalid catalog file company/{EXTENDED_INDEX_FILE}: {exc}") from exc
 
 
-def load_personalities() -> dict[str, dict[str, PersonalityPreset]]:
-    """Every personality preset by kind, each kind ordered by its `order` field."""
-    presets: dict[str, dict[str, PersonalityPreset]] = {}
-    for kind in KINDS:
-        folder = sorted((CATALOG_DIR / kind / "personalities").glob("*.toml"))
-        loaded = sorted((_load_entry(PersonalityPreset, p, kind) for p in folder), key=lambda x: (x.order, x.key))
-        presets[kind] = {preset.key: preset for preset in loaded}
-    return presets
+def load_personalities() -> dict[str, PersonalityPreset]:
+    """Every personality preset, ordered by its `order` field."""
+    loaded = sorted(
+        (_load_entry(PersonalityPreset, p) for p in (CATALOG_DIR / "company" / "personalities").glob("*.toml")),
+        key=lambda x: (x.order, x.key),
+    )
+    return {preset.key: preset for preset in loaded}
 
 
-def load_personality_pools() -> dict[str, PersonalityPool]:
-    """The personality pool of each kind, from catalog/<kind>/personality_pool.toml."""
-    return {kind: _load_entry(PersonalityPool, CATALOG_DIR / kind / PERSONALITY_POOL_FILE, kind) for kind in KINDS}
+def load_personality_pool() -> PersonalityPool:
+    """The personality pool, from catalog/company/personality_pool.toml."""
+    return _load_entry(PersonalityPool, CATALOG_DIR / "company" / PERSONALITY_POOL_FILE)
 
 
 def _personality_pool_dict(pool: PersonalityPool) -> dict:
     """The dict shape callers read; `diverse` is only present on the axes that set it."""
-    data = pool.model_dump(exclude={"key", "kind"})
+    data = pool.model_dump(exclude={"key"})
     data["axes"] = [{k: v for k, v in a.items() if k != "diverse" or v} for a in data["axes"]]
     return data
 
 
-def _check_presets(presets: dict[str, dict[str, PersonalityPreset]], personalities: dict[str, dict]) -> None:
-    """A preset only uses the axes and the styles of its kind."""
-    for kind, by_key in presets.items():
-        axes = {a["key"] for a in personalities[kind]["axes"]}
-        styles = personalities[kind]["style"]
-        for preset in by_key.values():
-            where = f"Personality '{preset.key}' ({kind})"
-            if unknown := sorted(set(preset.traits) - axes):
-                raise CatalogError(f"{where} uses unknown axes: {', '.join(unknown)}")
-            for name, value in preset.style.model_dump().items():
-                if value not in styles[name]:
-                    raise CatalogError(f"{where} has an unknown {name}: {value}")
+def _check_presets(presets: dict[str, PersonalityPreset], personality: dict) -> None:
+    """A preset only uses the axes and the styles of the pool."""
+    axes = {a["key"] for a in personality["axes"]}
+    for preset in presets.values():
+        where = f"Personality '{preset.key}'"
+        if unknown := sorted(set(preset.traits) - axes):
+            raise CatalogError(f"{where} uses unknown axes: {', '.join(unknown)}")
+        for name, value in preset.style.model_dump().items():
+            if value not in personality["style"][name]:
+                raise CatalogError(f"{where} has an unknown {name}: {value}")
 
 
 def _check_roles(roles: dict[str, Role]) -> None:
-    if missing := sorted(GATED_ROLE_KEYS - {k for k, r in roles.items() if r.kind == "company"}):
-        raise CatalogError(f"Missing company roles read by the workflow: {', '.join(missing)}")
+    if missing := sorted(GATED_ROLE_KEYS - roles.keys()):
+        raise CatalogError(f"Missing roles read by the workflow: {', '.join(missing)}")
     for role in roles.values():
         if merge_and_code_conflict(role.permissions):
             raise CatalogError(f"Role '{role.key}' combines the merge and code permissions")
 
 
 def _check_extended(roles: dict[str, Role], index: dict[str, ExtendedRoleEntry]) -> None:
-    """Archetypes are base company roles, names are unique, and a role file agrees with its index line."""
-    base = {k for k, r in roles.items() if r.kind == "company" and r.archetype is None}
+    """Archetypes are base roles, names are unique, and a role file agrees with its index line."""
+    base = {k for k, r in roles.items() if r.archetype is None}
     names = [entry.name.casefold() for entry in index.values()]
     if duplicated := sorted({n for n in names if names.count(n) > 1}):
         raise CatalogError(f"Extended jobs listed twice: {', '.join(duplicated)}")
     for entry in index.values():
         if entry.archetype not in base:
-            raise CatalogError(f"Extended job '{entry.key}' has archetype '{entry.archetype}', which is not a base company role")
+            raise CatalogError(f"Extended job '{entry.key}' has archetype '{entry.archetype}', which is not a base role")
         role = roles.get(entry.key)
-        if entry.existing and (role is None or role.kind != "company"):
-            raise CatalogError(f"Extended job '{entry.key}' is marked existing but has no company role")
+        if entry.existing and role is None:
+            raise CatalogError(f"Extended job '{entry.key}' is marked existing but has no role")
         if role is not None and not entry.existing and (role.archetype, role.category) != (entry.archetype, entry.category):
             raise CatalogError(f"Role file '{entry.key}' disagrees with its category or archetype in {EXTENDED_INDEX_FILE}")
     for role in roles.values():
-        if role.archetype is not None and role.kind != "company":
-            raise CatalogError(f"Role '{role.key}' has an archetype but is a {role.kind} role: only company roles can be extended jobs")
         if role.archetype is not None and role.archetype not in base:
-            raise CatalogError(f"Role '{role.key}' has archetype '{role.archetype}', which is not a base company role")
+            raise CatalogError(f"Role '{role.key}' has archetype '{role.archetype}', which is not a base role")
 
 
 def _check_seats(roles: dict[str, Role], modes: dict[str, dict]) -> None:
     for name, mode in modes.items():
         for seat in mode["seats"]:
-            unknown = [k for k in seat["roles"] if roles.get(k) is None or roles[k].kind != mode["kind"]]
+            unknown = [k for k in seat["roles"] if k not in roles]
             if unknown:
-                raise CatalogError(f"Mode '{name}' uses unknown {mode['kind']} roles: {', '.join(unknown)}")
+                raise CatalogError(f"Mode '{name}' uses unknown roles: {', '.join(unknown)}")
             if extended := [k for k in seat["roles"] if roles[k].archetype is not None]:
                 raise CatalogError(f"Mode '{name}' draws extended jobs at random: {', '.join(extended)}")
             permissions = {p for k in seat["roles"] for p in roles[k].permissions}
@@ -338,33 +319,21 @@ def validate_catalog(roles: dict[str, Role], modes: dict[str, dict], channels: l
     _check_channels(roles, channels)
 
 
-def _shared_catalog() -> dict:
-    """catalog.toml, with the research modes merged into `modes` (each carries its `kind`)."""
-    with SHARED_PATH.open("rb") as f:
-        catalog = tomllib.load(f)
-    catalog["modes"] = {k: {**v, "kind": "company"} for k, v in catalog["modes"].items()} | {
-        k: {**v, "kind": "research"} for k, v in catalog["research"]["modes"].items()
-    }
-    return catalog
-
-
 @cache
 def load_catalog() -> dict:
-    """The whole catalog as a dict, validated: `roles` holds the role files (as `Role` models), `modes`
-    both kinds of modes, `personality` and `research.personality` the pool files. Raises CatalogError at the first invalid file or cross-check."""
+    """The whole catalog as a dict, validated: `roles` holds the role files (as `Role` models),
+    `personality` the pool file, `personalities` the presets. Raises CatalogError at the first
+    invalid file or cross-check."""
     roles = load_roles()
-    pools = load_personality_pools()
-    catalog = _shared_catalog()
+    with SHARED_PATH.open("rb") as f:
+        catalog = tomllib.load(f)
     catalog["extended_index"] = load_extended_index()
     validate_catalog(roles, catalog["modes"], catalog["channels"])
     _check_extended(roles, catalog["extended_index"])
-    catalog["personality"] = _personality_pool_dict(pools["company"])
-    catalog["research"]["personality"] = _personality_pool_dict(pools["research"])
+    catalog["personality"] = _personality_pool_dict(load_personality_pool())
     presets = load_personalities()
-    _check_presets(presets, {"company": catalog["personality"], "research": catalog["research"]["personality"]})
-    catalog["personalities"] = {
-        kind: {k: p.model_dump() for k, p in by_key.items()} for kind, by_key in presets.items()
-    }
+    _check_presets(presets, catalog["personality"])
+    catalog["personalities"] = {k: p.model_dump() for k, p in presets.items()}
     catalog["roles"] = roles
     return catalog
 
@@ -376,15 +345,14 @@ def held_role_keys(role_keys: list[str], roles: dict[str, Role]) -> set[str]:
     return {*role_keys, *(roles[k].archetype for k in role_keys if k in roles and roles[k].archetype)}
 
 
-def team_permission_error(roles_by_employee: list[list[str]], kind: str) -> str | None:
+def team_permission_error(roles_by_employee: list[list[str]]) -> str | None:
     """Why a hand-made team breaks the permission rules, else None: nobody combines merge and
-    code, and a company has exactly one carrier of each unique permission."""
+    code, and the team has exactly one carrier of each unique permission."""
     roles = load_catalog()["roles"]
     held = [{p for k in keys for p in roles[k].permissions} for keys in roles_by_employee]
     if any(merge_and_code_conflict(h) for h in held):
         return "No employee can hold both the merge and the code permissions"
-    if kind == "company":
-        for permission in UNIQUE_PERMISSIONS:
-            if sum(permission in h for h in held) != 1:
-                return f"The team needs exactly one employee with the {permission} permission"
+    for permission in UNIQUE_PERMISSIONS:
+        if sum(permission in h for h in held) != 1:
+            return f"The team needs exactly one employee with the {permission} permission"
     return None
