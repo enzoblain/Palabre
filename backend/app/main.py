@@ -29,6 +29,18 @@ from app.errors import WorkflowError
 
 log = logging.getLogger(__name__)
 
+# Their DEBUG traces include request headers: tokens must never reach the logs
+QUIET_HTTP_LOGGERS = ("httpx", "httpcore")
+
+
+def silence_http_loggers() -> None:
+    """Force the HTTP client loggers to WARNING, whatever the global level."""
+    for name in QUIET_HTTP_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+silence_http_loggers()
+
 # Before any agent runs: they share the backend's uid and could read its environ
 make_non_dumpable()
 
