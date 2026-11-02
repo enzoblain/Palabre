@@ -198,14 +198,14 @@ async def test_removed_research_projects_lose_their_desk_folders(monkeypatch, tm
 
     monkeypatch.setattr(settings, "projects_dir", tmp_path)
     monkeypatch.setattr(worktrees.claude_store, "session_dirs", lambda project_id: [])
-    desk = tmp_path / "project-7" / "desks" / "employee-1"
-    desk.mkdir(parents=True)
-    (desk / "notes.txt").write_text("old")
-    kept = tmp_path / "project-8"
-    kept.mkdir()
+    research_desk = tmp_path / "project-7" / "desks" / "employee-1"
+    research_desk.mkdir(parents=True)
+    (research_desk / "notes.txt").write_text("old")
+    company = tmp_path / "project-8"
+    company.mkdir()
 
-    await worktrees.remove_project_files(7)
-    await worktrees.remove_project_files(7)  # second pass: the folder is already gone
+    await worktrees.remove_files_of_projects([7])
+    await worktrees.remove_files_of_projects([7])  # second pass: the folder is already gone
 
     assert not (tmp_path / "project-7").exists()
-    assert kept.exists()
+    assert company.exists()

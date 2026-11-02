@@ -46,6 +46,12 @@ async def remove_project_files(project_id: int) -> None:
     _repo_locks.pop(project_id, None)
 
 
+async def remove_files_of_projects(project_ids: list[int]) -> None:
+    """Clean the disk of every project the schema migration deleted from the database."""
+    for project_id in project_ids:
+        await remove_project_files(project_id)
+
+
 STALE_DESK_GLOB = "stale-desk-*"  # Desks once set aside by an older version, left readable by the work group
 
 
