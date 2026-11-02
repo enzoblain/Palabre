@@ -14,6 +14,7 @@ import pytest
 from app import github, worktrees
 from app.config import settings
 
+_REAL_SYNC_REPO = worktrees._sync_repo  # The setup fixture stubs it out
 G = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null"]
 
 
@@ -98,6 +99,54 @@ def test_remove_deletes_the_clone(setup):
     _, path = asyncio.run(worktrees.prepare_worktree(project, task))
     asyncio.run(worktrees.remove_task_worktree(project, task))
     assert not path.exists()
+
+
+def test_desk_on_a_missing_branch_names_it(setup):
+    project, _, _ = setup
+    project.default_branch = "dev"
+    with pytest.raises(github.GitHubError, match="'dev' does not exist on GitHub"):
+        asyncio.run(worktrees.prepare_desk(project, SimpleNamespace(id=3)))
+
+
+@pytest.fixture
+def deleted_working_branch(setup, monkeypatch):
+    """The reference after GitHub lost `dev`: a push to GitHub lands in origin/* as a fetch would."""
+    project, reference, calls = setup
+    project.default_branch = "dev"
+    fake_git = worktrees.git
+
+    async def git(cwd, *args, **kwargs):
+        if args[0] == "push" and kwargs.get("repo_url"):
+            source, target = args[-1].split(":")
+            await github.git(cwd, "update-ref", target.replace("refs/heads/", "refs/remotes/origin/"), source)
+        return await fake_git(cwd, *args, **kwargs)
+
+    async def production(_repo, _branch):
+        return "main"
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "resolve_branch", production)
+    return project, reference, calls
+
+
+def test_deleted_working_branch_is_recreated_from_production(deleted_working_branch):
+    project, reference, calls = deleted_working_branch
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert ("push", "--quiet", "origin", "refs/remotes/origin/main:refs/heads/dev") in [args for args, _ in calls]
+    assert _run("rev-parse", "HEAD", cwd=reference) == _run("rev-parse", "refs/remotes/origin/main", cwd=reference)
+
+
+def test_deleted_production_branch_is_not_recreated(deleted_working_branch, monkeypatch):
+    project, _, calls = deleted_working_branch
+    project.default_branch = "release"
+
+    async def production(_repo, _branch):
+        return "release"
+
+    monkeypatch.setattr(worktrees, "resolve_branch", production)
+    with pytest.raises(github.GitHubError, match="'release' does not exist"):
+        asyncio.run(_REAL_SYNC_REPO(project))
+    assert not any(args[0] == "push" for args, _ in calls if args)
 
 
 def test_desk_is_reset_at_each_run(setup):

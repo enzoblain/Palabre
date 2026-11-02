@@ -149,7 +149,10 @@ project, point it at `dev` in the settings, or ask the lead to run `set_working_
 request from `dev` to production and asks you in direction. You answer in the chat: when you say yes the lead
 ships it with `merge_release`, when you say no the lead closes it with `settle_decision` (`rejected`), and
 anything else is a request to rework it. Without your go the lead does not merge into the
-repository's default branch.
+repository's default branch. If the team's branch is deleted on GitHub (for
+instance with "Delete branch" after merging the release pull request), the backend recreates it
+from production at the next sync. To prevent the deletion, add a ruleset on GitHub that blocks
+deleting `dev`.
 
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is
 green on it, whatever the company size, and only if the PR has not moved since (a task
