@@ -356,7 +356,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 
 .live-dot { margin-left: auto; flex-shrink: 0; }
 
-
 .credits-banner { flex: none; padding: 8px 16px; font-size: 13px; background: var(--mention-me-bg); border-bottom: 1px solid var(--mention-me-border); }
 .credits-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--muted); }
 
