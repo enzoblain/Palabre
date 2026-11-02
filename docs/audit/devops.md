@@ -1,6 +1,6 @@
 # DevOps audit: CI, deployment, release, updater, toolchains
 
-> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
 
 Scope: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/scripts/compose-smoke.sh`,
 `.github/dependabot.yml`, `docker-compose.yml`, `backend/Dockerfile`, `backend/docker-entrypoint.sh`,
@@ -115,7 +115,7 @@ something I reproduced, the finding says so.
   - Record job durations for a week to pick the real critical path (I did not have the run history).
 - Effort: M.
 
-### 4. The desktop (Tauri) build is only exercised at release time
+### 4. The desktop (Tauri) build is only exercised at release time (historical: the desktop app has been removed)
 
 - Where: `.github/workflows/release.yml:90-132`; nothing in `ci.yml` touches `frontend/src-tauri`.
 - What is wrong: a change to `src-tauri/`, `Cargo.toml`, `tauri.conf.json` or a frontend change that

@@ -1,6 +1,6 @@
 # Audit: tests and QA process
 
-> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
 
 Findings only, no fix applied. Each item gives the problem, where, severity, proposed fix and effort (S < 1 day, M 1-3 days, L > 3 days). Sorted by severity. Line numbers refer to `dev` at the time of writing.
 
@@ -44,7 +44,7 @@ Baseline: about 347 backend test functions in 33 files, all run without database
 
 ### Q5. The frontend has no tests, and its only check is the build
 
-- Problem: `npm run check` is `build`, i.e. `tsc --noEmit` plus `vite build`. No unit, component or API-contract test, no linter, no formatter check. A change of a backend response shape breaks the UI without any failing test. The Tauri shell (`src-tauri`) is not built in CI at all.
+- Problem (the Tauri shell has since been removed): `npm run check` is `build`, i.e. `tsc --noEmit` plus `vite build`. No unit, component or API-contract test, no linter, no formatter check. A change of a backend response shape breaks the UI without any failing test. The Tauri shell (`src-tauri`) is not built in CI at all.
 - Where: `frontend/package.json:6-12`, `frontend/src/api.ts`, `.github/workflows/ci.yml` (job `frontend`).
 - Severity: high
 - Fix: add Vitest and Testing Library for `api.ts`, `router.ts` and the main components; add ESLint to `check`. For the contract, generate the TypeScript types from the FastAPI OpenAPI schema, or add a backend test that snapshots `app.openapi()`. Build the Tauri shell in CI when `frontend/` or `src-tauri/` change (see also the DevOps audit).
