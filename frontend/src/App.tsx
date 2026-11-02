@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
-import { Home } from "./components/Home";
+import { BottomBar } from "./components/BottomBar";
 import { MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
+import { Projects } from "./components/Projects";
 import { Settings } from "./components/Settings";
 import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
 import { I18nProvider, useI18n } from "./i18n";
@@ -13,6 +14,7 @@ import { formatTime, usePolling } from "./util";
 
 const STATUS_POLL_MS = 3000;
 const CREDITS_POLL_MS = 15000;
+const PROJECTS_POLL_MS = 5000;
 
 export default function App() {
   return (
@@ -67,7 +69,7 @@ function useProject(projectId: number | null) {
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const { t, language, setLanguage } = useI18n();
   const route = useRoute();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
     boss_name: "", language, languages: {}, claude_accounts: 1,
   });
@@ -93,6 +95,8 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       if (!s.boss_name) go("/settings"); // First time: the team needs a name for its CEO
     }).catch(() => {});
   }, [reloadProjects]);
+
+  usePolling(reloadProjects, PROJECTS_POLL_MS, [reloadProjects]); // unread counts and previews
 
   useEffect(() => setStatuses([]), [projectId]);
   usePolling(
@@ -152,7 +156,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       main = <p className="muted center">{t("common.loading")}</p>;
     }
   } else {
-    main = <Home hasProjects={projects.length > 0} />;
+    main = <Projects projects={projects} />;
   }
 
   const inProject = projectId !== null && route.name !== "settings" && route.name !== "new";
@@ -161,7 +165,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
       <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} presence={presence} open={navOpen}
         onClose={() => setNavOpen(false)} />
-      <main className="main">
+      <main className={`main${inProject ? "" : " with-bottom-bar"}`}>
         {inProject ? (
           <header className="mobile-bar">
             <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
@@ -182,6 +186,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
+      {!inProject && <BottomBar route={route} />}
     </div>
   );
 }

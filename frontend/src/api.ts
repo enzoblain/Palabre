@@ -106,17 +106,6 @@ export type AppSettings = {
   languages: Record<string, string>;
   claude_accounts: number;
 };
-// Real quota of a Claude account, as /usage shows it. `resets_at` is null when unknown
-export type QuotaWindow = { used_percent: number; resets_at: string | null };
-export type ModelQuota = QuotaWindow & { model: string };
-// On error, `error` says why and the windows are empty
-export type AccountQuota = {
-  account: number;
-  error: string | null;
-  session: QuotaWindow | null;
-  week: QuotaWindow | null;
-  models: ModelQuota[];
-};
 export type ExhaustedAccount = { account: number; resets_at: string; estimated: boolean };
 export type OrchestratorStatus = {
   enabled: boolean;
@@ -124,7 +113,6 @@ export type OrchestratorStatus = {
   pending_wakeups: number;
   exhausted_accounts: ExhaustedAccount[];
 };
-export type Quota = { accounts: AccountQuota[] };
 
 export type Decision = {
   id: number;
@@ -391,7 +379,6 @@ export async function login(server: string, adminToken: string): Promise<Connect
 // --- Endpoints ---------------------------------------------------------------------
 
 export const api = {
-  getQuota: () => call<Quota>("/settings/quota"),
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
