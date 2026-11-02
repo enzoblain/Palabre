@@ -474,7 +474,7 @@ async def release_commits(repo: str, tag: str, head: str) -> list[str]:
 def release_notes(repo: str, tag: str, changes: str = "") -> str:
     """The body of a release: the changes, then the server image line, the same as release.yml (keep both in step)."""
     owner = repo.split("/")[0].lower()
-    download = f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see the README)."
+    download = f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see docs/install.md)."
     return f"{changes}\n\n{download}" if changes else download
 
 

@@ -190,7 +190,7 @@ async def test_publish_version_refuses_when_production_is_not_green(gh):
 def test_release_name_and_notes_match_the_hand_made_releases():
     assert github.release_name("v0.2.2") == "Palabre v0.2.2"
     notes = github.release_notes("Enzoblain/Palabre", "v0.2.2")
-    assert notes == "Server: `ghcr.io/enzoblain/palabre:0.2.2` (see the README)."
+    assert notes == "Server: `ghcr.io/enzoblain/palabre:0.2.2` (see docs/install.md)."
 
 
 def test_release_notes_put_the_changes_before_the_server_line():
