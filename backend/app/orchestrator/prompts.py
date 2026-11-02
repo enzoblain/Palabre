@@ -21,7 +21,7 @@ REASONS: dict[str, str] = {
     "review_overdue": "Task #{task_id} has been waiting for your verdict for {minutes} minutes ({pr_url}). Read the reviews and reports with get_task and get_diff, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "review_stalled": "Task #{task_id} had no reviewer verdict for {minutes} minutes: the reviewer was woken up again. Step in if it stays stuck.",
     "review_abandoned": "Task #{task_id} ({pr_url}) still has no reviewer verdict on head {head_sha} after {reminders} reminders: no more will be sent. Decide: ask a reviewer yourself, reassign the review, or review it.",
-    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable or MCP tool without updating the README, report it as a bug.",
+    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable, command or MCP tool without updating the docs/ folder, report it as a bug. A README that grows with detail instead of linking to docs/ is a bug too.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
     "release_ci": "The CI of the release PR #{pr_number} finished: {result}. If it is green, ship it with merge_release; otherwise get the failing checks fixed.",
@@ -153,8 +153,8 @@ CODE_STANDARDS_LIST: list[tuple[str, str]] = [
     ("Every new behavior has tests.", "Every new behavior has tests."),
     ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
     (
-        "If your PR changes a behavior, a config variable, a command or an MCP tool described in the README, update the README in the same PR.",
-        "A PR that changes a behavior documented in the README, or adds a config variable or an MCP tool, updates the README in the same PR; otherwise it is blocking.",
+        "If your PR changes a behavior, a config variable, a command or an MCP tool, document it in the right file of docs/ in the same PR. The README stays short (pitch, quick start, links): never add detail to it.",
+        "A PR that changes a documented behavior, or adds a config variable, a command or an MCP tool, updates the right file of docs/ in the same PR; otherwise it is blocking. A README that grows with detail instead of linking to docs/ is blocking too.",
     ),
 ]
 
@@ -199,7 +199,7 @@ You are working on task #{task_id} « {title} », in its own git clone (your cur
 
 
 ORIENTATION_RULE = """## Getting oriented
-The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
+The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and its docs/ folder, and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
 
 BRANCH_RULE = "The team works on the branch `{branch}`."
 

@@ -5,7 +5,7 @@ order = 130
 model = "haiku"
 mission = "Make the project understandable to someone discovering it."
 responsibilities = [
-  "Maintain the README and user documentation",
+  "Keep the README short (pitch, quick start, links) and put the detailed documentation in docs/",
   "Keep the docs up to date on every merge (the changelog itself is generated at release)",
 ]
 forbidden = ["Changing application code", "Merging"]

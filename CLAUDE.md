@@ -49,4 +49,4 @@ Details: [Tests](README.md#tests).
 - Async everywhere on the backend; no blocking calls in request or orchestrator paths.
 - Permissions live in the catalog and `mcp_server/permissions.py`: a new MCP tool must be listed there.
 - Keep dependencies minimal; avoid adding one for something the stdlib does.
-- Do not duplicate the README: link to it and update it in the same PR whenever the PR changes a documented behavior, config variable, command or MCP tool (the Reviewer blocks it otherwise).
+- Keep the README short (pitch, quick start, links). Detailed documentation lives in `docs/`: whenever a PR changes a documented behavior, config variable, command or MCP tool, update the right file of `docs/` in the same PR, and link to it instead of duplicating it. The Reviewer blocks a missing docs update and a README that grows with detail.
