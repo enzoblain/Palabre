@@ -234,7 +234,7 @@ async def settle_decision(ctx: Context, decision_id: int, outcome: Literal["vali
     """Record the boss's reply to a proposed decision, once you have read it in direction (they
     answer in free text; you interpret it). The decision becomes validated or rejected, and its
     pending requests with it. A rejected release closes its pull request; a validated release is
-    refused here: ship it with merge_release. comment: the boss's reasons or conditions, in a sentence."""
+    refused here: ship it with merge_release. Validating a decision that has requests in direction is refused until the boss has answered one of them. comment: the boss's reasons or conditions, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
