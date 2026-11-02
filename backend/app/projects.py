@@ -420,11 +420,10 @@ async def change_main_branch(project: Project, branch: str) -> str | None:
     Returns a warning when the team's branch was the old main branch, which stays as it is."""
     repo = github.repo_slug(project.repo_url)
     previous = await github.production_branch(repo)
-    if branch == previous:
-        return None
-    await github.set_default_branch(repo, branch)
-    await follow_main_branch(project, branch)
-    if project.default_branch == previous:
+    if branch != previous:
+        await github.set_default_branch(repo, branch)
+    await follow_main_branch(project, branch)  # Also when already main: a retry heals a clone left behind
+    if branch != previous and project.default_branch == previous:
         return f"The team still works on {previous}, the previous main branch: it was not moved to {branch}"
     return None
 

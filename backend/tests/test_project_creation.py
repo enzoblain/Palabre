@@ -194,3 +194,14 @@ async def test_lead_cannot_move_the_team_to_production(repo):
     with pytest.raises(WorkflowError) as e:
         await projects.change_branch(None, project, "main", by=SimpleNamespace())
     assert e.value.code == ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY
+
+
+async def test_set_default_branch_patches_the_repository(monkeypatch):
+    calls = []
+
+    async def api(method, path, **kwargs):
+        calls.append((method, path, kwargs.get("json")))
+
+    monkeypatch.setattr(github, "_api", api)
+    await github.set_default_branch("acme/app", "release")
+    assert calls == [("PATCH", "/repos/acme/app", {"default_branch": "release"})]

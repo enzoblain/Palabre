@@ -158,3 +158,11 @@ async def test_delete_several_is_all_or_nothing(db, removed):
 def test_delete_several_needs_ids():
     with pytest.raises(ValidationError):
         ProjectsDelete(ids=[])
+
+
+async def test_update_to_the_current_main_branch_still_syncs_the_clone(db, github_calls):
+    project = await _project(db)
+    project.default_branch = "dev"
+    detail = await api.update_project(project.id, ProjectPatch(main_branch="main"), db)
+    assert github_calls["default"] == [] and github_calls["followed"] == ["main"]
+    assert detail.warning is None

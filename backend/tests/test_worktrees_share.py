@@ -101,3 +101,30 @@ async def test_clone_from_reference_removes_clone_on_share_error(monkeypatch, tm
     with pytest.raises(OSError):
         await worktrees._clone_from_reference(project, clone)
     assert not clone.exists()
+
+
+async def test_follow_main_branch_moves_origin_head_only(monkeypatch, tmp_path):
+    monkeypatch.undo()  # Drops the no-subprocess guard: this test runs real git, on local repositories only
+    async def run(cwd, *args):
+        return await worktrees.git(cwd, *args, allow_file=True)
+
+    origin = tmp_path / "origin.git"
+    await run(tmp_path, "init", "--quiet", "--bare", "--initial-branch=main", str(origin))
+    seed = tmp_path / "seed"
+    await run(tmp_path, "init", "--quiet", "--initial-branch=main", str(seed))
+    await run(seed, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "--allow-empty", "-m", "init")
+    await run(seed, "branch", "release")
+    await run(seed, "push", "--quiet", str(origin), "main", "release")
+    repo = tmp_path / "ref"
+    await run(tmp_path, "clone", "--quiet", str(origin), str(repo))
+    await run(repo, "checkout", "--quiet", "-b", "dev")
+
+    async def sync_repo(project):
+        return repo
+
+    monkeypatch.setattr(worktrees, "sync_repo", sync_repo)
+    project = type("P", (), {"id": 1, "default_branch": "dev"})()
+    await worktrees.follow_main_branch(project, "release")
+    assert (await run(repo, "symbolic-ref", "refs/remotes/origin/HEAD")).strip() == "refs/remotes/origin/release"
+    assert (await run(repo, "symbolic-ref", "--short", "HEAD")).strip() == "dev"
+    assert project.default_branch == "dev"
