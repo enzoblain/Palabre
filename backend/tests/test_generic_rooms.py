@@ -159,19 +159,33 @@ async def test_agent_runs_of_a_deleted_room_survive_detached(db):
     assert run.conversation_id is None and run.cost_usd == 1.5
 
 
-async def test_research_projects_and_columns_are_dropped_from_an_existing_schema(db):
+async def test_research_projects_and_columns_are_dropped_from_an_existing_schema(db, caplog):
     from sqlalchemy import inspect, text
 
-    from app.db import _drop_research_projects
+    from app.db import RESEARCH_COLUMNS, _drop_research_projects
 
+    research = await make_project(db, "scaleup")
+    company = await make_project(db, "startup")
+    await add_room(db, research, "r", [])
+    await add_room(db, company, "c", [])
+    await db.commit()
     async with db.bind.begin() as conn:
-        for column in ("kind", "topic", "research_phase"):
+        for column in RESEARCH_COLUMNS:
             await conn.execute(text(f"ALTER TABLE projects ADD COLUMN {column} TEXT"))
-        await conn.execute(text("INSERT INTO projects (id, name, repo_url, default_branch, mode, seed, kind) VALUES "
-                                "(1, 'A', '', 'main', 'duo', 1, 'research'), (2, 'B', 'https://github.com/o/r', 'main', 'startup', 1, 'company')"))
-        await conn.run_sync(_drop_research_projects)
+        await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
+        await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
+        with caplog.at_level("INFO", logger="app.db"):
+            await conn.run_sync(_drop_research_projects)
+        assert "1 research project" in caplog.text
         await conn.run_sync(_drop_research_projects)  # idempotent
         columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
         remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
-    assert not {"kind", "topic", "research_phase"} & columns
-    assert remaining == [2]
+        children = {
+            table: set((await conn.execute(text(f"SELECT DISTINCT project_id FROM {table}"))).scalars())
+            for table in ("employees", "rooms")
+        }
+        messages = (await conn.execute(text("SELECT count(*) FROM messages"))).scalar_one()
+    assert not set(RESEARCH_COLUMNS) & columns
+    assert remaining == [company.id]
+    assert children == {"employees": {company.id}, "rooms": {company.id}}
+    assert messages == 1

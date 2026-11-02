@@ -2,7 +2,6 @@
 
 When a project is created: `team = generate_team("startup")`, store `team.to_dict()`,
 then `render_system_prompt(team, employee, boss_name)` gives each employee's prompt.
-
 """
 
 import random
