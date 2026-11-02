@@ -335,7 +335,7 @@ async def answer_pending_requests(s: AsyncSession, project_id: int, reply: Messa
                 Message.id < reply.id,
             )
             .order_by(Message.id)
-            .with_for_update()  # the lead withdrawing at the same time: one of the two wins
+            .with_for_update(of=Message)  # the lead withdrawing at the same time: one of the two wins
         )
     )
     for message in pending:
@@ -387,7 +387,7 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
                 Room.kind == DIRECTION,
                 Message.request_kind.is_not(None),
             )
-            .with_for_update()  # the boss answering at the same time: one of the two wins
+            .with_for_update(of=Message)  # the boss answering at the same time: one of the two wins
         )
     }
     for request_id in ids:

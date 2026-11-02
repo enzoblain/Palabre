@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy import CheckConstraint, Connection, inspect
+from sqlalchemy import CheckConstraint, Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -69,8 +69,9 @@ def _widen_request_status_check(conn: Connection) -> None:
         return
     from app.models import REQUEST_STATUS_CHECK, RequestStatus  # models import this module
 
-    definition = conn.exec_driver_sql(
-        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = %s", (REQUEST_STATUS_CHECK,)
+    definition = conn.execute(
+        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :name"),
+        {"name": REQUEST_STATUS_CHECK},
     ).scalar()
     if definition is not None and RequestStatus.answered.value not in definition:
         conn.exec_driver_sql(f"ALTER TABLE messages DROP CONSTRAINT {REQUEST_STATUS_CHECK}")
