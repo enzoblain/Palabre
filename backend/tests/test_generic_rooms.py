@@ -175,9 +175,10 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
         await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
         await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
         with caplog.at_level("INFO", logger="app.db"):
-            await conn.run_sync(_drop_research_projects)
+            dropped = await conn.run_sync(_drop_research_projects)
+        assert dropped == [research.id]
         assert "1 research project" in caplog.text
-        await conn.run_sync(_drop_research_projects)  # idempotent
+        assert await conn.run_sync(_drop_research_projects) == []  # idempotent
         columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
         remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
         children = {
@@ -189,3 +190,26 @@ async def test_research_projects_and_columns_are_dropped_from_an_existing_schema
     assert remaining == [company.id]
     assert children == {"employees": {company.id}, "rooms": {company.id}}
     assert messages == 1
+
+
+async def test_removing_dropped_project_files_logs_failures_and_keeps_other_projects(tmp_path, monkeypatch, caplog):
+    from app import worktrees
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "projects_dir", tmp_path)
+    kept, gone, stuck = (tmp_path / f"project-{n}" for n in (1, 2, 3))
+    for folder in (kept, gone, stuck):
+        (folder / "desk").mkdir(parents=True)
+    real_rmtree = worktrees.shutil.rmtree
+
+    def rmtree(target, onexc):
+        if target == stuck:
+            onexc(real_rmtree, target, PermissionError("denied"))
+        else:
+            real_rmtree(target, onexc=onexc)
+
+    monkeypatch.setattr(worktrees.shutil, "rmtree", rmtree)
+    for project_id in (2, 3):
+        await worktrees.remove_project_files(project_id)
+    assert kept.exists() and not gone.exists()
+    assert stuck.exists() and "cannot delete" in caplog.text
