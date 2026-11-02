@@ -1,5 +1,7 @@
 # Audit: tests and QA process
 
+> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+
 Findings only, no fix applied. Each item gives the problem, where, severity, proposed fix and effort (S < 1 day, M 1-3 days, L > 3 days). Sorted by severity. Line numbers refer to `dev` at the time of writing.
 
 Baseline: about 347 backend test functions in 33 files, all run without database or network; no frontend tests; CI runs pytest, `npm run check`, two Docker builds, the compose smoke test and pip-audit.
