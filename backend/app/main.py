@@ -47,7 +47,7 @@ async def lifespan(_: FastAPI):
     if not settings.agent_user:
         log.warning(
             "AGENT_USER is empty: agents run as the backend's own user and can read its "
-            "environment and files. Fine for the desktop app or local development, not for a server."
+            "environment and files. Fine for local development, not for a server."
         )
     agent_pool.check()
     load_catalog()  # an invalid catalog file stops the backend here, with its name

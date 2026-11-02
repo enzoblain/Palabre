@@ -533,9 +533,9 @@ async def merge_release(ctx: Context, summary: str, message: str, title: str = "
 @tool
 async def publish_version(ctx: Context, version: str, message: str) -> dict:
     """Tag the head of production (the default branch) vX.Y.Z and publish the GitHub Release
-    (named "Palabre vX.Y.Z", with the standard download notes); the tag builds the images and the desktop app. Refused for a version that
+    (named "Palabre vX.Y.Z", with the standard download notes); the tag builds the images. Refused for a version that
     is not X.Y.Z, a tag that already exists, or a version that differs from the one in the
-    repository's files (frontend/package.json, tauri.conf.json, Cargo.toml: the ones that exist),
+    repository's files (frontend/package.json and its lock, docker-compose.yml: the ones that exist),
     or when CI is not green on production's head. Merge a version bump first.
     version: e.g. "1.4.0".
     message: what you tell the team in the chat, in a sentence or two."""

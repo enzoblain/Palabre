@@ -6,7 +6,7 @@ requests, reviewers and QA check them before anything is merged. Or give it a to
 and a research group searches the web, debates and writes you a sourced report.
 
 You are the CEO. You talk only to the lead (the CTO), in the `#direction` channel, from a
-desktop app or your phone's browser; the lead relays to the team. The agents talk to each
+browser, on your computer or your phone; the lead relays to the team. The agents talk to each
 other in their own team channels, like colleagues on Slack, and you do not see those. The agents run on [Claude Code](https://claude.com/claude-code),
 billed on your Claude subscription, on a server you host yourself (a NAS is enough).
 
@@ -155,8 +155,7 @@ workflow), which starts that workflow; `fix_release` regenerates the name and no
 Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` the minor,
 a `!` or a `BREAKING CHANGE` footer the major (while in 0.x, a breaking change bumps the minor); the highest bump
 wins. The lead's and DevOps's prompts state the rule. `publish_version` refuses a version that is not `X.Y.Z`, a tag that
-already exists, or a version that differs from `frontend/package.json`, its lock, `tauri.conf.json`, `Cargo.lock` or
-`Cargo.toml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` (edited directly, no npm or cargo on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It is recomputed on every call (a commit merged after the bump joins the entry, and the version follows the bump level) and commits only if a file changes, never an empty commit. It refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
+already exists, or a version that differs from `frontend/package.json`, its lock or `docker-compose.yml` (the bump is made for you). Releases need no bump task: `merge_release` first computes the next version with the rule above from the commits since the last tag, and the backend commits `chore(release): X.Y.Z` on the team's branch only (never on production, no force push), in one commit made in its local clone: `frontend/package.json` and `package-lock.json` and `docker-compose.yml` (edited directly, no npm on the server), and the Keep a Changelog entry under `[Unreleased]` (it replaces whatever `[Unreleased]` held, and any entry of a version never released: nobody edits the CHANGELOG by hand, the developers' prompts say so; `feat` Added, `fix` Fixed, `perf` and `refactor` Changed, breaking changes flagged; chores and docs are left out). It is recomputed on every call (a commit merged after the bump joins the entry, and the version follows the bump level) and commits only if a file changes, never an empty commit. It refuses a version file whose format it does not know. After a commit the release PR's CI restarts: the lead is woken once it ends, then calls `merge_release` again, which merges under the usual CI gate. Both tools are the lead's only (`ship_release` permission in
 the catalog); `propose_release` and Validate stay available when the lead wants your opinion.
 
 The lead also triages pull requests no task owns, such as Dependabot's: `list_pull_requests`
@@ -183,8 +182,8 @@ or leave it to chance.
 ### Architecture
 
 ```
- Desktop app ─────────────────► :2710  Server (FastAPI) ──── PostgreSQL
- Phone / browser ──► :2810  Web app (nginx) ─┘    │
+ Phone / browser ──► :2810  Web app (nginx) ─► :2710  Server (FastAPI) ──── PostgreSQL
+                                                  │
                                                   ├── Orchestrator: wakes agents up on events
                                                   ├── claude -p runs, one per agent wake-up
                                                   └── MCP server: the agents' tools
@@ -200,8 +199,7 @@ or leave it to chance.
   load the user settings). They act through an MCP
   server whose tools depend on their role: only a lead can merge, only reviewers, QA and
   security can approve a pull request.
-- **Apps** (`frontend/`): React and TypeScript, packaged with Tauri for the desktop, and
-  served by nginx for the browser.
+- **Apps** (`frontend/`): React and TypeScript, served by nginx for the browser.
 
 ## Install the server
 
@@ -277,21 +275,10 @@ To bump it, change `CLAUDE_CODE_VERSION` and both checksums together.
 
 ## Use the apps
 
-**Desktop app**: download it from the [latest release](https://github.com/enzoblain/Palabre/releases/latest).
-
-- **macOS**: the `.dmg` (`aarch64` for Apple Silicon, `x64` for Intel). The app is not
-  signed yet: the first time, right-click it → Open, or run
-  `xattr -dr com.apple.quarantine /Applications/Palabre.app`.
-- **Windows**: the `.msi` or the `-setup.exe`.
-- **Linux**: the `.AppImage`, `.deb` or `.rpm`.
-
-Enter your server's address (`http://127.0.0.1:2710` when it runs on the same machine, or the
-HTTPS address of your reverse proxy, see [Remote access](#remote-access)) and the `ADMIN_TOKEN`.
-
-**Phone or any browser**: open `http://127.0.0.1:2810` on the server itself, or, from another device,
+**Web app**: open `http://127.0.0.1:2810` on the server itself, or, from another device,
 the HTTPS address of your reverse proxy or the private address of the server (for example on
 [Tailscale](https://tailscale.com), with `PALABRE_WEB_BIND` set to it, see [Remote access](#remote-access)),
-and enter the `ADMIN_TOKEN`. Never expose it on the internet.
+and enter the `ADMIN_TOKEN` (on first login, the server address is already filled in). Never expose it on the internet.
 
 On first launch, set your name in the settings: it is the one your team calls you by.
 
@@ -324,8 +311,8 @@ restart, the first run that hits the limit rebuilds it.
 ### Remote access
 
 The server port only listens on `127.0.0.1`, so the `ADMIN_TOKEN` never crosses the network in
-clear text. To use the desktop app from another machine, put a reverse proxy with TLS in front of
-`127.0.0.1:2710` (Caddy, nginx, Traefik...) and enter its `https://` address in the app. For example
+clear text. To use the app from another machine, put a reverse proxy with TLS in front of
+the web port (Caddy, nginx, Traefik...) and open its `https://` address. For example
 with Caddy, which gets the certificate by itself:
 
 ```
@@ -443,7 +430,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `SESSION_TTL_SECONDS` | `43200` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`, 12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
 | `AUTH_MAX_FAILURES` / `AUTH_FAIL_WINDOW_SECONDS` | `10` / `300` | Failed authentications from one IP within the window before it gets `429` |
 | `TRUSTED_PROXY_HOSTS` | `["web"]` | JSON list of hosts whose `X-Real-IP` is believed (the web container's nginx) |
-| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) and the Tauri webview | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) and the desktop app (requests from Rust) do not need it; add an origin only to serve a front from elsewhere |
+| `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) does not need it; add an origin only to serve a front from elsewhere |
 | `IDLE_MINUTES` | `30` | Quiet minutes before the scribe is asked to update a room document |
 | `IDLE_MIN_MESSAGES` | `5` | New messages since the last scribe wakeup needed to wake it again (the daily stand-up updates the document anyway) |
 | `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
@@ -458,7 +445,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | `AGENT_TIMEOUT_S` | `1800` | Seconds before a run is stopped |
 | `TEAM_SELECTION_TIMEOUT_S` | `120` | Seconds before the model call that picks the roles of an automatic team is abandoned (the catalog order is used instead) |
 | `AGENT_POOL_SIZE` | `8` in the image, `0` otherwise | Number of per-run system users `<AGENT_USER>1..N`. A run holds one for its whole life (it waits if all are taken), so concurrent runs never share a uid and cannot read each other's `/proc/<pid>/environ` (MCP token, Claude tokens). `0`: every run shares `AGENT_USER`. The build argument of the same name sets how many accounts the image creates |
-| `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (desktop app, local dev), with a warning at startup |
+| `AGENT_USER` | `agent` in the image | System user the agents' `claude` runs as, through `sudo`. Empty: agents share the backend's user (local dev), with a warning at startup |
 | `CONTEXT_RESET_EVERY_TASKS` | `5` | Tasks an employee takes part in when they end (merged or cancelled: as assignee, reviewer, QA or security reviewer, or as the one who merged or cancelled it; counted once per task) before their next run starts on a blank context: their Claude sessions are no longer resumed. `0` turns it off. Notes, tasks, room documents and chat are kept, and a run in progress is never cut |
 | `CONTEXT_RESET_EVERY_RUNS` | `5` | Runs a single Claude task session (for one employee) serves before the next run on that subject starts a new session instead of resuming it. Conversation wakeups never resume: each starts a new session, as the prompt cache has expired between two wakeups. The employee's other sessions are untouched, and it works next to `CONTEXT_RESET_EVERY_TASKS`. `0` turns it off. A run in progress is never cut |
 | `EGRESS_ALLOWED_HOSTS` / `EGRESS_ALLOWED_PORTS` | npm, PyPI and Go registries, `statsig.anthropic.com` / `[443]` | JSON lists of what the agents' egress proxy may reach, see [Security](#security) |
@@ -616,7 +603,7 @@ non-zero. Every line is `ok` or `FAIL`.
 
 ```sh
 docker compose up -d --build                     # server and web app, from backend/ and frontend/
-cd frontend && npm install && npm run tauri dev  # desktop app
+cd frontend && npm install && npm run dev        # Vite dev server on localhost:1420
 ```
 
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
@@ -651,5 +638,4 @@ A role can set an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`),
 
 The lead normally ships with `merge_release` and `publish_version` (see above). To publish a release by hand instead, move the `[Unreleased]` entries of [`CHANGELOG.md`](CHANGELOG.md) under the new version, then push a version tag (`git tag v0.2.5 && git push origin v0.2.5`):
 GitHub Actions builds the server and web images for amd64 and arm64
-(`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`) and the desktop app for
-every system, attached to the release. A final `notes` job puts the changes back if the builds overwrote the release body, so the notes always read changes, then download text.
+(`ghcr.io/enzoblain/palabre`, `ghcr.io/enzoblain/palabre-web`); the release notes read the changes, then the server image line.

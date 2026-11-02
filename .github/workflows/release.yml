@@ -1,5 +1,4 @@
-# On a version tag (v0.1.0...): the server and web images go to GHCR, and the desktop app
-# is built for macOS, Windows and Linux and attached to the GitHub release.
+# On a version tag (v0.1.0...): the server and web images go to GHCR, and the GitHub release exists.
 name: Release
 
 on:
@@ -47,12 +46,9 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-  # Created once, before the four app builds upload to it
+  # Created if publish_version did not already
   release:
     runs-on: ubuntu-latest
-    outputs:
-      id: ${{ steps.create.outputs.id }}
-      body: ${{ steps.create.outputs.body }}
     steps:
       - id: create
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -62,110 +58,15 @@ jobs:
             const owner = context.repo.owner;
             // A re-run reuses the release of the tag
             try {
-              const { data } = await github.rest.repos.getReleaseByTag({ owner, repo: context.repo.repo, tag });
-              core.setOutput("id", data.id);
-              // Kept so that `notes` can restore it: publish_version wrote the changes in it
-              core.setOutput("body", data.body || "");
+              await github.rest.repos.getReleaseByTag({ owner, repo: context.repo.repo, tag });
               return;
             } catch (error) {
               if (error.status !== 404) throw error;
             }
-            const { data } = await github.rest.repos.createRelease({
+            await github.rest.repos.createRelease({
               owner,
               repo: context.repo.repo,
               tag_name: tag,
               name: `Palabre ${tag}`,
-              body: [
-                "Desktop app: download the file for your system below.",
-                "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
-                "- Windows: `.msi` or `-setup.exe`.",
-                "- Linux: `.AppImage`, `.deb` or `.rpm`.",
-                "",
-                `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see the README).`,
-              ].join("\n"),
+              body: `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see the README).`,
             });
-            core.setOutput("id", data.id);
-            core.setOutput("body", data.body || "");
-
-  desktop-app:
-    needs: release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: windows-latest
-            target: ""
-          - os: ubuntu-22.04
-            target: ""
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: System libraries (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: frontend/src-tauri -> target
-      - run: npm ci
-        working-directory: frontend
-      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: frontend
-          releaseId: ${{ needs.release.outputs.id }}
-          args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
-
-  # The builds must not leave the release without its changes: put back the body the release
-  # had before them if it lost the changes or the download text (keep in step with github.py)
-  notes:
-    needs: [release, desktop-app]
-    if: ${{ always() && needs.release.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
-        env:
-          BODY_BEFORE: ${{ needs.release.outputs.body }}
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const release_id = Number("${{ needs.release.outputs.id }}");
-            const marker = "Desktop app: download the file for your system below.";
-            const tag = context.ref.replace("refs/tags/", "");
-            const download = [
-              marker,
-              "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
-              "- Windows: `.msi` or `-setup.exe`.",
-              "- Linux: `.AppImage`, `.deb` or `.rpm`.",
-              "",
-              `Server: \`ghcr.io/${owner.toLowerCase()}/palabre:${tag.replace(/^v/, "")}\` (see the README).`,
-            ].join("\n");
-            const { data } = await github.rest.repos.getRelease({ owner, repo, release_id });
-            const before = process.env.BODY_BEFORE || "";
-            // Changes are what comes before the download text, and only count if they are a
-            // generated list (### sections): a tool's default text is not a list of changes
-            const changesOf = (body) => {
-              const head = body.split(marker)[0].trim();
-              return head.startsWith("### ") ? head : "";
-            };
-            const changes = changesOf(data.body || "") || changesOf(before);
-            const body = changes ? `${changes}\n\n${download}` : download;
-            if (body !== (data.body || "")) {
-              await github.rest.repos.updateRelease({ owner, repo, release_id, body });
-            }

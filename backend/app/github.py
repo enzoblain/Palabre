@@ -472,16 +472,9 @@ async def release_commits(repo: str, tag: str, head: str) -> list[str]:
 
 
 def release_notes(repo: str, tag: str, changes: str = "") -> str:
-    """The body of a release: the changes, then the same download text as release.yml (keep both in step)."""
+    """The body of a release: the changes, then the server image line, the same as release.yml (keep both in step)."""
     owner = repo.split("/")[0].lower()
-    download = "\n".join([
-        "Desktop app: download the file for your system below.",
-        "- macOS: `.dmg` (aarch64 = Apple Silicon, x64 = Intel). The app is not signed: the first time, right-click it → Open, or run `xattr -dr com.apple.quarantine /Applications/Palabre.app`.",
-        "- Windows: `.msi` or `-setup.exe`.",
-        "- Linux: `.AppImage`, `.deb` or `.rpm`.",
-        "",
-        f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see the README).",
-    ])  # fmt: skip
+    download = f"Server: `ghcr.io/{owner}/palabre:{tag.removeprefix('v')}` (see the README)."
     return f"{changes}\n\n{download}" if changes else download
 
 

@@ -28,7 +28,6 @@ CHANGELOG = """# Changelog
 [0.6.1]: https://github.com/acme/app/compare/v0.6.0...v0.6.1
 """
 LOCK = '{\n  "name": "x",\n  "version": "0.6.1",\n  "packages": {\n    "": {\n      "name": "x",\n      "version": "0.6.1",\n      "dependencies": {\n        "a": "1.0.0"\n      }\n    },\n    "node_modules/a": {\n      "version": "1.0.0"\n    }\n  }\n}\n'
-CARGO_LOCK = '[[package]]\nname = "a"\nversion = "1.0.0"\n\n[[package]]\nname = "x"\nversion = "0.6.1"\n'
 
 
 @pytest.mark.parametrize(
@@ -71,23 +70,20 @@ def test_set_version_touches_only_the_package_version():
     lock = json.loads(release.set_version("frontend/package-lock.json", LOCK, "0.7.0"))
     assert lock["version"] == lock["packages"][""]["version"] == "0.7.0"
     assert lock["packages"]["node_modules/a"]["version"] == "1.0.0"
-    cargo = release.set_version("frontend/src-tauri/Cargo.lock", CARGO_LOCK, "0.7.0", "x")
-    assert 'name = "a"\nversion = "1.0.0"' in cargo and 'name = "x"\nversion = "0.7.0"' in cargo
-    assert 'version = "0.7.0"' in release.set_version("frontend/src-tauri/Cargo.toml", versioned("0.6.1")["frontend/src-tauri/Cargo.toml"], "0.7.0")
+    assert json.loads(release.set_version("frontend/package.json", indented("0.6.1")["frontend/package.json"], "0.7.0"))["version"] == "0.7.0"
 
 
 def indented(version):
-    """versioned() as npm and Tauri write it: indented JSON."""
+    """versioned() as npm writes it: indented JSON."""
     files = versioned(version)
-    for path in ("frontend/package.json", "frontend/src-tauri/tauri.conf.json"):
-        files[path] = json.dumps(json.loads(files[path]), indent=2) + "\n"
+    path = "frontend/package.json"
+    files[path] = json.dumps(json.loads(files[path]), indent=2) + "\n"
     return files
 
 
 def bumped(version):
     return indented(version) | {
         "frontend/package-lock.json": LOCK.replace("0.6.1", version),
-        "frontend/src-tauri/Cargo.lock": CARGO_LOCK.replace("0.6.1", version),
     }
 
 
@@ -100,7 +96,7 @@ def gh(monkeypatch):
         commits=["fix: a", "feat(b): c"], ahead=2, files={}, pushed=None, tip_message="feat: c", tip_date=datetime.now(UTC) - timedelta(hours=1),
         pr=None, ci="CI still running: tests",
     )  # fmt: skip
-    state.files = indented("0.6.1") | {"CHANGELOG.md": CHANGELOG, "frontend/package-lock.json": LOCK, "frontend/src-tauri/Cargo.lock": CARGO_LOCK}
+    state.files = indented("0.6.1") | {"CHANGELOG.md": CHANGELOG, "frontend/package-lock.json": LOCK}
 
     async def resolve_branch(repo, branch):
         return "main"
@@ -142,10 +138,7 @@ async def test_prepare_release_commits_files_and_changelog_in_one_commit(gh):
     result = await projects.prepare_release(PROJECT)
     branch, parent, files, message = gh.pushed
     assert (branch, parent, message) == ("dev", "tip1", "chore(release): 0.7.0")
-    assert set(files) == {
-        "frontend/package.json", "frontend/src-tauri/tauri.conf.json", "frontend/src-tauri/Cargo.toml",
-        "frontend/package-lock.json", "frontend/src-tauri/Cargo.lock", "CHANGELOG.md",
-    }
+    assert set(files) == {"frontend/package.json", "frontend/package-lock.json", "CHANGELOG.md"}
     assert json.loads(files["frontend/package.json"])["version"] == "0.7.0"
     assert "## [0.7.0]" in files["CHANGELOG.md"] and "- b: c" in files["CHANGELOG.md"]
     assert result["committed"] and result["version"] == "0.7.0" and result["sha"] == "new1"
@@ -315,8 +308,7 @@ async def test_publish_version_checks_the_lock_files_too(gh, monkeypatch):
     gh.ci = None
     gh.files |= bumped("0.7.0")
     gh.files["frontend/package-lock.json"] = LOCK  # Forgotten at 0.6.1
-    gh.files["frontend/src-tauri/Cargo.lock"] = CARGO_LOCK
-    with pytest.raises(WorkflowError, match="package-lock.json says 0.6.1.*Cargo.lock says 0.6.1"):
+    with pytest.raises(WorkflowError, match="package-lock.json says 0.6.1"):
         await projects.publish_version(PROJECT, "0.7.0")
 
 
@@ -404,4 +396,4 @@ def test_set_version_bumps_the_compose_image_default():
     text = "image: a:${PALABRE_VERSION:-0.6.1}\nimage: b:${PALABRE_VERSION:-0.6.1}\nx: ${OTHER:-0.6.1}\n"
     out = release.set_version("docker-compose.yml", text, "0.7.0")
     assert out == "image: a:${PALABRE_VERSION:-0.7.0}\nimage: b:${PALABRE_VERSION:-0.7.0}\nx: ${OTHER:-0.6.1}\n"
-    assert projects.VERSION_FILES["docker-compose.yml"](out, "") == "0.7.0"
+    assert projects.VERSION_FILES["docker-compose.yml"](out) == "0.7.0"
