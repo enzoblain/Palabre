@@ -4,18 +4,19 @@ import { goBack } from "../router";
 import { Avatar } from "./Avatar";
 import { BackIcon } from "./Icons";
 
-/** Header of a project screen on phones: back arrow, name, and an optional action on the right. */
-export function ProjectBar({ name, onBack, phoneOnly, children }: {
+/** Header of a project screen: back arrow, name, and an optional action on the right. */
+export function ProjectBar({ name, onBack, children }: {
   name: string;
-  onBack: () => void;
-  // The desktop layout already has the team panel and the conversation header
-  phoneOnly?: boolean;
+  // Absent on large screens, where the project list stays on screen
+  onBack?: () => void;
   children?: React.ReactNode;
 }) {
   const { t } = useI18n();
   return (
-    <header className={`project-bar${phoneOnly ? " phone-only" : ""}`}>
-      <button className="icon-btn" onClick={onBack} aria-label={t("common.back")}><BackIcon size={22} /></button>
+    <header className="project-bar">
+      {onBack ? (
+        <button className="icon-btn" onClick={onBack} aria-label={t("common.back")}><BackIcon size={22} /></button>
+      ) : <span />}
       <h1 className="project-bar-title truncate">{name}</h1>
       <span className="project-bar-end">{children}</span>
     </header>

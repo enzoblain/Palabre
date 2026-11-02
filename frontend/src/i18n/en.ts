@@ -107,6 +107,7 @@ export const en = {
   "nav.settings": "Settings",
   "home.newProjectAria": "New project",
   "home.firstProject": "Create your first project",
+  "home.selectProject": "Select a project to open its conversation",
 
   "account.title": "Claude account this agent runs on",
   "account.auto": "Auto (account {account})",
