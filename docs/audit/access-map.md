@@ -1,5 +1,7 @@
 # Access map: who reaches what, with which rights
 
+> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+
 Read-only map of `dev` (0.18.0 plus the egress, Anthropic proxy and loopback-bind fixes merged since). It complements [security.md](security.md), the list of findings. Risks carry a severity and a fix; "Fixed" ones are kept so the history stays readable.
 
 ## Actors and credentials
