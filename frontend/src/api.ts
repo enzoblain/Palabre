@@ -113,7 +113,6 @@ export type OrchestratorStatus = {
   pending_wakeups: number;
   exhausted_accounts: ExhaustedAccount[];
 };
-export type Quota = { accounts: AccountQuota[] };
 
 export type Decision = {
   id: number;
