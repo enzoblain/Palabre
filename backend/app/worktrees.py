@@ -96,6 +96,13 @@ async def _sync_repo(project: Project) -> Path:
     return repo
 
 
+async def follow_main_branch(project: Project, branch: str) -> None:
+    """Point the reference clone's `origin/HEAD` at the repository's new default branch."""
+    repo = await sync_repo(project)
+    async with _repo_locks[project.id]:
+        await git(repo, "remote", "set-head", "origin", branch)
+
+
 async def _restore_working_branch(project: Project, repo: Path) -> None:
     """The team's branch (`dev`) was deleted on GitHub, e.g. by the "Delete branch" button after
     the release PR: recreate it from production, which that merge just updated, instead of

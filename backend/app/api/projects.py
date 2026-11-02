@@ -21,6 +21,7 @@ from app.api.schemas import (
     ProjectListItem,
     ProjectOut,
     ProjectPatch,
+    ProjectUpdated,
     ProjectsDelete,
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
@@ -185,13 +186,26 @@ async def get_project(project_id: int, s: SessionDep):
     return _detail(await _project(s, project_id))
 
 
-@router.patch("/projects/{project_id}", response_model=ProjectDetail)
+@router.patch("/projects/{project_id}", response_model=ProjectUpdated)
 async def update_project(project_id: int, body: ProjectPatch, s: SessionDep):
-    """Rename a project. Its description and GitHub repository cannot be edited."""
+    """Rename a project and/or change its main (production) branch, which must already exist
+    on GitHub (422 `github_branch_missing` otherwise; no branch is created or deleted). The
+    `warning` says so when the team still works on the previous main branch. The description
+    and the GitHub repository cannot be edited."""
     project = await _project(s, project_id)
-    project.name = body.name
-    await s.commit()
-    return _detail(project)
+    warning = None
+    if body.main_branch is not None:
+        if not await github.branch_exists(github.repo_slug(project.repo_url), body.main_branch):
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.GITHUB_BRANCH_MISSING,
+                f"The branch '{body.main_branch}' does not exist on GitHub",
+            )
+        warning = await projects.change_main_branch(project, body.main_branch)
+    if body.name is not None:
+        project.name = body.name
+        await s.commit()
+    return ProjectUpdated(**_detail(project).model_dump(), warning=warning)
 
 
 async def _delete_project_data(s, project: Project) -> None:

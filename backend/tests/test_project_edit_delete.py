@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.api import projects as api
-from app.api.errors import ApiError
+from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import PROJECT_NAME_MAX_LENGTH, ProjectPatch, ProjectsDelete
 from app.models import Base, Employee, Project
 
@@ -57,7 +57,7 @@ async def test_update_changes_the_name_only(db):
     assert detail.repo_url == "https://github.com/o/r"
 
 
-@pytest.mark.parametrize("fields", [{}, {"name": None}, {"name": "   "}, {"name": ""}, {"name": "x" * (PROJECT_NAME_MAX_LENGTH + 1)}])
+@pytest.mark.parametrize("fields", [{}, {"name": None}, {"main_branch": "bad branch"}, {"name": "   "}, {"name": ""}, {"name": "x" * (PROJECT_NAME_MAX_LENGTH + 1)}])
 def test_update_refuses_an_invalid_name(fields):
     with pytest.raises(ValidationError):
         ProjectPatch(**fields)
@@ -66,6 +66,60 @@ def test_update_refuses_an_invalid_name(fields):
 async def test_update_unknown_project_is_404(db):
     with pytest.raises(ApiError) as error:
         await api.update_project(999, ProjectPatch(name="x"), db)
+    assert error.value.status_code == 404
+
+
+@pytest.fixture
+def github_calls(monkeypatch):
+    """Fake GitHub: `existing` branches, production `main`; records the default branch changes and clone follows."""
+    calls = {"existing": {"main", "release"}, "default": [], "followed": []}
+
+    async def branch_exists(repo, branch):
+        return branch in calls["existing"]
+
+    async def production_branch(repo):
+        return "main"
+
+    async def set_default_branch(repo, branch):
+        calls["default"].append(branch)
+
+    async def follow_main_branch(project, branch):
+        calls["followed"].append(branch)
+
+    monkeypatch.setattr(api.github, "branch_exists", branch_exists)
+    monkeypatch.setattr(api.github, "production_branch", production_branch)
+    monkeypatch.setattr(api.github, "set_default_branch", set_default_branch)
+    monkeypatch.setattr(api.projects, "follow_main_branch", follow_main_branch)
+    return calls
+
+
+async def test_update_changes_the_main_branch(db, github_calls):
+    project = await _project(db)
+    project.default_branch = "dev"
+    detail = await api.update_project(project.id, ProjectPatch(main_branch="release"), db)
+    assert github_calls["default"] == ["release"] and github_calls["followed"] == ["release"]
+    assert detail.warning is None and detail.default_branch == "dev"
+
+
+async def test_update_warns_when_the_team_branch_was_the_main_branch(db, github_calls):
+    project = await _project(db)
+    project.default_branch = "main"
+    detail = await api.update_project(project.id, ProjectPatch(main_branch="release"), db)
+    assert "still works on main" in detail.warning
+    assert detail.default_branch == "main"
+
+
+async def test_update_refuses_a_branch_missing_on_github(db, github_calls):
+    project = await _project(db)
+    with pytest.raises(ApiError) as error:
+        await api.update_project(project.id, ProjectPatch(main_branch="ghost", name="New"), db)
+    assert error.value.status_code == 422 and error.value.code == ErrorCode.GITHUB_BRANCH_MISSING
+    assert github_calls["default"] == [] and project.name == "P"
+
+
+async def test_update_unknown_project_with_a_branch_is_404(db, github_calls):
+    with pytest.raises(ApiError) as error:
+        await api.update_project(999, ProjectPatch(main_branch="release"), db)
     assert error.value.status_code == 404
 
 

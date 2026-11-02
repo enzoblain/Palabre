@@ -53,6 +53,8 @@ export type Room = {
 };
 
 export type ProjectDetail = Project & { employees: Employee[]; rooms: Room[] };
+/** The project after an edit; `warning` is set when the team still works on the previous main branch. */
+export type ProjectUpdated = ProjectDetail & { warning: string | null };
 
 export type Conversation = { id: number; room_id: number; title: string; created_at: string };
 
@@ -368,8 +370,8 @@ export const api = {
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
-  updateProject: (id: number, name: string) =>
-    call<ProjectDetail>(`/projects/${id}`, "PATCH", { name }),
+  updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
+    call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
   changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
