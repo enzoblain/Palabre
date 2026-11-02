@@ -2,6 +2,8 @@
 
 from collections import defaultdict
 
+from app.company.catalog import load_catalog
+from app.company.team import Team
 from app.models import Task
 
 # Why an employee is woken up, per event type ({...} = event payload fields)
@@ -117,6 +119,38 @@ VERSION_ROLES = {"lead", "devops"}
 
 def version_rule(roles: list[str]) -> str | None:
     return VERSION_RULE if VERSION_ROLES & set(roles) else None
+
+
+TEAM_REVIEW_RULE = """## Reviewing the team
+Before you split a goal, create or assign a task, arbitrate or relay, and on every message from the boss, go through each member of the team below and ask yourself whether their role is needed here. Involve every useful role (assign it a task, ask in the channel, mention it); a goal done without a role that should have weighed in is a miss.
+{members}
+Cues, for the roles this team has:
+{cues}"""
+
+# What each role is for, as a prompt to the lead; only the roles present in the team are shown
+ROLE_CUES: dict[str, str] = {
+    "designer": "before any screen or user journey, so the UI is designed before it is coded",
+    "architect": "for a change of structure (new module, data model, API contract, technology)",
+    "security": "for authentication, personal data, secrets and dependencies",
+    "reviewer": "on every pull request",
+    "qa": "on every pull request, against its acceptance criteria",
+    "scribe": "for the documentation and the room document",
+    "devops": "for CI, deployment and releases",
+    "product_owner": "to clarify a need or acceptance criteria before the work is split",
+}
+
+
+def team_review_rule(roles: list[str], team: Team) -> str | None:
+    """The lead's reminder to review the team, with the members and the cues of the roles present."""
+    if "lead" not in roles:
+        return None
+    catalog_roles = load_catalog()["roles"]
+    members = "\n".join(
+        f"- {e.name}, {e.title}: {catalog_roles[e.roles[0]].mission}" for e in team.employees if e.roles[0] in catalog_roles
+    )
+    present = {key for e in team.employees for key in e.roles}
+    cues = "\n".join(f"- {catalog_roles[key].title}: {cue}" for key, cue in ROLE_CUES.items() if key in present)
+    return TEAM_REVIEW_RULE.format(members=members, cues=cues)
 
 
 # (what a developer applies, what the reviewer checks): one list, rendered in both blocks

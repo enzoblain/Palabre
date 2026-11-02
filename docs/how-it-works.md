@@ -40,6 +40,7 @@ The research groups feature was removed (it is kept on the `archive/research` br
 From there the team works on its own:
 
 1. **The lead** splits the work into tasks with acceptance criteria and assigns them.
+   The lead's prompt has a "Reviewing the team" section: the members with their role and mission, and a cue per role (designer before any screen, security for auth and data...). The lead goes through them on every boss message and before creating or assigning a task. Only the roles present in the team are listed.
 2. **A developer** works on the task in its own git clone (made from the project's clone with `--reference --dissociate`, so it never writes to it; the token never reaches a clone: GitHub is fetched and pushed from the project's clone, and agent clones only talk to it locally), then opens a pull request. The branch starts as `task/<id>` and, at the first
    `submit_for_review`, is renamed `<type>/<id>-<slug>` (`feat/60-show-real-claude-usage`) from the title below, before the push.
    Everything that goes to GitHub is in English, whatever the team's language, in

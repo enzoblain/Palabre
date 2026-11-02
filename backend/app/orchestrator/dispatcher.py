@@ -30,6 +30,7 @@ from app.orchestrator.prompts import (
     orientation_rule,
     project_instructions_rule,
     task_rules,
+    team_review_rule,
     version_rule,
     wake_prompt,
 )
@@ -79,6 +80,7 @@ def build_system_prompt(
         language_rule(language),
         boss_messages_rule(language),
         version_rule(member.roles),
+        team_review_rule(member.roles, team),
         code_standards_rule(member.roles),
         project_instructions_rule(project_instructions),
     ] if p)  # fmt: skip
