@@ -1,4 +1,7 @@
 # Architecture and backend audit
+
+> Note: this audit predates the removal of the Tauri desktop app; mentions of Tauri or `src-tauri/` describe the code as it was then.
+
 Scope: orchestrator, workflow, runner, worktrees, github, release, mcp_server, models. No fix in this PR. Sorted by severity. Effort: S < 1 day, M 1-3 days, L > 3 days.
 
 ## Critical

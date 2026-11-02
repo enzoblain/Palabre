@@ -397,3 +397,9 @@ def test_set_version_bumps_the_compose_image_default():
     out = release.set_version("docker-compose.yml", text, "0.7.0")
     assert out == "image: a:${PALABRE_VERSION:-0.7.0}\nimage: b:${PALABRE_VERSION:-0.7.0}\nx: ${OTHER:-0.6.1}\n"
     assert projects.VERSION_FILES["docker-compose.yml"](out) == "0.7.0"
+
+
+def test_set_version_ignores_file_names_that_only_contain_package_json():
+    text = '{\n  "version": "0.6.1"\n}\n'
+    assert release.set_version("frontend/age.json", text, "0.7.0") == text
+    assert release.set_version("frontend/package", text, "0.7.0") == text

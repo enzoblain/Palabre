@@ -1,5 +1,7 @@
 # DevOps audit: CI, deployment, release, updater, toolchains
 
+> Note: this audit predates the removal of the Tauri desktop app; mentions of Tauri or `src-tauri/` describe the code as it was then.
+
 Scope: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/scripts/compose-smoke.sh`,
 `.github/dependabot.yml`, `docker-compose.yml`, `backend/Dockerfile`, `backend/docker-entrypoint.sh`,
 `frontend/Dockerfile`, `backend/app/toolchains.py` and the `install_toolchain` tool.

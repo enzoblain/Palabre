@@ -117,7 +117,7 @@ def set_version(path: str, text: str, version: str) -> str:
     """`text` of a version file with its version replaced; unchanged if the file is not one we know."""
     name = path.rsplit("/", 1)[-1]
     top = re.compile(r'(?m)^(  "version": ")[^"]*(")')
-    if name in "package.json":
+    if name == "package.json":
         return top.sub(rf"\g<1>{version}\g<2>", text, count=1)
     if name == "package-lock.json":
         text = top.sub(rf"\g<1>{version}\g<2>", text, count=1)
