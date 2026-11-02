@@ -128,6 +128,10 @@ class Project(Base):
     main_ci_watch: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Head SHA of the team's branch the lead was already told has unpublished changes
     release_reminded_sha: Mapped[str | None] = mapped_column(String(64))
+    # Last direction message the boss has read (0 = none): the lead's messages after it are unread
+    boss_read_message_id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"), default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = created_at_column()
 
     employees: Mapped[list[Employee]] = relationship(

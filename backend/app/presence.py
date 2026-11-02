@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 
 from app.config import settings
-from app.models import AgentRun, Employee
+from app.models import AgentRun, Conversation, Employee, Room
 
 
 def presence_query(project_id: int):
@@ -43,3 +43,22 @@ async def team_presence(s, project_id: int) -> list[dict]:
             entry.update(state="working", kind=row.kind, task_id=row.task_id,
                          conversation_id=row.conversation_id)  # fmt: skip
     return list(entries.values())
+
+
+async def leads_writing(s) -> set[int]:
+    """Projects with an open run in their direction conversation: only the lead sits there, the boss is waiting."""
+    oldest = datetime.now(UTC) - timedelta(seconds=settings.agent_timeout_s)
+    rows = await s.scalars(
+        select(Employee.project_id)
+        .join(AgentRun, AgentRun.employee_id == Employee.id)
+        .join(Conversation, Conversation.id == AgentRun.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(
+            AgentRun.kind == "conversation",
+            AgentRun.finished_at.is_(None),
+            AgentRun.started_at > oldest,
+            Room.kind == "direction",
+        )
+        .distinct()
+    )
+    return set(rows)
