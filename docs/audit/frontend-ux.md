@@ -1,6 +1,6 @@
 # Frontend and UX audit
 
-> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
 
 Scope: `frontend/` (React + TypeScript + Vite, Tauri shell, nginx). Findings only, no fix is applied here.
 Method: full read of `src/`, `src-tauri/`, `index.html`, `nginx.conf` and `styles.css`. Nothing was run on a real device: every mobile point is read from the code and still has to be confirmed on a phone (#96 and #105 were never tested on one).

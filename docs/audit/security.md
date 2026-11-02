@@ -1,6 +1,6 @@
 # Security audit
 
-> Note: this audit predates the removal of the Tauri desktop app. References to Tauri and `src-tauri/` are kept as history.
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
 
 Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted by severity, each with location, impact, fix and effort (S/M/L). Status: **Fixed** (merged), **Open**. The map of actors, credentials and flows, with the risks of the second audit (R1 to R11), is in [access-map.md](access-map.md).
 
