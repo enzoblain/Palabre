@@ -7,9 +7,11 @@ import { InfoIcon, MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { ProjectBar, ProjectInfo } from "./components/ProjectInfo";
 import { Projects } from "./components/Projects";
+import { ProjectsSidebar } from "./components/ProjectsSidebar";
 import { Settings } from "./components/Settings";
 import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
 import { I18nProvider, useI18n } from "./i18n";
+import { useIsDesktop } from "./layout";
 import { go, goBack, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -69,6 +71,7 @@ function useProject(projectId: number | null) {
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const { t, language, setLanguage } = useI18n();
   const route = useRoute();
+  const desktop = useIsDesktop();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
     boss_name: "", language, languages: {}, claude_accounts: 1,
@@ -136,24 +139,33 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     } else {
       main = <p className="muted center">{t("common.loading")}</p>;
     }
+  } else if (desktop && projects.length > 0) {
+    main = <p className="muted center">{t("home.selectProject")}</p>;
   } else {
     main = <Projects projects={projects} />;
   }
 
   const inProject = route.name === "project" || route.name === "info";
   return (
-    <div className={`shell${navOpen ? " nav-open" : ""}`}>
-      <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-      <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} open={navOpen}
-        onClose={() => setNavOpen(false)} />
-      <main className={`main${inProject ? "" : " with-bottom-bar"}`}>
+    <div className={`shell${desktop ? " desktop" : ""}${navOpen ? " nav-open" : ""}`}>
+      {desktop ? (
+        <ProjectsSidebar projects={projects} route={route} selectedId={projectId} />
+      ) : (
+        <>
+          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+          <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} open={navOpen}
+            onClose={() => setNavOpen(false)} />
+        </>
+      )}
+      <main className={`main${inProject || desktop ? "" : " with-bottom-bar"}`}>
         {route.name === "project" ? (
-          <ProjectBar phoneOnly name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"} onBack={() => goBack("/")}>
+          <ProjectBar name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"}
+            onBack={desktop ? undefined : () => goBack("/")}>
             <button className="icon-btn" onClick={() => go(`/p/${route.projectId}/info`)} aria-label={t("info.open")}>
               <InfoIcon size={22} />
             </button>
           </ProjectBar>
-        ) : route.name === "info" ? null : (
+        ) : route.name === "info" || desktop ? null : (
           <header className="topbar">
             <button className="icon-btn topbar-nav" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
               aria-expanded={navOpen}>
@@ -165,7 +177,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
-      {!inProject && <BottomBar route={route} />}
+      {!inProject && !desktop && <BottomBar route={route} />}
     </div>
   );
 }

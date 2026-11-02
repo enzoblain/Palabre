@@ -108,6 +108,7 @@ export const fr: Messages = {
   "nav.settings": "Réglages",
   "home.newProjectAria": "Nouveau projet",
   "home.firstProject": "Créez votre premier projet",
+  "home.selectProject": "Sélectionnez un projet pour ouvrir sa conversation",
 
   "account.title": "Compte Claude sur lequel tourne cet agent",
   "account.auto": "Auto (compte {account})",
