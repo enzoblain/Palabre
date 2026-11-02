@@ -1,4 +1,4 @@
-"""Requests to the boss: messages in direction answered with validate / reject / nuance."""
+"""Requests to the boss: messages in direction, closed by the boss's next message."""
 
 from types import SimpleNamespace
 
@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import github, projects, services
-from app.api.schemas import RequestAnswerIn
 from app.errors import WorkflowError
 from app.mcp_server.permissions import mcp_tools_for
 from app.models import (
@@ -87,53 +86,6 @@ def _decision(**fields) -> Decision:
     )  # fmt: skip
 
 
-@pytest.mark.parametrize("answer", list(RequestAnswer))
-async def test_answer_is_stored_and_wakes_the_lead_with_it(answer):
-    s = _objects(_request())
-    message = await projects.answer_request(s, 5, answer, " on y va, mais doucement ")
-    assert message.request_status == answer.value
-    assert message.request_comment == "on y va, mais doucement"
-    assert message.request_answered_at is not None
-    (event,) = s.events
-    assert event.type == "ceo_answer" and event.target_employee_id == LEAD.id
-    assert event.payload["answer"] == answer.value and event.payload["comment"] == "on y va, mais doucement"
-
-
-async def test_a_request_is_answered_only_once():
-    s = _objects(_request(status="validated"))
-    with pytest.raises(WorkflowError, match="already answered"):
-        await projects.answer_request(s, 5, RequestAnswer.rejected)
-    assert s.events == []
-
-
-async def test_a_plain_message_cannot_be_answered():
-    s = _objects(Message(id=5, conversation_id=9, author_name="Louise", content="hi"))
-    with pytest.raises(WorkflowError):
-        await projects.answer_request(s, 5, RequestAnswer.validated)
-
-
-def test_nuance_needs_a_comment():
-    with pytest.raises(ValueError):
-        RequestAnswerIn(answer="nuanced", comment="  ")
-    assert RequestAnswerIn(answer="validated").comment == ""
-
-
-async def test_validating_a_decision_validates_it():
-    decision = _decision()
-    s = _objects(_request("decision", decision.id), decision)
-    await projects.answer_request(s, 5, RequestAnswer.validated)
-    assert decision.status == DecisionStatus.validated and decision.decided_at is not None
-    # The lead proposed it: only the answer wakes them up, not decision_changed
-    assert [e.type for e in s.events if e.target_employee_id == LEAD.id] == ["ceo_answer"]
-
-
-async def test_nuancing_a_decision_leaves_it_proposed():
-    decision = _decision()
-    s = _objects(_request("decision", decision.id), decision)
-    await projects.answer_request(s, 5, RequestAnswer.nuanced, "Rather Valkey")
-    assert decision.status == DecisionStatus.proposed and decision.decided_at is None
-
-
 @pytest.fixture
 def release(monkeypatch):
     calls = []
@@ -151,44 +103,6 @@ def release(monkeypatch):
     monkeypatch.setattr(github, "close_pull_request", close)
     monkeypatch.setattr(projects, "load_project", load_project)
     return calls
-
-
-async def test_validating_a_release_merges_its_pull_request(release):
-    decision = _decision(pr_number=42, pr_url="https://github.com/acme/app/pull/42")
-    s = _objects(_request("release", decision.id), decision)
-    await projects.answer_request(s, 5, RequestAnswer.validated)
-    assert release == [("merge", 42, "merge")]
-    assert decision.status == DecisionStatus.validated
-
-
-async def test_rejecting_a_release_closes_its_pull_request(release):
-    decision = _decision(pr_number=42)
-    s = _objects(_request("release", decision.id), decision)
-    await projects.answer_request(s, 5, RequestAnswer.rejected)
-    assert release == [("close", 42)]
-    assert decision.status == DecisionStatus.rejected
-
-
-async def test_nuancing_a_release_keeps_the_pull_request_open(release):
-    decision = _decision(pr_number=42)
-    s = _objects(_request("release", decision.id), decision)
-    message = await projects.answer_request(s, 5, RequestAnswer.nuanced, "Wait for the login fix")
-    assert release == []
-    assert decision.status == DecisionStatus.rejected  # dropped, so the lead can propose it again
-    assert message.request_status == "nuanced"
-
-
-async def test_a_refused_merge_leaves_the_request_pending(release, monkeypatch):
-    async def refuse(*_args, **_kwargs):
-        raise github.GitHubError("not mergeable")
-
-    monkeypatch.setattr(github, "merge_pull_request", refuse)
-    decision = _decision(pr_number=42)
-    message = _request("release", decision.id)
-    s = _objects(message, decision)
-    with pytest.raises(github.GitHubError):
-        await projects.answer_request(s, 5, RequestAnswer.validated)
-    assert message.request_status == "pending" and decision.status == DecisionStatus.proposed
 
 
 async def test_add_decision_asks_the_boss_in_direction():
@@ -319,7 +233,7 @@ async def test_list_returns_only_pending_requests_of_the_lead(tidy_db):
     s = tidy_db
     project, lead, dev = await _direction(s)
     mine, answered = await _ask(s, project, lead, "a"), await _ask(s, project, lead, "b")
-    await projects.answer_request(s, answered.id, RequestAnswer.validated)
+    answered.request_status = RequestStatus.answered.value
     relayed = await _ask(s, project, dev, "from a member")
     assert relayed.employee_id == lead.id
     # The lead owns every request in direction, the ones relayed for a member included
@@ -425,8 +339,8 @@ async def test_withdraw_closes_the_request_and_the_boss_cannot_answer(tidy_db):
     done = await services.withdraw_request(s, project.id, lead, request.id, "done another way")
     assert done.request_status == RequestStatus.withdrawn.value and done.request_comment == "done another way"
     assert await services.list_pending_requests(s, project.id, lead) == []
-    with pytest.raises(WorkflowError, match="already answered"):
-        await projects.answer_request(s, request.id, RequestAnswer.validated)
+    reply = await services.post_message(s, project.id, request.conversation_id, "ok", None)
+    assert await services.answer_pending_requests(s, project.id, reply) == []
 
 
 async def test_merge_replaces_requests_by_a_new_one(tidy_db):
@@ -522,7 +436,7 @@ async def test_refusals(tidy_db):
     s.add(other_lead)
     await s.flush()
     answered, theirs, ok = await _ask(s, project, lead), await _ask(s, project, other_lead), await _ask(s, project, lead)
-    await projects.answer_request(s, answered.id, RequestAnswer.rejected)
+    answered.request_status = RequestStatus.answered.value
     with pytest.raises(WorkflowError, match="no longer pending"):
         await services.withdraw_request(s, project.id, lead, answered.id, "x")
     with pytest.raises(WorkflowError, match="not yours"):
@@ -575,3 +489,88 @@ def test_upgrade_adds_missing_check_on_existing_postgres_table():
     alters = [sql for sql in ran if sql.startswith("ALTER")]
     assert len(alters) == 1 and REQUEST_STATUS_CHECK in alters[0] and "'withdrawn'" in alters[0]
     assert alters[0].endswith("NOT VALID")
+
+
+# --- The boss answers in the chat ----------------------------------------------------
+
+
+async def _reply(s, project, conversation_id, text="ok, go"):
+    return await services.post_message(s, project.id, conversation_id, text, None)
+
+
+async def test_the_boss_reply_closes_every_pending_request(tidy_db):
+    s = tidy_db
+    project, lead, dev = await _direction(s)
+    own, relayed = await _ask(s, project, lead, "a"), await _ask(s, project, dev, "b", "escalation")
+    withdrawn = await _ask(s, project, lead, "c")
+    await services.withdraw_request(s, project.id, lead, withdrawn.id, "obsolete")
+    reply = await _reply(s, project, own.conversation_id, "oui, mais doucement")
+    closed = await services.answer_pending_requests(s, project.id, reply)
+    assert [m.id for m in closed] == [own.id, relayed.id]
+    for message in closed:
+        assert message.request_status == RequestStatus.answered.value
+        assert message.request_comment == "oui, mais doucement" and message.request_answered_at is not None
+    assert withdrawn.request_status == RequestStatus.withdrawn.value
+    assert await services.list_pending_requests(s, project.id, lead) == []
+
+
+async def test_a_request_posted_after_the_reply_stays_pending(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    first = await _ask(s, project, lead, "a")
+    reply = await _reply(s, project, first.conversation_id)
+    later = await _ask(s, project, lead, "b")
+    assert await services.answer_pending_requests(s, project.id, reply) == [first]
+    assert later.request_status == RequestStatus.pending.value
+
+
+async def test_a_reply_with_nothing_pending_closes_nothing(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    note = await services.post_message(s, project.id, await services.direction_conversation_id(s, project.id), "fyi", lead)
+    reply = await _reply(s, project, note.conversation_id)
+    assert await services.answer_pending_requests(s, project.id, reply) == []
+
+
+async def test_the_lead_reads_what_the_reply_answers(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, linked = await _linked_request(s, project, lead)
+    text = services.describe_answered_requests([linked])
+    assert text == f"#{linked.id} (decision, about decision #{decision.id}): validate D?"
+
+
+async def test_the_lead_settles_a_decision_for_the_boss(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, _ = await _linked_request(s, project, lead)
+    done = await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.rejected, " too costly ")
+    assert done.status == DecisionStatus.rejected and done.decided_at is not None
+
+
+async def test_a_decision_is_settled_once(tidy_db):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, _ = await _linked_request(s, project, lead)
+    await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
+    with pytest.raises(WorkflowError, match="already validated"):
+        await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.rejected, "")
+    with pytest.raises(WorkflowError, match="does not exist"):
+        await projects.settle_decision_for_boss(s, project.id, lead, 999, RequestAnswer.rejected, "")
+
+
+async def test_a_validated_release_goes_through_merge_release(tidy_db, release):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, _ = await _linked_request(s, project, lead, "release", pr_number=42)
+    with pytest.raises(WorkflowError, match="merge_release"):
+        await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.validated, "")
+    assert release == [] and decision.status == DecisionStatus.proposed
+
+
+async def test_a_rejected_release_closes_its_pull_request(tidy_db, release):
+    s = tidy_db
+    project, lead, _ = await _direction(s)
+    decision, _ = await _linked_request(s, project, lead, "release", pr_number=42)
+    await projects.settle_decision_for_boss(s, project.id, lead, decision.id, RequestAnswer.rejected, "later")
+    assert release == [("close", 42)] and decision.status == DecisionStatus.rejected

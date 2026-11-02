@@ -294,11 +294,7 @@ select:focus { border-color: var(--accent); }
 }
 .live-tag { margin-left: auto; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .request { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-.request-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.request-actions .btn, .request-form .btn { min-height: 44px; min-width: 44px; padding: 0 16px; }
 .btn-danger-outline { border-color: var(--error); color: var(--error); }
-.request-form { display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
-.request-form textarea { min-height: 80px; }
 .request-answer { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bg-soft); font-size: 14px; }
 button:focus-visible, .btn:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 

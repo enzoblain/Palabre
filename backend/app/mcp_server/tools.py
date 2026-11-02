@@ -8,7 +8,7 @@ from app import projects, services, toolchains, web_fetch, workflow
 from app.db import SessionLocal
 from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
-from app.models import Employee, Project
+from app.models import Employee, Project, RequestAnswer
 
 # --- Conversation (everyone) -------------------------------------------------------
 
@@ -79,9 +79,11 @@ async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
 
 @tool
 async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "question", "escalation"] = "question") -> dict:
-    """Ask the boss something in the direction channel. They answer with Validate, Reject or
-    Nuance (a free comment), and you are woken up with their answer. Use it when you need
-    their go or arbitration; a plain update is a send_message with channel="direction".
+    """Ask the boss something in the direction channel. They answer by writing in the channel,
+    freely: their next message closes every request still waiting, and you are woken up with
+    their reply and the requests it answers. You interpret it ("ok" means yes, a nuance is a
+    condition...). Use it when you need their go or arbitration; a plain update is a
+    send_message with channel="direction".
     content: what you ask, short and self-contained, with your recommendation.
     The boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical
     detail goes in the room document or the task."""
@@ -110,9 +112,9 @@ async def list_pending_requests(ctx: Context) -> list[dict]:
 @tool
 async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
     """Withdraw one of your pending requests to the boss that became useless (obsolete, done
-    another way). It leaves their open requests and they can no longer answer it. A request
-    already answered is refused, and so is a release request. If it asks about a decision, the
-    decision is rejected with your reason. reason: why, in a sentence."""
+    another way). It leaves their open requests. A request already answered is refused, and so
+    is a release request. If it asks about a decision, the decision is rejected with your
+    reason. reason: why, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await _check_chat(s, c.project_id, reason)
@@ -212,7 +214,7 @@ async def write_notes(ctx: Context, content: str, append: bool = True) -> str:
 @tool
 async def add_decision(ctx: Context, title: str, rationale: str = "", decided_by_boss: bool = False) -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
-    validates or rejects it. title: the decision in one short sentence; rationale: the why in
+    answers it (the lead records the answer with settle_decision). title: the decision in one short sentence; rationale: the why in
     a few sentences (the boss reads it in full in direction, so keep it short and
     plain). Write both in the team's language. The boss's request is signed by the lead.
     The boss is not a developer: title and rationale use plain sentences, with no jargon and no
@@ -224,6 +226,19 @@ async def add_decision(ctx: Context, title: str, rationale: str = "", decided_by
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
         decision = await services.add_decision(s, c.project_id, c.room_id, title, rationale, me, decided_by_boss)
+    return {"id": decision.id, "status": decision.status.value}
+
+
+@tool
+async def settle_decision(ctx: Context, decision_id: int, outcome: Literal["validated", "rejected"], comment: str = "") -> dict:
+    """Record the boss's reply to a proposed decision, once you have read it in direction (they
+    answer in free text; you interpret it). The decision becomes validated or rejected, and its
+    pending requests with it. A rejected release closes its pull request; a validated release is
+    refused here: ship it with merge_release. comment: the boss's reasons or conditions, in a sentence."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        me = await s.get(Employee, c.employee_id)
+        decision = await projects.settle_decision_for_boss(s, c.project_id, me, decision_id, RequestAnswer(outcome), comment)
     return {"id": decision.id, "status": decision.status.value}
 
 
@@ -486,7 +501,8 @@ async def close_pull_request(ctx: Context, number: int, reason: str, message: st
 async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to
-    accept it: a request in direction that merges it when they validate it. One release at a time.
+    accept it: a request in direction. When the boss says yes in the chat, ship it with merge_release; when
+    they say no, close it with settle_decision (rejected). One release at a time.
     title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
     summary: the PR description (it goes to GitHub, in English), in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two; the boss reads it in
@@ -507,7 +523,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
 @tool
 async def merge_release(ctx: Context, summary: str, message: str, title: str = "") -> dict:
     """Merge the release pull request (the team's branch into production) yourself, without
-    waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
+    waiting for the boss's reply. Refused until CI is green on the PR's head (call it again
     once the checks of a freshly opened PR are done), and the merge fails if the head moved
     meanwhile. The version bump is made for you first (no bump task): the next SemVer version and the CHANGELOG entry are
     committed on the team's branch; the PR is then opened, its CI restarts and you are woken up when it ends, then call
