@@ -75,6 +75,8 @@ export const fr: Messages = {
   "error.invalid_github_url": "URL GitHub invalide",
   "error.github_branch_missing": "La branche n’existe pas sur GitHub",
   "error.production_branch_boss_only": "Seul le boss peut changer la branche de production",
+  "error.main_branch_is_team_branch": "La branche de travail de l'équipe ne peut pas être la branche principale",
+  "error.main_branch_is_task_branch": "Une branche de tâche ne peut pas être la branche principale",
   "error.not_found": "Introuvable",
 
   "common.back": "Retour",
