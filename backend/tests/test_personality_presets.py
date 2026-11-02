@@ -1,5 +1,6 @@
 """Personality presets: validation of the files at startup, application in custom_employee and the API."""
 
+import itertools
 import shutil
 
 import pytest
@@ -12,6 +13,9 @@ from app.api.schemas import MemberIn
 from app.company import catalog as catalog_module
 from app.company.catalog import CATALOG_DIR, CatalogError, load_catalog, load_personalities
 from app.company.team import custom_employee
+
+MIN_PRESETS = 45
+MIN_TRAIT_DISTANCE = 2  # two presets closer than this on the axes are almost the same personality
 
 
 @pytest.fixture
@@ -27,10 +31,25 @@ def test_every_preset_file_is_valid():
     presets = load_personalities()
     files = {p.stem for p in (CATALOG_DIR / "company" / "personalities").glob("*.toml")}
     assert set(presets) == files
-    assert 4 <= len(presets) <= 6
+    assert len(presets) >= MIN_PRESETS
     personality = load_catalog()["personality"]
     assert all(set(p.traits) <= {a["key"] for a in personality["axes"]} for p in presets.values())
     assert all(p.style.verbosity in personality["style"]["verbosity"] for p in presets.values())
+
+
+def test_preset_labels_are_unique_and_described():
+    presets = load_personalities().values()
+    labels = [p.label.casefold() for p in presets]
+    assert len(labels) == len(set(labels))
+    assert all(p.description.strip().endswith(".") for p in presets)
+
+
+def test_presets_are_clearly_distinct():
+    axes = [a["key"] for a in load_catalog()["personality"]["axes"]]
+    levels = {k: [p.traits.get(a, 0) for a in axes] for k, p in load_personalities().items()}
+    for (first, a), (second, b) in itertools.combinations(levels.items(), 2):
+        distance = sum(abs(x - y) for x, y in zip(a, b))
+        assert distance >= MIN_TRAIT_DISTANCE, f"{first} and {second} are almost identical"
 
 
 def test_catalog_exposes_the_presets_in_file_order():

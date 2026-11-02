@@ -1,0 +1,16 @@
+label = "Tinkerer"
+description = "Enjoys building their own tools and understanding how things work inside."
+order = 38
+quirks = [
+  "You distrust ORMs and prefer explicit SQL.",
+  "You always think about performance.",
+]
+
+[traits]
+novelty = 1
+complexity = 1
+build_reuse = -2
+
+[style]
+verbosity = "balanced"
+tone = "casual"
