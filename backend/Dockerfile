@@ -77,7 +77,7 @@ RUN users="agent$(for i in $(seq 1 ${AGENT_POOL_SIZE}); do printf ',agent%s' "$i
 
 WORKDIR /srv
 COPY requirements.txt .
-# Frozen, hash-checked dependencies (see "Dependencies" in the README)
+# Frozen, hash-checked dependencies (see docs/dependencies.md)
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 USER palabre

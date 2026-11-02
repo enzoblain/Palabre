@@ -41,7 +41,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      # Loopback only by default: set PALABRE_BIND to expose it (see the README)
+      # Loopback only by default: set PALABRE_BIND to expose it (see docs/remote-access.md)
       - "${PALABRE_BIND:-127.0.0.1}:${PALABRE_PORT:-2710}:8000"
     volumes:
       # Repositories and worktrees, Claude sessions, run files
@@ -57,7 +57,7 @@ services:
     depends_on:
       - backend
     ports:
-      # Loopback only by default: set PALABRE_WEB_BIND to expose it (see the README)
+      # Loopback only by default: set PALABRE_WEB_BIND to expose it (see docs/remote-access.md)
       - "${PALABRE_WEB_BIND:-127.0.0.1}:${PALABRE_WEB_PORT:-2810}:80"
 
   updater:
@@ -65,7 +65,7 @@ services:
     # it pulls the images and restarts the server and the web app if a new version came out.
     # It only sees new images under a moving tag (PALABRE_VERSION=latest), so turning it on
     # means trusting whatever is published there. It also holds the Docker socket, which is
-    # root on the host: see "Automatic updates" in the README.
+    # root on the host: see docs/install.md.
     image: docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
     profiles: [autoupdate]
     restart: unless-stopped
