@@ -145,7 +145,10 @@ project, point it at `dev` in the settings, or ask the lead to run `set_working_
 (`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
 request from `dev` to production and asks you in direction: Validate merges it, Reject closes
 it, Nuance leaves it open for the lead to rework. The lead never merges into the
-repository's default branch: that one is yours.
+repository's default branch: that one is yours. If the team's branch is deleted on GitHub (for
+instance with "Delete branch" after merging the release pull request), the backend recreates it
+from production at the next sync. To prevent the deletion, add a ruleset on GitHub that blocks
+deleting `dev`.
 
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is
 green on it, whatever the company size, and only if the PR has not moved since (a task

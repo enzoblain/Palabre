@@ -89,10 +89,27 @@ async def _sync_repo(project: Project) -> Path:
     branch = project.default_branch
     if not await _has_ref(repo, f"refs/remotes/origin/{branch}"):
         if (await git(repo, "branch", "--remotes")).strip():
-            raise GitHubError(f"The branch '{branch}' does not exist on GitHub (project's default branch)")
-        await _initial_commit(project, repo)
+            await _restore_working_branch(project, repo)
+        else:
+            await _initial_commit(project, repo)
     await git(repo, "checkout", "--quiet", "--force", "--detach", f"refs/remotes/origin/{branch}")
     return repo
+
+
+async def _restore_working_branch(project: Project, repo: Path) -> None:
+    """The team's branch (`dev`) was deleted on GitHub, e.g. by the "Delete branch" button after
+    the release PR: recreate it from production, which that merge just updated, instead of
+    failing every run. A missing production branch is not ours to recreate."""
+    branch = project.default_branch
+    production = await resolve_branch(repo_slug(project.repo_url), "")
+    if branch == production or not await _has_ref(repo, f"refs/remotes/origin/{production}"):
+        raise GitHubError(f"The branch '{branch}' does not exist on GitHub (project's default branch)")
+    log.warning("Project %s: the branch '%s' is missing on GitHub, recreating it from '%s'", project.id, branch, production)
+    await git(
+        repo, "push", "--quiet", "origin", f"refs/remotes/origin/{production}:refs/heads/{branch}",
+        repo_url=project.repo_url,
+    )  # fmt: skip
+    await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
 
 
 async def _has_ref(repo: Path, ref: str) -> bool:
@@ -405,6 +422,8 @@ async def prepare_desk(project: Project, employee: Employee) -> Path:
     async with _repo_locks[project.id]:
         await _remove_clone(path)
         await _clone_from_reference(project, path)  # Config written by the backend alone
+        if not await _has_ref(path, ref):  # Else git reads the ref as a path and fails cryptically
+            raise GitHubError(f"The branch '{project.default_branch}' does not exist on GitHub (project's default branch)")
         await git(path, "checkout", "--quiet", "--detach", ref)
     return path
 
