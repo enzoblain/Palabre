@@ -77,6 +77,13 @@ export const fr: Messages = {
   "error.production_branch_boss_only": "Seul le boss peut changer la branche de production",
   "error.not_found": "Introuvable",
 
+  "common.back": "Retour",
+  "info.open": "Infos du projet",
+  "info.description": "Description",
+  "info.noDescription": "Pas encore de description.",
+  "info.git": "Dépôt git",
+  "info.noGit": "Aucun dépôt lié.",
+  "info.members": "Membres",
   "app.openTeam": "Ouvrir le panneau Équipe",
   "app.conversationMissing": "Cette conversation n’existe pas.",
   "credits.title": "Crédits Claude épuisés, l’équipe est en pause.",
@@ -108,11 +115,6 @@ export const fr: Messages = {
 
   "team.title": "Équipe",
   "team.close": "Fermer le panneau Équipe",
-  "team.busy": "Occupé",
-  "team.available": "Disponible",
-  "team.nowBusy": "{name} est maintenant occupé",
-  "team.nowAvailable": "{name} est maintenant disponible",
-  "team.task": "Tâche #{id}",
   "team.settings": "Paramètres",
 
   "menu.changeProject": "{name} : changer de projet",

@@ -140,7 +140,6 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 /* --- Team status --- */
 .person { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
 .member { padding: 5px 8px; }
-.member-avatar { position: relative; flex-shrink: 0; display: flex; }
 .member-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .member-status { font-size: 12px; color: var(--muted); }
 .member-status.status-working { color: var(--working); }
@@ -317,17 +316,24 @@ details summary { cursor: pointer; margin-top: 6px; }
 .btn-danger:hover:not(:disabled) { background: var(--error); filter: brightness(1.08); }
 
 /* --- Small screens (the app in a phone's browser) --- */
-.mobile-bar, .nav-backdrop { display: none; }
+.nav-backdrop { display: none; }
+.project-bar {
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; height: 56px; padding: 0 8px; flex-shrink: 0;
+  background: var(--sidebar); border-bottom: 1px solid var(--border);
+}
+.project-bar .icon-btn { min-width: 44px; min-height: 44px; justify-content: center; }
+.project-bar-title { margin: 0; font-size: 16px; text-align: center; }
+.project-bar-end { display: flex; justify-content: flex-end; }
+.project-info section { display: flex; flex-direction: column; gap: 6px; }
+.project-info h2 { margin: 0; }
+.info-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.info-link { overflow-wrap: anywhere; color: var(--accent); }
+@media (min-width: 901px) { .project-bar.phone-only { display: none; } }
 .panel-close { display: none; margin-left: auto; }
 .topbar-nav { display: none; }
 @media (max-width: 900px) {
   .shell { display: flex; flex-direction: column; }
   .main { flex: 1; min-height: 0; height: auto; }
-  .mobile-bar {
-    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 8px; flex-shrink: 0;
-    background: var(--sidebar); border-bottom: 1px solid var(--border);
-  }
-  .mobile-bar .sidebar-title { flex: 1; }
   .panel-close, .topbar-nav { display: inline-flex; }
   .team-panel {
     position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;
@@ -338,7 +344,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 
   .page { padding: 20px 16px 32px; }
   .conv-head { padding: 0 12px; height: 48px; }
-  .conv-head .muted { display: none; }
+  .conv-head .muted, .conv-head .project-menu { display: none; }
   .message { padding-left: 12px; padding-right: 12px; }
   .intro { margin-left: 12px; margin-right: 12px; }
   .typing, .composer-error { padding-left: 12px; padding-right: 12px; }
@@ -396,16 +402,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .team-panel .member { padding: 6px 8px; }
 .member-role { font-size: 12px; color: var(--muted); }
 .dm-list { padding-left: 12px; }
-.presence {
-  position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 50%;
-  border: 2px solid var(--sidebar); box-sizing: border-box;
-}
-/* Working: filled amber; available: green ring. The label says it too, color is never alone */
-.presence-working { background: var(--busy); }
-.presence-idle { background: transparent; border-color: var(--working); }
-.presence-label { font-size: 12px; font-weight: 500; }
-.presence-label-working { color: var(--busy); }
-.presence-label-idle { color: var(--working); }
 .for-you {
   font-size: 11px; font-weight: 600; padding: 0 8px; border-radius: 999px; line-height: 18px;
   background: var(--accent); color: var(--accent-text);

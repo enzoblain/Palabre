@@ -76,6 +76,13 @@ export const en = {
   "error.production_branch_boss_only": "Only the boss can change the production branch",
   "error.not_found": "Not found",
 
+  "common.back": "Back",
+  "info.open": "Project info",
+  "info.description": "Description",
+  "info.noDescription": "No description yet.",
+  "info.git": "Git repository",
+  "info.noGit": "No repository linked.",
+  "info.members": "Members",
   "app.openTeam": "Open the Team panel",
   "app.conversationMissing": "This conversation does not exist.",
   "credits.title": "Claude credits exhausted, the team is paused.",
@@ -107,11 +114,6 @@ export const en = {
 
   "team.title": "Team",
   "team.close": "Close the Team panel",
-  "team.busy": "Busy",
-  "team.available": "Available",
-  "team.nowBusy": "{name} is now busy",
-  "team.nowAvailable": "{name} is now available",
-  "team.task": "Task #{id}",
   "team.settings": "Settings",
 
   "menu.changeProject": "{name}: switch project",
