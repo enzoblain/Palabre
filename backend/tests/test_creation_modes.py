@@ -134,7 +134,7 @@ async def projects_client(monkeypatch):
 
     async def load_project(_session, _project_id):
         return SimpleNamespace(
-            id=1, name="App", repo_url="https://github.com/acme/app",
+            id=1, name="App", description="", repo_url="https://github.com/acme/app",
             default_branch="dev", mode="enterprise", seed=1, created_at=datetime.now(UTC), employees=[], rooms=[],
         )  # fmt: skip
 

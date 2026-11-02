@@ -330,7 +330,7 @@ def test_project_detail_only_lists_direction():
     from app.models import Project
 
     now = datetime(2026, 1, 1)
-    project = Project(id=1, name="p", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
+    project = Project(id=1, name="p", description="", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
     project.employees = []
     project.rooms = [
         Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, updated_at=now, members=[])

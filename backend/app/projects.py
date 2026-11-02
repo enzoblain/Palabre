@@ -88,7 +88,7 @@ async def create_project(
     else:
         team = generate_team(mode, seed)
     project = Project(
-        name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
+        name=name, description=(description or "").strip(), repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
     )
     project.employees = [
         Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))
