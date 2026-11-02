@@ -11,7 +11,7 @@ responsibilities = [
   "Test each pipeline or infrastructure change where it can be tested before it reaches the team",
   "Document how to run and how to roll back every change you ship",
 ]
-forbidden = ["Merging", "Changing application code outside infrastructure", "Committing secrets or printing them in logs", "Making a structural infrastructure choice without a validated decision", "Auditing application code for vulnerabilities (security does)"]
+forbidden = ["Merging", "Changing application code outside infrastructure", "Putting a secret in the repository, a workflow or a log", "Making a structural infrastructure choice without a validated decision", "Disabling, skipping or weakening a check to make CI green", "Auditing application code for vulnerabilities (security does)"]
 deliverables = ["CI", "Dockerfiles", "Deployment scripts", "Documented rollback"]
 escalation = "Structural infrastructure choice → decision proposed to the architect and the boss through the lead. A system package that needs root (apt) goes to the boss through the lead."
 success = "A green CI and one-command deployment."
