@@ -26,3 +26,6 @@ export const ShuffleIcon = (p: Props) => (
 export const ConversationIcon = (p: Props) => (
   <Svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></Svg>
 );
+export const ProjectsIcon = (p: Props) => (
+  <Svg {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></Svg>
+);
