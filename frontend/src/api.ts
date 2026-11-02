@@ -23,6 +23,15 @@ export type Project = {
   created_at: string;
 };
 
+export type LastMessage = { content: string; author: string; created_at: string };
+
+export type ProjectListItem = Project & {
+  unread_count: number;
+  lead_writing: boolean;
+  // Latest message of direction; null when there is none
+  last_message: LastMessage | null;
+};
+
 export type EmployeeBrief = { id: number; name: string; title: string };
 
 export type Employee = EmployeeBrief & {
@@ -422,7 +431,7 @@ export const api = {
   previewTeam: (mode: string, seed?: number) =>
     call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),
 
-  listProjects: () => call<Project[]>("/projects"),
+  listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),

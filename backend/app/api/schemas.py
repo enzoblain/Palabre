@@ -203,11 +203,19 @@ class ProjectOut(ORM):
     created_at: datetime
 
 
+class LastMessageOut(BaseModel):
+    content: str
+    author: str
+    created_at: datetime
+
+
 class ProjectListItem(ProjectOut):
     # The team's messages in direction the boss has not read yet
     unread_count: int
     # The lead has an open run in direction: the front shows the "typing" dots
     lead_writing: bool
+    # The latest message of direction, None when there is none
+    last_message: LastMessageOut | None
 
 
 class RoomOut(ORM):
