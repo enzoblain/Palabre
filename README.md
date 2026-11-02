@@ -150,7 +150,7 @@ ships it with `merge_release`, when you say no the lead closes it with `settle_d
 anything else is a request to rework it. Without your go the lead does not merge into the
 repository's default branch. If the team's branch is deleted on GitHub (for
 instance with "Delete branch" after merging the release pull request), the backend recreates it
-from production at the next sync. To prevent the deletion, add a ruleset on GitHub that blocks
+from production at the next sync and posts a system line in the direction channel to tell you. To prevent the deletion, add a ruleset on GitHub that blocks
 deleting `dev`.
 
 The lead can also deliver alone. `merge_release` merges the release pull request once CI is

@@ -136,6 +136,48 @@ def test_deleted_working_branch_is_recreated_from_production(deleted_working_bra
     assert _run("rev-parse", "HEAD", cwd=reference) == _run("rev-parse", "refs/remotes/origin/main", cwd=reference)
 
 
+def test_recreating_the_working_branch_posts_a_system_line_in_direction(deleted_working_branch, monkeypatch):
+    from app import db, services
+
+    project, _, _ = deleted_working_branch
+    posted = []
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+        async def commit(self):
+            posted.append("commit")
+
+    async def direction(_s, project_id):
+        assert project_id == project.id
+        return 7
+
+    async def post(_s, conversation_id, content):
+        posted.append((conversation_id, content))
+
+    monkeypatch.setattr(db, "SessionLocal", FakeSession)
+    monkeypatch.setattr(services, "direction_conversation_id", direction)
+    monkeypatch.setattr(services, "post_system_message", post)
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert posted == [(7, "The branch 'dev' was deleted on GitHub: it has been recreated from 'main'."), "commit"]
+
+
+def test_announcement_failure_does_not_fail_the_sync(deleted_working_branch, monkeypatch):
+    from app import db
+
+    def broken():
+        raise RuntimeError("no database")
+
+    monkeypatch.setattr(db, "SessionLocal", broken)
+    project, reference, _ = deleted_working_branch
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert _run("rev-parse", "HEAD", cwd=reference) == _run("rev-parse", "refs/remotes/origin/main", cwd=reference)
+
+
 def test_deleted_production_branch_is_not_recreated(deleted_working_branch, monkeypatch):
     project, _, calls = deleted_working_branch
     project.default_branch = "release"
