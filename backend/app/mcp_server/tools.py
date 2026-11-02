@@ -580,12 +580,15 @@ async def fix_release(ctx: Context, version: str, message: str) -> dict:
 
 @tool
 async def install_toolchain(
-    ctx: Context, name: Literal["node", "go", "python"], version: str = "", packages: str = ""
+    ctx: Context, name: str, version: str = "", packages: str = ""
 ) -> str:
     """Install a toolchain for the whole team: every agent's commands can use it right
     away, and it stays installed. Installing another version switches the team to it.
     - node: Node.js with npm and npx. version: "lts" (default), "latest", "20", "20.11.1"
     - go: version "stable" (default), "1.22", "1.22.3"
+    - rust, java (Temurin JDK), maven, gradle, kotlin, deno, bun, dotnet, zig, terraform,
+      kubectl, helm, uv: version "latest"/"stable"/"lts" (each one's default) or an exact
+      version; java takes a major ("21"). An unknown name lists what is available.
     - python: a shared venv (python, pip) that survives redeployments. Agents cannot pip
       install into it: list the PyPI packages in `packages`, e.g. "pytest pytest-asyncio==0.23.0"
       (call again to add more). Wheels only, no version argument.

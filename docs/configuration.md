@@ -71,7 +71,38 @@ This list is not exhaustive: the settings that only wire the container (database
 proxy URLs and ports, `MCP_URL`, `CLAUDE_BIN`, `ORCHESTRATOR_ENABLED`, `POLL_INTERVAL_S`...) are set by the
 image and rarely need changing; read `config.py` for them.
 
-The lead and devops can also install Node.js or Go for the whole team on their own, and a shared
+The lead and devops can also install toolchains for the whole team on their own (`install_toolchain`,
+`name` + optional `version`; no root, they live in `/data/toolchains` and survive redeployments).
+Each tool has a default version and accepts an exact one; an unknown version is refused with a clear error.
+
+| Name | Default | Accepted versions | Commands |
+|---|---|---|---|
+| `node` | `lts` | `latest`, a major (`20`), exact | `node`, `npm`, `npx`, `corepack` |
+| `go` | `stable` | a minor (`1.22`), exact | `go`, `gofmt` |
+| `rust` | `stable` | exact (`1.80.0`) | `rustc`, `cargo`, `rustdoc` (no C linker in the image) |
+| `java` | `lts` (Temurin JDK) | a major (`21`) | `java`, `javac`, `jar` |
+| `maven` | `latest` | a major, minor or exact | `mvn` (needs `java`) |
+| `gradle` | `latest` | exact (`8.10.2`) | `gradle` (needs `java`) |
+| `kotlin` | `latest` | exact (`2.0.21`) | `kotlinc`, `kotlin` (needs `java`) |
+| `deno` | `latest` | exact | `deno` |
+| `bun` | `latest` | exact | `bun` |
+| `dotnet` | `lts` | `latest`, a channel (`9.0`), an exact SDK (`9.0.100`) | `dotnet` |
+| `zig` | `latest` | a minor (`0.13`), exact | `zig` |
+| `terraform` | `latest` | exact | `terraform` |
+| `kubectl` | `stable` | a minor (`1.30`), exact | `kubectl` |
+| `helm` | `latest` | exact | `helm` |
+| `uv` | `latest` | exact | `uv`, `uvx` |
+
+Ruby and PHP are not offered: they have no official prebuilt Linux binaries. Archives come from the
+official sites only (nodejs.org, go.dev, static.rust-lang.org, Adoptium, Apache, services.gradle.org,
+GitHub releases of the project, dotnet, ziglang.org, HashiCorp, dl.k8s.io, get.helm.sh) and are checked against
+their published checksum before extraction. Each version lives in its own directory
+(`/data/toolchains/<name>-<version>`), extracted aside and renamed at the end, so a failed download never
+leaves a half install; installing another version only moves the links. Their caches (`~/.cargo`,
+`~/.m2`, `~/.gradle`...) are in the run's own `HOME`, so they are not kept between runs.
+To roll back, install the previous version again (it is still on disk, nothing is downloaded).
+
+The lead and devops can also install a shared
 Python venv (`install_toolchain python`, with `packages`, e.g. `pytest pytest-asyncio==0.23.0`).
 The venv lives in `/data/toolchains/python-venv`, sees the image's packages, and its `python`,
 `pip` and commands (`pytest`...) come first in the agents' `PATH`, so `python -m pytest` still works
