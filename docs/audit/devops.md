@@ -115,7 +115,7 @@ something I reproduced, the finding says so.
   - Record job durations for a week to pick the real critical path (I did not have the run history).
 - Effort: M.
 
-### 4. The desktop (Tauri) build is only exercised at release time
+### 4. The desktop (Tauri) build is only exercised at release time (historical: the desktop app has been removed)
 
 - Where: `.github/workflows/release.yml:90-132`; nothing in `ci.yml` touches `frontend/src-tauri`.
 - What is wrong: a change to `src-tauri/`, `Cargo.toml`, `tauri.conf.json` or a frontend change that

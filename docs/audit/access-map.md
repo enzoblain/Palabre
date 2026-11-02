@@ -6,7 +6,7 @@ Read-only map of `dev` (0.18.0 plus the egress, Anthropic proxy and loopback-bin
 
 ## Actors and credentials
 
-- **Boss (browser or Tauri app)**: `ADMIN_TOKEN`, one static bearer giving the full REST API (`api/deps.py`, `main.py`). Stored in `localStorage` by the frontend (`api.ts`). Clear HTTP unless the operator adds a TLS reverse proxy.
+- **Boss (browser; the Tauri app existed when this audit was written and has since been removed)**: `ADMIN_TOKEN`, one static bearer giving the full REST API (`api/deps.py`, `main.py`). Stored in `localStorage` by the frontend (`api.ts`). Clear HTTP unless the operator adds a TLS reverse proxy.
 - **Backend process** (uid `palabre`, non-dumpable through `hardening.make_non_dumpable`): holds `GITHUB_TOKEN`, every `CLAUDE_CODE_OAUTH_TOKENS` entry, `POSTGRES_PASSWORD` and `ADMIN_TOKEN`. The entrypoint copies the Docker secrets to `/run/palabre-secrets` (0400) and closes `/run/secrets`.
 - **Agent run** (uid `agentN` from a pool, one live run per uid): allowlisted environment, a per-run MCP bearer (`run_tokens.py`, revoked in `finally`, config file deleted at first use) and a run-scoped Claude token. The real Claude OAuth token stays in the backend and is added by the Anthropic proxy. Fresh `HOME`/`TMPDIR` per run, its own clone claimed 0700 (`palabre-claim-clone`) and taken back after the run.
 - **GitHub**: only the backend talks to it, with a fine-grained token (contents and pull requests read/write, checks and metadata read, no `workflows` scope). Agents push nothing: the backend fetches the task clone through `palabre-upload-pack` and pushes itself.
