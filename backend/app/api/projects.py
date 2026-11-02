@@ -17,6 +17,7 @@ from app.api.schemas import (
     PresenceOut,
     ProjectDetail,
     ProjectIn,
+    ProjectListItem,
     ProjectOut,
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
@@ -47,9 +48,24 @@ def _detail(project: Project) -> ProjectDetail:
     return detail
 
 
-@router.get("/projects", response_model=list[ProjectOut])
+def _list_item(project: Project, unread: int, writing: bool) -> ProjectListItem:
+    return ProjectListItem(**ProjectOut.model_validate(project).model_dump(), unread_count=unread, lead_writing=writing)
+
+
+@router.get("/projects", response_model=list[ProjectListItem])
 async def list_projects(s: SessionDep):
-    return list(await s.scalars(select(Project).order_by(Project.id)))
+    """Projects, with the unread messages of direction and whether the lead is answering in it."""
+    unread, writing = await services.unread_counts(s), await presence.leads_writing(s)
+    items = await s.scalars(select(Project).order_by(Project.id))
+    return [_list_item(p, unread.get(p.id, 0), p.id in writing) for p in items]
+
+
+@router.post("/projects/{project_id}/direction/read", response_model=ProjectListItem)
+async def mark_direction_read(project_id: int, s: SessionDep):
+    """The boss has read direction up to now: the unread counter goes back to 0."""
+    project = await get_or_404(s, Project, project_id)
+    await services.mark_direction_read(s, project)
+    return _list_item(project, 0, project.id in await presence.leads_writing(s))
 
 
 @router.post("/projects", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)

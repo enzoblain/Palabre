@@ -703,3 +703,43 @@ async def escalate(
     )
     await s.commit()
     return msg
+
+
+# --- Unread messages of direction --------------------------------------------------
+
+
+def _direction_messages(project_id: int) -> Select:
+    """Ids of the messages of the project's direction conversations, the ones the boss reads."""
+    return (
+        select(Message.id)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.kind == DIRECTION, Room.project_id == project_id)
+    )
+
+
+async def unread_counts(s: AsyncSession) -> dict[int, int]:
+    """Per project, the team's messages in direction after the boss's read position (the boss's own
+    messages and the automatic lines are not unread)."""
+    rows = await s.execute(
+        select(Room.project_id, func.count(Message.id))
+        .select_from(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .join(Project, Project.id == Room.project_id)
+        .where(
+            Room.kind == DIRECTION,
+            Message.id > Project.boss_read_message_id,
+            Message.employee_id.is_not(None),
+            Message.is_system.is_(False),
+        )
+        .group_by(Room.project_id)
+    )
+    return {project_id: count for project_id, count in rows.all()}
+
+
+async def mark_direction_read(s: AsyncSession, project: Project) -> None:
+    """Move the boss's read position to the last direction message (it never moves back)."""
+    last_id = await s.scalar(select(func.max(_direction_messages(project.id).subquery().c.id)))
+    project.boss_read_message_id = max(project.boss_read_message_id, last_id or 0)
+    await s.commit()
