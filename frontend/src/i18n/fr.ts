@@ -251,8 +251,6 @@ export const fr: Messages = {
   "conv.introTitle": "Parlez de {project} à votre équipe",
   "conv.intro": "Que construisez-vous, pour qui, et qu’est-ce qui compte le plus ?",
   "conv.introLead": "{name} ({title}) le lira et organisera le travail.",
-  "conv.thinkingOne": "{names} réfléchit…",
-  "conv.thinkingMany": "{names} réfléchissent…",
   "conv.placeholderEmpty": "Décrivez le projet à votre équipe…",
   "conv.placeholder": "Message à {project} en tant que {boss}",
   "conv.bossFallback": "PDG",

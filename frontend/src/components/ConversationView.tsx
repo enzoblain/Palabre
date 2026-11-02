@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
+import { ApiError, type Conversation, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { MENTION_EVENT, formatTime, usePolling } from "../util";
@@ -155,13 +155,12 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-export function ConversationView({ conversation, room, project, projects, route, statuses, bossName }: {
+export function ConversationView({ conversation, room, project, projects, route, bossName }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
   projects: Project[];
   route: Route;
-  statuses: EmployeeStatus[];
   bossName: string;
 }) {
   const { t } = useI18n();
@@ -232,7 +231,6 @@ export function ConversationView({ conversation, room, project, projects, route,
     }
   }
 
-  const busyHere = statuses.filter((s) => s.status === "working" && s.conversation_id === conversation.id);
   const empty = messages !== null && messages.length === 0;
 
   return (
@@ -264,9 +262,6 @@ export function ConversationView({ conversation, room, project, projects, route,
         })}
       </div>
 
-      <div className="typing muted">
-        {busyHere.length > 0 && t(busyHere.length > 1 ? "conv.thinkingMany" : "conv.thinkingOne", { names: busyHere.map((s) => s.name).join(", ") })}
-      </div>
       {error && <p className="error composer-error">{error}</p>}
       <Composer key={conversation.id} onSend={send}
         placeholder={

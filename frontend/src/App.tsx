@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { BottomBar } from "./components/BottomBar";
@@ -13,7 +13,6 @@ import { I18nProvider, useI18n } from "./i18n";
 import { go, goBack, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
-const STATUS_POLL_MS = 3000;
 const CREDITS_POLL_MS = 15000;
 const PROJECTS_POLL_MS = 5000;
 
@@ -82,7 +81,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error } = useProject(projectId);
-  const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
   // Small screens: the team panel is a drawer over the page, and closes once a link is followed
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => setNavOpen(false), [route]);
@@ -97,16 +95,6 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   }, [reloadProjects]);
 
   usePolling(reloadProjects, PROJECTS_POLL_MS, [reloadProjects]); // unread counts and previews
-
-  useEffect(() => setStatuses([]), [projectId]);
-  usePolling(
-    projectId === null ? null : async () => {
-      const result = await api.teamStatus(projectId);
-      setStatuses(result);
-    },
-    STATUS_POLL_MS,
-    [projectId],
-  );
 
   // Claude accounts out of credits: the whole team is paused until they come back
   const [exhausted, setExhausted] = useState<ExhaustedAccount[]>([]);
@@ -141,7 +129,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        projects={projects} route={route} statuses={statuses} bossName={bossName} />;
+        projects={projects} route={route} bossName={bossName} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">{t("app.conversationMissing")}</p>;
     } else {

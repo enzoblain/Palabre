@@ -13,10 +13,7 @@
   --active: rgba(79, 70, 229, 0.12);
   --error: #c62828;
   --success: #2e7d32;
-  --working: #16783c;
   --busy: #8a5300;
-  --waiting: #9a6f00;
-  --resting: #868696;
   --code-bg: #f0f0f4;
   --mention-me-bg: #fff8c5;
   --mention-me-border: #d4a72c;
@@ -46,10 +43,7 @@
     --active: rgba(157, 151, 255, 0.18);
     --error: #ff6b6b;
     --success: #5fd07a;
-    --working: #22a559;
     --busy: #f0b429;
-    --waiting: #e0a100;
-    --resting: #7c7c8c;
     --code-bg: #24242c;
     --mention-me-bg: rgba(187, 128, 9, 0.15);
     --mention-me-border: #bb8009;
@@ -141,16 +135,6 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .person { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
 .member { padding: 5px 8px; }
 .member-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.member-status { font-size: 12px; color: var(--muted); }
-.member-status.status-working { color: var(--working); }
-.dot {
-  position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%;
-  border: 2px solid var(--sidebar); background: var(--resting);
-}
-.dot-working { background: var(--working); animation: pulse 1.6s ease-in-out infinite; }
-.dot-waiting { background: var(--waiting); }
-.dot-offline { background: var(--sidebar); border-color: var(--resting); }
-@keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--working) 25%, transparent); } }
 
 .avatar {
   display: inline-grid; place-items: center; border-radius: 50%; font-weight: 600; flex-shrink: 0;
@@ -236,7 +220,6 @@ label.narrow { max-width: 240px; }
 .markdown th, .markdown td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; }
 .markdown th { background: var(--bg-soft); font-weight: 600; }
 .markdown img { max-width: 100%; }
-.typing { height: 22px; padding: 0 20px; font-size: 12px; font-style: italic; }
 .composer-error { padding: 0 20px 6px; }
 .composer {
   display: flex; align-items: flex-end; gap: 8px; margin: 0 20px 20px; padding: 6px 6px 6px 14px;
@@ -347,7 +330,7 @@ details summary { cursor: pointer; margin-top: 6px; }
   .conv-head .muted, .conv-head .project-menu { display: none; }
   .message { padding-left: 12px; padding-right: 12px; }
   .intro { margin-left: 12px; margin-right: 12px; }
-  .typing, .composer-error { padding-left: 12px; padding-right: 12px; }
+  .composer-error { padding-left: 12px; padding-right: 12px; }
   .banner { margin-left: 12px; margin-right: 12px; }
   .composer { margin: 0 8px 8px; }
   .axes { grid-template-columns: 1fr; }

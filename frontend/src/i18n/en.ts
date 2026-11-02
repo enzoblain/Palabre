@@ -250,8 +250,6 @@ export const en = {
   "conv.introTitle": "Tell your team about {project}",
   "conv.intro": "What are you building, for whom, and what matters most?",
   "conv.introLead": "{name} ({title}) will read it and organize the work.",
-  "conv.thinkingOne": "{names} is thinking…",
-  "conv.thinkingMany": "{names} are thinking…",
   "conv.placeholderEmpty": "Describe the project to your team…",
   "conv.placeholder": "Message {project} as {boss}",
   "conv.bossFallback": "the CEO",
