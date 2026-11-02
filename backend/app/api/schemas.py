@@ -127,6 +127,8 @@ class EmployeePatch(BaseModel):
 
 
 PERSONALITY_KEY_MAX_LENGTH = 40
+PROJECT_NAME_MAX_LENGTH = 200
+PROJECTS_DELETE_MAX = 100
 
 
 class MemberIn(BaseModel):
@@ -164,7 +166,7 @@ class RandomPersonalityOut(BaseModel):
 
 
 class ProjectIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
     # Mode (startup...). It sets the rules and, without `employees`, the seats
     mode: str = "startup"
     # The GitHub repository
@@ -222,6 +224,23 @@ class RoomOut(ORM):
 class ProjectDetail(ProjectOut):
     employees: list[EmployeeOut]
     rooms: list[RoomOut]
+
+
+class ProjectPatch(BaseModel):
+    """Editable infos of a project: only the name. The description is generated and the repository is fixed."""
+
+    name: str = Field(min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("name must not be blank")
+        return value.strip()
+
+
+class ProjectsDelete(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=PROJECTS_DELETE_MAX)
 
 
 class ModeChange(BaseModel):

@@ -368,7 +368,10 @@ export const api = {
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  updateProject: (id: number, name: string) =>
+    call<ProjectDetail>(`/projects/${id}`, "PATCH", { name }),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
+  deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
   changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
   createProject: (body: {
     name: string;

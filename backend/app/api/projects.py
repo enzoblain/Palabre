@@ -20,6 +20,8 @@ from app.api.schemas import (
     ProjectIn,
     ProjectListItem,
     ProjectOut,
+    ProjectPatch,
+    ProjectsDelete,
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
 from app.company.team import render_system_prompt
@@ -183,17 +185,42 @@ async def get_project(project_id: int, s: SessionDep):
     return _detail(await _project(s, project_id))
 
 
+@router.patch("/projects/{project_id}", response_model=ProjectDetail)
+async def update_project(project_id: int, body: ProjectPatch, s: SessionDep):
+    """Rename a project. Its description and GitHub repository cannot be edited."""
+    project = await _project(s, project_id)
+    project.name = body.name
+    await s.commit()
+    return _detail(project)
+
+
+async def _delete_project_data(s, project: Project) -> None:
+    employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project.id)))
+    await s.delete(project)
+    await s.commit()
+    # Rows first, so the dispatcher cannot start a new run that recreates a desk after the files are gone
+    await orchestrator.cancel_runs(employee_ids)
+    await remove_project_files(project.id)
+
+
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(project_id: int, s: SessionDep):
     """Delete a project and all its data: agents (their running work is stopped), rooms,
     messages, tasks, notes, files on disk and Claude sessions. The GitHub repository is
     left as it is."""
-    project = await get_or_404(s, Project, project_id)
-    employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project_id)))
-    await orchestrator.cancel_runs(employee_ids)
-    await s.delete(project)
-    await s.commit()
-    await remove_project_files(project_id)
+    await _delete_project_data(s, await get_or_404(s, Project, project_id))
+
+
+@router.post("/projects/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_projects(body: ProjectsDelete, s: SessionDep):
+    """Delete several projects like `DELETE /projects/{id}`. Nothing is deleted if one id is unknown (404)."""
+    found = {p.id: p for p in await s.scalars(select(Project).where(Project.id.in_(body.ids)))}
+    if missing := sorted(set(body.ids) - found.keys()):
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, f"Projects not found: {', '.join(map(str, missing))}"
+        )
+    for project in found.values():
+        await _delete_project_data(s, project)
 
 
 @router.put("/projects/{project_id}/mode", response_model=ProjectDetail)
