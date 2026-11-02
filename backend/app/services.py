@@ -762,6 +762,24 @@ async def unread_counts(s: AsyncSession) -> dict[int, int]:
     return {project_id: count for project_id, count in rows.all()}
 
 
+async def last_direction_messages(s: AsyncSession) -> dict[int, Message]:
+    """Per project, the latest message of direction (one grouped query for all projects)."""
+    latest_ids = (
+        select(func.max(Message.id))
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.kind == DIRECTION)
+        .group_by(Room.project_id)
+    )
+    rows = await s.execute(
+        select(Room.project_id, Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Message.id.in_(latest_ids))
+    )
+    return {project_id: message for project_id, message in rows.all()}
+
+
 async def mark_direction_read(s: AsyncSession, project: Project) -> None:
     """Move the boss's read position to the last direction message (it never moves back)."""
     last_id = await s.scalar(

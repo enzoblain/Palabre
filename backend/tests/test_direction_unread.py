@@ -134,3 +134,24 @@ async def test_mark_direction_read_endpoint_resets_the_counter(db, api):
 async def test_mark_direction_read_unknown_project_is_404(api):
     response = await api.post("/api/projects/999/direction/read")
     assert response.status_code == 404
+
+
+async def test_project_list_last_message_is_null_without_message(db, api):
+    project, *_ = await _project(db)
+    response = await api.get("/api/projects")
+    item = next(p for p in response.json() if p["id"] == project.id)
+    assert item["last_message"] is None
+
+
+async def test_project_list_last_message_is_the_latest_of_direction_per_project(db, api):
+    project, lead, direction, team = await _project(db)
+    other, other_lead, other_direction, _ = await _project(db, "Q")
+    last = _say(direction, None)
+    last.content = "latest"
+    db.add_all([_say(direction, lead), last, _say(team, lead), _say(other_direction, other_lead)])
+    await db.flush()
+    items = {p["id"]: p for p in (await api.get("/api/projects")).json()}
+    assert items[project.id]["last_message"]["content"] == "latest"
+    assert items[project.id]["last_message"]["author"] == "Boss"
+    assert items[project.id]["last_message"]["created_at"]
+    assert items[other.id]["last_message"]["author"] == "Louise"
