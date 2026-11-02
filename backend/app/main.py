@@ -29,6 +29,12 @@ from app.errors import WorkflowError
 
 log = logging.getLogger(__name__)
 
+# httpx and httpcore log request details at DEBUG: keep them at WARNING so the credentials
+# sent by github.py and anthropic_proxy.py never reach the logs, whatever the chosen log level
+QUIET_HTTP_LOGGERS = ("httpx", "httpcore")
+for _logger_name in QUIET_HTTP_LOGGERS:
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
+
 # Before any agent runs: they share the backend's uid and could read its environ
 make_non_dumpable()
 
