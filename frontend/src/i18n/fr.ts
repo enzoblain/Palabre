@@ -305,8 +305,6 @@ export const fr: Messages = {
   "conv.liftLimitTitle": "Les agents ne sont plus réveillés ici après trop d’exécutions en une heure. Cela relance le compte.",
   "conv.liftLimitDone": "Limite de boucle levée : l’équipe peut de nouveau être réveillée ici.",
 
-  "request.validate": "Valider",
-  "request.reject": "Rejeter",
   "request.mergedInto": "Fusionnée dans {link}",
   "request.link": "la demande #{id}",
   "request.mergedAnother": "Fusionnée dans une autre demande",
@@ -317,7 +315,6 @@ export const fr: Messages = {
   "doc.reportEmpty": "Le rapporteur n’a pas encore rédigé le rapport. Il se remplit au fil de la recherche du groupe.",
   "doc.noneProposed": "Aucune proposée pour l’instant.",
   "doc.proposedBy": "proposée par {name} · {time}",
-  "doc.mergePr": "Fusionner la PR #{number}",
   "doc.rejectedCount": "{count} rejetée(s)",
   "doc.openQuestions": "Questions ouvertes",
   "doc.resolvedCount": "{count} résolue(s)",

@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from "react";
-import { ApiError, type Decision, type Room, api } from "../api";
+import { type Decision, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import { formatTime, usePolling } from "../util";
 import { Markdown } from "./Markdown";
@@ -21,7 +21,6 @@ export function ReportView({ project }: { project: ProjectState }) {
   const { t } = useI18n();
   const room = project.detail.rooms[0];
   const [doc, setDoc] = useState<RoomDocument | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState<Set<SectionKey>>(new Set());
   const idPrefix = useId();
   const sectionRefs = useRef<Partial<Record<SectionKey, HTMLElement | null>>>({});
@@ -43,16 +42,6 @@ export function ReportView({ project }: { project: ProjectState }) {
     requestAnimationFrame(() => sectionRefs.current[key]?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }));
   }
 
-  async function decide(decision: Decision, status: "validated" | "rejected") {
-    setError(null);
-    try {
-      await api.decide(decision.id, status);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    }
-  }
-
   if (!doc) return <p className="muted center">{t("common.loading")}</p>;
   const byStatus = (status: Decision["status"]) => doc.decisions.filter((d) => d.status === status);
   const proposed = byStatus("proposed");
@@ -72,12 +61,6 @@ export function ReportView({ project }: { project: ProjectState }) {
             <span className="muted">{t("doc.proposedBy", { name: d.proposed_by, time: formatTime(d.created_at) })}</span>
           </div>
           {d.rationale && <Markdown content={d.rationale} />}
-          <div className="row">
-            <button className="btn btn-small btn-primary" onClick={() => decide(d, "validated")}>
-              {d.pr_number ? t("doc.mergePr", { number: d.pr_number }) : t("request.validate")}
-            </button>
-            <button className="btn btn-small" onClick={() => decide(d, "rejected")}>{t("request.reject")}</button>
-          </div>
         </div>
       )),
     },
@@ -137,7 +120,6 @@ export function ReportView({ project }: { project: ProjectState }) {
       <header className="doc-head">
         <h1>{project.detail.name}</h1>
       </header>
-      {error && <p className="error" role="alert">{error}</p>}
 
       <section className="panel summary-card" aria-labelledby={`${idPrefix}-summary`}>
         <h2 id={`${idPrefix}-summary`}>{t("doc.report")}</h2>

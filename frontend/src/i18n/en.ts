@@ -304,8 +304,6 @@ export const en = {
   "conv.liftLimitTitle": "Agents stop being woken up here after too many runs in an hour. This restarts the count.",
   "conv.liftLimitDone": "Loop limit lifted: the team can be woken up again here.",
 
-  "request.validate": "Validate",
-  "request.reject": "Reject",
   "request.mergedInto": "Merged into {link}",
   "request.link": "request #{id}",
   "request.mergedAnother": "Merged into another request",
@@ -316,7 +314,6 @@ export const en = {
   "doc.reportEmpty": "The rapporteur has not written the report yet. It fills in as the group's research advances.",
   "doc.noneProposed": "None proposed yet.",
   "doc.proposedBy": "proposed by {name} · {time}",
-  "doc.mergePr": "Merge PR #{number}",
   "doc.rejectedCount": "{count} rejected",
   "doc.openQuestions": "Open questions",
   "doc.resolvedCount": "{count} resolved",
