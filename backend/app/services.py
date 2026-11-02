@@ -20,6 +20,7 @@ from app.models import (
     Message,
     Note,
     OpenQuestion,
+    Project,
     RequestStatus,
     Room,
     Task,
