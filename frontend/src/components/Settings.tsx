@@ -58,7 +58,7 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
-      <Projects projects={projects} onChanged={onProjectsChanged} />
+      <ProjectsSettings projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
         <h2>{t("settings.server")}</h2>
         <p className="muted">{tr("settings.connectedTo", { server: <code>{getConnection()?.server}</code> })}</p>
@@ -157,7 +157,7 @@ function ClaudeAccounts({ count, projects }: { count: number; projects: Project[
   );
 }
 
-function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () => void }) {
+function ProjectsSettings({ projects, onChanged }: { projects: Project[]; onChanged: () => void }) {
   const { t, tr } = useI18n();
   const [confirming, setConfirming] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
