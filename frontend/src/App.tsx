@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type AppSettings, type Connection, type EmployeeStatus, type ExhaustedAccount, type Presence, type Project, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
+import { ReportView } from "./components/ReportView";
 import { Home } from "./components/Home";
 import { MenuIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
@@ -139,6 +140,10 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   } else if (route.name === "settings") {
     main = <Settings settings={settings} projects={projects} onSaved={setSettings}
       onProjectsChanged={reloadProjects} onDisconnect={onDisconnect} />;
+  } else if (route.name === "report" && project?.detail.kind !== "company") {
+    if (error) main = <p className="error center">{error}</p>;
+    else if (project) main = <ReportView project={project} />;
+    else main = <p className="muted center">{t("common.loading")}</p>;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
@@ -177,6 +182,11 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
               <MenuIcon />
             </button>
             <ProjectMenu route={route} projects={projects} project={null} />
+          </header>
+        )}
+        {inProject && route.name === "report" && (
+          <header className="topbar report-bar">
+            <ProjectMenu route={route} projects={projects} project={project} />
           </header>
         )}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}

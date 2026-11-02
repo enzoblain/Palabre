@@ -194,9 +194,9 @@ function Projects({ projects, onChanged }: { projects: Project[]; onChanged: () 
           <li key={p.id}>
             <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
             <span className="truncate project-list-name">
-              {p.name} <span className="muted">· {modeLabel(p.mode, t)}</span>
+              {p.name} <span className="muted">· {p.kind === "research" ? t("settings.research") : modeLabel(p.mode, t)}</span>
             </span>
-            {confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
+            {p.kind === "company" && confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
             {confirming === p.id ? (
               <span className="row confirm-delete">
                 <span className="error">{t("settings.confirmDelete")}</span>

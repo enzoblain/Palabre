@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 
-// Hash routes: #/  #/new  #/settings  #/p/<project>  #/p/<project>/c/<conversation>
+// Hash routes: #/  #/new  #/settings  #/p/<project>  #/p/<project>/c/<conversation>  #/p/<project>/report
 export type Route =
   | { name: "home" }
   | { name: "new" }
   | { name: "settings" }
-  | { name: "project"; projectId: number; conversationId: number | null };
+  | { name: "project"; projectId: number; conversationId: number | null }
+  | { name: "report"; projectId: number };
 
 function parse(hash: string): Route {
   const path = hash.replace(/^#/, "");
   if (path === "/new") return { name: "new" };
   if (path === "/settings") return { name: "settings" };
+  const page = path.match(/^\/p\/(\d+)\/(report)$/);
+  if (page) return { name: page[2] as "report", projectId: Number(page[1]) };
   const m = path.match(/^\/p\/(\d+)(?:\/c\/(\d+))?$/);
   if (m) return { name: "project", projectId: Number(m[1]), conversationId: m[2] ? Number(m[2]) : null };
   return { name: "home" };
