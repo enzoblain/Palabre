@@ -1,4 +1,4 @@
-// Fails when the nginx or Tauri CSP is missing, or allows inline scripts in production.
+// Fails when the nginx CSP is missing, or allows inline scripts in production.
 import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -6,7 +6,6 @@ const scriptSrc = (csp) => csp.split(";").map((d) => d.trim()).find((d) => d.sta
 
 const policies = {
   "security-headers.conf": read("../security-headers.conf").match(/Content-Security-Policy "([^"]*)"/)?.[1],
-  "tauri.conf.json csp": JSON.parse(read("../src-tauri/tauri.conf.json")).app.security.csp,
 };
 const errors = [];
 for (const [name, csp] of Object.entries(policies)) {

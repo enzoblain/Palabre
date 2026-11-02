@@ -113,19 +113,15 @@ def _newer(section: str, previous: str | None) -> bool:
     return tuple(int(n) for n in match.groups()) > tuple(int(n) for n in previous.split("."))
 
 
-def set_version(path: str, text: str, version: str, package: str = "") -> str:
+def set_version(path: str, text: str, version: str) -> str:
     """`text` of a version file with its version replaced; unchanged if the file is not one we know."""
     name = path.rsplit("/", 1)[-1]
     top = re.compile(r'(?m)^(  "version": ")[^"]*(")')
-    if name in ("package.json", "tauri.conf.json"):
+    if name in "package.json":
         return top.sub(rf"\g<1>{version}\g<2>", text, count=1)
     if name == "package-lock.json":
         text = top.sub(rf"\g<1>{version}\g<2>", text, count=1)
         return re.sub(r'(\n    "": \{[^}]*?"version": ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
-    if name == "Cargo.toml":
-        return re.sub(r'(?m)^(version = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     if name == "docker-compose.yml":  # The pinned image version, so the compose file and its images match
         return re.sub(r"(\$\{PALABRE_VERSION:-)[^}]*(\})", rf"\g<1>{version}\g<2>", text)
-    if name == "Cargo.lock" and package:
-        return re.sub(rf'(name = "{re.escape(package)}"\nversion = ")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
     return text

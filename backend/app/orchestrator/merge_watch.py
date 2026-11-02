@@ -304,7 +304,7 @@ async def _published_version(repo: str, sha: str) -> str | None:
     """The version the files of `sha` carry, the one to tag; None if it cannot be read."""
     try:
         text = await github.file_content(repo, "frontend/package.json", sha)
-        return projects.VERSION_FILES["frontend/package.json"](text, "") if text else None
+        return projects.VERSION_FILES["frontend/package.json"](text) if text else None
     except (github.GitHubError, ValueError):
         return None
 

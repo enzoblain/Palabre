@@ -78,8 +78,6 @@ def gh(monkeypatch):
 def versioned(version: str) -> dict[str, str]:
     return {
         "frontend/package.json": json.dumps({"name": "x", "version": version}),
-        "frontend/src-tauri/tauri.conf.json": json.dumps({"version": version}),
-        "frontend/src-tauri/Cargo.toml": f'[package]\nname = "x"\nversion = "{version}"\n',
     }
 
 
@@ -192,13 +190,12 @@ async def test_publish_version_refuses_when_production_is_not_green(gh):
 def test_release_name_and_notes_match_the_hand_made_releases():
     assert github.release_name("v0.2.2") == "Palabre v0.2.2"
     notes = github.release_notes("Enzoblain/Palabre", "v0.2.2")
-    assert notes.startswith("Desktop app: download the file for your system below.\n- macOS:")
-    assert notes.endswith("\n\nServer: `ghcr.io/enzoblain/palabre:0.2.2` (see the README).")
+    assert notes == "Server: `ghcr.io/enzoblain/palabre:0.2.2` (see the README)."
 
 
-def test_release_notes_put_the_changes_before_the_download_text():
+def test_release_notes_put_the_changes_before_the_server_line():
     notes = github.release_notes("acme/app", "v1.2.0", "### Features\n- a: b")
-    assert notes.startswith("### Features\n- a: b\n\nDesktop app:")
+    assert notes.startswith("### Features\n- a: b\n\nServer:")
     assert notes.endswith(github.release_notes("acme/app", "v1.2.0"))
 
 

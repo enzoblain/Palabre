@@ -5,7 +5,7 @@ Palabre is a company of AI agents that works for its CEO (the user): a lead spli
 ## Stack
 
 - Backend (`backend/`): Python 3.12+, FastAPI, SQLAlchemy async on PostgreSQL, the `mcp` SDK, httpx.
-- Frontend (`frontend/`): React + TypeScript + Vite, packaged for desktop with Tauri (`src-tauri/`) and served by nginx for the browser.
+- Frontend (`frontend/`): React + TypeScript + Vite, served by nginx for the browser.
 
 ## Module map
 
@@ -28,7 +28,7 @@ Backend, in `backend/app/`:
 - `orchestrator/`: turns events into wakeups (`events.py`), runs them (`dispatcher.py`), builds agent prompts (`prompts.py`), and handles rituals, retries and research phases (`scheduler.py`, `retries.py`, `research.py`), and resets agents' Claude sessions every N tasks or runs (`context_reset.py`).
 - `mcp_server/`: the agents' tools (`tools.py`), which role gets which (`permissions.py`), request auth (`auth.py`), server setup (`server.py`).
 
-Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`), `src-tauri/` for the desktop shell.
+Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`).
 
 ## Run and check
 

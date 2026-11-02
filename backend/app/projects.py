@@ -8,7 +8,6 @@ import re
 import secrets
 import shutil
 import tempfile
-import tomllib
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -548,7 +547,6 @@ async def prepare_release(project: Project) -> dict:
     texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
     if all(texts[path] is None for path in VERSION_FILES):
         raise WorkflowError("No version file found in the repository: nothing to bump")
-    package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
     # Keep the date of an entry already written for this version, so a later day alone does not change it
     date = release.entry_date(texts["CHANGELOG.md"] or "", version) or datetime.now(UTC).date().isoformat()
     changes = result["changes"] = release.changelog_entry(version, date, plan["commits"])
@@ -556,7 +554,7 @@ async def prepare_release(project: Project) -> dict:
     for path, text in texts.items():
         if text is None or path == "CHANGELOG.md":
             continue
-        if (new := release.set_version(path, text, version, package)) != text:
+        if (new := release.set_version(path, text, version)) != text:
             files[path] = new
     if texts["CHANGELOG.md"] is not None:
         try:
@@ -568,7 +566,7 @@ async def prepare_release(project: Project) -> dict:
     if not files:
         return result  # Already up to date: no empty commit
     for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
-        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) not in (version, None):
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path])) not in (version, None):
             raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
     try:
         result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
@@ -638,10 +636,6 @@ def _lock_version(lock: dict) -> str:
     return str(top) if top == inner else f"{top} and {inner}"
 
 
-def _package_name(cargo_toml: str | None) -> str:
-    return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
-
-
 def _compose_version(text: str) -> str | None:
     """The image version a docker-compose.yml defaults to (`${PALABRE_VERSION:-X.Y.Z}`), None if it has none."""
     found = sorted(set(re.findall(r"\$\{PALABRE_VERSION:-([^}]*)\}", text)))
@@ -650,14 +644,9 @@ def _compose_version(text: str) -> str | None:
 
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
-    "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
-    "frontend/package-lock.json": lambda text, _package: _lock_version(json.loads(text)),
-    "frontend/src-tauri/tauri.conf.json": lambda text, _package: str(json.loads(text).get("version")),
-    "frontend/src-tauri/Cargo.toml": lambda text, _package: str(tomllib.loads(text).get("package", {}).get("version")),
-    "frontend/src-tauri/Cargo.lock": lambda text, package: str(
-        next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
-    ),
-    "docker-compose.yml": lambda text, _package: _compose_version(text),
+    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/package-lock.json": lambda text: _lock_version(json.loads(text)),
+    "docker-compose.yml": lambda text: _compose_version(text),
 }  # fmt: skip
 
 
@@ -677,16 +666,13 @@ async def publish_version(project: Project, version: str) -> str:
     if ci := await github.commit_checks(repo, sha):
         raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
     mismatches = []
-    package = ""
     for path, read in VERSION_FILES.items():
         text = await github.file_content(repo, path, sha)
         if text is None:
             continue  # A project without this file has no version to match
-        if path.endswith("Cargo.toml"):
-            package = _package_name(text)  # Before Cargo.lock, which needs it
         try:
-            found = read(text, package)
-        except ValueError:  # includes malformed JSON and TOML
+            found = read(text)
+        except ValueError:  # includes malformed JSON
             found = "unreadable"
         if found is not None and found != version:
             mismatches.append(f"{path} says {found}")
