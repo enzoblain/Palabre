@@ -1,72 +1,14 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError, type Conversation, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
-import { MENTION_EVENT, formatTime, usePolling } from "../util";
-import { Avatar } from "./Avatar";
+import { MENTION_EVENT, usePolling } from "../util";
 import { SendIcon } from "./Icons";
-import { Markdown, bossNames, mentionsAny } from "./Markdown";
+import { bossNames } from "./Markdown";
+import { MessageRow, TypingDots } from "./MessageBubble";
 import { ProjectMenu } from "./TeamPanel";
 
 const POLL_MS = 2000;
-/** What became of a request of the lead: the boss answers in the chat, so only the closed states show. */
-function RequestBox({ message: m }: { message: Message }) {
-  const { t, tr } = useI18n();
-  if (m.request_status === "withdrawn" || m.request_status === "merged") {
-    return (
-      <div className="request">
-        <p className="request-answer muted">
-          {m.request_status === "merged" && m.request_merged_into
-            ? tr("request.mergedInto", {
-                link: <a href={`#message-${m.request_merged_into}`} onClick={(e) => {
-                  const target = document.getElementById(`message-${m.request_merged_into}`);
-                  if (target) { e.preventDefault(); target.scrollIntoView({ block: "center" }); target.focus(); }
-                }}>{t("request.link", { id: m.request_merged_into })}</a>,
-              })
-            : m.request_status === "merged" ? t("request.mergedAnother") : t("request.withdrawn")}
-          {m.request_status === "withdrawn" && m.request_comment ? <>: <q>{m.request_comment}</q></> : ""}
-        </p>
-      </div>
-    );
-  }
-  return null;
-}
-
-/** One message. Memoized: re-parsing every message's Markdown on each render made typing slow. */
-const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, forYou }: {
-  message: Message;
-  grouped: boolean;
-  title: string | undefined;
-  selfNames: string[];
-  // Written by the lead in the direction channel: addressed to the CEO
-  forYou: boolean;
-}) {
-  const { t } = useI18n();
-  const system = m.is_system;
-  const boss = m.employee_id === null && !system;
-  const forMe = !boss && !system && mentionsAny(m.content, selfNames);
-  const closed = m.request_status === "withdrawn" || m.request_status === "merged";
-  const body = <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>;
-  return (
-    <div id={`message-${m.id}`} tabIndex={-1} className={`message${closed ? " request-closed" : ""}${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
-      <div className="message-avatar">{!grouped && (system
-          ? <span className="avatar avatar-system" aria-hidden="true" style={{ width: 34, height: 34 }}>•</span>
-          : <Avatar name={m.author_name} boss={boss} size={34} />)}</div>
-      <div className="message-main">
-        {!grouped && (
-          <div className="message-meta">
-            <strong>{m.author_name}</strong>
-            <span className="muted">{system ? t("conv.platform") : boss ? t("conv.ceo") : title}</span>
-            <time className="muted">{formatTime(m.created_at)}</time>
-            {forYou && <span className="for-you">{t("conv.forYou")}</span>}
-          </div>
-        )}
-        {closed ? <details className="request-closed-body"><summary>{t("conv.originalRequest")}</summary>{body}</details> : body}
-        {m.request_status && !boss && !system && <RequestBox message={m} />}
-      </div>
-    </div>
-  );
-});
 
 /** The message box. It keeps the draft to itself, so typing only re-renders the box. */
 function Composer({ placeholder, onSend }: { placeholder: string; onSend: (content: string) => Promise<boolean> }) {
@@ -155,13 +97,17 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-export function ConversationView({ conversation, room, project, projects, route, bossName }: {
+export function ConversationView({ conversation, room, project, projects, route, bossName, leadWriting, onRead }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
   projects: Project[];
   route: Route;
   bossName: string;
+  // The lead is answering in the direction channel
+  leadWriting: boolean;
+  // The direction channel was marked as read on the server
+  onRead: () => void;
 }) {
   const { t } = useI18n();
   const [messages, setMessages] = useState<Message[] | null>(null);
@@ -208,10 +154,18 @@ export function ConversationView({ conversation, room, project, projects, route,
     [conversation.id],
   );
 
+  const typing = room.kind === "direction" && leadWriting;
   useLayoutEffect(() => {
     const el = listRef.current;
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, typing]);
+
+  // The boss reads direction as soon as it is open, and each new message while it stays open
+  const newestId = messages?.[messages.length - 1]?.id;
+  useEffect(() => {
+    if (room.kind !== "direction" || newestId === undefined) return;
+    api.markDirectionRead(project.id).then(onRead).catch(() => {});
+  }, [room.kind, project.id, newestId, onRead]);
 
   function onScroll() {
     const el = listRef.current;
@@ -258,8 +212,9 @@ export function ConversationView({ conversation, room, project, projects, route,
           const prev = messages[i - 1];
           const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
           const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} forYou={room.kind === "direction" && m.employee_id !== null && m.employee_id === lead?.id} />;
+          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
         })}
+        {typing && lead && <TypingDots name={lead.name} />}
       </div>
 
       {error && <p className="error composer-error">{error}</p>}
