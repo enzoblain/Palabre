@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Device, api } from "../api";
 import { neverUsed, withoutDevice } from "../devices";
 import { locale, useI18n } from "../i18n";
@@ -18,6 +18,7 @@ export function ConnectedDevices() {
   const [pending, setPending] = useState<Device | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -29,6 +30,9 @@ export function ConnectedDevices() {
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  // The revoked row, and its button, are gone: keep keyboard users in the section.
+  useEffect(() => { if (outcome?.ok) titleRef.current?.focus(); }, [outcome]);
 
   async function revoke(device: Device) {
     setRevoking(true);
@@ -46,7 +50,7 @@ export function ConnectedDevices() {
 
   return (
     <section className="panel" aria-labelledby="devices-title" aria-busy={devices === null && !loadError}>
-      <h2 id="devices-title">{t("settings.devices")}</h2>
+      <h2 id="devices-title" ref={titleRef} tabIndex={-1}>{t("settings.devices")}</h2>
       <p className="muted">{t("settings.devicesIntro")}</p>
       {devices === null && !loadError && <p role="status" className="muted">{t("settings.devicesLoading")}</p>}
       {loadError && (

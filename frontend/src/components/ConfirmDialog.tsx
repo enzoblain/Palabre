@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 import { trappedFocusIndex } from "../devices";
 import { useI18n } from "../i18n";
 
-const FOCUSABLE = "button:not(:disabled)";
+const FOCUSABLE = "button";
 
-/** Modal confirmation: focus is trapped inside, Escape cancels and focus returns to the opener. */
+/** Modal confirmation: focus is trapped inside, Escape cancels and focus returns to the opener (if it is gone, the caller moves it). */
 export function ConfirmDialog({ title, confirmLabel, busy, onConfirm, onCancel }: {
   title: string;
   confirmLabel: string;
@@ -19,7 +19,7 @@ export function ConfirmDialog({ title, confirmLabel, busy, onConfirm, onCancel }
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelRef.current?.focus();
-    return () => opener?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -41,8 +41,8 @@ export function ConfirmDialog({ title, confirmLabel, busy, onConfirm, onCancel }
       <div ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onKeyDown={onKeyDown}>
         <p id="confirm-title" className="modal-title">{title}</p>
         <div className="row modal-actions">
-          <button ref={cancelRef} type="button" className="btn" disabled={busy} onClick={onCancel}>{t("common.cancel")}</button>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={onConfirm}>{confirmLabel}</button>
+          <button ref={cancelRef} type="button" className="btn" aria-disabled={busy} onClick={() => { if (!busy) onCancel(); }}>{t("common.cancel")}</button>
+          <button type="button" className="btn btn-primary" aria-disabled={busy} onClick={() => { if (!busy) onConfirm(); }}>{confirmLabel}</button>
         </div>
       </div>
     </div>
