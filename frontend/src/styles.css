@@ -108,30 +108,17 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .brand-mark.small { width: 26px; height: 26px; border-radius: 7px; font-size: 13px; }
 
 /* --- Layout --- */
-.shell { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
+.shell { height: 100%; }
 .main { min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 
-.sidebar-title { font-weight: 600; font-size: 15px; }
 .section-label {
   font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
   padding: 12px 8px 4px; display: flex; justify-content: space-between;
 }
 .section-label .count { text-transform: none; letter-spacing: 0; font-weight: 500; }
-.team-label { margin-top: 8px; }
-.nav-item {
-  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer;
-  border: none; background: none; width: 100%; text-align: left; color: var(--text);
-}
-.nav-item:hover { background: var(--hover); }
-.nav-item.active { background: var(--active); color: var(--accent); font-weight: 500; }
-.nav-item.muted { color: var(--muted); }
-.nav-sub { padding-left: 32px; font-size: 13px; }
-.project-initial {
-  width: 22px; height: 22px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
-  display: grid; place-items: center; font-size: 12px; font-weight: 600; flex-shrink: 0;
-}
 
 /* --- Team status --- */
+.panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 .person { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
 .member { padding: 5px 8px; }
 .member-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
@@ -147,13 +134,6 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 }
 
 /* --- Home --- */
-.home { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
-.big-plus {
-  width: 112px; height: 112px; border-radius: 50%; border: 2px dashed var(--border); background: var(--bg-soft);
-  color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: all 0.15s;
-}
-.big-plus:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); transform: scale(1.04); }
-.home-caption { margin: 0; color: var(--muted); font-size: 15px; }
 
 /* --- Pages (settings, new project) --- */
 .page { overflow-y: auto; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 20px; max-width: 900px; width: 100%; }
@@ -315,7 +295,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 .btn-danger:hover:not(:disabled) { background: var(--error); filter: brightness(1.08); }
 
 /* --- Small screens (the app in a phone's browser) --- */
-.nav-backdrop { display: none; }
 .project-bar {
   display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; height: 56px; padding: 0 8px; flex-shrink: 0;
   background: var(--sidebar); border-bottom: 1px solid var(--border);
@@ -328,29 +307,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 .project-info h2 { margin: 0; }
 .info-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .info-link { overflow-wrap: anywhere; color: var(--accent); }
-/* Large screens (see DESKTOP_MIN_WIDTH_PX): projects on the left, conversation on the right */
-.shell.desktop { grid-template-columns: 340px 1fr; }
-.projects-sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--sidebar); border-right: 1px solid var(--border); }
-.sidebar-head { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.sidebar-heading { margin: 0; font-size: 18px; }
-.sidebar-actions { display: flex; gap: 4px; }
-.sidebar-actions .icon-btn { text-decoration: none; }
-.sidebar-actions .icon-btn.active { background: var(--active); color: var(--accent); }
-.sidebar-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
-.conv-head .project-menu { display: none; }
-.panel-close { display: none; margin-left: auto; }
-.topbar-nav { display: none; }
 @media (max-width: 900px) {
-  .shell { display: flex; flex-direction: column; }
-  .main { flex: 1; min-height: 0; height: auto; }
-  .panel-close, .topbar-nav { display: inline-flex; }
-  .team-panel {
-    position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 20;
-    transform: translateX(-100%); transition: transform 0.2s ease; visibility: hidden;
-  }
-  .team-panel.open { transform: none; visibility: visible; }
-  .nav-open .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.35); }
-
   .page { padding: 20px 16px 32px; }
   .conv-head { padding: 0 12px; height: 48px; }
   .conv-head .muted { display: none; }
@@ -372,45 +329,8 @@ details summary { cursor: pointer; margin-top: 6px; }
 .credits-banner { flex: none; padding: 8px 16px; font-size: 13px; background: var(--mention-me-bg); border-bottom: 1px solid var(--mention-me-border); }
 .credits-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--muted); }
 
-/* --- Team panel (left column, a drawer under 900px) --- */
-.team-panel { background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; width: 280px; }
-.panel-title { font-size: 15px; padding: 0 8px; flex: 1; }
-.panel-close { margin-left: auto; }
-.project-menu.as-title { width: auto; min-width: 0; }
-.project-menu.as-title h1 { margin: 0; font-size: 16px; }
-.panel-head { padding: 8px; height: 56px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
-.panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 1px; }
-.panel-foot { flex: none; padding: 8px; border-top: 1px solid var(--border); }
-.panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.panel-empty { flex: 1; }
-.panel-empty, .panel-note { padding: 8px 12px; margin: 0; font-size: 13px; }
-.topbar { display: flex; align-items: center; height: 56px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--sidebar); flex-shrink: 0; }
-.project-menu { position: relative; min-width: 0; width: 100%; }
-.topbar .project-menu { width: auto; min-width: 200px; }
-.project-menu-btn {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 6px; border: none;
-  background: none; cursor: pointer; font-weight: 600; font-size: 15px; color: var(--text); text-align: left; min-height: 40px;
-}
-.project-menu-btn:hover { background: var(--hover); }
-.project-menu-btn .truncate { flex: 1; }
-.caret { color: var(--muted); font-size: 12px; }
-.menu {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 220px; z-index: 30; padding: 6px;
-  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); display: flex; flex-direction: column; gap: 1px; max-height: 70vh; overflow-y: auto;
-}
-.menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
-.menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text); text-decoration: none; min-height: 36px; }
-.menu-item:hover { background: var(--hover); }
-.menu-item[aria-current="true"] { background: var(--active); color: var(--accent); font-weight: 500; }
-.menu-item:focus-visible, .nav-item:focus-visible, .project-menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.team-panel .nav-item { text-decoration: none; }
-.team-panel .member { padding: 6px 8px; }
+/* --- Team members --- */
 .member-role { font-size: 12px; color: var(--muted); }
-.dm-list { padding-left: 12px; }
-.conv-people { font-size: 13px; min-width: 0; flex: 1; }
-.conv-people + .live-tag, .conv-people + .conv-members { margin-left: 0; }
-@media (prefers-reduced-motion: reduce) { .team-panel { transition: none; } }
 .message:focus { outline: none; }
 .message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
 .request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }
@@ -464,7 +384,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 }
 .projects-head { display: flex; align-items: center; gap: 12px; }
 .projects-head h1 { margin: 0; }
-.sidebar-title { display: flex; align-items: center; gap: 10px; }
 .delete-selection { display: flex; flex-direction: column; gap: 8px; padding: 12px 4px; }
 .danger-zone { border-color: var(--error); }
 .project-row-name { font-weight: 600; }
@@ -475,23 +394,27 @@ details summary { cursor: pointer; margin-top: 6px; }
   display: grid; place-items: center;
 }
 
-/* --- Floating bottom bar (phones only) --- */
-.bottom-bar { display: none; }
-@media (max-width: 640px) {
-  .bottom-bar {
-    display: flex; position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-    z-index: 5; padding: 6px; border-radius: 22px; background: var(--sidebar); border: 1px solid var(--border);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
-  }
-  .bottom-bar a {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px;
-    border-radius: 16px; color: var(--muted); text-decoration: none; font-size: 11px;
-  }
-  .bottom-bar a.active { color: var(--accent); background: var(--active); }
-  .bottom-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  /* Keep the end of the page reachable above the floating bar */
-  .main.with-bottom-bar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+/* --- Floating bottom bar (both root screens, every screen width) --- */
+.bottom-bar {
+  position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 5;
+  max-width: 480px; margin: 0 auto; display: flex; padding: 6px; border-radius: 22px;
+  background: var(--sidebar); border: 1px solid var(--border); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
 }
+.bottom-bar a {
+  flex: 1; min-width: 0; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 6px 4px; border-radius: 16px; color: var(--muted); text-decoration: none; font-size: 12px;
+  text-align: center; transition: background 0.15s, color 0.15s;
+}
+.bottom-bar a:hover { background: var(--hover); }
+.bottom-bar a.active { color: var(--accent); background: var(--active); font-weight: 600; }
+.bottom-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .bottom-bar a { transition: none; } }
+/* Keep the end of the page reachable above the floating bar */
+.main.with-bottom-bar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+/* --- Projects screen states --- */
+.projects-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 0; text-align: center; }
+.project-skeleton { height: 56px; margin-bottom: 8px; border-radius: var(--radius); background: var(--bg-soft); }
 
 /* --- Team management in the project info --- */
 .team-members { display: flex; flex-direction: column; gap: 10px; }

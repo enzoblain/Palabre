@@ -91,8 +91,6 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
   return (
     <form className="page new-project" onSubmit={submit}>
-      <h1>{t("new.title")}</h1>
-
       <section className="panel">
         <h2>{t("new.sectionProject")}</h2>
         <label>

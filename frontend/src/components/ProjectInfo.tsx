@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, type ProjectDetail, api } from "../api";
-import type { ProjectState } from "./TeamPanel";
+import { ApiError, type ProjectDetail, type ProjectState, api } from "../api";
 import { useI18n } from "../i18n";
 import { goBack } from "../router";
 import { BackIcon } from "./Icons";
@@ -9,16 +8,13 @@ import { TeamSection } from "./TeamSection";
 /** Header of a project screen: back arrow, name, and an optional action on the right. */
 export function ProjectBar({ name, onBack, children }: {
   name: string;
-  // Absent on large screens, where the project list stays on screen
-  onBack?: () => void;
+  onBack: () => void;
   children?: React.ReactNode;
 }) {
   const { t } = useI18n();
   return (
     <header className="project-bar">
-      {onBack ? (
-        <button className="icon-btn" onClick={onBack} aria-label={t("common.back")}><BackIcon size={22} /></button>
-      ) : <span />}
+      <button className="icon-btn" onClick={onBack} aria-label={t("common.back")}><BackIcon size={22} /></button>
       <h1 className="project-bar-title truncate">{name}</h1>
       <span className="project-bar-end">{children}</span>
     </header>
