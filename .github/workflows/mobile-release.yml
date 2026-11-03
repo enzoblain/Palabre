@@ -1,5 +1,5 @@
-# Builds the mobile app on a version tag: the iOS build goes to TestFlight, the Android build is an
-# artifact (.aab, not published to the Play Store). The App Store submission stays manual.
+# Builds the iPhone app on a version tag and sends it to TestFlight (iPhone only for now, no Android).
+# The App Store submission stays manual.
 # Never triggered by a pull request: the jobs hold signing secrets (see docs/mobile-release.md).
 # The secrets live in the protected GitHub environment "mobile-release", limited to v* tags.
 name: Mobile release
@@ -43,13 +43,11 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The native projects cannot be generated without the app identifiers (chosen by the CEO)
-          for key in ios.bundleIdentifier android.package; do
-            if ! node -e 'const v = process.argv[1].split(".").reduce((o, k) => o?.[k], require("./mobile/app.json").expo); process.exit(v ? 0 : 1)' "$key"; then
-              echo "::error::expo.$key is missing in mobile/app.json (see docs/mobile-release.md)"
-              exit 1
-            fi
-          done
+          # The native project cannot be generated without the iOS app identifier
+          if ! node -e 'process.exit(require("./mobile/app.json").expo.ios?.bundleIdentifier ? 0 : 1)'; then
+            echo "::error::expo.ios.bundleIdentifier is missing in mobile/app.json (see docs/mobile-release.md)"
+            exit 1
+          fi
           version="${REF_NAME#v}"
           # The environment only accepts v* tags: a manual run must pick an existing tag
           if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -168,71 +166,3 @@ jobs:
           security delete-keychain "$KEYCHAIN_PATH" || true
           rm -rf "$HOME/private_keys" "$HOME/Library/MobileDevice/Provisioning Profiles" \
             "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
-
-  android:
-    name: Android bundle
-    needs: detect
-    if: needs.detect.outputs.run == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    environment: mobile-release
-    env:
-      APP_VERSION: ${{ needs.detect.outputs.version }}
-      BUILD_NUMBER: ${{ github.run_number }}
-    defaults:
-      run:
-        working-directory: mobile
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
-      # Not --ignore-scripts: untested here (no network, no mobile/ in this branch); Expo and React Native
-      # dependencies may rely on install scripts. Try it on a tag run and adopt it if the build passes.
-      - run: npm ci
-      - name: Set the version
-        run: |
-          node -e '
-            const fs = require("fs");
-            const config = JSON.parse(fs.readFileSync("app.json", "utf8"));
-            config.expo.version = process.env.APP_VERSION;
-            config.expo.android = { ...config.expo.android, versionCode: Number(process.env.BUILD_NUMBER) };
-            fs.writeFileSync("app.json", JSON.stringify(config, null, 2) + "\n");
-          '
-      - name: Generate the native project
-        run: npx expo prebuild --platform android --no-install
-      - name: Build the bundle
-        # JDK 17 is preinstalled on the runner image
-        run: |
-          export JAVA_HOME="$JAVA_HOME_17_X64"
-          cd android && ./gradlew --no-daemon bundleRelease
-      - name: Sign the bundle with the upload key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          # No set -x: the values below are secrets
-          set -eu
-          bundle=android/app/build/outputs/bundle/release/app-release.aab
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
-          # Drop the signature of the generated project (debug key), then sign with the upload key
-          zip -q -d "$bundle" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
-          "$JAVA_HOME_17_X64/bin/jarsigner" -keystore "$RUNNER_TEMP/upload.keystore" \
-            -storepass:env KEYSTORE_PASSWORD -keypass:env KEY_PASSWORD \
-            -sigalg SHA256withRSA -digestalg SHA-256 "$bundle" "$KEY_ALIAS"
-          "$JAVA_HOME_17_X64/bin/jarsigner" -verify "$bundle"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: palabre-android-${{ needs.detect.outputs.version }}-${{ github.run_number }}
-          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          retention-days: 30
-      - name: Remove the keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/upload.keystore"
