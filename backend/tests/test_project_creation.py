@@ -86,7 +86,7 @@ async def test_create_project_stores_dev_for_a_company(repo, monkeypatch):
     async def no_channels(*_args):
         pass
 
-    monkeypatch.setattr(projects, "_open_channels", no_channels)
+    monkeypatch.setattr(projects, "open_channels", no_channels)
     project = await projects.create_project(Session(), name="App", repo_url=URL, mode="enterprise")
     assert project.default_branch == "dev"
 

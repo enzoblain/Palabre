@@ -310,8 +310,8 @@ async def get_employee(employee_id: int, s: SessionDep):
 async def add_employee(project_id: int, body: EmployeeIn, s: SessionDep):
     """Add a member to the team: roles (and optionally a personality preset, a model, an
     account); the first name is drawn from the catalog unless given and is unique in the
-    project. They join the default channels of their roles. 409 when a team rule breaks
-    (permissions, size), 422 on an unknown role or personality."""
+    project. They join the default channels of their roles. 409 when a rule breaks
+    (permissions, size, unknown role or personality, name already used)."""
     project = await _project(s, project_id)
     if body.account is not None:
         _check_accounts([body.account])
@@ -326,8 +326,9 @@ async def remove_employee(employee_id: int, s: SessionDep):
     without assignee, they leave their channels, their messages stay. 409 `lead_protected` for
     the lead, `team_too_small` under the minimum size."""
     employee = await get_or_404(s, Employee, employee_id)
-    await team_members.remove_member(s, await _project(s, employee.project_id), employee)
+    project = await _project(s, employee.project_id)
     await orchestrator.cancel_runs([employee_id])
+    await team_members.remove_member(s, project, employee)
 
 
 @router.patch("/employees/{employee_id}", response_model=EmployeeOut)

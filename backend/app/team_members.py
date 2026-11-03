@@ -4,7 +4,7 @@ import random
 import secrets
 from dataclasses import asdict
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import projects, services
@@ -17,7 +17,7 @@ from app.company.catalog import (
 )
 from app.company.team import custom_employee
 from app.errors import ErrorCode, WorkflowError
-from app.models import Employee, Project, Task, TaskStatus
+from app.models import Employee, Project, Review, Task, TaskStatus
 
 CLOSED_STATUSES = (TaskStatus.done, TaskStatus.cancelled)
 
@@ -77,7 +77,7 @@ async def add_member(
         if room.kind == services.DIRECTION or room.name not in wanted:
             continue
         room.members.append(employee)
-    await projects._open_channels(s, project)  # A bigger team may now justify a channel it lacked
+    await projects.open_channels(s, project)  # A bigger team may now justify a channel it lacked
     await s.commit()
     return employee
 
@@ -135,7 +135,10 @@ def _move_between_channels(project: Project, employee: Employee, roles: list[str
 
 async def remove_member(s: AsyncSession, project: Project, employee: Employee) -> None:
     """Let a member go: their unfinished tasks go back to todo, unassigned; they leave every
-    room; their messages stay (signed by name). The lead cannot be removed."""
+    room and their DMs are deleted; their messages stay (signed by name, and no longer read as
+    the boss's). Their reviews of unfinished tasks are withdrawn, so those tasks need a new
+    opinion before they can merge; their reviews of finished tasks are deleted with them.
+    The lead cannot be removed."""
     if MANDATORY_ROLE in employee.roles:
         raise WorkflowError(f"The {MANDATORY_ROLE} cannot be removed", code=ErrorCode.LEAD_PROTECTED)
     if len(project.employees) <= MIN_TEAM_SIZE:
@@ -146,8 +149,11 @@ async def remove_member(s: AsyncSession, project: Project, employee: Employee) -
         .where(Task.assignee_id == employee.id, Task.status.not_in(CLOSED_STATUSES))
         .values(assignee_id=None, status=TaskStatus.todo)
     )
-    for room in project.rooms:
-        if employee in room.members:
+    await s.execute(delete(Review).where(Review.reviewer_id == employee.id))
+    for room in list(project.rooms):
+        if room.kind == services.DM and employee in room.members:
+            project.rooms.remove(room)  # delete-orphan: a DM needs exactly two members
+        elif employee in room.members:
             room.members.remove(employee)
     project.employees.remove(employee)  # delete-orphan
     await s.commit()

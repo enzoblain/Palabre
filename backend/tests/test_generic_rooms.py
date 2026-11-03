@@ -54,7 +54,7 @@ async def names(s) -> set[str]:
 
 async def test_predefined_team_only_gets_the_catalog_channels(db):
     project = await make_project(db)
-    await projects._open_channels(db, project)
+    await projects.open_channels(db, project)
     catalog = {c["name"] for c in load_catalog()["channels"]}
     assert {r.name for r in project.rooms} <= catalog
     assert not {"general", "engineering", "product"} & {r.name for r in project.rooms}

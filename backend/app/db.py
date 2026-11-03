@@ -11,6 +11,13 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 RESEARCH_COLUMNS = ("kind", "topic", "research_phase")
+# Author columns that must outlive the member they name (no foreign key)
+AUTHOR_COLUMNS = (
+    ("messages", "request_author_id"),
+    ("messages", "employee_id"),
+    ("tasks", "created_by_id"),
+    ("tasks", "closed_by_id"),
+)
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
@@ -47,7 +54,7 @@ def upgrade_schema(conn: Connection) -> list[int]:
                 conn.exec_driver_sql(ddl)
     _widen_request_status_check(conn)
     _add_missing_checks(conn)
-    _drop_request_author_foreign_key(conn)
+    _drop_author_foreign_keys(conn)
     dropped_project_ids = _drop_research_projects(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
@@ -84,14 +91,16 @@ def _widen_request_status_check(conn: Connection) -> None:
         conn.exec_driver_sql(f"ALTER TABLE messages DROP CONSTRAINT {REQUEST_STATUS_CHECK}")
 
 
-def _drop_request_author_foreign_key(conn: Connection) -> None:
-    """messages.request_author_id was a foreign key with ON DELETE SET NULL, which erased who a relayed
-    request was for when the member left the team: drop it (idempotent). Only PostgreSQL has it in production."""
+def _drop_author_foreign_keys(conn: Connection) -> None:
+    """These author columns were foreign keys with ON DELETE SET NULL, which erased who wrote a message
+    (or created or closed a task) when the member left the team, and NULL reads as the boss: drop them
+    (idempotent). Only PostgreSQL has them in production."""
     if conn.dialect.name != "postgresql":
         return
-    for foreign_key in inspect(conn).get_foreign_keys("messages"):
-        if foreign_key["constrained_columns"] == ["request_author_id"]:
-            conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')
+    for table, column in AUTHOR_COLUMNS:
+        for foreign_key in inspect(conn).get_foreign_keys(table):
+            if foreign_key["constrained_columns"] == [column]:
+                conn.exec_driver_sql(f'ALTER TABLE {table} DROP CONSTRAINT "{foreign_key["name"]}"')
 
 
 def _drop_research_projects(conn: Connection) -> list[int]:

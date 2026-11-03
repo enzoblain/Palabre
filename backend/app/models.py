@@ -238,8 +238,9 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
-    # NULL = the boss
-    employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    # NULL = the boss. Not a foreign key: the id outlives a removed member, whose messages must not
+    # read as the boss's
+    employee_id: Mapped[int | None] = mapped_column(Integer)
     author_name: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text)
     # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
@@ -278,11 +279,11 @@ class Task(Base):
     sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[TaskStatus] = mapped_column(str_enum(TaskStatus), default=TaskStatus.todo)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
-    # NULL = created by the boss
-    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    # NULL = created by the boss. Not a foreign key, like Message.employee_id
+    created_by_id: Mapped[int | None] = mapped_column(Integer)
     depends_on: Mapped[list[int]] = mapped_column(JSON, default=list)
     # Who merged or cancelled it (NULL = the boss, or still open); counted for the context reset
-    closed_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    closed_by_id: Mapped[int | None] = mapped_column(Integer)
     # When it was merged or cancelled; the context reset counts on it, not on updated_at
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Set by the orchestrator when the task run starts

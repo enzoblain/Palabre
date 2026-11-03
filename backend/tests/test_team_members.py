@@ -3,6 +3,7 @@
 from dataclasses import asdict
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.api import projects as api
@@ -11,12 +12,17 @@ from app.api.schemas import EmployeeIn, EmployeePatch
 from app.company.catalog import MAX_TEAM_SIZE, MIN_TEAM_SIZE, load_catalog
 from app.company.team import custom_employee
 from app.errors import WorkflowError
-from app.models import Base, Conversation, Employee, Message, Project, Room, Task, TaskStatus
+from app.models import Base, Conversation, Employee, Message, Project, Review, Room, Task, TaskStatus, Verdict
 
 
 @pytest.fixture
 async def db():
     engine = create_async_engine("sqlite+aiosqlite://")
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def enforce_foreign_keys(connection, _record):  # Like PostgreSQL: ON DELETE rules really run
+        connection.execute("PRAGMA foreign_keys=ON")
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with async_sessionmaker(engine, expire_on_commit=False)() as session:
@@ -120,8 +126,9 @@ async def test_remove_member_unassigns_open_tasks_and_keeps_messages(db, cancell
     db.add(conversation)
     await db.flush()
     db.add(Message(conversation_id=conversation.id, employee_id=bob.id, author_name="Bob", content="hello"))
-    open_task = Task(project_id=project.id, room_id=room.id, conversation_id=conversation.id, title="a", assignee_id=bob.id, status=TaskStatus.in_progress)
-    done_task = Task(project_id=project.id, room_id=room.id, conversation_id=conversation.id, title="b", assignee_id=bob.id, status=TaskStatus.done)
+    where = {"project_id": project.id, "room_id": room.id, "conversation_id": conversation.id}
+    open_task = Task(**where, title="a", assignee_id=bob.id, created_by_id=bob.id, status=TaskStatus.in_progress)
+    done_task = Task(**where, title="b", assignee_id=bob.id, status=TaskStatus.done)
     db.add_all([open_task, done_task])
     await db.commit()
     bob_id = bob.id
@@ -133,7 +140,10 @@ async def test_remove_member_unassigns_open_tasks_and_keeps_messages(db, cancell
     assert (open_task.assignee_id, open_task.status) == (None, TaskStatus.todo)
     assert done_task.status == TaskStatus.done
     assert await db.get(Employee, bob_id) is None
-    assert (await db.get(Message, 1)).content == "hello"
+    message = await db.get(Message, 1)
+    assert (message.content, message.author_name) == ("hello", "Bob")
+    assert message.employee_id == bob_id  # Not NULL: NULL would read as the boss
+    assert open_task.created_by_id == bob_id
     project = await api.projects.load_project(db, project.id)
     assert "Bob" not in {m.name for r in project.rooms for m in r.members}
     assert cancelled == [bob_id]
@@ -191,3 +201,31 @@ async def test_unknown_employee_is_404(db):
     with pytest.raises(ApiError) as error:
         await api.remove_employee(999, db)
     assert error.value.status_code == 404
+
+
+async def test_remove_member_deletes_their_dms_and_withdraws_their_reviews(db):
+    project = await _team(db, (("lead",), ("dev_backend",), ("dev_backend",), ("reviewer",), ("qa",), ("dev_backend",)))
+    bob, cleo, dan = (_by_name(project, n) for n in ("Bob", "Cleo", "Dan"))
+    dm_with_bob = Room(project_id=project.id, name="Bob·Cleo", kind="dm", members=[bob, cleo])
+    dm_other = Room(project_id=project.id, name="Cleo·Dan", kind="dm", members=[cleo, dan])
+    conversation = Conversation(room_id=project.rooms[0].id, title="c")
+    db.add_all([dm_with_bob, dm_other, conversation])
+    await db.flush()
+    task = Task(
+        project_id=project.id, room_id=project.rooms[0].id, conversation_id=conversation.id, title="a",
+        status=TaskStatus.review,
+    )  # fmt: skip
+    db.add(task)
+    await db.flush()
+    review = Review(task_id=task.id, reviewer_id=dan.id, verdict=Verdict.approve, round=1, body="ok")
+    db.add(review)
+    await db.commit()
+    dm_with_bob_id, dm_other_id, dan_id, review_id = dm_with_bob.id, dm_other.id, dan.id, review.id
+
+    await api.remove_employee(dan_id, db)
+    assert await db.get(Review, review_id) is None
+    assert await db.get(Room, dm_other_id) is None
+
+    bob_id = (await db.get(Room, dm_with_bob_id)).members[0].id
+    await api.remove_employee(bob_id, db)
+    assert await db.get(Room, dm_with_bob_id) is None

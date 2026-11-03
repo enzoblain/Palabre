@@ -220,7 +220,7 @@ async def test_auto_creation_selects_the_roles_and_uses_the_enterprise_process(m
     monkeypatch.setattr(projects.team_selection, "select_roles", select_roles)
     monkeypatch.setattr(projects, "team_token", lambda: "team-token")
     monkeypatch.setattr(projects, "working_branch", working_branch)
-    monkeypatch.setattr(projects, "_open_channels", no_op)
+    monkeypatch.setattr(projects, "open_channels", no_op)
     monkeypatch.setattr(projects, "ensure_direction", no_op)
     session = SimpleNamespace(add=lambda _obj: None, commit=no_op)
 
