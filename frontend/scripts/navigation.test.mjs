@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parentPath, filterProjects, lastOpenedFirst, showsBottomBar, statusAfterFailure } from "../src/navigation.ts";
 
-test("the bottom bar shows on the two root screens only", () => {
+test("the bottom bar shows on the root screens only", () => {
   assert.equal(showsBottomBar({ name: "home" }), true);
+  assert.equal(showsBottomBar({ name: "new" }), true);
   assert.equal(showsBottomBar({ name: "settings" }), true);
 });
 
 test("the bottom bar is hidden on every full-screen route", () => {
   const routes = [
-    { name: "new" },
     { name: "project", projectId: 1, conversationId: null },
     { name: "project", projectId: 1, conversationId: 2 },
     { name: "info", projectId: 1 },
