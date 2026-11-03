@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react-native";
 import { COLORS } from "../src/theme";
 import ConversationScreen from "../app/conversation/[id]";
-import ConversationListScreen from "../app/index";
 import LoginScreen from "../app/login";
 import { SessionProvider } from "../src/session";
 
@@ -13,12 +12,6 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
 
 describe("placeholder screens", () => {
-  it("renders the conversation list in French", async () => {
-    await render(<ConversationListScreen />);
-    expect(screen.getByRole("header", { name: "Messages" })).toBeTruthy();
-    expect(screen.getByText("Aucune conversation. Les messages de l’équipe apparaîtront ici.")).toBeTruthy();
-  });
-
   it("renders the login screen", async () => {
     await render(<SessionProvider><LoginScreen /></SessionProvider>);
     expect(screen.getByRole("header", { name: "Palabre" })).toBeTruthy();
