@@ -14,7 +14,7 @@ On every `vX.Y.Z` tag (so on every published version), or on a manual run of the
 - **Android** (Linux runner): an `.aab` bundle signed with the upload key is attached to the run as an artifact
   (kept 30 days). It is **not** published to the Play Store yet.
 
-While `mobile/` does not exist, both jobs are skipped. The pull request CI (`ci.yml`, job "Mobile check") only
+Both jobs skip themselves if `mobile/` is missing. The pull request CI (`ci.yml`, job "Mobile check") only
 runs `npm run check` in `mobile/` (type check, lint, tests) on Linux: no macOS runner, no secret.
 
 ## Guide for Enzo
