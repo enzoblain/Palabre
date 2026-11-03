@@ -218,30 +218,30 @@ export function ConversationView({ conversation, room, project, projects, route,
 
       <div className="conv-body">
         <div className="conv-main">
-        <div className="messages" ref={listRef} onScroll={onScroll}>
-          {messages === null && <p className="muted center">{t("common.loading")}</p>}
-          {empty && (
-            <div className="intro">
-              <h2>{t("conv.introTitle", { project: project.name })}</h2>
-              <p className="muted">
-                {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
-              </p>
-            </div>
-          )}
-          {messages?.map((m, i) => {
-            const prev = messages[i - 1];
-            const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
-            const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-            return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
-          })}
-          {typing && lead && <TypingDots name={lead.name} />}
-        </div>
+          <div className="messages" ref={listRef} onScroll={onScroll}>
+            {messages === null && <p className="muted center">{t("common.loading")}</p>}
+            {empty && (
+              <div className="intro">
+                <h2>{t("conv.introTitle", { project: project.name })}</h2>
+                <p className="muted">
+                  {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
+                </p>
+              </div>
+            )}
+            {messages?.map((m, i) => {
+              const prev = messages[i - 1];
+              const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
+              const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
+              return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
+            })}
+            {typing && lead && <TypingDots name={lead.name} />}
+          </div>
 
-        {error && <p className="error composer-error">{error}</p>}
-        <Composer key={conversation.id} onSend={send}
-          placeholder={
-            empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
-          } />
+          {error && <p className="error composer-error">{error}</p>}
+          <Composer key={conversation.id} onSend={send}
+            placeholder={
+              empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
+            } />
         </div>
         {desktop && teamOpen && <ConversationTeam employees={project.employees} onClose={closeTeam} />}
       </div>
