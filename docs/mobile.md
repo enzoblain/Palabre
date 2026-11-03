@@ -24,6 +24,8 @@ mobile/
   src/api/          typed client, ported from frontend/src/api.ts
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
+  src/format/       pure list helpers: sort by activity, search, initials, avatar color, iMessage-style time
+  src/hooks/        `usePolling` (foreground only, paused in the background) and `useConversations`
   src/theme/        light and dark color tokens from mobile-ui.md
   app.json          name, bundle id, version, permissions
   package.json      its own lockfile and its own `npm run check`
