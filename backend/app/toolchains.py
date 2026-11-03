@@ -7,13 +7,13 @@ the official download sites only, and are checked against their published SHA-25
 
 import asyncio
 import hashlib
-import platform
 import os
+import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
-import stat
 import tarfile
 import tempfile
 import zipfile
@@ -227,9 +227,12 @@ def _copy_components(source: Path, prefix: Path, components: tuple[str, ...]) ->
 
 def _drop_write_bits(path: Path) -> None:
     """Group/other write and setuid/setgid/sticky bits never survive the copy."""
-    for item in [path, *path.rglob("*")]:
-        if not item.is_symlink():
-            item.chmod(item.lstat().st_mode & 0o755)
+    # os.walk never follows links, so nothing outside the prefix is touched
+    for directory, subdirectories, files in os.walk(path, followlinks=False):
+        for name in [".", *subdirectories, *files]:
+            item = Path(directory, name)
+            if not item.is_symlink():
+                item.chmod(item.lstat().st_mode & 0o755)
 
 
 # --- Python --------------------------------------------------------------------------
