@@ -59,3 +59,33 @@ def test_text_before_the_first_file_is_kept() -> None:
 def test_quoted_path_with_a_non_latin1_character_is_decoded() -> None:
     quoted = 'diff --git "a/x\\t\u2603.py" "b/x\\t\u2603.py"\n+x\n'
     assert [f.path for f in split_diff(quoted)] == ["x\t\u2603.py"]
+
+
+def lockfile_diff(added_lines: list[str]) -> str:
+    body = "".join(f"+{line}\n" for line in added_lines)
+    return f"diff --git a/package-lock.json b/package-lock.json\n--- a/package-lock.json\n+++ b/package-lock.json\n@@ -1,1 +1,1 @@\n{body}"
+
+
+def test_lockfile_line_with_non_default_registry_is_listed() -> None:
+    diff = lockfile_diff(['"resolved": "https://evil.example.com/x/-/x-1.0.0.tgz",'])
+    out = render_diff(diff)
+    assert "https://evil.example.com/x/-/x-1.0.0.tgz" in out
+    assert "review dependency changes in the file" in out
+
+
+def test_lockfile_with_only_default_registries_keeps_the_short_note() -> None:
+    diff = lockfile_diff(['"resolved": "https://registry.npmjs.org/x/-/x-1.0.0.tgz",', '"integrity": "sha512-abc"'])
+    out = render_diff(diff)
+    assert "non-default registry" not in out
+    assert "package-lock.json (+2 -0)" in out and "review dependency changes in the file" in out
+
+
+def test_code_is_shown_before_lockfile_notes() -> None:
+    diff = lockfile_diff(['source = "git+https://evil.example.com/x.git"']) + file_diff("src/app.ts", 2)
+    out = render_diff(diff)
+    assert out.index("src/app.ts") < out.index("evil.example.com")
+
+
+def test_flagged_lines_are_capped() -> None:
+    out = render_diff(lockfile_diff([f'"resolved": "https://evil.example.com/{n}",' for n in range(50)]))
+    assert "and 40 more" in out

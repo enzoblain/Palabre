@@ -11,6 +11,23 @@ LOCKFILE_NAMES = frozenset({
     "uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
     "go.sum", "packages.lock.json", "gradle.lockfile", "pubspec.lock", "Podfile.lock", "flake.lock",
 })
+# Registries a lockfile may point to without drawing attention; any other source URL on an added line is listed
+DEFAULT_REGISTRY_PREFIXES = (
+    "https://registry.npmjs.org/",
+    "https://registry.yarnpkg.com/",
+    "https://pypi.org/",
+    "https://files.pythonhosted.org/",
+    "https://index.crates.io/",
+    "https://static.crates.io/",
+    "https://rubygems.org/",
+    "https://repo.packagist.org/",
+    "https://proxy.golang.org/",
+    "https://github.com/rust-lang/crates.io-index",
+)
+MAX_FLAGGED_LINES_PER_LOCKFILE = 10
+MAX_FLAGGED_LINE_CHARS = 200
+LOCKFILE_REVIEW_HINT = "review dependency changes in the file"
+_SOURCE_URL = re.compile(r"(?:[a-z+]+)://[^\s\"',)]+", re.IGNORECASE)
 _FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
 _PLAIN_NEW_PATH = re.compile(r" b/(.+)$")
 _QUOTED_NEW_PATH = re.compile(r'"b/((?:[^"\\]|\\.)*)"$')
@@ -34,6 +51,17 @@ class FileDiff:
         _, _, hunks = self.text.partition("\n@@")
         lines = hunks.split("\n")[1:]  # The first one is the rest of the header line
         return (sum(line.startswith("+") for line in lines), sum(line.startswith("-") for line in lines))
+
+
+    @property
+    def non_default_source_lines(self) -> list[str]:
+        """Added lines pointing to a URL outside the default registries (the content is hidden otherwise)."""
+        _, _, hunks = self.text.partition("\n@@")
+        added = (line[1:].strip() for line in hunks.split("\n")[1:] if line.startswith("+"))
+        return [
+            line for line in added
+            if any(not url.startswith(DEFAULT_REGISTRY_PREFIXES) for url in _SOURCE_URL.findall(line))
+        ]
 
 
 def _unquote_path(quoted: str) -> str:
@@ -70,18 +98,31 @@ def split_diff(diff: str) -> list[FileDiff]:
     return files
 
 
+def _flagged_note(file: FileDiff) -> list[str]:
+    """One note line per lockfile listing its added lines that use a non-default registry."""
+    lines = file.non_default_source_lines
+    if not lines:
+        return []
+    shown = [line[:MAX_FLAGGED_LINE_CHARS] for line in lines[:MAX_FLAGGED_LINES_PER_LOCKFILE]]
+    more = len(lines) - len(shown)
+    suffix = f"\n  ... and {more} more" if more else ""
+    return [f"[{file.path}: added lines using a non-default registry:\n  " + "\n  ".join(shown) + suffix + "]"]
+
+
 def render_diff(diff: str, max_chars: int = MAX_DIFF_CHARS) -> str:
     """The diff without lockfile content, cut by whole files at max_chars. What is not shown
     (lockfiles, files that did not fit) is listed at the end so the reader knows what to open."""
     files = split_diff(diff)
     shown: list[str] = []
     lockfiles: list[str] = []
+    flagged: list[str] = []
     skipped: list[str] = []
     used = 0
     for file in files:
         if file.is_lockfile:
             added, removed = file.line_counts
             lockfiles.append(f"{file.path} (+{added} -{removed})")
+            flagged.extend(_flagged_note(file))
         elif used + len(file.text) <= max_chars:
             shown.append(file.text)
             used += len(file.text)
@@ -89,7 +130,8 @@ def render_diff(diff: str, max_chars: int = MAX_DIFF_CHARS) -> str:
             skipped.append(file.path)
     notes = []
     if lockfiles:
-        notes.append("[lockfiles, content not shown: " + ", ".join(lockfiles) + "]")
+        notes.append(f"[lockfiles, content not shown, {LOCKFILE_REVIEW_HINT}: " + ", ".join(lockfiles) + "]")
+        notes.extend(flagged)
     if skipped:
         notes.append("[diff truncated, these files are not shown, read them directly: " + ", ".join(skipped) + "]")
     return "".join(shown) + ("\n" + "\n".join(notes) if notes else "")
