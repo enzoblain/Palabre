@@ -251,6 +251,7 @@ export const en = {
 
   "conv.members": "{count} members",
   "conv.member": "{count} member",
+  "conv.showTeam": "Show the team",
   "conv.introTitle": "Tell your team about {project}",
   "conv.intro": "What are you building, for whom, and what matters most?",
   "conv.introLead": "{name} ({title}) will read it and organize the work.",
