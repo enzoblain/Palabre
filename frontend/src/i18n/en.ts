@@ -277,15 +277,9 @@ export const en = {
   "conv.sentAt": "Sent {date}",
   "conv.actions": "Message actions",
   "conv.typing": "{name} is writing…",
-  "conv.originalRequest": "Original request",
   "conv.liftLimit": "Lift loop limit",
   "conv.liftLimitTitle": "Agents stop being woken up here after too many runs in an hour. This restarts the count.",
   "conv.liftLimitDone": "Loop limit lifted: the team can be woken up again here.",
-
-  "request.mergedInto": "Merged into {link}",
-  "request.link": "request #{id}",
-  "request.mergedAnother": "Merged into another request",
-  "request.withdrawn": "Withdrawn by the lead",
 
   "task.todo": "to do",
   "task.in_progress": "in progress",

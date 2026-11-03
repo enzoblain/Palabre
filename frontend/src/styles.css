@@ -266,8 +266,6 @@ select:focus { border-color: var(--accent); }
   background: var(--bg-soft); border: 1px solid var(--border);
 }
 .live-tag { margin-left: auto; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
-.request { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-.request-answer { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bg-soft); font-size: 14px; }
 button:focus-visible, .btn:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* --- Team built by hand --- */
@@ -332,9 +330,6 @@ details summary { cursor: pointer; margin-top: 6px; }
 /* --- Team members --- */
 .member-role { font-size: 12px; color: var(--muted); }
 .message:focus { outline: none; }
-.message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
-.request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }
-
 .team-count { font-size: 13px; }
 .team-count.warning { color: var(--busy); font-weight: 600; }
 .link-btn { background: none; border: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
