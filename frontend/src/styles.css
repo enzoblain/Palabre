@@ -409,8 +409,9 @@ details summary { cursor: pointer; margin-top: 6px; }
 .bottom-bar a.active { color: var(--accent); background: var(--active); font-weight: 600; }
 .bottom-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .bottom-bar a { transition: none; } }
-/* Keep the end of the page reachable above the floating bar */
-.main.with-bottom-bar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+/* Keep the end of the page reachable above the floating bar: its measured height (58px by default, set by
+   BottomBar) plus the 12px offset and a 14px gap */
+.main.with-bottom-bar { padding-bottom: calc(var(--bottom-bar-height, 58px) + 26px + env(safe-area-inset-bottom)); }
 
 /* --- Projects screen states --- */
 .projects-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 0; text-align: center; }
