@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
@@ -48,8 +48,15 @@ function Session() {
 function useProject(projectId: number | null) {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloads, setReloads] = useState(0);
+  const shownProjectId = useRef<number | null>(null);
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
   useEffect(() => {
-    setProject(null);
+    // A reload re-fetches in place, keeping the page on screen
+    if (shownProjectId.current !== projectId) {
+      shownProjectId.current = projectId;
+      setProject(null);
+    }
     setError(null);
     if (projectId === null) return;
     let cancelled = false;
@@ -63,9 +70,9 @@ function useProject(projectId: number | null) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, reloads]);
   // Until the effect above has run, `project` may still be the one we just left
-  return { project: project?.detail.id === projectId ? project : null, error };
+  return { project: project?.detail.id === projectId ? project : null, error, reload };
 }
 
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
@@ -83,7 +90,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   }, [settings.language, setLanguage]);
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
-  const { project, error } = useProject(projectId);
+  const { project, error, reload: reloadProject } = useProject(projectId);
   // Small screens: the team panel is a drawer over the page, and closes once a link is followed
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => setNavOpen(false), [route]);
@@ -96,6 +103,12 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       if (!s.boss_name) go("/settings"); // First time: the team needs a name for its CEO
     }).catch(() => {});
   }, [reloadProjects]);
+
+  // Leaving a deleted project's screen, as the project no longer exists
+  const onProjectsDeleted = useCallback((ids: number[]) => {
+    reloadProjects();
+    if (projectId !== null && ids.includes(projectId)) go("/", true);
+  }, [reloadProjects, projectId]);
 
   usePolling(reloadProjects, PROJECTS_POLL_MS, [reloadProjects]); // unread counts and previews
 
@@ -123,9 +136,11 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     }} />;
   } else if (route.name === "settings") {
     main = <Settings settings={settings} projects={projects} onSaved={setSettings}
-      onProjectsChanged={reloadProjects} onDisconnect={onDisconnect} />;
+      onDisconnect={onDisconnect} />;
   } else if (route.name === "info") {
-    main = error ? <p className="error center">{error}</p> : <ProjectInfo project={project} />;
+    main = error ? <p className="error center">{error}</p> : <ProjectInfo project={project}
+      onChanged={() => { reloadProject(); reloadProjects(); }}
+      onDeleted={() => { reloadProjects(); go("/", true); }} />;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
@@ -142,14 +157,14 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   } else if (desktop && projects.length > 0) {
     main = <p className="muted center">{t("home.selectProject")}</p>;
   } else {
-    main = <Projects projects={projects} />;
+    main = <Projects projects={projects} onDeleted={onProjectsDeleted} />;
   }
 
   const inProject = route.name === "project" || route.name === "info";
   return (
     <div className={`shell${desktop ? " desktop" : ""}${navOpen ? " nav-open" : ""}`}>
       {desktop ? (
-        <ProjectsSidebar projects={projects} route={route} selectedId={projectId} />
+        <ProjectsSidebar projects={projects} route={route} selectedId={projectId} onDeleted={onProjectsDeleted} />
       ) : (
         <>
           <div className="nav-backdrop" onClick={() => setNavOpen(false)} />

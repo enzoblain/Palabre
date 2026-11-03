@@ -315,9 +315,6 @@ textarea { resize: vertical; line-height: 1.5; }
 details summary { cursor: pointer; margin-top: 6px; }
 
 /* --- Projects in the settings --- */
-.project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.project-list li { display: flex; align-items: center; gap: 10px; min-height: 32px; }
-.project-list-name { flex: 1; }
 .confirm-delete { gap: 8px; font-size: 13px; }
 .btn-danger { background: var(--error); border-color: var(--error); color: var(--error-text); }
 .btn-danger:hover:not(:disabled) { background: var(--error); filter: brightness(1.08); }
@@ -372,8 +369,6 @@ details summary { cursor: pointer; margin-top: 6px; }
   /* Below 16px, iOS zooms in on the field being typed in */
   input, textarea, select { font-size: 16px; }
 }
-.branch-field { gap: 6px; flex-wrap: wrap; }
-.branch-field input { width: 140px; padding: 3px 8px; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -465,6 +460,20 @@ details summary { cursor: pointer; margin-top: 6px; }
 .project-row.active { background: var(--active); }
 .project-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .project-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+/* Edit mode: the checkbox is pushed out of view on the left, and slides in as the row shifts right */
+.project-list li { position: relative; }
+.project-list .project-row { transition: transform 0.2s ease; }
+.project-check { position: absolute; left: 12px; top: 50%; margin: -9px 0 0; width: 18px; height: 18px; opacity: 0; transition: opacity 0.2s ease; }
+.project-list.editing .project-row { transform: translateX(40px); }
+.project-list.editing .project-check { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .project-list .project-row, .project-check { transition: none; }
+}
+.projects-head { display: flex; align-items: center; gap: 12px; }
+.projects-head h1 { margin: 0; }
+.sidebar-title { display: flex; align-items: center; gap: 10px; }
+.delete-selection { display: flex; flex-direction: column; gap: 8px; padding: 12px 4px; }
+.danger-zone { border-color: var(--error); }
 .project-row-name { font-weight: 600; }
 .project-row-preview { font-size: 13px; color: var(--muted); }
 .unread-badge {
