@@ -249,7 +249,7 @@ async def watch_release_ci(s: AsyncSession) -> None:
     """Wake the lead, once per head SHA, when CI ends on the open release PR (team's branch to
     production) and, after merge_release, on production's head."""
     now = time.monotonic()
-    projects = list(await s.scalars(select(Project).where(Project.kind == "company")))
+    projects = list(await s.scalars(select(Project)))
     for gone in _last_release_check.keys() - {p.id for p in projects}:
         del _last_release_check[gone]
     for project in projects:
@@ -304,7 +304,7 @@ async def _published_version(repo: str, sha: str) -> str | None:
     """The version the files of `sha` carry, the one to tag; None if it cannot be read."""
     try:
         text = await github.file_content(repo, "frontend/package.json", sha)
-        return projects.VERSION_FILES["frontend/package.json"](text, "") if text else None
+        return projects.VERSION_FILES["frontend/package.json"](text) if text else None
     except (github.GitHubError, ValueError):
         return None
 
@@ -313,7 +313,7 @@ async def watch_pending_release(s: AsyncSession) -> None:
     """Wake the lead, once per head SHA of the team's branch, when it holds commits production lacks,
     no task is open and nothing moved for release_wait_minutes: the release must not depend on a memory."""
     now = time.monotonic()
-    found = list(await s.scalars(select(Project).where(Project.kind == "company")))
+    found = list(await s.scalars(select(Project)))
     for gone in _last_pending_check.keys() - {p.id for p in found}:
         del _last_pending_check[gone]
     for project in found:

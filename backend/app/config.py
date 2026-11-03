@@ -42,24 +42,22 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(12 * 3600, gt=0)
     # Hosts whose X-Real-IP is believed (the web container's nginx); the server port is published, so never "*"
     trusted_proxy_hosts: list[str] = ["web"]
-    # Origins allowed to call the API from a browser: the Vite dev server and the Tauri webview.
-    # The web app goes through nginx on its own origin and the Tauri app calls from Rust: neither needs CORS.
+    # Origins allowed to call the API from a browser: the Vite dev server.
+    # The web app goes through nginx on its own origin: it needs no CORS.
     cors_origins: list[str] = [
         "http://localhost:1420",
         "http://127.0.0.1:1420",
-        "tauri://localhost",
-        "http://tauri.localhost",
     ]
     # Used by the backend only (push, pull requests, merges). Never given to agents.
     github_token: str | None = None
     projects_dir: Path = Path("/data/projects")
     # Temporary files of runs (MCP configs), kept outside the repositories
     runtime_dir: Path = Path("/data/runtime")
-    # System user the agents' `claude` runs as, through sudo (see "Security" in the README).
-    # Empty = same user as the backend (desktop app, local dev without sudo).
+    # System user the agents' `claude` runs as, through sudo (see docs/security.md).
+    # Empty = same user as the backend (local dev without sudo).
     agent_user: str = ""
     # Number of per-run accounts `<agent_user>1..N` (0 = every run shares agent_user). A run takes
-    # a free one for its whole life, so no two live runs share a uid (see "Security" in the README).
+    # a free one for its whole life, so no two live runs share a uid (see docs/security.md).
     agent_pool_size: int = 0
     # The backend's private store of Claude sessions, one directory per employee (default: CLAUDE_CONFIG_DIR)
     claude_store_dir: Path | None = None
@@ -83,11 +81,6 @@ class Settings(BaseSettings):
     anthropic_allowed_server_tools: list[str] = ["web_search"]
     anthropic_max_body_bytes: int = 64 * 1024 * 1024
     anthropic_timeout_s: int = 600
-    # fetch_page (research groups' web reader, run by the backend): bounds on what one call may cost
-    fetch_timeout_s: float = 20
-    fetch_max_bytes: int = 2_000_000
-    fetch_max_chars: int = 30_000
-    fetch_max_redirects: int = 3
     # Toolchains installed by the agents (install_toolchain), shared by the whole team
     toolchains_dir: Path = Path("/data/toolchains")
 
@@ -130,6 +123,10 @@ class Settings(BaseSettings):
     merge_reminder_minutes: int = 10
     # Minutes a task in progress or in review may stay still before the lead is alerted (once per head SHA)
     idle_task_minutes: int = 10
+    # Minutes a task in progress may stay without any run, wakeup or activity before its dev is woken up again
+    stalled_task_minutes: int = Field(5, ge=1)
+    # Times a dev is woken up again after a run that ended without submitting; the lead is told past it
+    max_stalled_restarts: int = Field(3, ge=1)
     # Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told
     review_silence_minutes: int = Field(15, ge=1)
     # Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it

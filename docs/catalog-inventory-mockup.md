@@ -62,7 +62,7 @@ Rules     ✔ Exactly one ship_release holder
 ## 5. Empty and error states
 
 - Loading: skeleton of 3 cards (`aria-busy`).
-- No job: "No job available. Jobs are added in the repository, see the README (Adding a job)." No button.
+- No job: "No job available. Jobs are added in the repository, see docs/develop.md." No button.
 - Empty search: "No job matches "xyz"." + link "Clear search".
 - No preset for this kind: only "Random" + "No predefined personality."
 - Load failure: banner `role="alert"` "Could not load the catalog. [Retry]".

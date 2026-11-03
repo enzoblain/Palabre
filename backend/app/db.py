@@ -1,12 +1,23 @@
 """Database engine, sessions and schema setup."""
 
+import logging
 from collections.abc import AsyncIterator
 
-from sqlalchemy import CheckConstraint, Connection, inspect
+from sqlalchemy import CheckConstraint, Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+RESEARCH_COLUMNS = ("kind", "topic", "research_phase")
+# Author columns that must outlive the member they name (no foreign key)
+AUTHOR_COLUMNS = (
+    ("messages", "request_author_id"),
+    ("messages", "employee_id"),
+    ("tasks", "created_by_id"),
+    ("tasks", "closed_by_id"),
+)
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
@@ -21,9 +32,10 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def upgrade_schema(conn: Connection) -> None:
+def upgrade_schema(conn: Connection) -> list[int]:
     """Create missing tables, and add the columns added since a table was created:
-    nullable ones, or ones with a text server default (until Alembic migrations exist)."""
+    nullable ones, or ones with a text server default (until Alembic migrations exist).
+    Returns the ids of the projects deleted along the way, so the caller can remove their files."""
     Base.metadata.create_all(conn)
     existing = inspect(conn)
     for table in Base.metadata.sorted_tables:
@@ -40,10 +52,13 @@ def upgrade_schema(conn: Connection) -> None:
                     conn.exec_driver_sql("DELETE FROM agent_sessions")
             elif column.nullable:
                 conn.exec_driver_sql(ddl)
+    _widen_request_status_check(conn)
     _add_missing_checks(conn)
-    _drop_request_author_foreign_key(conn)
+    _drop_author_foreign_keys(conn)
+    dropped_project_ids = _drop_research_projects(conn)
     # Conversations are never resumed: drop the rows stored before that (idempotent)
     conn.exec_driver_sql("DELETE FROM agent_sessions WHERE scope LIKE 'conversation:%'")
+    return dropped_project_ids
 
 
 def _add_missing_checks(conn: Connection) -> None:
@@ -61,11 +76,45 @@ def _add_missing_checks(conn: Connection) -> None:
                 )
 
 
-def _drop_request_author_foreign_key(conn: Connection) -> None:
-    """messages.request_author_id was a foreign key with ON DELETE SET NULL, which erased who a relayed
-    request was for when the member left the team: drop it (idempotent). Only PostgreSQL has it in production."""
+def _widen_request_status_check(conn: Connection) -> None:
+    """The request status CHECK predates the "answered" status: replace it so the boss's replies can be stored
+    (idempotent). _add_missing_checks then recreates it from the model. Only PostgreSQL has it in production."""
     if conn.dialect.name != "postgresql":
         return
-    for foreign_key in inspect(conn).get_foreign_keys("messages"):
-        if foreign_key["constrained_columns"] == ["request_author_id"]:
-            conn.exec_driver_sql(f'ALTER TABLE messages DROP CONSTRAINT "{foreign_key["name"]}"')
+    from app.models import REQUEST_STATUS_CHECK, RequestStatus  # models import this module
+
+    definition = conn.execute(
+        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :name"),
+        {"name": REQUEST_STATUS_CHECK},
+    ).scalar()
+    if definition is not None and RequestStatus.answered.value not in definition:
+        conn.exec_driver_sql(f"ALTER TABLE messages DROP CONSTRAINT {REQUEST_STATUS_CHECK}")
+
+
+def _drop_author_foreign_keys(conn: Connection) -> None:
+    """These author columns were foreign keys with ON DELETE SET NULL, which erased who wrote a message
+    (or created or closed a task) when the member left the team, and NULL reads as the boss: drop them
+    (idempotent). Only PostgreSQL has them in production."""
+    if conn.dialect.name != "postgresql":
+        return
+    for table, column in AUTHOR_COLUMNS:
+        for foreign_key in inspect(conn).get_foreign_keys(table):
+            if foreign_key["constrained_columns"] == [column]:
+                conn.exec_driver_sql(f'ALTER TABLE {table} DROP CONSTRAINT "{foreign_key["name"]}"')
+
+
+def _drop_research_projects(conn: Connection) -> list[int]:
+    """The research feature is gone: delete the research projects (their rooms, messages and
+    employees go with them) and drop the columns that only served it (idempotent).
+    Returns the deleted project ids: empty once the columns are gone."""
+    present = {c["name"] for c in inspect(conn).get_columns("projects")}
+    removed_ids: list[int] = []
+    if "kind" in present:
+        removed_ids = list(conn.exec_driver_sql("SELECT id FROM projects WHERE kind = 'research'").scalars())
+        if removed_ids:
+            conn.exec_driver_sql("DELETE FROM projects WHERE kind = 'research'")
+            logger.info("Removed %d research project(s) with their data", len(removed_ids))
+    for column in RESEARCH_COLUMNS:
+        if column in present:
+            conn.exec_driver_sql(f'ALTER TABLE projects DROP COLUMN "{column}"')
+    return removed_ids

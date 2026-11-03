@@ -4,29 +4,27 @@ from fastapi import APIRouter, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app import github, projects, services
+from app import services
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     DecisionOut,
-    DecisionPatch,
     QuestionIn,
     QuestionOut,
     QuestionPatch,
-    RoomIn,
     RoomOut,
     RoomPatch,
     TaskOut,
 )
-from app.models import Conversation, Decision, Employee, OpenQuestion, Project, RequestAnswer, Room, Task
+from app.models import Decision, Employee, OpenQuestion, Project, Room, Task
 
 router = APIRouter(tags=["rooms"])
 
 
 async def load_room(s, room_id: int) -> Room:
     room = await s.scalar(select(Room).where(Room.id == room_id).options(selectinload(Room.members)))
-    if room is None or not await services.boss_sees(s, room):
+    if room is None or not services.boss_sees(room):
         raise ApiError(status.HTTP_404_NOT_FOUND, ErrorCode.ROOM_NOT_FOUND, f"Room {room_id} not found")
     return room
 
@@ -54,42 +52,6 @@ async def list_rooms(project_id: int, s: SessionDep):
     await get_or_404(s, Project, project_id)
     q = select(Room).where(Room.project_id == project_id).options(selectinload(Room.members)).order_by(Room.id)
     return list(await s.scalars(services.boss_rooms(q)))
-
-
-@router.post("/projects/{project_id}/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
-async def create_room(project_id: int, body: RoomIn, s: SessionDep):
-    """A room (like a channel), with its first conversation. Members default to everyone."""
-    project = await get_or_404(s, Project, project_id)
-    if project.kind != "research":
-        raise ApiError(
-            status.HTTP_403_FORBIDDEN,
-            ErrorCode.BOSS_DIRECTION_ONLY,
-            "The boss only works through the direction channel",
-        )
-    q = select(Employee).where(Employee.project_id == project_id)
-    if body.member_ids is not None:
-        q = q.where(Employee.id.in_(body.member_ids))
-    members = list(await s.scalars(q))
-    if body.member_ids is not None and len(members) != len(set(body.member_ids)):
-        raise ApiError(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            ErrorCode.MEMBERS_NOT_IN_PROJECT,
-            "Some members are not employees of this project",
-        )
-    if body.name.strip().lower() == services.DIRECTION:
-        raise ApiError(
-            status.HTTP_409_CONFLICT,
-            ErrorCode.DIRECTION_ROOM_RESERVED,
-            "The direction channel is created with the project",
-        )
-    room = Room(project_id=project_id, name=body.name, objective=body.objective, summary="", members=members)
-    s.add(room)
-    await s.flush()
-    s.add(Conversation(room_id=room.id, title="General"))
-    if body.objective:
-        services.emit_event(s, project_id, "objective_set", {"room_id": room.id})
-    await s.commit()
-    return await load_room(s, room.id)
 
 
 @router.get("/rooms/{room_id}", response_model=RoomOut)
@@ -168,24 +130,6 @@ async def get_document(room_id: int, s: SessionDep) -> dict:
         "questions": [QuestionOut.model_validate(q) for q in questions],
         "tasks": [TaskOut.model_validate(t) for t in tasks],
     }
-
-
-@router.patch("/decisions/{decision_id}", response_model=DecisionOut)
-async def decide(decision_id: int, body: DecisionPatch, s: SessionDep):
-    """Validate or reject a decision from the room document. A release is merged into
-    production when validated (and stays proposed if GitHub refuses), closed when rejected.
-    The request in direction about it, if any, is answered the same way."""
-    decision = await get_or_404(s, Decision, decision_id)
-    try:
-        await projects.settle_decision(s, decision, RequestAnswer(body.status))
-    except github.GitHubError as exc:
-        raise ApiError(
-            status.HTTP_409_CONFLICT,
-            ErrorCode.GITHUB_MERGE_REFUSED,
-            f"GitHub refused the merge: {exc}",
-        ) from None
-    await s.commit()
-    return decision
 
 
 @router.post("/rooms/{room_id}/questions", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)

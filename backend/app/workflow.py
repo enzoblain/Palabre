@@ -32,7 +32,7 @@ NO_HEAD = "none"  # head key of a review round that recorded no head SHA
 MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
 FALLBACK_MERGE_TITLE = "chore: merge task"  # squash title when no PR title was recorded; never the (French) task title
 # Events that make a dev work on a task (the same set as the orchestrator's task runs)
-TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
+TASK_EVENT_TYPES = {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge", "task_stalled"}
 EDITABLE_STATUSES = {TaskStatus.todo, TaskStatus.cancelled}
 
 log = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ async def wake_dev(
         return False
     if not nudge:
         task.unstarted_nudges = 0  # Someone moved the task: the watchdog starts over
+        task.stalled_restarts = 0
     task.idle_alert_sha = None
     emit_event(s, task.project_id, event_type, {"task_id": task.id, **(payload or {})}, employee_id=task.assignee_id)
     return True

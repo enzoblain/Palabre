@@ -34,7 +34,7 @@ def test_fallback_has_the_exact_count_and_code():
         chosen = selection.fallback_selection(seats)
         assert len(chosen) == seats
         assert any(CODE in roles[key].permissions for key in chosen)
-        assert team_permission_error([[k] for k in (*SKELETON, *chosen)], "company") is None
+        assert team_permission_error([[k] for k in (*SKELETON, *chosen)]) is None
 
 
 def test_fallback_follows_the_multinational_seat_order():
@@ -61,7 +61,6 @@ async def test_code_fence_is_accepted(oneshot):
         '["dev_backend", "dev_frontend"]',  # wrong count
         '["not_a_role"]',
         '["lead"]',  # the lead is already placed
-        '["research_peer"]',
         "[1]",
         '["designer"]',  # nobody writes code
     ],

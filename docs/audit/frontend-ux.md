@@ -1,5 +1,7 @@
 # Frontend and UX audit
 
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
+
 Scope: `frontend/` (React + TypeScript + Vite, Tauri shell, nginx). Findings only, no fix is applied here.
 Method: full read of `src/`, `src-tauri/`, `index.html`, `nginx.conf` and `styles.css`. Nothing was run on a real device: every mobile point is read from the code and still has to be confirmed on a phone (#96 and #105 were never tested on one).
 Line numbers refer to the `dev` branch at the time of writing. Severity: critical / high / medium / low. Effort: S (under half a day), M (1 to 2 days), L (more).
@@ -130,7 +132,7 @@ Line numbers refer to the `dev` branch at the time of writing. Severity: critica
 - Fix: error state with retry for the first load; a confirm step (or an undo window) for merge decisions; `busy` flag per decision; `replaceAll` or a status label map.
 - Effort: S.
 
-### 15. Tauri: wildcard HTTP scope and window settings
+### 15. Tauri: wildcard HTTP scope and window settings (historical: the desktop app has been removed)
 
 - Where: `src-tauri/capabilities/default.json:9-16`, `src-tauri/tauri.conf.json:11-20`, `Markdown.tsx:44-47`.
 - Problem: the capability allows requests to any http(s) host. This is deliberate (the user hosts the server anywhere) but it also means a compromised front can reach any LAN service; plain `http://` is allowed, so the bearer token travels in clear over the network, and nothing in `Connect` warns about it when the address is not a LAN one. The four URL patterns are redundant (`http://*/*` already covers the others). The `mailto:` and `https:` links in agent messages go through `opener:default` with no allow-list: `openUrl` is only called after the `^(https?:|mailto:)` test, which is good, but the capability itself would accept anything the front asks. There is no explicit window state persistence, no auto-update config and no signing config for release builds, `minWidth: 760` equals the mobile breakpoint so the desktop window never reaches the mobile layout (intended, but undocumented). The `inTauri` test is duplicated (`api.ts:5`, `Markdown.tsx:45`).

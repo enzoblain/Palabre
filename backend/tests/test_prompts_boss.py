@@ -30,7 +30,7 @@ def test_boss_requests_rule_points_to_the_messages_rule():
 def _prompt_for(role: str) -> str:
     team = generate_team("enterprise", 1)
     member = next(m for m in team.employees if role in m.roles)
-    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
+    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1)
     return build_system_prompt(team, member, project, "Boss", first_run=False)
 
 

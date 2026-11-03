@@ -16,7 +16,7 @@ from app.api.projects import _check_creation_mode
 from app.db import get_session
 from app.api.schemas import MemberIn, ProjectDetail, ProjectIn
 from app.company.catalog import MIN_TEAM_SIZE, load_catalog
-from app.company.team import personality_for, random_personality
+from app.company.team import random_personality
 
 LEAD = MemberIn(name="Elise", roles=["lead"])
 DEV = MemberIn(name="Mehdi", roles=["dev_backend"])
@@ -35,13 +35,13 @@ def _project(**fields) -> ProjectIn:
 
 def _refused(body: ProjectIn, code: ErrorCode) -> None:
     with pytest.raises(ApiError) as caught:
-        _check_creation_mode(body, "company")
+        _check_creation_mode(body)
     assert caught.value.status_code == 422
     assert caught.value.code == code
 
 
 def test_manual_accepts_a_team_with_its_mandatory_member():
-    _check_creation_mode(_project(creation_mode="manual", employees=TEAM), "company")
+    _check_creation_mode(_project(creation_mode="manual", employees=TEAM))
 
 
 def test_manual_refuses_a_team_below_the_minimum():
@@ -55,7 +55,7 @@ def test_manual_refuses_a_missing_team():
 
 def test_auto_accepts_the_minimum_team():
     body = _project(creation_mode="auto", description="A CRM", employee_count=MIN_TEAM_SIZE)
-    _check_creation_mode(body, "company")
+    _check_creation_mode(body)
 
 
 def test_auto_refuses_a_team_below_the_minimum():
@@ -76,15 +76,8 @@ def test_auto_refuses_a_hand_made_list():
     _refused(body, ErrorCode.INVALID_CREATION_MODE)
 
 
-def test_creation_modes_are_for_companies():
-    body = _project(creation_mode="manual", employees=[LEAD])
-    with pytest.raises(ApiError) as caught:
-        _check_creation_mode(body, "research")
-    assert caught.value.code == ErrorCode.INVALID_CREATION_MODE
-
-
 def test_no_creation_mode_keeps_the_previous_behavior():
-    _check_creation_mode(_project(), "company")
+    _check_creation_mode(_project())
 
 
 def test_an_unknown_creation_mode_is_a_validation_error():
@@ -92,18 +85,17 @@ def test_an_unknown_creation_mode_is_a_validation_error():
         _project(creation_mode="other")
 
 
-def test_random_personality_is_valid_for_the_kind():
-    for kind in ("company", "research"):
-        pool = personality_for(kind)
-        drawn = random_personality(kind)
-        assert set(drawn["traits"]) == {a["key"] for a in pool["axes"]}
-        assert set(drawn["traits"].values()) <= set(pool["levels"])
-        assert drawn["quirks"] and set(drawn["quirks"]) <= set(pool["quirks"])
-        assert {k: v in pool["style"][k] for k, v in drawn["style"].items()} == dict.fromkeys(pool["style"], True)
+def test_random_personality_is_valid():
+    pool = load_catalog()["personality"]
+    drawn = random_personality()
+    assert set(drawn["traits"]) == {a["key"] for a in pool["axes"]}
+    assert set(drawn["traits"].values()) <= set(pool["levels"])
+    assert drawn["quirks"] and set(drawn["quirks"]) <= set(pool["quirks"])
+    assert {k: v in pool["style"][k] for k, v in drawn["style"].items()} == dict.fromkeys(pool["style"], True)
 
 
 def test_random_personality_is_reproducible_with_a_seed():
-    assert random_personality("company", 7) == random_personality("company", 7)
+    assert random_personality(7) == random_personality(7)
 
 
 @pytest.fixture
@@ -117,7 +109,7 @@ async def client():
 
 
 async def test_endpoint_draws_a_personality_for_a_role(client):
-    role = next(k for k, r in load_catalog()["roles"].items() if r.kind == "company")
+    role = next(iter(load_catalog()["roles"]))
     response = await client.get(f"/catalog/roles/{role}/random-personality")
     assert response.status_code == 200
     assert set(response.json()) == {"traits", "quirks", "style"}
@@ -142,7 +134,7 @@ async def projects_client(monkeypatch):
 
     async def load_project(_session, _project_id):
         return SimpleNamespace(
-            id=1, name="App", kind="company", topic=None, research_phase=None, repo_url="https://github.com/acme/app",
+            id=1, name="App", repo_url="https://github.com/acme/app",
             default_branch="dev", mode="enterprise", seed=1, created_at=datetime.now(UTC), employees=[], rooms=[],
         )  # fmt: skip
 
@@ -189,6 +181,14 @@ async def test_manual_creation_without_the_lead_is_refused(projects_client):
     assert projects_client.created == []
 
 
+async def test_manual_creation_with_two_leads_is_refused(projects_client):
+    team = [*TEAM_PAYLOAD, {"name": "Zoe", "roles": ["lead"]}]
+    response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=team))
+    assert response.status_code == 409
+    assert response.json()["code"] == ErrorCode.LEAD_ALREADY_EXISTS
+    assert projects_client.created == []
+
+
 async def test_manual_creation_without_a_team_is_refused(projects_client):
     response = await projects_client.post("/projects", json=_payload(creation_mode="manual"))
     assert response.status_code == 422
@@ -228,7 +228,7 @@ async def test_auto_creation_selects_the_roles_and_uses_the_enterprise_process(m
     monkeypatch.setattr(projects.team_selection, "select_roles", select_roles)
     monkeypatch.setattr(projects, "team_token", lambda: "team-token")
     monkeypatch.setattr(projects, "working_branch", working_branch)
-    monkeypatch.setattr(projects, "_open_channels", no_op)
+    monkeypatch.setattr(projects, "open_channels", no_op)
     monkeypatch.setattr(projects, "ensure_direction", no_op)
     session = SimpleNamespace(add=lambda _obj: None, commit=no_op)
 

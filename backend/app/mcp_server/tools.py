@@ -4,11 +4,11 @@ from typing import Literal
 
 from mcp.server.mcpserver import Context
 
-from app import projects, services, toolchains, web_fetch, workflow
+from app import projects, services, toolchains, workflow
 from app.db import SessionLocal
 from app.errors import WorkflowError
 from app.mcp_server.server import current_caller, tool
-from app.models import Employee, Project
+from app.models import Employee, RequestAnswer
 
 # --- Conversation (everyone) -------------------------------------------------------
 
@@ -37,11 +37,6 @@ async def read_messages(ctx: Context, since_id: int | None = None, limit: int = 
     ]
 
 
-async def _check_chat(s, project_id: int, content: str) -> None:
-    project = await s.get(Project, project_id)
-    services.check_chat_message(content, project.kind)
-
-
 @tool
 async def send_message(ctx: Context, content: str, channel: str | None = None) -> dict:
     """Post a message in the current conversation, signed with your name: a short chat
@@ -52,7 +47,7 @@ async def send_message(ctx: Context, content: str, channel: str | None = None) -
     Only the lead may post in "direction"."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         conversation_id = c.conversation_id
         if channel is not None:
@@ -79,15 +74,17 @@ async def create_channel(ctx: Context, name: str, members: list[str]) -> dict:
 
 @tool
 async def ask_ceo(ctx: Context, content: str, kind: Literal["decision", "question", "escalation"] = "question") -> dict:
-    """Ask the boss something in the direction channel. They answer with Validate, Reject or
-    Nuance (a free comment), and you are woken up with their answer. Use it when you need
-    their go or arbitration; a plain update is a send_message with channel="direction".
+    """Ask the boss something in the direction channel. They answer by writing in the channel,
+    freely: their next message closes every request still waiting, and you are woken up with
+    their reply and the requests it answers. You interpret it ("ok" means yes, a nuance is a
+    condition...). Use it when you need their go or arbitration; a plain update is a
+    send_message with channel="direction".
     content: what you ask, short and self-contained, with your recommendation.
     The boss is not a developer: write in plain sentences, with no jargon and no code references (files, identifiers, task or PR numbers); the technical
     detail goes in the room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         msg = await services.ask_boss(s, c.project_id, me, content, kind)
     if msg is None:
@@ -110,12 +107,12 @@ async def list_pending_requests(ctx: Context) -> list[dict]:
 @tool
 async def withdraw_request(ctx: Context, request_id: int, reason: str) -> dict:
     """Withdraw one of your pending requests to the boss that became useless (obsolete, done
-    another way). It leaves their open requests and they can no longer answer it. A request
-    already answered is refused, and so is a release request. If it asks about a decision, the
-    decision is rejected with your reason. reason: why, in a sentence."""
+    another way). It leaves their open requests. A request already answered is refused, and so
+    is a release request. If it asks about a decision, the decision is rejected with your
+    reason. reason: why, in a sentence."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, reason)
+        services.check_chat_message(reason)
         me = await s.get(Employee, c.employee_id)
         msg = await projects.withdraw_request(s, c.project_id, me, request_id, reason)
     return {"id": msg.id, "status": msg.request_status}
@@ -128,7 +125,7 @@ async def merge_requests(ctx: Context, request_ids: list[int], content: str) -> 
     already answered, or about a decision or a release, is refused. content: the new request, short and self-contained, with your recommendation."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, content)
+        services.check_chat_message(content)
         me = await s.get(Employee, c.employee_id)
         msg = await services.merge_requests(s, c.project_id, me, request_ids, content)
     return {"message_id": msg.id, "merged": request_ids, "status": "waiting for the boss"}
@@ -184,7 +181,7 @@ async def escalate(ctx: Context, reason: str, to: Literal["lead", "boss"] = "lea
     room document or the task."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, reason)
+        services.check_chat_message(reason)
         me = await s.get(Employee, c.employee_id)
         msg = await services.escalate(s, c.project_id, c.conversation_id, me, to, reason)
     return {"message_id": msg.id}
@@ -212,7 +209,7 @@ async def write_notes(ctx: Context, content: str, append: bool = True) -> str:
 @tool
 async def add_decision(ctx: Context, title: str, rationale: str = "", decided_by_boss: bool = False) -> dict:
     """Propose a decision in the room document. It stays "proposed" until the boss
-    validates or rejects it. title: the decision in one short sentence; rationale: the why in
+    answers it (the lead records the answer with settle_decision). title: the decision in one short sentence; rationale: the why in
     a few sentences (the boss reads it in full in direction, so keep it short and
     plain). Write both in the team's language. The boss's request is signed by the lead.
     The boss is not a developer: title and rationale use plain sentences, with no jargon and no
@@ -224,6 +221,19 @@ async def add_decision(ctx: Context, title: str, rationale: str = "", decided_by
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
         decision = await services.add_decision(s, c.project_id, c.room_id, title, rationale, me, decided_by_boss)
+    return {"id": decision.id, "status": decision.status.value}
+
+
+@tool
+async def settle_decision(ctx: Context, decision_id: int, outcome: Literal["validated", "rejected"], comment: str = "") -> dict:
+    """Record the boss's reply to a proposed decision, once you have read it in direction (they
+    answer in free text; you interpret it). The decision becomes validated or rejected, and its
+    pending requests with it. A rejected release closes its pull request; a validated release is
+    refused here: ship it with merge_release. Validating a decision that has requests in direction is refused until the boss has answered one of them. comment: the boss's reasons or conditions, in a sentence."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        me = await s.get(Employee, c.employee_id)
+        decision = await projects.settle_decision_for_boss(s, c.project_id, me, decision_id, RequestAnswer(outcome), comment)
     return {"id": decision.id, "status": decision.status.value}
 
 
@@ -315,7 +325,7 @@ async def report_progress(ctx: Context, message: str) -> dict:
     """Tell the team how your task is going, in a short chat message."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         msg = await services.post_message(s, c.project_id, c.conversation_id, message, me)
     return {"id": msg.id}
@@ -334,7 +344,7 @@ async def submit_for_review(ctx: Context, title: str, summary: str, message: str
     sensitive: true if the change touches auth, personal data, dependencies or secrets."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         task = await workflow.submit_for_review(s, c.project_id, c.task_id, me, summary, sensitive, message, title)
         return workflow.task_summary(task)
@@ -408,8 +418,7 @@ async def report_bug(
 async def update_summary(ctx: Context, summary: str) -> dict:
     """Replace the room's summary with a short project summary, not a recap of the conversation.
 
-    Cover what the project is, its goal, where it stands and what was delivered, in the team's language.
-    Research rooms are the exception: there the summary is the final research report."""
+    Cover what the project is, its goal, where it stands and what was delivered, in the team's language."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         await services.update_summary(s, c.room_id, summary)
@@ -436,7 +445,7 @@ async def merge_task(ctx: Context, task_id: int, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         return workflow.task_summary(await workflow.merge_task(s, c.project_id, task_id, me, message=message))
 
@@ -450,7 +459,7 @@ async def set_working_branch(ctx: Context, branch: str, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.change_branch(s, await projects.load_project(s, c.project_id), branch.strip(), by=me)
         await services.post_message(s, c.project_id, c.conversation_id, f"{message.strip()} (branch: `{branch.strip()}`)", me)
@@ -474,7 +483,7 @@ async def close_pull_request(ctx: Context, number: int, reason: str, message: st
     message: what you tell the team in the chat, in a sentence or two (the PR link is added)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         result = await projects.close_outside_pull_request(s, project, number, reason)
@@ -486,7 +495,8 @@ async def close_pull_request(ctx: Context, number: int, reason: str, message: st
 async def propose_release(ctx: Context, title: str, summary: str, message: str) -> dict:
     """When the team's branch (e.g. "dev") holds a step worth shipping, open the pull
     request from it to production (the repository's default branch) and ask the boss to
-    accept it: a request in direction that merges it when they validate it. One release at a time.
+    accept it: a request in direction. When the boss says yes in the chat, ship it with merge_release; when
+    they say no, close it with settle_decision (rejected). One release at a time.
     title: what ships, in English (it goes to GitHub), e.g. "Checkout and order history".
     summary: the PR description (it goes to GitHub, in English), in Markdown: what changes for users, what was tested, known limits.
     message: what you tell the team in the chat, in a sentence or two; the boss reads it in
@@ -494,7 +504,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
     identifiers, task or PR numbers)."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         decision = await projects.propose_release(s, project, c.room_id, title.strip(), summary.strip(), me)
@@ -507,7 +517,7 @@ async def propose_release(ctx: Context, title: str, summary: str, message: str) 
 @tool
 async def merge_release(ctx: Context, summary: str, message: str, title: str = "") -> dict:
     """Merge the release pull request (the team's branch into production) yourself, without
-    waiting for the boss's Validate. Refused until CI is green on the PR's head (call it again
+    waiting for the boss's reply. Refused until CI is green on the PR's head (call it again
     once the checks of a freshly opened PR are done), and the merge fails if the head moved
     meanwhile. The version bump is made for you first (no bump task): the next SemVer version and the CHANGELOG entry are
     committed on the team's branch; the PR is then opened, its CI restarts and you are woken up when it ends, then call
@@ -518,7 +528,7 @@ async def merge_release(ctx: Context, summary: str, message: str, title: str = "
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         pr_url, number = await projects.merge_release(s, project, title.strip(), summary.strip())
@@ -533,15 +543,15 @@ async def merge_release(ctx: Context, summary: str, message: str, title: str = "
 @tool
 async def publish_version(ctx: Context, version: str, message: str) -> dict:
     """Tag the head of production (the default branch) vX.Y.Z and publish the GitHub Release
-    (named "Palabre vX.Y.Z", with the standard download notes); the tag builds the images and the desktop app. Refused for a version that
+    (named "Palabre vX.Y.Z", with the standard download notes); the tag builds the images. Refused for a version that
     is not X.Y.Z, a tag that already exists, or a version that differs from the one in the
-    repository's files (frontend/package.json, tauri.conf.json, Cargo.toml: the ones that exist),
+    repository's files (frontend/package.json and its lock, docker-compose.yml: the ones that exist),
     or when CI is not green on production's head. Merge a version bump first.
     version: e.g. "1.4.0".
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         url = await projects.publish_version(project, version)
@@ -557,7 +567,7 @@ async def fix_release(ctx: Context, version: str, message: str) -> dict:
     message: what you tell the team in the chat, in a sentence or two."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
-        await _check_chat(s, c.project_id, message)
+        services.check_chat_message(message)
         me = await s.get(Employee, c.employee_id)
         project = await projects.load_project(s, c.project_id)
         url = await projects.fix_release(project, version)
@@ -570,12 +580,15 @@ async def fix_release(ctx: Context, version: str, message: str) -> dict:
 
 @tool
 async def install_toolchain(
-    ctx: Context, name: Literal["node", "go", "python"], version: str = "", packages: str = ""
+    ctx: Context, name: str, version: str = "", packages: str = ""
 ) -> str:
     """Install a toolchain for the whole team: every agent's commands can use it right
     away, and it stays installed. Installing another version switches the team to it.
     - node: Node.js with npm and npx. version: "lts" (default), "latest", "20", "20.11.1"
     - go: version "stable" (default), "1.22", "1.22.3"
+    - rust, java (Temurin JDK), maven, gradle, kotlin, deno, bun, dotnet, zig, terraform,
+      kubectl, helm, uv: version "latest"/"stable"/"lts" (each one's default) or an exact
+      version; java takes a major ("21"). An unknown name lists what is available.
     - python: a shared venv (python, pip) that survives redeployments. Agents cannot pip
       install into it: list the PyPI packages in `packages`, e.g. "pytest pytest-asyncio==0.23.0"
       (call again to add more). Wheels only, no version argument.
@@ -584,15 +597,3 @@ async def install_toolchain(
     result = await toolchains.install(name, version, packages)
     commands = ", ".join(sorted(toolchains.installed()))
     return f"{result}\nInstalled commands: {commands}"
-
-
-# --- Research groups -----------------------------------------------------------------
-
-
-@tool
-async def fetch_page(ctx: Context, url: str) -> str:
-    """Read a web page: GET over https only, run by the backend (your sandbox has no
-    network). Returns the page's text, cut to a size limit. Pages on private or local
-    addresses are refused."""
-    current_caller(ctx)
-    return await web_fetch.fetch_page(url)

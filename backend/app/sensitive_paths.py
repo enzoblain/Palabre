@@ -13,14 +13,14 @@ SENSITIVE_NAMES = {
     # Settings and agent runner
     "config.py", "runner.py", "egress_proxy.py", "auth.py", "deps.py", "github.py", "worktrees.py",
     # The gate itself (catalog.py holds its role keys and team checks), the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
-    "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "extended_roles.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts", "tauri.conf.json",
+    "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "extended_roles.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts",
 }
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
 SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
 # Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
 SENSITIVE_ROLE_DIRS = (
-    "catalog/company/roles/", "catalog/research/roles/", "catalog/company/personalities/", "catalog/research/personalities/",
+    "catalog/company/roles/", "catalog/company/personalities/",
 )
 
 

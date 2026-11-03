@@ -86,34 +86,9 @@ async def test_create_project_stores_dev_for_a_company(repo, monkeypatch):
     async def no_channels(*_args):
         pass
 
-    monkeypatch.setattr(projects, "_open_channels", no_channels)
+    monkeypatch.setattr(projects, "open_channels", no_channels)
     project = await projects.create_project(Session(), name="App", repo_url=URL, mode="enterprise")
     assert project.default_branch == "dev"
-
-
-async def test_research_project_is_untouched(repo, monkeypatch):
-    async def no_channels(*_args):
-        pass
-
-    async def no_kickoff(*_args):
-        pass
-
-    class Session:
-        def add(self, _obj):
-            pass
-
-        async def flush(self):
-            pass
-
-        async def commit(self):
-            pass
-
-    monkeypatch.setattr(projects, "_open_channels", no_channels)
-    monkeypatch.setattr(projects, "_kick_off_research", no_kickoff)
-    mode = next(m for m in load_catalog()["modes"] if projects.kind_of_mode(m) == "research")
-    project = await projects.create_project(Session(), name="R", repo_url="", mode=mode, topic="x")
-    assert project.default_branch == "main"
-    assert repo.created == []
 
 
 @pytest.fixture
@@ -219,3 +194,14 @@ async def test_lead_cannot_move_the_team_to_production(repo):
     with pytest.raises(WorkflowError) as e:
         await projects.change_branch(None, project, "main", by=SimpleNamespace())
     assert e.value.code == ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY
+
+
+async def test_set_default_branch_patches_the_repository(monkeypatch):
+    calls = []
+
+    async def api(method, path, **kwargs):
+        calls.append((method, path, kwargs.get("json")))
+
+    monkeypatch.setattr(github, "_api", api)
+    await github.set_default_branch("acme/app", "release")
+    assert calls == [("PATCH", "/repos/acme/app", {"default_branch": "release"})]

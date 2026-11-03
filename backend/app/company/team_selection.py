@@ -36,7 +36,7 @@ def selectable_roles() -> dict[str, tuple[str, str]]:
     return {
         key: (role.title, role.category)
         for key, role in load_catalog()["roles"].items()
-        if role.kind == "company" and key != MANDATORY_ROLE
+        if key != MANDATORY_ROLE
     }
 
 
@@ -65,7 +65,7 @@ def parse_selection(text: str, seats: int) -> list[str]:
         raise InvalidSelection(f"{len(keys)} roles, exactly {seats} wanted")
     if unknown := sorted(set(keys) - selectable_roles().keys()):
         raise InvalidSelection(f"unknown roles {', '.join(unknown)}")
-    if problem := team_permission_error([[key] for key in (*SKELETON_ROLES, *keys)], "company"):
+    if problem := team_permission_error([[key] for key in (*SKELETON_ROLES, *keys)]):
         raise InvalidSelection(problem)
     roles = load_catalog()["roles"]
     if not any(CODE in roles[key].permissions for key in keys):

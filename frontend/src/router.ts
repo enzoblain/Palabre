@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 
-// Hash routes: #/  #/new  #/settings  #/p/<project>  #/p/<project>/c/<conversation>  #/p/<project>/report
+// Hash routes: #/  #/new  #/settings  #/p/<project>  #/p/<project>/c/<conversation>  #/p/<project>/info
 export type Route =
   | { name: "home" }
   | { name: "new" }
   | { name: "settings" }
   | { name: "project"; projectId: number; conversationId: number | null }
-  | { name: "report"; projectId: number };
+  | { name: "info"; projectId: number };
 
 function parse(hash: string): Route {
   const path = hash.replace(/^#/, "");
   if (path === "/new") return { name: "new" };
   if (path === "/settings") return { name: "settings" };
-  const page = path.match(/^\/p\/(\d+)\/(report)$/);
-  if (page) return { name: page[2] as "report", projectId: Number(page[1]) };
+  const info = path.match(/^\/p\/(\d+)\/info$/);
+  if (info) return { name: "info", projectId: Number(info[1]) };
   const m = path.match(/^\/p\/(\d+)(?:\/c\/(\d+))?$/);
   if (m) return { name: "project", projectId: Number(m[1]), conversationId: m[2] ? Number(m[2]) : null };
   return { name: "home" };
@@ -36,4 +36,10 @@ export function go(path: string, replace = false): void {
   } else {
     location.hash = path;
   }
+}
+
+/** Back to the previous screen; `fallback` when the page was opened directly (nothing to go back to). */
+export function goBack(fallback: string): void {
+  if (history.length > 1) history.back();
+  else go(fallback, true);
 }

@@ -11,7 +11,7 @@ from app.sensitive_paths import is_sensitive_path, touches_sensitive_paths
     "frontend/package.json", "frontend/package-lock.json", "backend/app/mcp_server/auth.py", "Dockerfile.prod",
     "./Dockerfile", "BACKEND/APP/RUNNER.PY", ".env", ".github/workflows/ci.yml",
     "backend/app/sensitive_paths.py", "backend/app/workflow.py", "backend/app/company/catalog.toml", "backend/app/company/catalog/company/extended_roles.toml",
-    "frontend/nginx.conf", "frontend/src/api.ts", "frontend/src-tauri/tauri.conf.json", "backend/app/toolchains.py",
+    "frontend/nginx.conf", "frontend/src/api.ts", "backend/app/toolchains.py",
     "CLAUDE.md", "claude.md", "./Claude.MD", ".github/CODEOWNERS", ".github/dependabot.yml", "docker-compose.override.yml", "compose.yaml",
 ])
 def test_sensitive(path):
@@ -38,12 +38,10 @@ def test_scripts_and_non_ascii():
 
 
 @pytest.mark.parametrize("path", [
-    "backend/app/company/catalog/company/roles/qa.toml", "backend/app/company/catalog/research/roles/new_angle.toml",
+    "backend/app/company/catalog/company/roles/qa.toml",
     "backend/app/mcp_server/permissions.py",
     "backend/app/company/catalog/company/personalities/guardian.toml",
-    "backend/app/company/catalog/research/personalities/new_preset.toml",
     "backend/app/company/catalog/company/personality_pool.toml",
-    "backend/app/company/catalog/research/personality_pool.toml",
 ])
 def test_role_files_and_permissions_are_sensitive_by_path(path):
     assert is_sensitive_path(path)

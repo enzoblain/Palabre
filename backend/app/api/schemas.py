@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Kind, Model, Permission
+from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Model, Permission
 from app.github import BRANCH_PATTERN
 from app.models import RequestStatus
 
@@ -47,7 +47,6 @@ class RoleOut(BaseModel):
     """A job of the catalog, with the tools its permissions give."""
 
     key: str
-    kind: Kind
     title: str
     description: str
     category: Category | ExtendedCategory
@@ -61,6 +60,7 @@ class RoleOut(BaseModel):
     deliverables: list[str]
     escalation: str
     success: str
+    expertise: list[str] = []
     method: list[str] = []
     watch_points: list[str] = []
     deliverable_format: str | None = None
@@ -115,7 +115,14 @@ class EmployeeDetail(EmployeeOut):
     system_prompt: str
 
 
+PERSONALITY_KEY_MAX_LENGTH = 40
+
+
 class EmployeePatch(BaseModel):
+    # New roles (not the lead's): title, permissions and, unless `model` is given, model follow them
+    roles: list[str] | None = Field(default=None, min_length=1)
+    # Key of a personality preset, applied before the explicit traits, quirks and style
+    personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     model: Literal["haiku", "sonnet", "opus"] | None = None
     traits: dict[str, int] | None = None
     quirks: list[str] | None = None
@@ -127,7 +134,8 @@ class EmployeePatch(BaseModel):
 # --- Projects ----------------------------------------------------------------------
 
 
-PERSONALITY_KEY_MAX_LENGTH = 40
+PROJECT_NAME_MAX_LENGTH = 200
+PROJECTS_DELETE_MAX = 100
 
 
 class MemberIn(BaseModel):
@@ -140,7 +148,17 @@ class MemberIn(BaseModel):
     traits: dict[str, int] | None = None
     quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
     style: dict[str, str] | None = None
-    # Key of a personality preset of the project's kind; traits, quirks and style given here override it
+    # Key of a personality preset; traits, quirks and style given here override it
+    personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
+    account: int | None = Field(default=None, ge=1)
+
+
+class EmployeeIn(BaseModel):
+    """A member added to a running team. The name is drawn from the catalog when left out."""
+
+    name: str | None = Field(default=None, pattern=r"^[\w-]{1,40}$")
+    roles: list[str] = Field(min_length=1)
+    model: Literal["haiku", "sonnet", "opus"] | None = None
     personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     account: int | None = Field(default=None, ge=1)
 
@@ -149,7 +167,6 @@ class PersonalityPresetOut(BaseModel):
     """A named personality: the axes it leans on (the others are neutral), quirks and style."""
 
     key: str
-    kind: Literal["company", "research"]
     label: str
     description: str
     traits: dict[str, int]
@@ -166,16 +183,11 @@ class RandomPersonalityOut(BaseModel):
 
 
 class ProjectIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    # Mode: company (startup...) or research (duo...). It sets the rules and, without
-    # `employees`, the seats
+    name: str = Field(min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
+    # Mode (startup...). It sets the rules and, without `employees`, the seats
     mode: str = "startup"
-    # Company: the GitHub repository
+    # The GitHub repository
     repo_url: str = ""
-    # Research: what the group investigates (posted as your first message)
-    topic: str | None = Field(default=None, max_length=10000)
-    # Research: the peer who writes the report (a name); none: drawn at random
-    rapporteur: str | None = None
     seed: int | None = None
     # Employee first name → Claude account; the others are spread automatically
     accounts: dict[str, int] = {}
@@ -192,15 +204,26 @@ class ProjectIn(BaseModel):
 class ProjectOut(ORM):
     id: int
     name: str
-    kind: str
-    topic: str | None
-    # Research: research, debate, conclusion, report or done
-    research_phase: str | None
     repo_url: str
     default_branch: str
     mode: str
     seed: int
     created_at: datetime
+
+
+class LastMessageOut(BaseModel):
+    content: str
+    author: str
+    created_at: datetime
+
+
+class ProjectListItem(ProjectOut):
+    # The team's messages in direction the boss has not read yet
+    unread_count: int
+    # The lead has an open run in direction: the front shows the "typing" dots
+    lead_writing: bool
+    # The latest message of direction, None when there is none
+    last_message: LastMessageOut | None
 
 
 class RoomOut(ORM):
@@ -218,6 +241,46 @@ class RoomOut(ORM):
 class ProjectDetail(ProjectOut):
     employees: list[EmployeeOut]
     rooms: list[RoomOut]
+
+
+class ProjectPatch(BaseModel):
+    """Editable infos of a project: its name and its main (production) branch, at least one of
+    them. The description is generated and the repository is fixed."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=PROJECT_NAME_MAX_LENGTH)
+    main_branch: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip():
+            raise ValueError("name must not be blank")
+        return value.strip()
+
+    @field_validator("main_branch")
+    @classmethod
+    def _valid_main_branch(cls, value: str | None) -> str | None:
+        if value is not None and not re.match(BRANCH_PATTERN, value):
+            raise ValueError("not a valid branch name")
+        return value
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "ProjectPatch":
+        if self.name is None and self.main_branch is None:
+            raise ValueError("name or main_branch is required")
+        return self
+
+
+class ProjectUpdated(ProjectDetail):
+    """The project after an edit, with a warning when the change deserves the boss's attention."""
+
+    warning: str | None = None
+
+
+class ProjectsDelete(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=PROJECTS_DELETE_MAX)
 
 
 class ModeChange(BaseModel):
@@ -239,13 +302,6 @@ class BranchChange(BaseModel):
 # --- Rooms and their document ------------------------------------------------------
 
 
-class RoomIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    objective: str = ""
-    # Default: the whole company
-    member_ids: list[int] | None = None
-
-
 class RoomPatch(BaseModel):
     name: str | None = None
     objective: str | None = None
@@ -263,10 +319,6 @@ class DecisionOut(ORM):
     pr_url: str | None = None
     created_at: datetime
     decided_at: datetime | None
-
-
-class DecisionPatch(BaseModel):
-    status: Literal["validated", "rejected"]
 
 
 class QuestionIn(BaseModel):
@@ -322,17 +374,6 @@ class MessageOut(ORM):
     request_merged_into: int | None = None
     request_decision_id: int | None = None
     request_author_id: int | None = None
-
-
-class RequestAnswerIn(BaseModel):
-    answer: Literal["validated", "rejected", "nuanced"]
-    comment: str = ""
-
-    @model_validator(mode="after")
-    def nuance_needs_a_comment(self):
-        if self.answer == "nuanced" and not self.comment.strip():
-            raise ValueError("A nuanced answer needs a comment")
-        return self
 
 
 # --- Tasks -------------------------------------------------------------------------
@@ -450,29 +491,6 @@ class OrchestratorStatus(BaseModel):
     pending_wakeups: int
     # Accounts out of Claude credits (the app shows a banner), with the expected return
     exhausted_accounts: list[ExhaustedAccountOut] = []
-
-
-class UsageWindowOut(BaseModel):
-    used_percent: float
-    resets_at: datetime | None
-
-
-class ModelUsageOut(UsageWindowOut):
-    model: str
-
-
-class AccountQuotaOut(BaseModel):
-    """What /usage shows for one account; on error, `error` says why and the windows are empty."""
-
-    account: int
-    error: str | None = None
-    session: UsageWindowOut | None = None
-    week: UsageWindowOut | None = None
-    models: list[ModelUsageOut] = []
-
-
-class QuotaOut(BaseModel):
-    accounts: list[AccountQuotaOut]
 
 
 class SessionOut(BaseModel):

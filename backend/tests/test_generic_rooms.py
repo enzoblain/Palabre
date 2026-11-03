@@ -8,7 +8,7 @@ from app import projects
 from app.company.catalog import load_catalog
 from app.company.team import generate_team
 from app.models import AgentRun, Base, Conversation, Decision, Employee, Message, OpenQuestion, Project, Room, Task
-from app.projects import RESEARCH_ROOM, drop_generic_rooms, load_project
+from app.projects import drop_generic_rooms, load_project
 
 
 @pytest.fixture
@@ -26,9 +26,9 @@ async def db():
     await engine.dispose()
 
 
-async def make_project(s, mode="enterprise", kind="company") -> Project:
+async def make_project(s, mode="enterprise") -> Project:
     team = generate_team(mode, 1)
-    project = Project(name="P", repo_url="https://github.com/o/r", mode=mode, seed=1, kind=kind)
+    project = Project(name="P", repo_url="https://github.com/o/r", mode=mode, seed=1)
     project.employees = [Employee(**e.__dict__, mcp_token=f"{e.name}{mode}") for e in team.employees]
     s.add(project)
     await s.flush()
@@ -54,7 +54,7 @@ async def names(s) -> set[str]:
 
 async def test_predefined_team_only_gets_the_catalog_channels(db):
     project = await make_project(db)
-    await projects._open_channels(db, project)
+    await projects.open_channels(db, project)
     catalog = {c["name"] for c in load_catalog()["channels"]}
     assert {r.name for r in project.rooms} <= catalog
     assert not {"general", "engineering", "product"} & {r.name for r in project.rooms}
@@ -132,25 +132,6 @@ async def test_a_generic_room_holding_tasks_is_kept_without_a_direction_room(db)
     assert await names(db) == {"general"}
 
 
-async def test_research_general_room_is_renamed_not_deleted(db):
-    project = await make_project(db, mode="duo", kind="research")
-    await add_room(db, project, "general", list(project.employees))
-    await db.commit()
-    await drop_generic_rooms(db)
-    assert await names(db) == {RESEARCH_ROOM}
-    await drop_generic_rooms(db)
-    assert await names(db) == {RESEARCH_ROOM}
-
-
-async def test_change_mode_newcomers_join_a_migrated_research_room(db):
-    project = await make_project(db, mode="duo", kind="research")
-    await add_room(db, project, "general", list(project.employees))
-    await db.commit()
-    await drop_generic_rooms(db)
-    project = await load_project(db, project.id)
-    assert [r.name for r in project.rooms] == [RESEARCH_ROOM]  # what change_mode matches on
-
-
 def test_no_cleanup_path_touches_dms():
     """Only the admin delete removes a room, and it refuses a DM; nothing else deletes rooms."""
     from pathlib import Path
@@ -176,3 +157,65 @@ async def test_agent_runs_of_a_deleted_room_survive_detached(db):
     await drop_generic_rooms(db)
     await db.refresh(run)
     assert run.conversation_id is None and run.cost_usd == 1.5
+
+
+async def test_research_projects_and_columns_are_dropped_from_an_existing_schema(db, caplog):
+    from sqlalchemy import inspect, text
+
+    from app.db import RESEARCH_COLUMNS, _drop_research_projects
+
+    research = await make_project(db, "scaleup")
+    company = await make_project(db, "startup")
+    await add_room(db, research, "r", [])
+    await add_room(db, company, "c", [])
+    await db.commit()
+    async with db.bind.begin() as conn:
+        for column in RESEARCH_COLUMNS:
+            await conn.execute(text(f"ALTER TABLE projects ADD COLUMN {column} TEXT"))
+        await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
+        await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
+        with caplog.at_level("INFO", logger="app.db"):
+            dropped = await conn.run_sync(_drop_research_projects)
+        assert "1 research project" in caplog.text
+        assert dropped == [research.id]  # the caller removes their files
+        assert await conn.run_sync(_drop_research_projects) == []  # idempotent: nothing left to clean
+        columns = await conn.run_sync(lambda c: {col["name"] for col in inspect(c).get_columns("projects")})
+        remaining = list((await conn.execute(text("SELECT id FROM projects"))).scalars())
+        children = {
+            table: set((await conn.execute(text(f"SELECT DISTINCT project_id FROM {table}"))).scalars())
+            for table in ("employees", "rooms")
+        }
+        messages = (await conn.execute(text("SELECT count(*) FROM messages"))).scalar_one()
+    assert not set(RESEARCH_COLUMNS) & columns
+    assert remaining == [company.id]
+    assert children == {"employees": {company.id}, "rooms": {company.id}}
+    assert messages == 1
+
+
+async def test_upgrade_database_removes_the_files_of_dropped_research_projects_only(db, tmp_path, monkeypatch):
+    from sqlalchemy import text
+
+    from app.config import settings
+    from app.db import RESEARCH_COLUMNS
+    from app.main import upgrade_database
+
+    monkeypatch.setattr(settings, "projects_dir", tmp_path)
+    research = await make_project(db, "scaleup")
+    company = await make_project(db, "startup")
+    await db.commit()
+    async with db.bind.begin() as conn:
+        for column in RESEARCH_COLUMNS:
+            await conn.execute(text(f"ALTER TABLE projects ADD COLUMN {column} TEXT"))
+        await conn.execute(text("UPDATE projects SET kind = 'research' WHERE id = :id"), {"id": research.id})
+        await conn.execute(text("UPDATE projects SET kind = 'company' WHERE id = :id"), {"id": company.id})
+    research_dir, company_dir = tmp_path / f"project-{research.id}", tmp_path / f"project-{company.id}"
+    for folder in (research_dir, company_dir):
+        (folder / "desks").mkdir(parents=True)
+        (folder / "desks" / "draft.md").write_text("notes")
+
+    await upgrade_database(db.bind)
+    assert not research_dir.exists()
+    assert (company_dir / "desks" / "draft.md").read_text() == "notes"
+
+    await upgrade_database(db.bind)  # second pass: nothing more to remove
+    assert (company_dir / "desks" / "draft.md").exists()

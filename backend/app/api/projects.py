@@ -3,25 +3,31 @@
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
-from app import github, presence, projects
+from app import github, presence, projects, team_members
 from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     EmployeeDetail,
+    EmployeeIn,
     EmployeeOut,
     EmployeePatch,
+    LastMessageOut,
     BranchChange,
     MemberIn,
     ModeChange,
     PresenceOut,
     ProjectDetail,
     ProjectIn,
+    ProjectListItem,
     ProjectOut,
+    ProjectPatch,
+    ProjectUpdated,
+    ProjectsDelete,
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
-from app.company.team import kind_of_mode, render_system_prompt
-from app.models import Employee, Project
+from app.company.team import render_system_prompt
+from app.models import Employee, Message, Project
 from app.orchestrator.dispatcher import orchestrator
 from app.worktrees import remove_project_files
 from app import services
@@ -42,47 +48,61 @@ async def _project(s, project_id: int) -> Project:
 def _detail(project: Project) -> ProjectDetail:
     """The project's payload; its rooms are only what the boss sees (same rule as list_rooms)."""
     detail = ProjectDetail.model_validate(project)
-    if project.kind != "research":
-        detail.rooms = [r for r in detail.rooms if r.kind == services.DIRECTION]
+    detail.rooms = [r for r in detail.rooms if r.kind == services.DIRECTION]
     return detail
 
 
-@router.get("/projects", response_model=list[ProjectOut])
+def _list_item(project: Project, unread: int, writing: bool, last_message: Message | None) -> ProjectListItem:
+    return ProjectListItem(
+        **ProjectOut.model_validate(project).model_dump(),
+        unread_count=unread,
+        lead_writing=writing,
+        last_message=LastMessageOut(content=last_message.content, author=last_message.author_name, created_at=last_message.created_at)
+        if last_message
+        else None,
+    )
+
+
+@router.get("/projects", response_model=list[ProjectListItem])
 async def list_projects(s: SessionDep):
-    return list(await s.scalars(select(Project).order_by(Project.id)))
+    """Projects, with the unread messages of direction, the latest one, and whether the lead is answering in it."""
+    unread, writing = await services.unread_counts(s), await presence.leads_writing(s)
+    last_messages = await services.last_direction_messages(s)
+    items = await s.scalars(select(Project).order_by(Project.id))
+    return [_list_item(p, unread.get(p.id, 0), p.id in writing, last_messages.get(p.id)) for p in items]
+
+
+@router.post("/projects/{project_id}/direction/read", response_model=ProjectListItem)
+async def mark_direction_read(project_id: int, s: SessionDep):
+    """The boss has read direction up to now: the unread counter goes back to 0."""
+    project = await get_or_404(s, Project, project_id)
+    await services.mark_direction_read(s, project)
+    last_message = (await services.last_direction_messages(s)).get(project.id)
+    return _list_item(project, 0, project.id in await presence.leads_writing(s), last_message)
 
 
 @router.post("/projects", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
 async def create_project(body: ProjectIn, s: SessionDep):
-    """Create a project: a company on a GitHub repository, or a research group on a topic
-    (the mode says which). The team is drawn at random for the mode, or built by hand."""
+    """Create a project: a company on a GitHub repository. The team is drawn at random for the
+    mode, or built by hand."""
     if body.mode not in load_catalog()["modes"]:
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.UNKNOWN_MODE, f"Unknown mode: {body.mode}"
         )
-    kind = kind_of_mode(body.mode)
-    if kind == "research":
-        if not (body.topic or "").strip():
-            raise ApiError(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                ErrorCode.RESEARCH_TOPIC_REQUIRED,
-                "A research project needs a topic",
-            )
-    else:
-        try:
-            await github.resolve_branch(github.repo_slug(body.repo_url), "")  # fail early on an unreachable repository
-        except github.GitHubError as exc:
-            raise ApiError(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                ErrorCode.INVALID_REPOSITORY,
-                str(exc),
-            ) from None
-    _check_creation_mode(body, kind)
+    try:
+        await github.resolve_branch(github.repo_slug(body.repo_url), "")  # fail early on an unreachable repository
+    except github.GitHubError as exc:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.INVALID_REPOSITORY,
+            str(exc),
+        ) from None
+    _check_creation_mode(body)
     _check_accounts(body.accounts.values())
     if body.employees is not None:
-        _check_team(body.employees, kind)
+        _check_team(body.employees)
     project = await projects.create_project(s, **body.model_dump())
-    if body.employees and kind == "company":
+    if body.employees:
         projects.plan_custom_channels_later(project.id)
     return _detail(await _project(s, project.id))
 
@@ -91,13 +111,11 @@ def _invalid_creation(code: ErrorCode, message: str) -> ApiError:
     return ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, code, message)
 
 
-def _check_creation_mode(body: ProjectIn, kind: str) -> None:
+def _check_creation_mode(body: ProjectIn) -> None:
     """Manual: the team is listed, has at least MIN_TEAM_SIZE members and holds the mandatory
     member. Automatic: a description and at least MIN_TEAM_SIZE employees, no list."""
     if body.creation_mode is None:
         return
-    if kind != "company":
-        raise _invalid_creation(ErrorCode.INVALID_CREATION_MODE, "Manual and automatic creation are for companies")
     if body.creation_mode == "manual":
         if body.employees is None:  # a listed team is checked by `_check_team`
             raise _invalid_creation(ErrorCode.LEAD_REQUIRED, f"A manual team is listed and holds the {MANDATORY_ROLE}")
@@ -116,12 +134,12 @@ def _check_creation_mode(body: ProjectIn, kind: str) -> None:
         )
 
 
-def _check_team(employees: list[MemberIn], kind: str) -> None:
+def _check_team(employees: list[MemberIn]) -> None:
     """A team built by hand: valid roles and personalities, unique names, for a company a
     lead (they organize the work and merge), and the permission rules of the catalog."""
     catalog = load_catalog()
-    roles = {k for k, r in catalog["roles"].items() if r.kind == kind}
-    presets = catalog["personalities"][kind]
+    roles = catalog["roles"]
+    presets = catalog["personalities"]
     names = [e.name.lower() for e in employees]
     if len(set(names)) != len(names):
         raise ApiError(
@@ -136,20 +154,24 @@ def _check_team(employees: list[MemberIn], kind: str) -> None:
                 ErrorCode.UNKNOWN_ROLES,
                 f"{e.name}: unknown roles {', '.join(unknown)}",
             )
-        projects.validate_personality(e.traits, e.style, partial=True, kind=kind)
+        projects.validate_personality(e.traits, e.style, partial=True)
         if e.personality is not None and e.personality not in presets:
             raise ApiError(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 ErrorCode.UNKNOWN_PERSONALITY,
                 f"{e.name}: unknown personality {e.personality}",
             )
-    if kind == "company" and not any(MANDATORY_ROLE in e.roles for e in employees):
+    if not any(MANDATORY_ROLE in e.roles for e in employees):
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.LEAD_REQUIRED,
             f"The team needs a {MANDATORY_ROLE} (they organize and merge)",
         )
-    if problem := team_permission_error([e.roles for e in employees], kind):
+    if sum(MANDATORY_ROLE in e.roles for e in employees) > 1:
+        raise ApiError(
+            status.HTTP_409_CONFLICT, ErrorCode.LEAD_ALREADY_EXISTS, f"The team can have only one {MANDATORY_ROLE}"
+        )
+    if problem := team_permission_error([e.roles for e in employees]):
         raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_TEAM_PERMISSIONS, problem)
     _check_accounts([e.account for e in employees if e.account is not None])
 
@@ -169,28 +191,85 @@ async def get_project(project_id: int, s: SessionDep):
     return _detail(await _project(s, project_id))
 
 
+def _refuse_unsafe_main_branch(project: Project, branch: str) -> None:
+    """The team's merges land on its branch and tasks work on theirs: making either the
+    production branch would send agents' merges to production, skipping the release validation."""
+    if branch == project.default_branch:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.MAIN_BRANCH_IS_TEAM_BRANCH,
+            f"'{branch}' is the team's working branch: it cannot be the main branch",
+        )
+    if github.is_task_branch_name(branch):
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ErrorCode.MAIN_BRANCH_IS_TASK_BRANCH,
+            f"'{branch}' is a task branch: it cannot be the main branch",
+        )
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectUpdated)
+async def update_project(project_id: int, body: ProjectPatch, s: SessionDep):
+    """Rename a project and/or change its main (production) branch, which must already exist
+    on GitHub (422 `github_branch_missing` otherwise; no branch is created or deleted) and be
+    neither the team's branch nor a task branch (422, checked before anything changes). The
+    `warning` says so when the team still works on the previous main branch. The description
+    and the GitHub repository cannot be edited."""
+    project = await _project(s, project_id)
+    warning = None
+    if body.main_branch is not None:
+        _refuse_unsafe_main_branch(project, body.main_branch)
+        if not await github.branch_exists(github.repo_slug(project.repo_url), body.main_branch):
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                ErrorCode.GITHUB_BRANCH_MISSING,
+                f"The branch '{body.main_branch}' does not exist on GitHub",
+            )
+        warning = await projects.change_main_branch(project, body.main_branch)
+    if body.name is not None:
+        project.name = body.name
+        await s.commit()
+    return ProjectUpdated(**_detail(project).model_dump(), warning=warning)
+
+
+async def _delete_project_data(s, project: Project) -> None:
+    employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project.id)))
+    await s.delete(project)
+    await s.commit()
+    # Rows first, so the dispatcher cannot start a new run that recreates a desk after the files are gone
+    await orchestrator.cancel_runs(employee_ids)
+    await remove_project_files(project.id)
+
+
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(project_id: int, s: SessionDep):
     """Delete a project and all its data: agents (their running work is stopped), rooms,
     messages, tasks, notes, files on disk and Claude sessions. The GitHub repository is
     left as it is."""
-    project = await get_or_404(s, Project, project_id)
-    employee_ids = list(await s.scalars(select(Employee.id).where(Employee.project_id == project_id)))
-    await orchestrator.cancel_runs(employee_ids)
-    await s.delete(project)
-    await s.commit()
-    await remove_project_files(project_id)
+    await _delete_project_data(s, await get_or_404(s, Project, project_id))
+
+
+@router.post("/projects/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_projects(body: ProjectsDelete, s: SessionDep):
+    """Delete several projects like `DELETE /projects/{id}`. Nothing is deleted if one id is unknown (404)."""
+    found = {p.id: p for p in await s.scalars(select(Project).where(Project.id.in_(body.ids)))}
+    if missing := sorted(set(body.ids) - found.keys()):
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, f"Projects not found: {', '.join(map(str, missing))}"
+        )
+    for project in found.values():
+        await _delete_project_data(s, project)
 
 
 @router.put("/projects/{project_id}/mode", response_model=ProjectDetail)
 async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
     """Grow or shrink the company (e.g. startup → scaleup)."""
     project = await _project(s, project_id)
-    if body.mode not in load_catalog()["modes"] or kind_of_mode(body.mode) != project.kind:
+    if body.mode not in load_catalog()["modes"]:
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             ErrorCode.UNKNOWN_MODE,
-            f"Unknown {project.kind} mode: {body.mode}",
+            f"Unknown mode: {body.mode}",
         )
     return _detail(await projects.change_mode(s, project, body.mode))
 
@@ -200,12 +279,6 @@ async def change_mode(project_id: int, body: ModeChange, s: SessionDep):
 async def change_branch(project_id: int, body: BranchChange, s: SessionDep):
     """The branch the team works from and merges into (created on GitHub if missing)."""
     project = await _project(s, project_id)
-    if project.kind != "company":
-        raise ApiError(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            ErrorCode.RESEARCH_HAS_NO_REPOSITORY,
-            "A research project has no repository",
-        )
     if body.branch == project.default_branch:
         return _detail(project)
     return _detail(await projects.change_branch(s, project, body.branch))
@@ -237,13 +310,43 @@ async def get_employee(employee_id: int, s: SessionDep):
     )
 
 
+@router.post("/projects/{project_id}/employees", response_model=EmployeeOut, status_code=status.HTTP_201_CREATED)
+async def add_employee(project_id: int, body: EmployeeIn, s: SessionDep):
+    """Add a member to the team: roles (and optionally a personality preset, a model, an
+    account); the first name is drawn from the catalog unless given and is unique in the
+    project. They join the default channels of their roles. 409 when a rule breaks
+    (permissions, size, unknown role or personality, name already used)."""
+    project = await _project(s, project_id)
+    if body.account is not None:
+        _check_accounts([body.account])
+    return await team_members.add_member(
+        s, project, name=body.name, roles=body.roles, preset=body.personality, model=body.model, account=body.account
+    )
+
+
+@router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_employee(employee_id: int, s: SessionDep):
+    """Remove a member: their running work is stopped, their unfinished tasks go back to todo
+    without assignee, they leave their channels, their messages stay. 409 `lead_protected` for
+    the lead, `team_too_small` under the minimum size."""
+    employee = await get_or_404(s, Employee, employee_id)
+    project = await _project(s, employee.project_id)
+    team_members.check_removable(project, employee)  # Refuse before stopping any work
+    await orchestrator.cancel_runs([employee_id])
+    await team_members.remove_member(s, project, employee)
+
+
 @router.patch("/employees/{employee_id}", response_model=EmployeeOut)
 async def update_employee(employee_id: int, body: EmployeePatch, s: SessionDep):
-    """Edit an employee's personality, model or Claude account by hand."""
+    """Edit an employee's roles, personality, model or Claude account by hand. The lead's roles
+    cannot change (409 `lead_protected`)."""
     employee = await get_or_404(s, Employee, employee_id)
-    project = await get_or_404(s, Project, employee.project_id)
-    projects.validate_personality(body.traits, body.style, kind=project.kind)
-    for field, value in body.model_dump(exclude_none=True, exclude={"account"}).items():
+    projects.validate_personality(body.traits, body.style)
+    if body.roles is not None or body.personality is not None:
+        await team_members.change_member(
+            s, await _project(s, employee.project_id), employee, roles=body.roles, preset=body.personality, model=body.model
+        )
+    for field, value in body.model_dump(exclude_none=True, exclude={"account", "roles", "personality"}).items():
         setattr(employee, field, value)
     if "account" in body.model_fields_set:  # null puts the employee back in the automatic spread
         if body.account is not None:

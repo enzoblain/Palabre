@@ -21,11 +21,6 @@ def test_light_company_roles_run_at_low_effort(role):
     assert effort_for([role]) == "low"
 
 
-def test_research_roles_run_at_low_effort():
-    research = [k for k, r in load_catalog()["roles"].items() if r.kind == "research" and k != "rapporteur"]
-    assert research and all(effort_for([k]) == "low" for k in research)
-
-
 def test_roles_without_effort_keep_claudes_default():
     assert effort_for(["lead"]) is None
     assert effort_for(["dev_backend"]) is None

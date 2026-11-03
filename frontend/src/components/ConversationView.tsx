@@ -1,172 +1,16 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type EmployeeStatus, type Message, type Project, type ProjectDetail, type RequestAnswer, type ResearchPhase, type Room, api } from "../api";
-import { type Key, useI18n } from "../i18n";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ApiError, type Conversation, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
+import { useI18n } from "../i18n";
+import { useIsDesktop } from "../layout";
 import type { Route } from "../router";
-import { MENTION_EVENT, formatTime, usePolling } from "../util";
-import { Avatar } from "./Avatar";
-import { SendIcon } from "./Icons";
-import { Markdown, bossNames, mentionsAny } from "./Markdown";
+import { MENTION_EVENT, usePolling } from "../util";
+import { SendIcon, TeamIcon } from "./Icons";
+import { ConversationTeam } from "./ConversationTeam";
+import { bossNames } from "./Markdown";
+import { MessageRow, TypingDots } from "./MessageBubble";
 import { ProjectMenu } from "./TeamPanel";
 
 const POLL_MS = 2000;
-const PHASE_POLL_MS = 4000;
-const PHASES = ["research", "debate", "conclusion", "report"] as const satisfies readonly ResearchPhase[];
-
-/** Where the research question stands: research → debate → conclusion → report. */
-function PhaseBar({ phase, projectId }: { phase: ResearchPhase; projectId: number }) {
-  const { t } = useI18n();
-  const current = phase === "done" ? PHASES.length : PHASES.findIndex((p) => p === phase);
-  return (
-    <div className="phase-bar">
-      {PHASES.map((p, i) => (
-        <span key={p} className={`phase${i < current ? " past" : i === current ? " current" : ""}`}>
-          {i < current ? "✓ " : ""}{t(`conv.phase.${p}`)}
-        </span>
-      ))}
-      {phase === "done" && <a className="phase-done" href={`#/p/${projectId}/report`}>{t("conv.readReport")}</a>}
-    </div>
-  );
-}
-
-const ANSWERED = { validated: "request.youValidated", rejected: "request.youRejected", nuanced: "request.youNuanced" } as const satisfies Record<RequestAnswer, Key>;
-const ANSWER_LABEL = { validated: "request.validated", rejected: "request.rejected", nuanced: "request.nuanced" } as const satisfies Record<RequestAnswer, Key>;
-
-/** The lead asks the CEO something: Validate / Reject / Nuance, then the answer takes the buttons' place. */
-function RequestBox({ message: m, onAnswered }: { message: Message; onAnswered: (m: Message) => void }) {
-  const { t, tr } = useI18n();
-  const [mode, setMode] = useState<"reject" | "nuance" | null>(null);
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [announce, setAnnounce] = useState("");
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (mode) areaRef.current?.focus();
-  }, [mode]);
-
-  async function answer(answer: RequestAnswer, text = "") {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await api.answerRequest(m.id, answer, text.trim());
-      setAnnounce(t(ANSWERED[answer]));
-      onAnswered(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function close() {
-    setMode(null);
-    setComment("");
-    triggerRef.current?.focus();
-  }
-
-  if (m.request_status === "withdrawn" || m.request_status === "merged") {
-    return (
-      <div className="request">
-        <p className="request-answer muted">
-          {m.request_status === "merged" && m.request_merged_into
-            ? tr("request.mergedInto", {
-                link: <a href={`#message-${m.request_merged_into}`} onClick={(e) => {
-                  const target = document.getElementById(`message-${m.request_merged_into}`);
-                  if (target) { e.preventDefault(); target.scrollIntoView({ block: "center" }); target.focus(); }
-                }}>{t("request.link", { id: m.request_merged_into })}</a>,
-              })
-            : m.request_status === "merged" ? t("request.mergedAnother") : t("request.withdrawn")}
-          {m.request_status === "withdrawn" && m.request_comment ? <>: <q>{m.request_comment}</q></> : ""}
-        </p>
-      </div>
-    );
-  }
-  if (m.request_status && m.request_status !== "pending") {
-    return (
-      <div className="request">
-        <p className="request-answer">
-          {t(ANSWER_LABEL[m.request_status])}{m.request_comment ? <> : <q>{m.request_comment}</q></> : ""}
-          {m.request_answered_at && <time className="muted"> · {formatTime(m.request_answered_at)}</time>}
-        </p>
-        <span className="sr-only" role="status" aria-live="polite">{announce}</span>
-      </div>
-    );
-  }
-  const nuance = mode === "nuance";
-  return (
-    <div className="request">
-      <div className="request-actions" role="group" aria-label={t("request.answerGroup")}>
-        <button className="btn btn-primary" disabled={busy} onClick={() => answer("validated")}>{t("request.validate")}</button>
-        <button className="btn btn-danger-outline" disabled={busy}
-          onClick={(e) => { triggerRef.current = e.currentTarget; setMode("reject"); }}>{t("request.reject")}</button>
-        <button className="btn" disabled={busy}
-          onClick={(e) => { triggerRef.current = e.currentTarget; setMode("nuance"); }}>{t("request.nuance")}</button>
-      </div>
-      {mode && (
-        <div className="request-form">
-          <label className="muted" htmlFor={`request-${m.id}`}>{nuance ? t("request.yourNuance") : t("request.why")}</label>
-          <textarea id={`request-${m.id}`} ref={areaRef} value={comment} maxLength={2000}
-            onChange={(e) => setComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") close();
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && (!nuance || comment.trim())) {
-                answer(nuance ? "nuanced" : "rejected", comment);
-              }
-            }} />
-          <div className="row">
-            <button className="btn btn-primary" disabled={busy || (nuance && !comment.trim())}
-              onClick={() => answer(nuance ? "nuanced" : "rejected", comment)}>
-              {nuance ? t("common.send") : t("request.confirmReject")}
-            </button>
-            <button className="btn" onClick={close}>{t("common.cancel")}</button>
-          </div>
-        </div>
-      )}
-      {error && <p className="error" role="alert">{error}</p>}
-      <span className="sr-only" role="status" aria-live="polite">{announce}</span>
-    </div>
-  );
-}
-
-/** One message. Memoized: re-parsing every message's Markdown on each render made typing slow. */
-const MessageRow = memo(function MessageRow({ message: m, grouped, title, selfNames, forYou, onAnswered }: {
-  message: Message;
-  onAnswered: (m: Message) => void;
-  grouped: boolean;
-  title: string | undefined;
-  selfNames: string[];
-  // Written by the lead in the direction channel: addressed to the CEO
-  forYou: boolean;
-}) {
-  const { t } = useI18n();
-  const system = m.is_system;
-  const boss = m.employee_id === null && !system;
-  const forMe = !boss && !system && mentionsAny(m.content, selfNames);
-  const closed = m.request_status === "withdrawn" || m.request_status === "merged";
-  const body = <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>;
-  return (
-    <div id={`message-${m.id}`} tabIndex={-1} className={`message${closed ? " request-closed" : ""}${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
-      <div className="message-avatar">{!grouped && (system
-          ? <span className="avatar avatar-system" aria-hidden="true" style={{ width: 34, height: 34 }}>•</span>
-          : <Avatar name={m.author_name} boss={boss} size={34} />)}</div>
-      <div className="message-main">
-        {!grouped && (
-          <div className="message-meta">
-            <strong>{m.author_name}</strong>
-            <span className="muted">{system ? t("conv.platform") : boss ? t("conv.ceo") : title}</span>
-            <time className="muted">{formatTime(m.created_at)}</time>
-            {forYou && <span className="for-you">{t("conv.forYou")}</span>}
-          </div>
-        )}
-        {closed ? <details className="request-closed-body"><summary>{t("conv.originalRequest")}</summary>{body}</details> : body}
-        {m.request_status && !boss && !system && <RequestBox message={m} onAnswered={onAnswered} />}
-      </div>
-    </div>
-  );
-});
 
 /** The message box. It keeps the draft to itself, so typing only re-renders the box. */
 function Composer({ placeholder, onSend }: { placeholder: string; onSend: (content: string) => Promise<boolean> }) {
@@ -255,16 +99,22 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-export function ConversationView({ conversation, room, project, projects, route, statuses, bossName }: {
+export function ConversationView({ conversation, room, project, projects, route, bossName, leadWriting, onRead }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
   projects: Project[];
   route: Route;
-  statuses: EmployeeStatus[];
   bossName: string;
+  // The lead is answering in the direction channel
+  leadWriting: boolean;
+  // The direction channel was marked as read on the server
+  onRead: () => void;
 }) {
   const { t } = useI18n();
+  const desktop = useIsDesktop();
+  const [teamOpen, setTeamOpen] = useState(false);
+  const teamButtonRef = useRef<HTMLButtonElement>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -275,9 +125,6 @@ export function ConversationView({ conversation, room, project, projects, route,
 
   const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
-  const research = project.kind === "research";
-  const [phase, setPhase] = useState<ResearchPhase | null>(project.research_phase);
-  usePolling(research ? async () => setPhase((await api.researchPhase(project.id)).phase) : null, PHASE_POLL_MS, [project.id, research]);
   const myNames = useMemo(() => bossNames(bossName), [bossName]);
 
   function append(incoming: Message[]) {
@@ -312,10 +159,18 @@ export function ConversationView({ conversation, room, project, projects, route,
     [conversation.id],
   );
 
+  const typing = room.kind === "direction" && leadWriting;
   useLayoutEffect(() => {
     const el = listRef.current;
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, typing]);
+
+  // The boss reads direction as soon as it is open, and each new message while it stays open
+  const newestId = messages?.[messages.length - 1]?.id;
+  useEffect(() => {
+    if (room.kind !== "direction" || newestId === undefined) return;
+    api.markDirectionRead(project.id).then(onRead).catch(() => {});
+  }, [room.kind, project.id, newestId, onRead]);
 
   function onScroll() {
     const el = listRef.current;
@@ -335,11 +190,11 @@ export function ConversationView({ conversation, room, project, projects, route,
     }
   }
 
-  const onAnswered = useCallback((answered: Message) => {
-    setMessages((prev) => prev && prev.map((m) => (m.id === answered.id ? answered : m)));
-  }, []);
+  function closeTeam() {
+    setTeamOpen(false);
+    teamButtonRef.current?.focus();
+  }
 
-  const busyHere = statuses.filter((s) => s.status === "working" && s.conversation_id === conversation.id);
   const empty = messages !== null && messages.length === 0;
 
   return (
@@ -349,43 +204,47 @@ export function ConversationView({ conversation, room, project, projects, route,
         {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
         <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }} asTitle />
         {!isDirectionTitle(room, conversation) && conversation.title && <span className="muted">· {conversation.title}</span>}
-        <span className="conv-members muted">{t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
-        <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
+        <span className="conv-members muted">· {t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
+        <span className="conv-head-actions">
+          <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
+          {desktop && (
+            <button ref={teamButtonRef} className="icon-btn" aria-label={t("conv.showTeam")} aria-expanded={teamOpen}
+              aria-controls="conv-team" onClick={() => (teamOpen ? closeTeam() : setTeamOpen(true))}>
+              <TeamIcon size={20} />
+            </button>
+          )}
+        </span>
       </header>
-      {research && phase && <PhaseBar phase={phase} projectId={project.id} />}
 
-      <div className="messages" ref={listRef} onScroll={onScroll}>
-        {messages === null && <p className="muted center">{t("common.loading")}</p>}
-        {empty && (
-          <div className="intro">
-            <h2>
-              {research ? t("conv.introResearchTitle") : t("conv.introTitle", { project: project.name })}
-            </h2>
-            <p className="muted">
-              {research
-                ? t("conv.introResearch")
-                : [t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
-            </p>
+      <div className="conv-body">
+        <div className="conv-main">
+          <div className="messages" ref={listRef} onScroll={onScroll}>
+            {messages === null && <p className="muted center">{t("common.loading")}</p>}
+            {empty && (
+              <div className="intro">
+                <h2>{t("conv.introTitle", { project: project.name })}</h2>
+                <p className="muted">
+                  {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
+                </p>
+              </div>
+            )}
+            {messages?.map((m, i) => {
+              const prev = messages[i - 1];
+              const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
+              const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
+              return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
+            })}
+            {typing && lead && <TypingDots name={lead.name} />}
           </div>
-        )}
-        {messages?.map((m, i) => {
-          const prev = messages[i - 1];
-          const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
-          const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} forYou={room.kind === "direction" && m.employee_id !== null && m.employee_id === lead?.id} onAnswered={onAnswered} />;
-        })}
-      </div>
 
-      <div className="typing muted">
-        {busyHere.length > 0 && t(busyHere.length > 1 ? "conv.thinkingMany" : "conv.thinkingOne", { names: busyHere.map((s) => s.name).join(", ") })}
+          {error && <p className="error composer-error">{error}</p>}
+          <Composer key={conversation.id} onSend={send}
+            placeholder={
+              empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
+            } />
+        </div>
+        {desktop && teamOpen && <ConversationTeam employees={project.employees} onClose={closeTeam} />}
       </div>
-      {error && <p className="error composer-error">{error}</p>}
-      <Composer key={conversation.id} onSend={send}
-        placeholder={
-          research
-            ? t("conv.placeholderResearch")
-            : empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
-        } />
     </div>
   );
 }

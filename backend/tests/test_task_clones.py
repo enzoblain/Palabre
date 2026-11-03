@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -14,6 +15,7 @@ import pytest
 from app import github, worktrees
 from app.config import settings
 
+_REAL_SYNC_REPO = worktrees._sync_repo  # The setup fixture stubs it out
 G = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null"]
 
 
@@ -98,6 +100,96 @@ def test_remove_deletes_the_clone(setup):
     _, path = asyncio.run(worktrees.prepare_worktree(project, task))
     asyncio.run(worktrees.remove_task_worktree(project, task))
     assert not path.exists()
+
+
+def test_desk_on_a_missing_branch_names_it(setup):
+    project, _, _ = setup
+    project.default_branch = "dev"
+    with pytest.raises(github.GitHubError, match="'dev' does not exist on GitHub"):
+        asyncio.run(worktrees.prepare_desk(project, SimpleNamespace(id=3)))
+
+
+@pytest.fixture
+def deleted_working_branch(setup, monkeypatch):
+    """The reference after GitHub lost `dev`: a push to GitHub lands in origin/* as a fetch would."""
+    project, reference, calls = setup
+    project.default_branch = "dev"
+    fake_git = worktrees.git
+
+    async def git(cwd, *args, **kwargs):
+        if args[0] == "push" and kwargs.get("repo_url"):
+            source, target = args[-1].split(":")
+            await github.git(cwd, "update-ref", target.replace("refs/heads/", "refs/remotes/origin/"), source)
+        return await fake_git(cwd, *args, **kwargs)
+
+    async def production(_repo, _branch):
+        return "main"
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "resolve_branch", production)
+    return project, reference, calls
+
+
+def test_deleted_working_branch_is_recreated_from_production(deleted_working_branch):
+    project, reference, calls = deleted_working_branch
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert ("push", "--quiet", "origin", "refs/remotes/origin/main:refs/heads/dev") in [args for args, _ in calls]
+    assert _run("rev-parse", "HEAD", cwd=reference) == _run("rev-parse", "refs/remotes/origin/main", cwd=reference)
+
+
+def test_recreating_the_working_branch_posts_a_system_line_in_direction(deleted_working_branch, monkeypatch):
+    from app import db, services
+
+    project, _, _ = deleted_working_branch
+    posted = []
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+        async def commit(self):
+            posted.append("commit")
+
+    async def direction(_s, project_id):
+        assert project_id == project.id
+        return 7
+
+    async def post(_s, conversation_id, content):
+        posted.append((conversation_id, content))
+
+    monkeypatch.setattr(db, "SessionLocal", FakeSession)
+    monkeypatch.setattr(services, "direction_conversation_id", direction)
+    monkeypatch.setattr(services, "post_system_message", post)
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert posted == [(7, "The branch 'dev' was deleted on GitHub: it has been recreated from 'main'."), "commit"]
+
+
+def test_announcement_failure_does_not_fail_the_sync(deleted_working_branch, monkeypatch):
+    from app import db
+
+    def broken():
+        raise RuntimeError("no database")
+
+    monkeypatch.setattr(db, "SessionLocal", broken)
+    project, reference, _ = deleted_working_branch
+    asyncio.run(_REAL_SYNC_REPO(project))
+    assert _run("rev-parse", "HEAD", cwd=reference) == _run("rev-parse", "refs/remotes/origin/main", cwd=reference)
+
+
+def test_deleted_production_branch_is_not_recreated(deleted_working_branch, monkeypatch):
+    project, _, calls = deleted_working_branch
+    project.default_branch = "release"
+
+    async def production(_repo, _branch):
+        return "release"
+
+    monkeypatch.setattr(worktrees, "resolve_branch", production)
+    with pytest.raises(github.GitHubError, match="'release' does not exist"):
+        asyncio.run(_REAL_SYNC_REPO(project))
+    assert not any(args[0] == "push" for args, _ in calls if args)
 
 
 def test_desk_is_reset_at_each_run(setup):
@@ -539,6 +631,26 @@ def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
     (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
     asyncio.run(worktrees.remove_project_files(4))
     assert not (tmp_path / "projects" / "project-4").exists()
+
+
+def test_remove_project_files_keeps_sessions_of_a_project_with_a_close_prefix(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
+    prefix = re.sub(r"[^A-Za-z0-9]", "-", str(tmp_path / "projects"))
+    sessions = {}
+    for project_id in (1, 12):
+        name = f"{prefix}-project-{project_id}"
+        sessions[project_id] = [
+            tmp_path / "claude" / "employee-7" / "projects" / name,
+            tmp_path / "claude" / "employee-7" / "projects" / f"{name}-worktrees-task-3",
+            tmp_path / "claude" / "projects" / name,  # Legacy store
+        ]
+        for directory in sessions[project_id]:
+            directory.mkdir(parents=True)
+            (directory / "session.jsonl").write_text("{}")
+    asyncio.run(worktrees.remove_project_files(1))
+    assert not any(directory.exists() for directory in sessions[1])
+    assert all(directory.is_dir() and (directory / "session.jsonl").exists() for directory in sessions[12])
 
 
 SCRIPTS = Path(__file__).parent.parent / "scripts"

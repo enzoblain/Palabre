@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -42,11 +41,10 @@ function remarkMentions({ selfNames }: { selfNames: string[] }) {
 }
 
 function openExternal(href: string) {
-  if ("__TAURI_INTERNALS__" in window) openUrl(href).catch(() => {});
-  else window.open(href, "_blank", "noopener");
+  window.open(href, "_blank", "noopener");
 }
 
-// Links open in the system browser: navigating would replace the app itself
+// Links open in a new tab: navigating would replace the app itself
 const components: Components = {
   a: ({ href, children }) => (
     <a href={href} onClick={(e) => {

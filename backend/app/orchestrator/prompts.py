@@ -2,6 +2,8 @@
 
 from collections import defaultdict
 
+from app.company.catalog import load_catalog
+from app.company.team import Team
 from app.models import Task
 
 # Why an employee is woken up, per event type ({...} = event payload fields)
@@ -21,7 +23,7 @@ REASONS: dict[str, str] = {
     "review_overdue": "Task #{task_id} has been waiting for your verdict for {minutes} minutes ({pr_url}). Read the reviews and reports with get_task and get_diff, then give your verdict (approve or changes) with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "review_stalled": "Task #{task_id} had no reviewer verdict for {minutes} minutes: the reviewer was woken up again. Step in if it stays stuck.",
     "review_abandoned": "Task #{task_id} ({pr_url}) still has no reviewer verdict on head {head_sha} after {reminders} reminders: no more will be sent. Decide: ask a reviewer yourself, reassign the review, or review it.",
-    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable or MCP tool without updating the README, report it as a bug.",
+    "pr_ready": "Task #{task_id} is ready for QA ({pr_url}). Check it against its acceptance criteria (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha. File each bug with report_bug. If the PR changes a documented behavior, config variable, command or MCP tool without updating the docs/ folder, report it as a bug. A README that grows with detail instead of linking to docs/ is a bug too.",
     "sensitive_pr": "Task #{task_id} touches sensitive code ({pr_url}). Audit it (get_task, get_diff) and give your verdict with review_task, passing the `Head:` commit shown by get_diff as head_sha.",
     "pr_approved": "Task #{task_id} was approved by {reviewer}. If every merge rule is met, merge it with merge_task.",
     "release_ci": "The CI of the release PR #{pr_number} finished: {result}. If it is green, ship it with merge_release; otherwise get the failing checks fixed.",
@@ -30,21 +32,18 @@ REASONS: dict[str, str] = {
     "pr_merged": "Task #{task_id} was merged ({pr_url}). Do what your position requires after a merge, if anything.",
     "bug_reported": "A {severity} bug was reported as task #{task_id}. Triage it: assign it with assign_task, or cancel it with update_task.",
     "escalation": "{from} escalated something to you (message #{message_id}). Read it and decide.",
-    "ceo_answer": "The boss answered a request in direction (message #{message_id}, {request}, asked by {asked_by}): {answer}. Their comment: {comment}. Act on it, then tell the team in the right channel (and {asked_by} if it was not you).",
+    "ceo_answer": "The boss replied in direction (message #{message_id}) to your pending requests, now closed:\n{requests}\nRead their reply and interpret it (\"ok\" is a yes, a condition or a no is not). Then act: settle_decision for a decision (validated or rejected), merge_release to ship an accepted release, and tell the team in the right channel (and the member whose escalation it was). If the reply does not answer a request clearly, ask again.",
     "boss_message": "The boss posted in the direction channel (message #{message_id}). Read it, then relay it to the team channels (send_message with channel=...) and report back to them in direction.",
     "objective_set": "The boss set the objective of this room. Read it with get_room_context and act according to your position.",
-    "decision_changed": "The boss {status} decision #{decision_id}. Take it into account.",
+    "decision_changed": "Decision #{decision_id} was {status}. Take it into account.",
     "daily": "It is time for the daily stand-up. Do your part of it according to your position.",
     "review_rounds_exceeded": "Task #{task_id} went through {rounds} rounds of requested changes without converging. Step in: decide, reassign it, or split it.",
     "conversation_throttled": "The team talked too much in conversation #{conversation_id} within an hour: their chatter is paused there for the rest of the hour (work on tasks and reviews goes on). Step in if they are stuck.",
     "credits_back": "Claude credits ran out (since {since}) and are back: the team was paused and is resuming, the queued wakeups are replayed. Tasks in progress: {tasks}. Queued wakeups: {pending}. Check what stalled, nudge or reassign where needed, and tell the boss in direction where things stand.",
     "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
+    "task_stalled": "Task #{task_id} is still {status} but your last run ended without submitting (restart {attempt}). Pick up where you left off, finish it, then submit_for_review.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, ask them with ask_ceo (or tell the lead); otherwise reassign or split the task.",
-    "research_start": "Phase 1, research. The boss asked a question (message #{message_id}). Research it from your angle: search the web, read the sources, then post what you found in the chat, one finding per message with its link. Do not wait for the others and do not answer for the whole group.",
-    "research_debate": "Phase 2, debate. Everyone has posted their first findings. Read them all. Challenge what looks weak or contradicts your sources, confirm what you could check, search again where it matters, and answer the people concerned with @Name.",
-    "research_conclude": "Phase 3, conclusion. The debate has settled. In one short message, give your final answer to the boss's question, how sure you are, and the source that convinced you most. If you still disagree with someone, say on what.",
-    "research_report": "Phase 4, report. Write the final report with update_summary (the one exception to the project-summary rule: in a research room the summary is the report): the question, the short answer, the key findings with their sources, the disagreements that remain, the open questions. Propose the main conclusion with add_decision. Then give the boss the answer in the chat, in one or two sentences, and tell them the report is ready.",
     "conversation_idle": "The conversation has gone quiet. Update the room document. The summary (update_summary) is a short summary of the project, not of the conversation: what it is, its goal, where it stands, what was delivered and decided, in the team's language. Rewrite it only if the project moved (delivery, validated decision); keep it to a few lines. Update the open questions too.",
 }
 
@@ -63,9 +62,9 @@ _OPERATING_RULES = """## How Palabre works
 - Your notebook (read_notes / write_notes) is how you remember things from one session to the next.
 - In a conversation you work in your own desk: a private copy of the repository (your current directory), with your position's tools. Read the code, run commands and tests, try things. To test a task's branch: `git checkout --detach <branch>` (the branch is in get_task). Your desk is reset to the default branch every time you are woken up, and nothing in it is ever pushed.
 - Never ask the boss for write or execution rights: your position's tools are all you get, and they are already allowed.
-- A missing toolchain (Node.js, Go, Python venv) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
+- A missing toolchain (Node.js, Go, Rust, Java, Deno, Bun, .NET, Python venv...) is installed for everyone with install_toolchain, by the lead or devops: never wait for the boss for that.
 - Your task's code only changes in a task run, in the task's worktree. When you are woken up in a conversation and it is time to work on your task (you were unblocked, someone asks you to start or to fix something), call start_task and stop: you are woken up in the worktree right after. Never cd into a task worktree from your desk, and never push: you have no credentials, submit_for_review does it.
-- Channels: the boss only talks to the lead, in the "direction" channel (they see only that channel and whether each of you is busy or available: they read neither the team channels nor the DMs). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction", or ask_ceo when you need their Validate / Reject / Nuance answer), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
+- Channels: the boss only talks to the lead, in the "direction" channel (they see only that channel and whether each of you is busy or available: they read neither the team channels nor the DMs). The team works in its own channels and cannot see direction. The lead relays both ways: what the boss asks goes to the team channels, what the team decides or needs from the boss goes back to direction (send_message with channel="direction", or ask_ceo when you need their go: they answer in free text in the channel, and you interpret it), and create_channel opens a new team channel (e.g. backend, front, quality). Everyone else: if you need the boss, tell the lead.
 - DMs and groups: send_message(channel="@Name") opens a DM with a colleague, channel="name" posts in a channel you are a member of. A DM is for an exchange between two people; anything that concerns several people goes in a group (a channel), not in several DMs. Never decide anything in a DM: a decision goes in the team channel (and add_decision), a DM can only prepare it.
 - Changing code happens in task runs. When a task is assigned to you and the tasks it depends on are done, you are woken up in the task's own git clone, with the tools your position allows (editing files, running commands, committing). To get something done, create a task, or ask the lead for one."""
 
@@ -73,25 +72,6 @@ _OPERATING_RULES = """## How Palabre works
 def operating_rules() -> str:
     return _OPERATING_RULES
 
-
-RESEARCH_RULES = """## How Palabre works
-- You only communicate through the "palabre" MCP tools. Anything you write outside send_message is seen by nobody.
-- You are woken up when something concerns you: the boss posted, someone mentioned you, a conclusion was decided. Do your part, then stop.
-- Mention a colleague with @Name only when you need them: it wakes them up.
-- Your notebook (read_notes / write_notes) is how you remember things from one session to the next.
-- Your current directory is your own drafts folder: keep notes there if it helps. Nobody else sees it.
-
-## How you research
-- You are not building anything: there is no product, no team to staff, no budget or roadmap. The boss wants an answer to a question, backed by evidence. If it depends on details you do not have (their budget, their team...), do not ask: answer for the typical cases and state your assumptions.
-- A question goes through four phases, and each wake-up tells you which one you are in: research (everyone searches and posts findings), debate (you confront them), conclusion (everyone states a final position), report (the rapporteur writes it up). Do what the phase asks, then stop.
-- Search the web (WebSearch) before stating facts; to read a page in full, use the fetch_page tool (https only, text extracted, size-limited): your sandbox has no network of its own. Prefer primary, recent and reputable sources, and check their dates.
-- Every factual claim you bring comes with its source, as a link. Say how sure you are and why.
-- Read the conversation first: do not redo a search a colleague already did, and take the angle your position gives you.
-- You are peers: nobody has the last word except the boss. Challenge claims with evidence, answer challenges with evidence, and change your mind when the evidence says so (say it).
-- Keep facts, interpretations and opinions apart.
-- When the group agrees on something important, propose it as a conclusion with add_decision: the title is the conclusion, the rationale holds the evidence and the links. The boss validates or rejects it. What remains unsettled goes in add_question.
-- Stay on the boss's topic and questions.
-- In the chat, bring one finding at a time with its link, like you would drop it to a colleague ("Farcaster only keeps identities on-chain, messages live on hubs: [docs](…)"). The full evidence goes in a conclusion's rationale (add_decision) or in the report, not in the chat."""
 
 CHAT_RULES = """## How you talk in the chat
 You are a colleague on the team chat, not an assistant writing a report. Write exactly the way people text each other at work.
@@ -142,6 +122,38 @@ def version_rule(roles: list[str]) -> str | None:
     return VERSION_RULE if VERSION_ROLES & set(roles) else None
 
 
+TEAM_REVIEW_RULE = """## Reviewing the team
+Before you split a goal, create or assign a task, arbitrate or relay, and on every message from the boss, go through each member of the team below and ask yourself whether their role is needed here. Involve every useful role (assign it a task, ask in the channel, mention it); a goal done without a role that should have weighed in is a miss.
+{members}
+Cues, for the roles this team has:
+{cues}"""
+
+# What each role is for, as a prompt to the lead; only the roles present in the team are shown
+ROLE_CUES: dict[str, str] = {
+    "designer": "before any screen or user journey, so the UI is designed before it is coded",
+    "architect": "for a change of structure (new module, data model, API contract, technology)",
+    "security": "for authentication, personal data, secrets and dependencies",
+    "reviewer": "on every pull request",
+    "qa": "on every pull request, against its acceptance criteria",
+    "scribe": "for the documentation and the room document",
+    "devops": "for CI, deployment and releases",
+    "product_owner": "to clarify a need or acceptance criteria before the work is split",
+}
+
+
+def team_review_rule(roles: list[str], team: Team) -> str | None:
+    """The lead's reminder to review the team, with the members and the cues of the roles present."""
+    if "lead" not in roles:
+        return None
+    catalog_roles = load_catalog()["roles"]
+    members = "\n".join(
+        f"- {e.name}, {e.title}: {catalog_roles[e.roles[0]].mission}" for e in team.employees if e.roles[0] in catalog_roles
+    )
+    present = {key for e in team.employees for key in e.roles}
+    cues = "\n".join(f"- {catalog_roles[key].title}: {cue}" for key, cue in ROLE_CUES.items() if key in present)
+    return TEAM_REVIEW_RULE.format(members=members, cues=cues)
+
+
 # (what a developer applies, what the reviewer checks): one list, rendered in both blocks
 CODE_STANDARDS_LIST: list[tuple[str, str]] = [
     ("Code, comments, docstrings and identifiers are in English.", "Code, comments, docstrings and identifiers are in English."),
@@ -153,8 +165,8 @@ CODE_STANDARDS_LIST: list[tuple[str, str]] = [
     ("Every new behavior has tests.", "Every new behavior has tests."),
     ("No dead code, no TODO without a ticket.", "No dead code, no TODO without a ticket."),
     (
-        "If your PR changes a behavior, a config variable, a command or an MCP tool described in the README, update the README in the same PR.",
-        "A PR that changes a behavior documented in the README, or adds a config variable or an MCP tool, updates the README in the same PR; otherwise it is blocking.",
+        "If your PR changes a behavior, a config variable, a command or an MCP tool, document it in the right file of docs/ in the same PR. The README stays short (pitch, quick start, links): never add detail to it.",
+        "A PR that changes a documented behavior, or adds a config variable, a command or an MCP tool, updates the right file of docs/ in the same PR; otherwise it is blocking. A README that grows with detail instead of linking to docs/ is blocking too.",
     ),
 ]
 
@@ -199,7 +211,7 @@ You are working on task #{task_id} « {title} », in its own git clone (your cur
 
 
 ORIENTATION_RULE = """## Getting oriented
-The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
+The team works on the branch `{branch}`. This is your first run on this project: before anything else, read its README and its docs/ folder, and look at the tree of the repository (your current directory is a checkout of it) to understand what the product is and how it is organized."""
 
 BRANCH_RULE = "The team works on the branch `{branch}`."
 

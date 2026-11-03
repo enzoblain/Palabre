@@ -23,7 +23,6 @@ from app.orchestrator.credit_watch import on_limit_reached, on_run_succeeded
 from app.orchestrator.events import expand_events
 from app.orchestrator.prompts import (
     CHAT_RULES,
-    RESEARCH_RULES,
     boss_messages_rule,
     code_standards_rule,
     language_rule,
@@ -31,14 +30,15 @@ from app.orchestrator.prompts import (
     orientation_rule,
     project_instructions_rule,
     task_rules,
+    team_review_rule,
     version_rule,
     wake_prompt,
 )
-from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
+from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_ended, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
 from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, UsageLimitReached, run_claude
-from app.worktrees import desk_dir, prepare_desk, prepare_worktree, repo_dir, sync_repo
+from app.worktrees import prepare_desk, prepare_worktree, repo_dir, sync_repo
 
 log = logging.getLogger(__name__)
 
@@ -63,9 +63,7 @@ def read_project_instructions(project: Project) -> str | None:
 
 
 async def project_instructions_for(project: Project) -> str | None:
-    """CLAUDE.md for the agents of a company project; research projects have none."""
-    if project.kind != "company":
-        return None
+    """CLAUDE.md for the agents of a project."""
     return await asyncio.to_thread(read_project_instructions, project)
 
 
@@ -76,12 +74,13 @@ def build_system_prompt(
     language = services.team_language()
     return "\n\n".join(p for p in [
         render_system_prompt(team, member, boss_name),
-        RESEARCH_RULES if project.kind == "research" else operating_rules(),
+        operating_rules(),
         CHAT_RULES,
-        orientation_rule(project.default_branch, first_run) if project.kind == "company" else None,
+        orientation_rule(project.default_branch, first_run),
         language_rule(language),
         boss_messages_rule(language),
         version_rule(member.roles),
+        team_review_rule(member.roles, team),
         code_standards_rule(member.roles),
         project_instructions_rule(project_instructions),
     ] if p)  # fmt: skip
@@ -335,6 +334,8 @@ class Orchestrator:
         await s.commit()
         if ok is False and run.task_id is not None and run.kind == "task":
             await on_task_run_failed(s, run.task_id, error)
+        elif ok and run.task_id is not None and run.kind == "task":
+            await on_task_run_ended(s, run.task_id)
 
     # --- Preparing a run -----------------------------------------------------------
 
@@ -352,7 +353,7 @@ class Orchestrator:
         )
         oauth_token = token_for(self._run_accounts.get(employee.id) or assign_accounts(project.employees)[employee.id])
         first = wakeups[0]
-        rooms = await services.rooms_of(s, employee) if project.kind == "company" else []
+        rooms = await services.rooms_of(s, employee)
 
         if first.kind == "task":
             task = await s.get(Task, first.task_id)
@@ -408,10 +409,6 @@ class Orchestrator:
         )
 
     async def _desk(self, project: Project, employee: Employee):
-        if project.kind == "research":  # No repository: a plain drafts folder
-            path = desk_dir(project, employee)
-            path.mkdir(parents=True, exist_ok=True)
-            return path
         await self._refresh_repo(project)
         return await prepare_desk(project, employee)
 

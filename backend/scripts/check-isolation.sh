@@ -7,7 +7,7 @@
 #
 # THROWAWAY CONTAINER ONLY. For the runs it swaps the claude binary for a stub (restored on exit): use a throwaway
 # container, not one whose orchestrator is running agents (see "Checking the isolation" in
-# the README). CHECK_GITHUB_REPO names a scratch repository the backend's GitHub token can
+# docs/security.md). CHECK_GITHUB_REPO names a scratch repository the backend's GitHub token can
 # push to: the check clones it, commits as an agent, pushes, opens a PR and merges it.
 set -u
 

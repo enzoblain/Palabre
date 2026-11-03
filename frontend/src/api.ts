@@ -1,31 +1,27 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { translate } from "./i18n";
 
-// In the desktop app, requests go through Rust (no CORS / mixed-content limits).
-// In a plain browser (`npm run dev`), the regular fetch is used.
-const inTauri = "__TAURI_INTERNALS__" in window;
-const doFetch: typeof fetch = inTauri ? tauriFetch : window.fetch.bind(window);
 // Opened from the server's web port: the API is on the page's own address
-export const pageServer: string | null = inTauri || import.meta.env.DEV ? null : location.origin;
+export const pageServer: string | null = import.meta.env.DEV ? null : location.origin;
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
-
-export type ProjectKind = "company" | "research";
-export type ResearchPhase = "research" | "debate" | "conclusion" | "report" | "done";
 
 export type Project = {
   id: number;
   name: string;
-  // "company": a software company on a GitHub repository; "research": peers on a topic
-  kind: ProjectKind;
-  topic: string | null;
-  // Research: where the current question stands
-  research_phase: ResearchPhase | null;
   repo_url: string;
   default_branch: string;
   mode: string;
   seed: number;
   created_at: string;
+};
+
+export type LastMessage = { content: string; author: string; created_at: string };
+
+export type ProjectListItem = Project & {
+  unread_count: number;
+  lead_writing: boolean;
+  // Latest message of direction; null when there is none
+  last_message: LastMessage | null;
 };
 
 export type EmployeeBrief = { id: number; name: string; title: string };
@@ -57,6 +53,8 @@ export type Room = {
 };
 
 export type ProjectDetail = Project & { employees: Employee[]; rooms: Room[] };
+/** The project after an edit; `warning` is set when the team still works on the previous main branch. */
+export type ProjectUpdated = ProjectDetail & { warning: string | null };
 
 export type Conversation = { id: number; room_id: number; title: string; created_at: string };
 
@@ -69,49 +67,15 @@ export type Message = {
   created_at: string;
   // Automatic line from the platform (not the CEO, although it has no employee)
   is_system: boolean;
-  // Set when the lead asks the CEO something (Validate / Reject / Nuance)
+  // Set when the lead asks the CEO something (the CEO answers in the chat, which closes it)
   request_kind: string | null;
-  request_status: "pending" | RequestAnswer | "withdrawn" | "merged" | null;
+  request_status: "pending" | "answered" | "validated" | "rejected" | "nuanced" | "withdrawn" | "merged" | null;
   request_comment: string | null;
   request_answered_at: string | null;
   // The new request that replaced this one (status "merged")
   request_merged_into: number | null;
   request_decision_id: number | null;
 };
-export type RequestAnswer = "validated" | "rejected" | "nuanced";
-
-export type EmployeeStatus = {
-  employee_id: number;
-  name: string;
-  title: string;
-  status: "working" | "waiting" | "resting" | "offline";
-  account: number;
-  kind: string | null;
-  conversation_id: number | null;
-  task_id: number | null;
-  since: string | null;
-};
-
-/** Who is busy right now ("blocked" is not derived by the server yet). */
-export type Presence = {
-  employee_id: number;
-  name: string;
-  roles: string[];
-  state: "working" | "idle";
-  kind: string | null;
-  task_id: number | null;
-  conversation_id: number | null;
-  last_run_at: string | null;
-};
-
-export type Mode = {
-  label: string;
-  seats: { roles: string[]; count?: number }[];
-  rules: string[];
-  process: Record<string, unknown>;
-};
-
-export type TeamMember = Omit<Employee, "id" | "project_id" | "account">;
 
 export type AppSettings = {
   boss_name: string;
@@ -120,17 +84,6 @@ export type AppSettings = {
   languages: Record<string, string>;
   claude_accounts: number;
 };
-// Real quota of a Claude account, as /usage shows it. `resets_at` is null when unknown
-export type QuotaWindow = { used_percent: number; resets_at: string | null };
-export type ModelQuota = QuotaWindow & { model: string };
-// On error, `error` says why and the windows are empty
-export type AccountQuota = {
-  account: number;
-  error: string | null;
-  session: QuotaWindow | null;
-  week: QuotaWindow | null;
-  models: ModelQuota[];
-};
 export type ExhaustedAccount = { account: number; resets_at: string; estimated: boolean };
 export type OrchestratorStatus = {
   enabled: boolean;
@@ -138,8 +91,6 @@ export type OrchestratorStatus = {
   pending_wakeups: number;
   exhausted_accounts: ExhaustedAccount[];
 };
-export type Quota = { accounts: AccountQuota[] };
-export type TeamPreview = { mode: string; seed: number; employees: TeamMember[] };
 
 export type Decision = {
   id: number;
@@ -155,30 +106,17 @@ export type Decision = {
   decided_at: string | null;
 };
 
-export type Axis = { key: string; label: string; low: string; high: string };
-export type Personality = {
-  levels: number[];
-  axes: Axis[];
-  quirks: string[];
-  // Style key (verbosity, tone) → possible values
-  style: Record<string, string[]>;
-};
-
-/** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
+/** A named personality of the catalog (PersonalityPresetOut on the server): the screen only shows its name and description. */
 export type PersonalityPreset = {
   key: string;
-  kind: ProjectKind;
   label: string;
   description: string;
-  traits: Record<string, number>;
-  quirks: string[];
-  style: Record<string, string>;
 };
 
 export type Model = "haiku" | "sonnet" | "opus";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Categories of the historic roles. */
-export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support" | "research";
+export type CoreCategory = "management" | "engineering" | "quality" | "product" | "support";
 /** Categories of the extended jobs (extended_roles.toml on the server). */
 export type ExtendedCategory =
   | "direction_strategy" | "architecture" | "software_development" | "artificial_intelligence" | "data_databases"
@@ -194,7 +132,6 @@ export type RoleTools = { mcp: string[]; claude: string[] };
 /** A job of the catalog (RoleOut on the server). */
 export type Role = {
   key: string;
-  kind: ProjectKind;
   title: string;
   description: string;
   category: RoleCategory;
@@ -220,11 +157,8 @@ export type MemberIn = {
   name: string;
   roles: string[];
   model: string | null;
-  traits: Record<string, number>;
-  quirks: string[];
-  style: Record<string, string>;
-  // Key of the preset the personality started from (the fields above override it)
-  personality?: string | null;
+  // Key of a personality preset; null: the server draws one at random
+  personality: string | null;
   account: number | null;
 };
 
@@ -295,7 +229,6 @@ export const ERROR_CODES = [
   "question_not_found",
   "mode_not_found",
   "unknown_mode",
-  "research_topic_required",
   "invalid_repository",
   "duplicate_employee_name",
   "unknown_roles",
@@ -306,14 +239,10 @@ export const ERROR_CODES = [
   "team_too_small",
   "invalid_team_permissions",
   "invalid_account",
-  "research_has_no_repository",
   "direction_room_immutable",
   "dm_immutable",
-  "boss_direction_only",
   "boss_read_only_room",
-  "members_not_in_project",
   "employee_other_project",
-  "direction_room_reserved",
   "conversation_not_in_room",
   "invalid_language",
   "not_found",
@@ -321,6 +250,9 @@ export const ERROR_CODES = [
   "invalid_branch_name",
   "branch_already_used",
   "no_name_left",
+  "lead_protected",
+  "lead_already_exists",
+  "team_too_large",
   "task_wrong_status",
   "stale_review_head",
   "pr_head_moved",
@@ -337,6 +269,8 @@ export const ERROR_CODES = [
   "invalid_github_url",
   "github_branch_missing",
   "production_branch_boss_only",
+  "main_branch_is_team_branch",
+  "main_branch_is_task_branch",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -363,7 +297,7 @@ function errorMessage(status: number, code: unknown): string {
 async function request<T>(conn: Connection, path: string, method = "GET", body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await doFetch(`${conn.server}/api${path}`, {
+    res = await fetch(`${conn.server}/api${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${conn.token}`,
@@ -413,33 +347,26 @@ export async function login(server: string, adminToken: string): Promise<Connect
 // --- Endpoints ---------------------------------------------------------------------
 
 export const api = {
-  getQuota: () => call<Quota>("/settings/quota"),
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),
 
-  modes: (kind: ProjectKind) => call<Record<string, Mode>>(`/catalog/modes?kind=${kind}`),
-  personality: (kind: ProjectKind) => call<Personality>(`/catalog/personality?kind=${kind}`),
-  personalities: (kind: ProjectKind) => call<Record<string, PersonalityPreset>>(`/catalog/personalities?kind=${kind}`),
-  roles: (kind: ProjectKind) => call<Record<string, Role>>(`/catalog/roles?kind=${kind}`),
+  personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
   limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),
-  previewTeam: (mode: string, seed?: number) =>
-    call<TeamPreview>(`/catalog/modes/${mode}/team${seed !== undefined ? `?seed=${seed}` : ""}`),
 
-  listProjects: () => call<Project[]>("/projects"),
+  listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
+    call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
-  changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
+  deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
   createProject: (body: {
     name: string;
     repo_url?: string;
-    topic?: string;
-    rapporteur?: string | null;
     mode: string;
-    seed?: number;
-    accounts: Record<string, number>;
     creation_mode?: "manual" | "auto";
     description?: string;
     employee_count?: number;
@@ -447,13 +374,11 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
-  researchPhase: (projectId: number) => call<{ phase: ResearchPhase | null }>(`/projects/${projectId}/research-phase`),
-  presence: (projectId: number) => call<Presence[]>(`/projects/${projectId}/presence`),
-  teamStatus: (projectId: number) => call<EmployeeStatus[]>(`/projects/${projectId}/team-status`),
-
-  roomDocument: <T>(roomId: number) => call<T>(`/rooms/${roomId}/document`),
-  decide: (decisionId: number, status: "validated" | "rejected") =>
-    call<Decision>(`/decisions/${decisionId}`, "PATCH", { status }),
+  addEmployee: (projectId: number, body: { roles: string[]; personality: string | null }) =>
+    call<Employee>(`/projects/${projectId}/employees`, "POST", body),
+  updateEmployee: (employeeId: number, changes: { roles?: string[]; personality?: string }) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", changes),
+  removeEmployee: (employeeId: number) => call<void>(`/employees/${employeeId}`, "DELETE"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>
@@ -462,8 +387,7 @@ export const api = {
     ),
   postMessage: (conversationId: number, content: string) =>
     call<Message>(`/conversations/${conversationId}/messages`, "POST", { content }),
+  markDirectionRead: (projectId: number) => call<ProjectListItem>(`/projects/${projectId}/direction/read`, "POST"),
   liftRateLimit: (conversationId: number) =>
     call<void>(`/conversations/${conversationId}/lift-rate-limit`, "POST"),
-  answerRequest: (messageId: number, answer: RequestAnswer, comment = "") =>
-    call<Message>(`/messages/${messageId}/answer`, "POST", { answer, comment }),
 };

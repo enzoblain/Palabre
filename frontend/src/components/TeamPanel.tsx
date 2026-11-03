@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { Conversation, Presence, Project, ProjectDetail } from "../api";
+import type { Conversation, Employee, Project, ProjectDetail } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { Avatar } from "./Avatar";
-import { ConversationIcon, DocumentIcon, GearIcon, PlusIcon } from "./Icons";
+import { ConversationIcon, GearIcon, PlusIcon } from "./Icons";
 
 export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 
@@ -87,43 +87,27 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
   );
 }
 
-/** The left-hand "Team" column: who is there and whether they are busy. Fixed at 280px, a drawer on small screens. */
-export function TeamPanel({ project, route, presence, open, onClose, noProject }: {
+/** The lead first, then the others by name. */
+export function sortedPeople(employees: Employee[]): Employee[] {
+  return [...employees].sort((a, b) => {
+    const lead = Number(b.roles.includes("lead")) - Number(a.roles.includes("lead"));
+    return lead || a.name.localeCompare(b.name);
+  });
+}
+
+/** The left-hand "Team" column: who is there. Fixed at 280px, a drawer on small screens. */
+export function TeamPanel({ project, route, open, onClose, noProject }: {
   project: ProjectState | null;
   route: Route;
   // Home, new project, settings: no team to list, only the Settings link stays
   noProject?: boolean;
-  presence: Presence[];
   open: boolean;
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const stateText = (p: Presence | undefined) => (p?.state === "working" ? t("team.busy") : t("team.available"));
-  const [announce, setAnnounce] = useState("");
-  const previous = useRef<Map<number, string> | null>(null);
+  const people = sortedPeople(project?.detail.employees ?? []);
 
-  // Announce state changes to screen readers, politely, not the whole list on each poll
-  useEffect(() => {
-    const now = new Map(presence.map((p) => [p.employee_id, p.state]));
-    const before = previous.current;
-    previous.current = now;
-    if (!before || before.size === 0) return;
-    const changes = presence.filter((p) => before.has(p.employee_id) && before.get(p.employee_id) !== p.state);
-    if (changes.length) setAnnounce(changes.map((p) => t(p.state === "working" ? "team.nowBusy" : "team.nowAvailable", { name: p.name })).join(". "));
-  }, [presence]);
-  useEffect(() => {
-    previous.current = null;
-    setAnnounce("");
-  }, [project?.detail.id]);
-
-  const byId = new Map(presence.map((p) => [p.employee_id, p]));
-  const people = [...(project?.detail.employees ?? [])].sort((a, b) => {
-    const lead = Number(b.roles.includes("lead")) - Number(a.roles.includes("lead"));
-    const busy = Number(byId.get(b.id)?.state === "working") - Number(byId.get(a.id)?.state === "working");
-    return lead || busy || a.name.localeCompare(b.name);
-  });
-
-  // The main conversation: direction, or the first room of a research group
+  // The main conversation: direction
   const homeRoom = project?.detail.rooms.find((r) => r.kind === "direction") ?? project?.detail.rooms[0];
   const homeConversationId = homeRoom && project?.conversations[homeRoom.id]?.[0]?.id;
   const isHomeConversation = route.name === "project" && route.conversationId === homeConversationId;
@@ -142,37 +126,19 @@ export function TeamPanel({ project, route, presence, open, onClose, noProject }
                 <ConversationIcon size={15} /> {t("menu.conversation")}
               </a>
             )}
-            {project.detail.kind === "research" && (
-              <a className={`nav-item${route.name === "report" ? " active" : ""}`} href={`#/p/${project.detail.id}/report`}
-                aria-current={route.name === "report" ? "page" : undefined} onClick={onClose}>
-                <DocumentIcon size={15} /> {t("menu.report")}
-              </a>
-            )}
           </nav>
           <h2 className="section-label" id="people-label">{t("team.title")}</h2>
           <ul className="panel-list" aria-labelledby="people-label">
-            {people.map((e) => {
-              const p = byId.get(e.id);
-              const state = stateText(p);
-              const task = p?.state === "working" && p.kind === "task" && p.task_id ? t("team.task", { id: p.task_id }) : null;
-              return (
-                <li key={e.id} className="person member">
-                  <span className="member-avatar">
-                    <Avatar name={e.name} size={30} />
-                    <span className={`presence presence-${p?.state ?? "idle"}`} aria-hidden="true" />
-                  </span>
-                  <span className="member-text">
-                    <span className="truncate">{e.name}</span>
-                    <span className="member-role truncate">{e.title}</span>
-                    <span className={`presence-label presence-label-${p?.state ?? "idle"} truncate`}>
-                      {state}{task ? ` · ${task}` : ""}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
+            {people.map((e) => (
+              <li key={e.id} className="person member">
+                <Avatar name={e.name} size={30} />
+                <span className="member-text">
+                  <span className="truncate">{e.name}</span>
+                  <span className="member-role truncate">{e.title}</span>
+                </span>
+              </li>
+            ))}
           </ul>
-          <div className="sr-only" role="status" aria-live="polite">{announce}</div>
         </div>
       )}
       <footer className="panel-foot">

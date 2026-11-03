@@ -89,10 +89,55 @@ async def _sync_repo(project: Project) -> Path:
     branch = project.default_branch
     if not await _has_ref(repo, f"refs/remotes/origin/{branch}"):
         if (await git(repo, "branch", "--remotes")).strip():
-            raise GitHubError(f"The branch '{branch}' does not exist on GitHub (project's default branch)")
-        await _initial_commit(project, repo)
+            await _restore_working_branch(project, repo)
+        else:
+            await _initial_commit(project, repo)
     await git(repo, "checkout", "--quiet", "--force", "--detach", f"refs/remotes/origin/{branch}")
     return repo
+
+
+async def follow_main_branch(project: Project, branch: str) -> None:
+    """Point the reference clone's `origin/HEAD` at the repository's new default branch."""
+    repo = await sync_repo(project)
+    async with _repo_locks[project.id]:
+        await git(repo, "remote", "set-head", "origin", branch)
+
+
+async def _restore_working_branch(project: Project, repo: Path) -> None:
+    """The team's branch (`dev`) was deleted on GitHub, e.g. by the "Delete branch" button after
+    the release PR: recreate it from production, which that merge just updated, instead of
+    failing every run. A missing production branch is not ours to recreate."""
+    branch = project.default_branch
+    production = await resolve_branch(repo_slug(project.repo_url), "")
+    if branch == production or not await _has_ref(repo, f"refs/remotes/origin/{production}"):
+        raise _missing_branch_error(branch)
+    log.warning("Project %s: the branch '%s' is missing on GitHub, recreating it from '%s'", project.id, branch, production)
+    await git(repo, "push", "--quiet", "origin", f"refs/remotes/origin/{production}:refs/heads/{branch}", repo_url=project.repo_url)
+    await git(repo, "fetch", "--quiet", "origin", repo_url=project.repo_url)
+    await _announce_branch_recreated(project.id, branch, production)
+
+
+def _missing_branch_error(branch: str) -> GitHubError:
+    return GitHubError(f"The branch '{branch}' does not exist on GitHub (project's default branch)")
+
+
+async def _announce_branch_recreated(project_id: int, branch: str, production: str) -> None:
+    """Tell the boss in direction that the deletion of the team's branch was undone. Best effort:
+    a failure here must not fail the sync."""
+    from app import services  # Late: tests import this module without a database
+    from app.db import SessionLocal
+
+    try:
+        async with SessionLocal() as s:
+            conversation_id = await services.direction_conversation_id(s, project_id)
+            if conversation_id is None:
+                return
+            await services.post_system_message(
+                s, conversation_id, f"The branch '{branch}' was deleted on GitHub: it has been recreated from '{production}'."
+            )
+            await s.commit()
+    except Exception:
+        log.exception("Project %s: cannot announce the recreation of the branch '%s'", project_id, branch)
 
 
 async def _has_ref(repo: Path, ref: str) -> bool:
@@ -405,6 +450,8 @@ async def prepare_desk(project: Project, employee: Employee) -> Path:
     async with _repo_locks[project.id]:
         await _remove_clone(path)
         await _clone_from_reference(project, path)  # Config written by the backend alone
+        if not await _has_ref(path, ref):  # Else git reads the ref as a path and fails cryptically
+            raise _missing_branch_error(project.default_branch)
         await git(path, "checkout", "--quiet", "--detach", ref)
     return path
 

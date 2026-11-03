@@ -46,18 +46,20 @@ class DecisionStatus(str, enum.Enum):
 
 
 class RequestAnswer(str, enum.Enum):
-    """How the boss answers a request of the lead (Message.request_status)."""
+    """How a decision is settled (Decision.status, and the requests asking about it)."""
 
     validated = "validated"
     rejected = "rejected"
-    nuanced = "nuanced"
 
 
 class RequestStatus(str, enum.Enum):
     """Where a request to the boss stands (Message.request_status): waiting, answered by the
-    boss (RequestAnswer values), or closed by the lead without an answer."""
+    boss's next message (answered), settled with its decision (RequestAnswer values), or closed by the
+    lead without an answer. nuanced is no longer produced: it only labels requests answered before the
+    boss replied in free text."""
 
     pending = "pending"
+    answered = "answered"
     validated = "validated"
     rejected = "rejected"
     nuanced = "nuanced"
@@ -112,12 +114,6 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(200))
     repo_url: Mapped[str] = mapped_column(String(500))
     default_branch: Mapped[str] = mapped_column(String(200), default="main")
-    # "company": a software company on a GitHub repository; "research": peers who
-    # investigate `topic` (repo_url is then empty)
-    kind: Mapped[str] = mapped_column(String(20), default="company", server_default="company")
-    topic: Mapped[str | None] = mapped_column(Text)
-    # Research: where the current question stands (orchestrator/research.py)
-    research_phase: Mapped[str | None] = mapped_column(String(20))
     # Mode (catalog.toml) and the seed the team was drawn with
     mode: Mapped[str] = mapped_column(String(50))
     seed: Mapped[int] = mapped_column(BigInteger)
@@ -128,6 +124,10 @@ class Project(Base):
     main_ci_watch: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Head SHA of the team's branch the lead was already told has unpublished changes
     release_reminded_sha: Mapped[str | None] = mapped_column(String(64))
+    # Last direction message the boss has read (0 = none): the lead's messages after it are unread
+    boss_read_message_id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"), default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = created_at_column()
 
     employees: Mapped[list[Employee]] = relationship(
@@ -172,7 +172,7 @@ class Room(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
     # "direction": only the boss and the lead, the one place the boss may write;
-    # "team": the team's channels, which the boss does not see (research rooms excepted);
+    # "team": the team's channels, which the boss does not see;
     # "dm": exactly 2 employees, named after them, one per pair
     kind: Mapped[str] = mapped_column(String(20), default="team", server_default="team")
     # Shared document: objective and summary (decisions, questions and tasks are rows)
@@ -238,14 +238,15 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer(), "sqlite"), primary_key=True)
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
-    # NULL = the boss
-    employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    # NULL = the boss. Not a foreign key: the id outlives a removed member, whose messages must not
+    # read as the boss's
+    employee_id: Mapped[int | None] = mapped_column(Integer)
     author_name: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text)
     # Automatic line from the platform (employee_id is NULL too, but it is not the boss)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    # A request to the boss ("decision", "release", "escalation", "question"), answered
-    # once with validated / rejected / nuanced (+ comment); request_status is "pending" until then,
+    # A request to the boss ("decision", "release", "escalation", "question"); request_status is
+    # "pending" until the boss's next message closes it ("answered", the comment is their reply),
     # or until the lead withdraws it (the comment is their reason) or merges it into another
     request_kind: Mapped[str | None] = mapped_column(String(20))
     request_status: Mapped[str | None] = mapped_column(String(20))
@@ -278,11 +279,11 @@ class Task(Base):
     sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[TaskStatus] = mapped_column(str_enum(TaskStatus), default=TaskStatus.todo)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
-    # NULL = created by the boss
-    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    # NULL = created by the boss. Not a foreign key, like Message.employee_id
+    created_by_id: Mapped[int | None] = mapped_column(Integer)
     depends_on: Mapped[list[int]] = mapped_column(JSON, default=list)
     # Who merged or cancelled it (NULL = the boss, or still open); counted for the context reset
-    closed_by_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    closed_by_id: Mapped[int | None] = mapped_column(Integer)
     # When it was merged or cancelled; the context reset counts on it, not on updated_at
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Set by the orchestrator when the task run starts
@@ -307,6 +308,8 @@ class Task(Base):
     idle_alert_sha: Mapped[str | None] = mapped_column(String(64))
     # Watchdog nudges sent to a dev who never started a todo or changes_requested task (reset on each wakeup)
     unstarted_nudges: Mapped[int] = mapped_column(default=0, server_default="0")
+    # Times the dev was woken up again after a run that ended without submitting (reset on each wakeup by someone else)
+    stalled_restarts: Mapped[int] = mapped_column(default=0, server_default="0")
     # Set when merge_task was refused because the CI was running: the lead is woken when it ends
     merge_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_column()

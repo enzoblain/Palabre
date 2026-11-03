@@ -12,7 +12,7 @@ from app.orchestrator.dispatcher import (
 
 
 def _project() -> Project:
-    return Project(id=1, name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
+    return Project(id=1, name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1)
 
 
 def _reference(tmp_path, monkeypatch):
@@ -53,10 +53,3 @@ def test_missing_empty_symlinked_or_huge_file_is_skipped(tmp_path, monkeypatch):
 async def test_company_project_gets_claude_md(tmp_path, monkeypatch):
     (_reference(tmp_path, monkeypatch) / "CLAUDE.md").write_text("conventions")
     assert await project_instructions_for(_project()) == "conventions"
-
-
-async def test_research_project_gets_no_claude_md(tmp_path, monkeypatch):
-    (_reference(tmp_path, monkeypatch) / "CLAUDE.md").write_text("conventions")
-    project = _project()
-    project.kind = "research"
-    assert await project_instructions_for(project) is None

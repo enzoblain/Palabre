@@ -1,5 +1,5 @@
 """Company rituals: the daily stand-up, the scribe once a conversation goes quiet,
-retries of task runs that failed, merge reminders, and the phases of research questions."""
+retries of task runs that failed, merge reminders."""
 
 import asyncio
 import logging
@@ -13,8 +13,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import Conversation, Event, Message, Project, Room
 from app.orchestrator.merge_watch import watch_idle_tasks, watch_silent_reviews, watch_unstarted_tasks, watch_mergeable_tasks, watch_pending_release, watch_release_ci
-from app.orchestrator.research import advance_research
-from app.orchestrator.retries import retry_failed_tasks
+from app.orchestrator.retries import restart_orphan_tasks, retry_failed_tasks
 from app.services import emit_event
 
 log = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ async def run_scheduler() -> None:
                 await _daily(s)
                 await _idle_conversations(s)
                 await retry_failed_tasks(s)
-                await advance_research(s)
+                await restart_orphan_tasks(s)
                 await watch_mergeable_tasks(s)
                 await watch_release_ci(s)
                 await watch_pending_release(s)

@@ -12,6 +12,7 @@ function Svg({ size = 18, children }: Props & { children: React.ReactNode }) {
 export const PlusIcon = (p: Props) => <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>;
 export const MenuIcon = (p: Props) => <Svg {...p}><path d="M4 6h16M4 12h16M4 18h16" /></Svg>;
 export const BackIcon = (p: Props) => <Svg {...p}><path d="M15 18l-6-6 6-6" /></Svg>;
+export const InfoIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></Svg>;
 export const GearIcon = (p: Props) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="3" />
@@ -26,6 +27,9 @@ export const ShuffleIcon = (p: Props) => (
 export const ConversationIcon = (p: Props) => (
   <Svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></Svg>
 );
-export const DocumentIcon = (p: Props) => (
-  <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" /></Svg>
+export const ProjectsIcon = (p: Props) => (
+  <Svg {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></Svg>
+);
+export const TeamIcon = (p: Props) => (
+  <Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2.3.7 4 2.5 4 5.6" /></Svg>
 );

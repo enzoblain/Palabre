@@ -25,7 +25,7 @@ def test_other_roles_get_nothing():
 def _prompt_for(role: str) -> str:
     team = generate_team("enterprise", 1)
     member = next(m for m in team.employees if role in m.roles)
-    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1, kind="company")
+    project = Project(name="P", repo_url="https://github.com/o/r", mode="enterprise", seed=1)
     return build_system_prompt(team, member, project, "Boss", first_run=False)
 
 
@@ -49,13 +49,17 @@ def test_assembled_reviewer_prompt_has_checklist_with_changes_verdict():
     assert "changes_requested" not in REVIEW_CHECKLIST
 
 
-def test_prompts_require_readme_update_in_same_pr():
-    assert "update the README in the same PR" in _prompt_for("dev_backend")
+def test_prompts_require_docs_update_in_same_pr_and_short_readme():
+    dev_prompt = _prompt_for("dev_backend")
+    assert "document it in the right file of docs/ in the same PR" in dev_prompt
+    assert "never add detail to it" in dev_prompt
     reviewer_prompt = _prompt_for("reviewer")
-    assert "README" in reviewer_prompt and "blocking" in reviewer_prompt
+    assert "docs/" in reviewer_prompt and "blocking" in reviewer_prompt
+    assert "A README that grows with detail" in reviewer_prompt
 
 
-def test_qa_reminded_to_report_missing_readme_update():
+def test_qa_reminded_to_report_missing_docs_update():
     reason = REASONS["pr_ready"]
-    assert "README" in reason and "report_bug" in reason
-    assert "without updating the README, report it as a bug" in reason
+    assert "report_bug" in reason
+    assert "without updating the docs/ folder, report it as a bug" in reason
+    assert "README that grows with detail" in reason

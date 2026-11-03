@@ -66,3 +66,13 @@ export function spreadAccounts(members: (number | null | undefined)[], count: nu
     return least + 1;
   });
 }
+
+/** Puts text in the clipboard; false when the browser refuses (the Clipboard API needs a secure page). */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}

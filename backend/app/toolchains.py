@@ -7,14 +7,16 @@ the official download sites only, and are checked against their published SHA-25
 
 import asyncio
 import hashlib
-import platform
 import os
+import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from collections import defaultdict
 from pathlib import Path
 
@@ -22,11 +24,13 @@ import httpx
 
 from app.config import settings
 from app.errors import WorkflowError
+from app.toolchain_specs import ARCHIVES, Download, Fetchers
 
 TOOLCHAINS = {
     "node": 'Node.js with npm and npx. Version: "lts" (default), "latest", a major ("20") or exact ("20.11.1")',
     "go": 'Go. Version: "stable" (default), a minor ("1.22") or exact ("1.22.3")',
     "python": "A shared Python venv (python, pip, installed commands such as pytest). Packages: names with optional pins",
+    **{name: archive.description for name, archive in ARCHIVES.items()},
 }
 VERSION_RE = re.compile(r"^[A-Za-z0-9._-]{1,30}$")
 # "name", "name[extra]", "name==1.2": no option, URL or path, so pip only reads PyPI names
@@ -73,7 +77,13 @@ async def install(name: str, version: str = "", packages: str = "") -> str:
                 return await _install_python(packages.replace(",", " ").split())
             if name == "node":
                 return await _install_node(version or "lts")
-            return await _install_go(version or "stable")
+            if name == "go":
+                return await _install_go(version or "stable")
+            return await _install_archive(name, version)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise WorkflowError(f"Unknown {name} version {version!r}: {exc.request.url} does not exist") from exc
+            raise WorkflowError(f"Download failed: {exc}") from exc
         except httpx.HTTPError as exc:
             raise WorkflowError(f"Download failed: {exc}") from exc
 
@@ -139,6 +149,95 @@ def _go_matches(release: dict, selector: str) -> bool:
     if selector == "stable":
         return release.get("stable", False)
     return release.get("stable", False) and (version == selector or version.startswith(selector + "."))
+
+
+# --- Archive toolchains (Rust, Java, Deno...) ---------------------------------------
+
+
+async def _install_archive(name: str, selector: str) -> str:
+    spec = ARCHIVES[name]
+    arch = spec.arches.get(platform.machine())
+    if arch is None:
+        raise WorkflowError(f"No {name} build for this machine ({platform.machine()})")
+    download = await spec.resolve(selector or spec.default, arch, Fetchers(json=_get_json, text=_get_text))
+    if not VERSION_RE.match(download.version):
+        raise WorkflowError(f"Refusing the unexpected {name} version {download.version!r}")
+    target = settings.toolchains_dir / f"{name}-{download.version}"
+    if not target.is_dir():
+        await _fetch_archive(download, target)
+    root = _archive_root(target)
+    missing = [c for c in spec.commands if not (root / c).exists()]
+    if missing:
+        raise WorkflowError(f"{name} {download.version} does not contain {', '.join(missing)}")
+    _link(root, list(spec.commands))
+    commands = ", ".join(Path(c).name for c in spec.commands)
+    return f"{name} {download.version} installed for the whole team ({commands})."
+
+
+async def _fetch_archive(download: Download, target: Path) -> None:
+    """Download into a work directory renamed at the end, so a failure never leaves a half install."""
+    work = target.with_name(f"{target.name}.partial")
+    await asyncio.to_thread(shutil.rmtree, work, ignore_errors=True)
+    try:
+        if download.components:
+            await _download_and_extract(download.url, download.checksum, work / "src", download.algo)
+            await asyncio.to_thread(_copy_components, _archive_root(work / "src"), work / "out", download.components)
+            built = work / "out"
+        else:
+            await _download_and_extract(download.url, download.checksum, work, download.algo, download.single_file)
+            built = work
+        built.rename(target)
+    finally:
+        await asyncio.to_thread(shutil.rmtree, work, ignore_errors=True)
+
+
+def _archive_root(directory: Path) -> Path:
+    """The only directory an archive holds (node-v20/, helm's linux-amd64/), else the directory itself."""
+    entries = list(directory.iterdir())
+    return entries[0] if len(entries) == 1 and entries[0].is_dir() else directory
+
+
+def _copy_components(source: Path, prefix: Path, components: tuple[str, ...]) -> None:
+    """Copy the listed components of a Rust-style archive into `prefix`, following their manifest.in.
+
+    Nothing from the archive is executed: its install.sh is not used.
+    """
+    for component in components:
+        base = source / component
+        manifest = base / "manifest.in"
+        if not manifest.is_file():
+            raise WorkflowError(f"The archive has no component {component!r}")
+        for line in manifest.read_text().splitlines():
+            kind, _, relative = line.partition(":")
+            if kind not in ("file", "dir"):
+                continue
+            path = Path(relative)
+            if path.is_absolute() or ".." in path.parts:
+                raise WorkflowError(f"Unsafe path in the archive: {relative!r}")
+            origin, destination = base / path, prefix / path
+            if origin.is_symlink() or not origin.exists():
+                raise WorkflowError(f"Unexpected entry in the archive: {relative!r}")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if kind == "dir":
+                shutil.copytree(origin, destination, symlinks=True, dirs_exist_ok=True)
+            else:
+                shutil.copy2(origin, destination)
+            _drop_write_bits(destination)
+
+
+def _drop_write_bits(path: Path) -> None:
+    """Group/other write and setuid/setgid/sticky bits never survive the copy."""
+    if path.is_symlink():
+        return
+    path.chmod(path.lstat().st_mode & 0o755)
+    if not path.is_dir():
+        return
+    # os.walk never descends into links, so nothing outside the prefix is touched
+    for directory, subdirectories, files in os.walk(path, followlinks=False):
+        for name in [*subdirectories, *files]:
+            item = Path(directory, name)
+            if not item.is_symlink():
+                item.chmod(item.lstat().st_mode & 0o755)
 
 
 # --- Python --------------------------------------------------------------------------
@@ -247,10 +346,10 @@ async def _get_text(url: str) -> str:
         return response.text
 
 
-async def _download_and_extract(url: str, sha256: str, into: Path) -> None:
+async def _download_and_extract(url: str, checksum: str, into: Path, algo: str = "sha256", single_file: str = "") -> None:
     settings.toolchains_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=settings.toolchains_dir, suffix=".download") as tmp:
-        digest = hashlib.sha256()
+        digest = hashlib.new(algo)
         async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
             async with client.stream("GET", url) as response:
                 response.raise_for_status()
@@ -258,15 +357,45 @@ async def _download_and_extract(url: str, sha256: str, into: Path) -> None:
                     digest.update(chunk)
                     tmp.write(chunk)
         tmp.flush()
-        if digest.hexdigest() != sha256.lower():
+        if digest.hexdigest() != checksum.lower():
             raise WorkflowError(f"Checksum mismatch for {url}: download refused")
         into.mkdir(parents=True, exist_ok=True)
-        await asyncio.to_thread(_extract, Path(tmp.name), into)
+        if single_file:
+            await asyncio.to_thread(_store_executable, Path(tmp.name), into / single_file)
+        else:
+            await asyncio.to_thread(_extract, Path(tmp.name), into)
+
+
+def _store_executable(source: Path, destination: Path) -> None:
+    shutil.copyfile(source, destination)
+    destination.chmod(0o755)
 
 
 def _extract(archive: Path, into: Path) -> None:
+    if zipfile.is_zipfile(archive):
+        _extract_zip(archive, into)
+        return
     with tarfile.open(archive) as tar:
         tar.extractall(into, filter="data")
+
+
+def _extract_zip(archive: Path, into: Path) -> None:
+    """Like tar's "data" filter: nothing outside `into`, no link, no write bit for the group or others."""
+    root = into.resolve()
+    with zipfile.ZipFile(archive) as zf:
+        for info in zf.infolist():
+            path = (root / info.filename).resolve()
+            mode = info.external_attr >> 16
+            if root not in path.parents and path != root:
+                raise WorkflowError(f"Unsafe path in archive: {info.filename!r}")
+            if stat.S_ISLNK(mode):
+                raise WorkflowError(f"Link in archive refused: {info.filename!r}")
+            if info.is_dir():
+                path.mkdir(parents=True, exist_ok=True)
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(zf.read(info))
+            path.chmod((mode & 0o755) | 0o644)
 
 
 def _link(source_bin: Path, commands: list[str]) -> None:
@@ -276,6 +405,6 @@ def _link(source_bin: Path, commands: list[str]) -> None:
         target = source_bin / command
         if not target.exists():
             continue
-        link = bin_dir() / command
+        link = bin_dir() / Path(command).name
         link.unlink(missing_ok=True)
         link.symlink_to(target)

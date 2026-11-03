@@ -174,7 +174,7 @@ async def test_real_app_personality_code(real_client, monkeypatch):
     from app.api import projects as api_projects
 
     async def get_or_404(_s, _model, _id):
-        return SimpleNamespace(id=1, project_id=1, kind="company")
+        return SimpleNamespace(id=1, project_id=1)
 
     monkeypatch.setattr(api_projects, "get_or_404", get_or_404)
     r = await real_client.patch("/api/employees/1", json={"traits": {"nope": 1}})
@@ -197,7 +197,7 @@ async def test_real_app_production_branch_code(real_client, monkeypatch):
     from app.api import projects as api_projects
 
     async def project(_s, _id):
-        return SimpleNamespace(id=1, kind="company", default_branch="dev")
+        return SimpleNamespace(id=1, default_branch="dev")
 
     async def change_branch(*_a, **_k):
         raise WorkflowError("main is the production branch", code=ErrorCode.PRODUCTION_BRANCH_BOSS_ONLY)
@@ -216,4 +216,4 @@ async def test_real_app_custom_team_with_two_leads_is_refused(real_client, monke
     monkeypatch.setattr(github, "resolve_branch", reachable_branch)
     team = [{"name": "Ada", "roles": ["lead"]}, {"name": "Bob", "roles": ["lead"]}]
     r = await real_client.post("/api/projects", json={"name": "P", "repo_url": "https://github.com/o/r", "employees": team})
-    assert r.status_code == 422 and r.json()["code"] == "invalid_team_permissions"
+    assert r.status_code == 409 and r.json()["code"] == "lead_already_exists"

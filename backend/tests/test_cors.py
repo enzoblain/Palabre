@@ -23,7 +23,7 @@ def test_default_origins_are_not_wildcard():
     assert "*" not in settings.cors_origins
 
 
-@pytest.mark.parametrize("origin", ["http://localhost:1420", "tauri://localhost"])
+@pytest.mark.parametrize("origin", ["http://localhost:1420", "http://127.0.0.1:1420"])
 async def test_listed_origin_is_allowed(client, origin):
     response = await _preflight(client, origin)
     assert response.headers["access-control-allow-origin"] == origin

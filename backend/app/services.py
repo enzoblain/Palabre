@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 from typing import TypeVar
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -32,7 +32,7 @@ MENTION_RE = re.compile(r"@([\w-]+)")
 
 # What a chat message from an agent may look like (the boss is free). Links count by
 # their text, code blocks not at all: sources and snippets are welcome.
-CHAT_MAX_CHARS = {"company": 450, "research": 700}
+CHAT_MAX_CHARS = 450
 CHAT_MAX_LIST_ITEMS = 4
 _CODE_BLOCK_RE = re.compile(r"```.*?```", re.S)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)|https?://\S+")
@@ -47,19 +47,16 @@ T = TypeVar("T", bound=tuple)
 
 
 def boss_rooms(q: Select[T]) -> Select[T]:
-    """Keeps in a query on rooms what the boss sees: the direction channel of a company, every room of a research group.
+    """Keeps in a query on rooms what the boss sees: the direction channel.
 
     The query must have Room in its FROM. Team channels and DMs are the team's own.
     """
-    research = select(Project.id).where(Project.kind == "research")
-    return q.where(or_(Room.kind == DIRECTION, Room.project_id.in_(research)))
+    return q.where(Room.kind == DIRECTION)
 
 
-async def boss_sees(s: AsyncSession, room: Room) -> bool:
+def boss_sees(room: Room) -> bool:
     """Whether the boss may read this room (same rule as boss_rooms)."""
-    if room.kind == DIRECTION:
-        return True
-    return await s.scalar(select(Project.kind).where(Project.id == room.project_id)) == "research"
+    return room.kind == DIRECTION
 
 
 # Languages the team can work in: key (stored) → name in that language (shown in the UI)
@@ -107,7 +104,7 @@ def team_language() -> str:
     return _app_settings["language"]
 
 
-def check_chat_message(content: str, kind: str) -> None:
+def check_chat_message(content: str) -> None:
     """Refuse what nobody writes in a team chat, and say how to fix it."""
     text = _LINK_RE.sub(lambda m: m.group(1) or "link", _CODE_BLOCK_RE.sub("", content)).strip()
     problems = []
@@ -117,9 +114,8 @@ def check_chat_message(content: str, kind: str) -> None:
         problems.append("no headings")
     if len(_LIST_ITEM_RE.findall(text)) > CHAT_MAX_LIST_ITEMS:
         problems.append(f"no list of more than {CHAT_MAX_LIST_ITEMS} items")
-    limit = CHAT_MAX_CHARS.get(kind, CHAT_MAX_CHARS["company"])
-    if len(text) > limit:
-        problems.append(f"at most {limit} characters (this one has {len(text)})")
+    if len(text) > CHAT_MAX_CHARS:
+        problems.append(f"at most {CHAT_MAX_CHARS} characters (this one has {len(text)})")
     if problems:
         raise WorkflowError(
             "Not sent: this reads like a report, not a chat message (" + "; ".join(problems) + "). "
@@ -262,10 +258,11 @@ async def post_system_message(s: AsyncSession, conversation_id: int, content: st
 
 REQUEST_KINDS = {"decision", "release", "escalation", "question"}
 MAX_MERGED_REQUESTS = 50
+ANSWERED_REQUEST_PREVIEW = 400
 
 
 async def direction_conversation_id(s: AsyncSession, project_id: int) -> int | None:
-    """The active conversation of the direction channel (research groups have none)."""
+    """The active conversation of the direction channel."""
     return await s.scalar(
         select(Conversation.id)
         .join(Room, Room.id == Conversation.room_id)
@@ -295,10 +292,10 @@ async def ask_boss(
     decision_id: int | None = None,
     commit: bool = True,
 ) -> Message | None:
-    """Post a message in direction that the boss answers with Validate / Reject / Nuance.
+    """Post a message in direction that the boss answers by writing in the channel.
     Only the lead speaks in direction: a request from another member is stored under the lead,
     who owns every request in direction (the author is kept in request_author_id, not in the text).
-    Returns None where there is no direction (research groups): the boss reads the room instead."""
+    Returns None where the project has no direction channel."""
     if kind not in REQUEST_KINDS:
         raise WorkflowError(f"Unknown request type {kind}: use one of {', '.join(sorted(REQUEST_KINDS))}")
     conversation_id = await direction_conversation_id(s, project_id)
@@ -316,6 +313,39 @@ async def ask_boss(
         request_kind=kind, request_decision_id=decision_id,
         request_author_id=request_author_id, commit=commit,
     )  # fmt: skip
+
+
+async def answer_pending_requests(s: AsyncSession, project_id: int, reply: Message) -> list[Message]:
+    """The boss's message answers every request of direction still pending: they are closed with it as
+    their comment, so none stays open. Returns them, oldest first, for the lead to interpret."""
+    pending = list(
+        await s.scalars(
+            select(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .join(Room, Room.id == Conversation.room_id)
+            .where(
+                Room.project_id == project_id,
+                Room.kind == DIRECTION,
+                Message.request_kind.is_not(None),
+                Message.request_status == RequestStatus.pending.value,
+                Message.id < reply.id,
+            )
+            .order_by(Message.id)
+            .with_for_update(of=Message)  # the lead withdrawing at the same time: one of the two wins
+        )
+    )
+    for message in pending:
+        _close_request(message, RequestStatus.answered, reply.content)
+    return pending
+
+
+def describe_answered_requests(requests: list[Message]) -> str:
+    """The closed requests as the lead reads them in the wakeup: id, kind, decision and content."""
+    lines = []
+    for message in requests:
+        about = f", about decision #{message.request_decision_id}" if message.request_decision_id is not None else ""
+        lines.append(f"#{message.id} ({message.request_kind}{about}): {message.content[:ANSWERED_REQUEST_PREVIEW]}")
+    return "\n".join(lines)
 
 
 def _pending_requests_query(project_id: int, author: Employee) -> Select:
@@ -353,7 +383,7 @@ async def _own_pending_requests(s: AsyncSession, project_id: int, author: Employ
                 Room.kind == DIRECTION,
                 Message.request_kind.is_not(None),
             )
-            .with_for_update()  # the boss answering at the same time: one of the two wins
+            .with_for_update(of=Message)  # the boss answering at the same time: one of the two wins
         )
     }
     for request_id in ids:
@@ -703,3 +733,56 @@ async def escalate(
     )
     await s.commit()
     return msg
+
+
+# --- Unread messages of direction --------------------------------------------------
+
+
+async def unread_counts(s: AsyncSession) -> dict[int, int]:
+    """Per project, the team's messages in direction after the boss's read position (the boss's own
+    messages and the automatic lines are not unread)."""
+    rows = await s.execute(
+        select(Room.project_id, func.count(Message.id))
+        .select_from(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .join(Project, Project.id == Room.project_id)
+        .where(
+            Room.kind == DIRECTION,
+            Message.id > Project.boss_read_message_id,
+            Message.employee_id.is_not(None),
+            Message.is_system.is_(False),
+        )
+        .group_by(Room.project_id)
+    )
+    return {project_id: count for project_id, count in rows.all()}
+
+
+async def last_direction_messages(s: AsyncSession) -> dict[int, Message]:
+    """Per project, the latest message of direction (one grouped query for all projects)."""
+    latest_ids = (
+        select(func.max(Message.id))
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.kind == DIRECTION)
+        .group_by(Room.project_id)
+    )
+    rows = await s.execute(
+        select(Room.project_id, Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Message.id.in_(latest_ids))
+    )
+    return {project_id: message for project_id, message in rows.all()}
+
+
+async def mark_direction_read(s: AsyncSession, project: Project) -> None:
+    """Move the boss's read position to the last direction message (it never moves back)."""
+    last_id = await s.scalar(
+        select(func.max(Message.id))
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Room, Room.id == Conversation.room_id)
+        .where(Room.kind == DIRECTION, Room.project_id == project.id)
+    )
+    project.boss_read_message_id = max(project.boss_read_message_id, last_id or 0)
+    await s.commit()

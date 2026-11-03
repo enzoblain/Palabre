@@ -8,7 +8,6 @@ import re
 import secrets
 import shutil
 import tempfile
-import tomllib
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,25 +21,20 @@ from app.accounts import assign_accounts, team_token, token_for
 from app.company import channel_planner, team_selection
 from app.company.catalog import load_catalog
 from app.company.team import Employee as TeamMember
-from app.company.team import (
-    RAPPORTEUR, Team, appoint_rapporteur, custom_employee, generate_team, generate_team_from_roles, kind_of_mode, personality_for,
-    reroll_employee,
-)  # fmt: skip
+from app.company.team import Team, custom_employee, generate_team, generate_team_from_roles, reroll_employee
 from app.models import (
     AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, RequestStatus, Room, Task,
     TaskStatus,
 )  # fmt: skip
-from app.orchestrator.research import start_question
 # NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
 from app.errors import ErrorCode, NothingToRelease, WorkflowError
 from app import worktrees
-from app.worktrees import sync_repo
+from app.worktrees import follow_main_branch, sync_repo
 
 log = logging.getLogger(__name__)
 
 _background: set[asyncio.Task] = set()  # Strong references: the loop only keeps weak ones
 AUTO_TEAM_MODE = "enterprise"  # Process of an automatic team: reviewer and QA gate the merges
-RESEARCH_ROOM = "research"  # The one room of a research team (no generic channels elsewhere)
 PERSONALITY_FIELDS = ("traits", "quirks", "style")
 
 
@@ -66,32 +60,22 @@ async def create_project(
     seed: int | None = None,
     accounts: dict[str, int] | None = None,
     employees: list[dict] | None = None,
-    topic: str | None = None,
-    rapporteur: str | None = None,
-    kind: str | None = None,
     creation_mode: str | None = None,
     description: str | None = None,
     employee_count: int | None = None,
 ) -> Project:
     """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
     `creation_mode` "auto": `employee_count` employees whose roles are chosen for the `description`
-    (the enterprise process; the mode is ignored).
-    A research project (research mode) has a `topic` and no repository, and a `rapporteur`
-    (a peer's name; none: drawn at random, unless the team built by hand has one)."""
-    kind = kind_of_mode(mode)
-    default_branch = "main"  # model default; research has no repository
-    if kind == "company":
-        repo_url = github.https_url(repo_url)  # GitHub URLs only
-        default_branch = await working_branch(repo_url)
-    else:
-        repo_url = ""
+    (the enterprise process; the mode is ignored)."""
+    repo_url = github.https_url(repo_url)  # GitHub URLs only
+    default_branch = await working_branch(repo_url)
     if employees:
         seed = random.SystemRandom().randrange(2**32) if seed is None else seed
         accounts = {**(accounts or {}), **{m["name"]: m["account"] for m in employees if m.get("account")}}
         members = [
             custom_employee(
                 m["roles"], m["name"], traits=m.get("traits"), quirks=m.get("quirks"), style=m.get("style"),
-                preset=m.get("personality"), model=m.get("model"), seed=seed + i, kind=kind,
+                preset=m.get("personality"), model=m.get("model"), seed=seed + i,
             )  # fmt: skip
             for i, m in enumerate(employees)
         ]
@@ -103,43 +87,19 @@ async def create_project(
         team = generate_team_from_roles(AUTO_TEAM_MODE, roles, seed)
     else:
         team = generate_team(mode, seed)
-    if kind == "research":
-        try:
-            appoint_rapporteur(team.employees, rapporteur)
-        except ValueError as exc:
-            raise WorkflowError(str(exc)) from None
     project = Project(
         name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
-        kind=kind, topic=topic if kind == "research" else None,
     )
     project.employees = [
         Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))
         for member in team.employees
     ]
     s.add(project)
-    if kind == "research":
-        # The research room holds everyone: the topic is posted there (see _kick_off_research)
-        await _open_rooms(s, project, [(RESEARCH_ROOM, list(project.employees))])
-    elif not employees:
-        await _open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
+    if not employees:
+        await open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
     await ensure_direction(s, project)
     await s.commit()
-    if kind == "research" and topic:
-        await _kick_off_research(s, project, topic)
     return project
-
-
-async def _kick_off_research(s: AsyncSession, project: Project, topic: str) -> None:
-    """The topic becomes the objective of the research room and the boss's first message,
-    which starts the research (phase 1)."""
-    room = next((r for r in project.rooms if r.name == RESEARCH_ROOM), None)
-    if room is None:
-        raise WorkflowError(f"The {RESEARCH_ROOM} room of project {project.id} is missing")
-    room.objective = topic
-    conversation_id = await s.scalar(select(Conversation.id).where(Conversation.room_id == room.id))
-    message = await services.post_message(s, project.id, conversation_id, topic, None)
-    start_question(s, project, conversation_id, message.id)
-    await s.commit()
 
 
 def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]:
@@ -147,7 +107,7 @@ def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]
     return [e for e in employees if "*" in roles or roles & set(e.roles)]
 
 
-async def _open_channels(s: AsyncSession, project: Project) -> None:
+async def open_channels(s: AsyncSession, project: Project) -> None:
     """Create the catalog's targeted channels the company is big enough for (each with a first
     conversation). Channels that already exist are left alone."""
     channels = load_catalog()["channels"]
@@ -212,7 +172,7 @@ async def plan_custom_channels(project_id: int) -> None:
             if project is None:
                 return
             if plan is None:
-                await _open_channels(s, project)
+                await open_channels(s, project)
             else:
                 by_name = {e.name: e for e in project.employees}
                 await _open_rooms(s, project, [(c.name, [by_name[n] for n in c.members]) for c in plan])
@@ -225,7 +185,7 @@ async def ensure_direction(s: AsyncSession, project: Project) -> None:
     """A company has a "direction" channel: the boss and the lead, nobody else. It is
     created after the team channels, so the first room stays the team's."""
     lead = next((e for e in project.employees if "lead" in e.roles), None)
-    if project.kind != "company" or lead is None:
+    if lead is None:
         return
     existing = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
     if existing is not None:
@@ -239,7 +199,7 @@ async def ensure_direction(s: AsyncSession, project: Project) -> None:
 
 async def ensure_all_directions(s: AsyncSession) -> None:
     """Existing companies get their direction channel (their rooms stay team channels)."""
-    for project_id in list(await s.scalars(select(Project.id).where(Project.kind == "company"))):
+    for project_id in list(await s.scalars(select(Project.id))):
         await ensure_direction(s, await load_project(s, project_id))
     await s.commit()
 
@@ -257,8 +217,7 @@ def _is_generic_room(room: Room, targeted: set[str]) -> bool:
 
 
 async def drop_generic_rooms(s: AsyncSession) -> None:
-    """There are no generic channels anymore: delete the old ones with their messages, and give
-    the "general" room of a research project its new name. Their tasks, decisions and open
+    """There are no generic channels anymore: delete the old ones with their messages. Their tasks, decisions and open
     questions move to the project's direction room first (they would cascade with the room).
     Direction, targeted channels and DMs are never touched. One-shot: a persistent marker stops
     later runs, so a #product created afterwards survives restarts."""
@@ -267,11 +226,6 @@ async def drop_generic_rooms(s: AsyncSession) -> None:
     targeted = {c["name"] for c in load_catalog()["channels"]}
     for project_id in list(await s.scalars(select(Project.id))):
         project = await load_project(s, project_id)
-        if project.kind == "research":
-            general = next((r for r in project.rooms if r.name == "general"), None)
-            if general is not None and not any(r.name == RESEARCH_ROOM for r in project.rooms):
-                general.name = RESEARCH_ROOM
-            continue
         direction = next((r for r in project.rooms if r.kind == services.DIRECTION), None)
         direction_conversation = None
         if direction is not None:
@@ -368,10 +322,10 @@ async def reroll_personality(s: AsyncSession, employee: Employee) -> Employee:
 
 
 def validate_personality(
-    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False, kind: str = "company"
+    traits: dict[str, int] | None, style: dict[str, str] | None, partial: bool = False
 ) -> None:
     """partial: some axes or style keys may be left out (they are drawn at random)."""
-    personality = personality_for(kind)
+    personality = load_catalog()["personality"]
     if traits is not None:
         axes = {a["key"] for a in personality["axes"]}
         if (not set(traits) <= axes) if partial else (set(traits) != axes):
@@ -397,8 +351,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
     kept: list[Employee] = []
     hired: list[Employee] = []
     for member in new_team.employees:
-        # The rapporteur is not a seat: they keep their own angle's seat
-        match = next((e for e in remaining if [r for r in e.roles if r != RAPPORTEUR] == member.roles), None)
+        match = next((e for e in remaining if e.roles == member.roles), None)
         if match is not None:
             remaining.remove(match)
             kept.append(match)
@@ -416,16 +369,12 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         room.members = [m for m in room.members if m not in remaining]
         if room.kind == services.DIRECTION:
             continue
-        # Newcomers join the research room (everyone) and the channels of their roles
+        # Newcomers join the channels of their roles
         channel = channels.get(room.name)
-        room.members.extend(
-            e for e in hired if room.name == RESEARCH_ROOM or (channel and _channel_members(channel, [e]))
-        )
+        room.members.extend(e for e in hired if channel and _channel_members(channel, [e]))
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
-    if project.kind == "research":
-        appoint_rapporteur(project.employees)  # The one who left was perhaps the rapporteur
     project.mode = mode
-    await _open_channels(s, project)  # A bigger company gets the channels it lacked
+    await open_channels(s, project)  # A bigger company gets the channels it lacked
     await ensure_direction(s, project)
     await s.commit()
     return await load_project(s, project.id)
@@ -462,6 +411,21 @@ async def change_branch(s: AsyncSession, project: Project, branch: str, by: Empl
     await s.commit()
     await sync_repo(project)
     return await load_project(s, project.id)
+
+
+async def change_main_branch(project: Project, branch: str) -> str | None:
+    """Make an existing branch the repository's default (production) branch on GitHub, and
+    the local clone follow it. Creates and deletes no branch, and leaves the open PRs and
+    tasks alone (they target the team's branch).
+    Returns a warning when the team's branch was the old main branch, which stays as it is."""
+    repo = github.repo_slug(project.repo_url)
+    previous = await github.production_branch(repo)
+    if branch != previous:
+        await github.set_default_branch(repo, branch)
+    await follow_main_branch(project, branch)  # Also when already main: a retry heals a clone left behind
+    if branch != previous and project.default_branch == previous:
+        return f"The team still works on {previous}, the previous main branch: it was not moved to {branch}"
+    return None
 
 
 async def propose_release(s: AsyncSession, project: Project, room_id: int, title: str, summary: str, by: Employee) -> Decision:
@@ -548,7 +512,6 @@ async def prepare_release(project: Project) -> dict:
     texts = {path: await github.file_content(repo, path, tip["sha"]) for path in [*VERSION_FILES, "CHANGELOG.md"]}
     if all(texts[path] is None for path in VERSION_FILES):
         raise WorkflowError("No version file found in the repository: nothing to bump")
-    package = _package_name(texts["frontend/src-tauri/Cargo.toml"])
     # Keep the date of an entry already written for this version, so a later day alone does not change it
     date = release.entry_date(texts["CHANGELOG.md"] or "", version) or datetime.now(UTC).date().isoformat()
     changes = result["changes"] = release.changelog_entry(version, date, plan["commits"])
@@ -556,7 +519,7 @@ async def prepare_release(project: Project) -> dict:
     for path, text in texts.items():
         if text is None or path == "CHANGELOG.md":
             continue
-        if (new := release.set_version(path, text, version, package)) != text:
+        if (new := release.set_version(path, text, version)) != text:
             files[path] = new
     if texts["CHANGELOG.md"] is not None:
         try:
@@ -568,7 +531,7 @@ async def prepare_release(project: Project) -> dict:
     if not files:
         return result  # Already up to date: no empty commit
     for path in VERSION_FILES:  # A format we do not know must not ship a half-bumped version
-        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path]), package) not in (version, None):
+        if texts[path] is not None and VERSION_FILES[path](files.get(path, texts[path])) not in (version, None):
             raise WorkflowError(f"{path} could not be bumped to {version}: its format is not the expected one")
     try:
         result["sha"] = await worktrees.commit_release(project, tip["sha"], files, f"chore(release): {version}")
@@ -620,7 +583,7 @@ async def merge_release(s: AsyncSession, project: Project, title: str, summary: 
     )
     if pending is not None:
         await settle_decision(
-            s, pending, RequestAnswer.validated, "Merged by the lead, without the boss's answer",
+            s, pending, RequestAnswer.validated, "Merged by the lead",
             wake_proposer=False, merge_sha=head_sha,
         )  # fmt: skip
         await s.commit()
@@ -638,10 +601,6 @@ def _lock_version(lock: dict) -> str:
     return str(top) if top == inner else f"{top} and {inner}"
 
 
-def _package_name(cargo_toml: str | None) -> str:
-    return tomllib.loads(cargo_toml).get("package", {}).get("name", "") if cargo_toml else ""
-
-
 def _compose_version(text: str) -> str | None:
     """The image version a docker-compose.yml defaults to (`${PALABRE_VERSION:-X.Y.Z}`), None if it has none."""
     found = sorted(set(re.findall(r"\$\{PALABRE_VERSION:-([^}]*)\}", text)))
@@ -650,14 +609,9 @@ def _compose_version(text: str) -> str | None:
 
 # Where the app's version lives in the repository, and how to read it
 VERSION_FILES = {
-    "frontend/package.json": lambda text, _package: str(json.loads(text).get("version")),
-    "frontend/package-lock.json": lambda text, _package: _lock_version(json.loads(text)),
-    "frontend/src-tauri/tauri.conf.json": lambda text, _package: str(json.loads(text).get("version")),
-    "frontend/src-tauri/Cargo.toml": lambda text, _package: str(tomllib.loads(text).get("package", {}).get("version")),
-    "frontend/src-tauri/Cargo.lock": lambda text, package: str(
-        next((p.get("version") for p in tomllib.loads(text).get("package", []) if p.get("name") == package), None)
-    ),
-    "docker-compose.yml": lambda text, _package: _compose_version(text),
+    "frontend/package.json": lambda text: str(json.loads(text).get("version")),
+    "frontend/package-lock.json": lambda text: _lock_version(json.loads(text)),
+    "docker-compose.yml": lambda text: _compose_version(text),
 }  # fmt: skip
 
 
@@ -677,16 +631,13 @@ async def publish_version(project: Project, version: str) -> str:
     if ci := await github.commit_checks(repo, sha):
         raise WorkflowError(f"{tag} cannot be published, {production} is not green: {ci}")
     mismatches = []
-    package = ""
     for path, read in VERSION_FILES.items():
         text = await github.file_content(repo, path, sha)
         if text is None:
             continue  # A project without this file has no version to match
-        if path.endswith("Cargo.toml"):
-            package = _package_name(text)  # Before Cargo.lock, which needs it
         try:
-            found = read(text, package)
-        except ValueError:  # includes malformed JSON and TOML
+            found = read(text)
+        except ValueError:  # includes malformed JSON
             found = "unreadable"
         if found is not None and found != version:
             mismatches.append(f"{path} says {found}")
@@ -769,22 +720,15 @@ async def settle_decision(
     wake_proposer: bool = True,
     merge_sha: str | None = None,
 ) -> None:
-    """Apply the boss's answer to a decision. A release is merged when validated and closed
-    when rejected (GitHub refusing the merge raises and leaves everything as it was). A
-    nuanced answer leaves a decision proposed; a nuanced release is dropped but its PR stays
-    open, so the lead can reshape it and propose it again."""
+    """Apply an answer to a decision. A release is merged when validated and closed when rejected
+    (GitHub refusing the merge raises and leaves everything as it was)."""
     room = await s.get(Room, decision.room_id)
-    is_release = decision.pr_number is not None and decision.status == DecisionStatus.proposed
-    if is_release and answer != RequestAnswer.nuanced:
+    if decision.pr_number is not None and decision.status == DecisionStatus.proposed:
         project = await load_project(s, room.project_id)
         await settle_release(project, decision, answer == RequestAnswer.validated, merge_sha)
-    if answer == RequestAnswer.nuanced:
-        status = DecisionStatus.rejected if is_release else DecisionStatus.proposed
-    else:
-        status = DecisionStatus(answer.value)
+    status = DecisionStatus(answer.value)
     now = datetime.now(UTC)
-    if status != DecisionStatus.proposed:
-        decision.status, decision.decided_at = status, now
+    decision.status, decision.decided_at = status, now
     payload = {"decision_id": decision.id, "status": answer.value, "room_id": room.id}
     services.emit_event(s, room.project_id, "decision_changed", payload)
     if wake_proposer:
@@ -793,7 +737,7 @@ async def settle_decision(
         )
         if proposer is not None:
             services.emit_event(s, room.project_id, "decision_changed", payload, employee_id=proposer.id)
-    # The requests asking the boss about this decision are answered
+    # The requests asking the boss about this decision are settled with it
     await s.execute(
         update(Message)
         .where(Message.request_decision_id == decision.id, Message.request_status == "pending")
@@ -801,36 +745,37 @@ async def settle_decision(
     )
 
 
-async def answer_request(s: AsyncSession, message_id: int, answer: RequestAnswer, comment: str = "") -> Message:
-    """The boss answers a request of the lead, once. The answer is stored on the message and
-    wakes the lead up with it; a request about a decision or a release settles it too."""
-    message = await s.get(Message, message_id, with_for_update=True)  # two clicks: one answer
-    if message is None or message.request_kind is None:
-        raise WorkflowError(f"Message #{message_id} does not ask anything")
-    if message.request_status != "pending":
-        raise WorkflowError(f"Message #{message_id} was already answered ({message.request_status})")
-    conversation = await s.get(Conversation, message.conversation_id)
-    room = await s.get(Room, conversation.room_id)
-    comment = comment.strip()
-    employees = await s.scalars(select(Employee).where(Employee.project_id == room.project_id))
-    lead = next((e for e in employees if "lead" in e.roles), None)
-    if message.request_decision_id is not None:
-        decision = await s.get(Decision, message.request_decision_id)
-        if decision is not None:
-            # The lead is woken by the answer itself: no second wakeup for their own proposal
-            await settle_decision(s, decision, answer, comment, wake_proposer=lead is None or decision.proposed_by != lead.name)
-    message.request_status = answer.value
-    message.request_comment = comment or None
-    message.request_answered_at = datetime.now(UTC)
-    if lead is not None:
-        payload = {
-            "conversation_id": message.conversation_id, "message_id": message.id,
-            "answer": answer.value, "comment": comment or "(no comment)", "request": message.request_kind,
-            "asked_by": message.author_name,
-        }  # fmt: skip
-        services.emit_event(s, room.project_id, "ceo_answer", payload, employee_id=lead.id)
+async def settle_decision_for_boss(
+    s: AsyncSession, project_id: int, lead: Employee, decision_id: int, answer: RequestAnswer, comment: str
+) -> Decision:
+    """The lead records the boss's reply to a decision (the boss answers in the chat, the lead interprets it).
+    A validated release is refused: merge_release ships it after its checks,
+    and so is a validation while the boss has not answered any request about the decision."""
+    decision = await s.scalar(
+        select(Decision)
+        .where(Decision.id == decision_id, Decision.room_id.in_(select(Room.id).where(Room.project_id == project_id)))
+        .with_for_update()
+    )
+    if decision is None:
+        raise WorkflowError(f"Decision #{decision_id} does not exist")
+    if decision.status != DecisionStatus.proposed:
+        raise WorkflowError(f"Decision #{decision_id} is already {decision.status.value}")
+    if decision.pr_number is not None and answer == RequestAnswer.validated:
+        raise WorkflowError(f"Decision #{decision_id} is a release: ship it with merge_release")
+    if answer == RequestAnswer.validated:
+        await _require_boss_reply(s, decision)
+    await settle_decision(s, decision, answer, comment.strip(), wake_proposer=decision.proposed_by != lead.name)
     await s.commit()
-    return message
+    return decision
+
+
+async def _require_boss_reply(s: AsyncSession, decision: Decision) -> None:
+    """Refuse to validate a decision whose requests to the boss have no answer yet."""
+    statuses = set(await s.scalars(select(Message.request_status).where(Message.request_decision_id == decision.id)))
+    if statuses and RequestStatus.answered.value not in statuses:
+        raise WorkflowError(
+            f"Decision #{decision.id} has requests to the boss but none is answered: wait for their reply in direction"
+        )
 
 
 async def withdraw_request(s: AsyncSession, project_id: int, author: Employee, request_id: int, reason: str) -> Message:

@@ -1,5 +1,7 @@
 # Security audit
 
+> Historical note: this audit was written when the Tauri desktop app existed. The app and `src-tauri/` have since been removed; every passage below that mentions Tauri, the desktop shell or its CI job describes a past state, not the current one.
+
 Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted by severity, each with location, impact, fix and effort (S/M/L). Status: **Fixed** (merged), **Open**. The map of actors, credentials and flows, with the risks of the second audit (R1 to R11), is in [access-map.md](access-map.md).
 
 ## Fixed since the first audit
@@ -15,7 +17,7 @@ Audit of `dev`, first written 2026-10-30 and updated 2026-10-31. Findings sorted
 - Egress and Claude token exfiltration (access-map R1, R4): fixed by #295 (PR #263), #301 (PR #268) and #306 (PR #271).
 - M1. Self-declared `sensitive` flag: fixed (#151), sensitivity is detected from the changed paths (`backend/app/sensitive_paths.py`, `workflow.py:453`), the flag can only add.
 - M4. No CSP in nginx: fixed (#127), strict CSP and security headers in `frontend/security-headers.conf`, included from `frontend/nginx.conf`. The long-lived admin token in `localStorage` is gone with M5 (access-map R3, R9).
-- L2. `cors_origins = ["*"]`: fixed (#311), the default is the Vite dev server and the Tauri webview origins, overridable with `CORS_ORIGINS`.
+- L2. `cors_origins = ["*"]`: fixed (#311), the default was the Vite dev server and the Tauri webview origins at the time (the Tauri origins are gone with the desktop app), overridable with `CORS_ORIGINS`.
 - L4. Prompts passed in argv: fixed (#312), the prompt travels on stdin and the system prompt in a private file (`--append-system-prompt-file`), so `ps` shows neither.
 - L7. Commit messages in the lead's `release_pending` prompt: fixed (#314), framed as untrusted data with the same helper as CI output (#121). The changelog entry returned by `merge_release` to the lead is built from the same messages and stays unframed: accepted, it is a tool result.
 - L6. Shared `GOPATH`: fixed (#136, tested in #313), `GOPATH` and `GOMODCACHE` are per employee (`toolchains.gopath`), only the Go binary in `bin/` stays shared.

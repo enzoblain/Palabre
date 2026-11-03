@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app.company import catalog as catalog_module
 from app.company.catalog import (
     CATALOG_DIR, GATED_ROLE_KEYS, CatalogError, ExtendedCategory, Permission, Role, held_role_keys, load_catalog,
-    load_extended_index, load_personality_pools, load_roles, team_permission_error,
+    load_extended_index, load_personality_pool, load_roles, team_permission_error,
     validate_catalog,
 )
 from app.company.team import _render_role, generate_team
@@ -33,7 +33,6 @@ def test_every_role_file_is_valid_and_the_key_is_the_file_name():
     roles = load_roles()
     files = {p.stem for p in CATALOG_DIR.glob("*/roles/*.toml")}
     assert set(roles) == files
-    assert all(r.kind == "research" for k, r in roles.items() if (CATALOG_DIR / "research/roles" / f"{k}.toml").exists())
 
 
 def test_permission_literal_matches_permissions_module():
@@ -47,7 +46,7 @@ def test_event_literal_covers_every_wakes_on_event():
 
 def test_gated_roles_exist_in_the_company_catalog():
     roles = load_catalog()["roles"]
-    assert all(roles[k].kind == "company" for k in GATED_ROLE_KEYS)
+    assert GATED_ROLE_KEYS <= roles.keys()
 
 
 def test_invalid_field_names_the_file(catalog_copy):
@@ -70,12 +69,6 @@ def test_broken_toml_names_the_file(catalog_copy):
         load_roles()
 
 
-def test_same_key_in_both_kinds_is_refused(catalog_copy):
-    shutil.copy(catalog_copy / "research/roles/skeptic.toml", catalog_copy / "company/roles/skeptic.toml")
-    with pytest.raises(CatalogError, match="both company and research"):
-        load_roles()
-
-
 def test_role_combining_merge_and_code_is_refused():
     roles = load_roles()
     bad = Role(**{**roles["dev"].model_dump(), "permissions": ["merge", "code"]})
@@ -92,11 +85,9 @@ def test_missing_gated_role_is_refused():
 def test_seat_with_unknown_role_or_merge_plus_code_is_refused():
     roles = load_roles()
     with pytest.raises(CatalogError, match="unknown"):
-        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["nobody"]}]}}, [])
-    with pytest.raises(CatalogError, match="unknown"):
-        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["explorer"]}]}}, [])
+        validate_catalog(roles, {"m": {"seats": [{"roles": ["nobody"]}]}}, [])
     with pytest.raises(CatalogError, match="merge and code"):
-        validate_catalog(roles, {"m": {"kind": "company", "seats": [{"roles": ["lead", "dev"]}]}}, [])
+        validate_catalog(roles, {"m": {"seats": [{"roles": ["lead", "dev"]}]}}, [])
 
 
 def test_channel_with_unknown_role_is_refused():
@@ -107,21 +98,18 @@ def test_channel_with_unknown_role_is_refused():
 
 def test_every_predefined_mode_passes_the_checks():
     catalog = load_catalog()
-    assert {"startup", "enterprise", "duo", "council"} <= set(catalog["modes"])
+    assert {"startup", "scaleup", "enterprise", "multinational"} <= set(catalog["modes"])
 
 
 def test_team_constraints():
-    assert team_permission_error([["lead"], ["dev"], ["reviewer"]], "company") is None
-    assert "merge and the code" in team_permission_error([["lead", "dev"]], "company")
-    assert "ship_release" in team_permission_error([["lead"], ["lead"]], "company")
-    assert team_permission_error([["explorer"], ["skeptic"]], "research") is None
+    assert team_permission_error([["lead"], ["dev"], ["reviewer"]]) is None
+    assert "merge and the code" in team_permission_error([["lead", "dev"]])
+    assert "ship_release" in team_permission_error([["lead"], ["lead"]])
 
 
 def test_roles_are_typed_and_keep_the_file_order():
     roles = load_catalog()["roles"]
     assert list(roles)[:3] == ["lead", "architect", "product_owner"]
-    company_roles = [k for k, r in roles.items() if r.kind == "company"]
-    assert list(roles)[len(company_roles)] == "explorer"
     assert all(isinstance(role, Role) for role in roles.values())
 
 
@@ -139,15 +127,6 @@ PINNED_TEAMS = {
     ("multinational", 1): "2d0fcc8d83c6b7ff",
     ("multinational", 42): "7ef33fd9107f910f",
     ("multinational", 2024): "c5f2b5a5fa9b153f",
-    ("duo", 1): "7a72ee10a94f1ddc",
-    ("duo", 42): "85fb16635068eacd",
-    ("duo", 2024): "086ee643a161e201",
-    ("panel", 1): "c95d5b93cfaf44a1",
-    ("panel", 42): "59fb82351b116f0c",
-    ("panel", 2024): "9ad544ae45c329fc",
-    ("council", 1): "757df7768b757b4e",
-    ("council", 42): "33ecd2f193675a22",
-    ("council", 2024): "a73d99bca2e5d387",
 }
 
 
@@ -157,8 +136,8 @@ def test_seeded_teams_are_unchanged(mode, seed):
     assert hashlib.sha256(dumped.encode()).hexdigest()[:16] == PINNED_TEAMS[(mode, seed)]
 
 
-@pytest.mark.parametrize("field", ["key", "kind"])
-def test_role_file_cannot_set_key_or_kind(catalog_copy, field):
+@pytest.mark.parametrize("field", ["key"])
+def test_role_file_cannot_set_key(catalog_copy, field):
     path = catalog_copy / "company/roles/qa.toml"
     path.write_text(f'{field} = "x"\n' + path.read_text())
     with pytest.raises(CatalogError, match=r"qa\.toml.*" + field):
@@ -181,11 +160,11 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
     from app.company.catalog import load_catalog
     from app.mcp_server.permissions import claude_tools_for, mcp_tools_for
 
-    response = await api_client.get("/api/catalog/roles", params={"kind": "company"})
+    response = await api_client.get("/api/catalog/roles")
 
     assert response.status_code == 200
     roles = response.json()
-    expected = {k: r for k, r in load_catalog()["roles"].items() if r.kind == "company"}
+    expected = load_catalog()["roles"]
     assert list(roles) == list(expected)
     for key, role in roles.items():
         permissions = expected[key].permissions
@@ -194,13 +173,6 @@ async def test_roles_endpoint_adds_tools_to_the_role_fields(api_client):
             "claude": claude_tools_for(permissions),
         }
         assert {k: v for k, v in role.items() if k != "tools"} == {"effort": None, "archetype": None, "deliverable_format": None, **expected[key].model_dump(mode="json", exclude_none=True)}
-
-
-async def test_roles_endpoint_filters_by_kind(api_client):
-    roles = (await api_client.get("/api/catalog/roles", params={"kind": "research"})).json()
-
-    assert roles
-    assert {r["kind"] for r in roles.values()} == {"research"}
 
 
 async def test_limits_endpoint_exposes_models_and_team_size(api_client):
@@ -213,30 +185,27 @@ async def test_limits_endpoint_exposes_models_and_team_size(api_client):
 
 
 def test_personality_pool_files_feed_the_catalog():
-    pools = load_personality_pools()
     catalog = load_catalog()
-    assert set(pools) == {"company", "research"}
     assert catalog["personality"]["axes"][0] == {
         "key": "risk", "label": "Risk-taking", "diverse": True,
         "low": "cautious — you limit risk and always want a plan B",
         "high": "bold — you are willing to bet on an ambitious solution if the payoff is worth it",
     }
     assert "diverse" not in catalog["personality"]["axes"][3]
-    assert catalog["research"]["personality"]["axes"][0]["key"] == "skepticism"
 
 
 def test_personality_pool_unknown_field_names_the_file(catalog_copy):
-    path = catalog_copy / "research/personality_pool.toml"
+    path = catalog_copy / "company/personality_pool.toml"
     path.write_text("colour = 1\n" + path.read_text())
     with pytest.raises(CatalogError, match=r"(?s)personality_pool\.toml.*colour"):
-        load_personality_pools()
+        load_personality_pool()
 
 
 def test_personality_pool_axis_typo_names_the_file_and_field(catalog_copy):
     path = catalog_copy / "company/personality_pool.toml"
     path.write_text(path.read_text().replace('label = "Risk-taking"', 'lable = "Risk-taking"', 1))
     with pytest.raises(CatalogError, match=r"(?s)company/personality_pool\.toml.*axes\.0\.lable"):
-        load_personality_pools()
+        load_personality_pool()
 
 
 def test_loaded_role_permissions_and_wakes_on_are_immutable():
@@ -267,13 +236,18 @@ success = "Reliable."
 def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
     index = load_extended_index()
     roles = load_roles()
-    base = {k for k, r in roles.items() if r.kind == "company" and r.archetype is None}
+    base = {k for k, r in roles.items() if r.archetype is None}
     assert len(index) > 400
     assert {e.category for e in index.values()} >= set(get_args(ExtendedCategory))
     for entry in index.values():
         assert entry.archetype in base, entry.key
         assert entry.category in get_args(ExtendedCategory) or roles[entry.key].category == entry.category
         assert entry.existing == (entry.key in roles and roles[entry.key].archetype is None), entry.key
+
+
+def test_every_base_role_has_an_expertise():
+    missing = [key for key, role in load_roles().items() if role.archetype is None and not role.expertise]
+    assert missing == []
 
 
 def test_extended_jobs_of_lot_1_have_a_file_each():
@@ -293,7 +267,7 @@ def test_no_extended_job_uses_the_lead_or_its_own_permissions():
     extended = [r for r in roles.values() if r.archetype is not None]
     for role in extended:
         assert role.archetype != "lead", role.key
-        assert roles[role.archetype].kind == "company" and roles[role.archetype].archetype is None, role.key
+        assert roles[role.archetype].archetype is None, role.key
         assert (role.permissions, role.wakes_on) == (roles[role.archetype].permissions, roles[role.archetype].wakes_on)
     for path in CATALOG_DIR.glob("*/roles/*.toml"):
         raw = tomllib.loads(path.read_text())
@@ -375,7 +349,7 @@ def test_role_file_disagreeing_with_the_index_is_refused(catalog_copy):
 def test_mode_seat_with_an_extended_job_is_refused(catalog_copy):
     (catalog_copy / "company/roles/kernel_developer.toml").write_text(EXTENDED_JOB)
     roles = load_roles()
-    mode = {"kind": "company", "seats": [{"roles": ["kernel_developer"]}]}
+    mode = {"seats": [{"roles": ["kernel_developer"]}]}
     with pytest.raises(CatalogError, match="at random"):
         validate_catalog(roles, {"m": mode}, [])
 
@@ -388,17 +362,6 @@ def test_every_job_of_the_security_to_quality_categories_has_its_file():
             assert entry.key in roles, entry.key
             assert roles[entry.key].archetype == entry.archetype, entry.key
             assert roles[entry.key].category == entry.category, entry.key
-
-
-def test_research_role_with_an_archetype_is_refused(catalog_copy):
-    base = next(p for p in (catalog_copy / "research/roles").glob("*.toml"))
-    (catalog_copy / "research/roles/kernel_researcher.toml").write_text(EXTENDED_JOB.replace("dev_backend", base.stem))
-    catalog_module.load_catalog.cache_clear()
-    try:
-        with pytest.raises(CatalogError, match="only company roles"):
-            load_catalog()
-    finally:
-        catalog_module.load_catalog.cache_clear()
 
 
 def test_extended_jobs_of_lot_3_have_a_file_each():
@@ -418,6 +381,13 @@ def test_every_base_role_describes_how_it_works():
         assert role.method and role.watch_points and role.deliverable_format, role.key
 
 
+def test_base_roles_state_their_expertise():
+    base_roles = {key: role for key, role in load_roles().items() if role.archetype is None}
+    assert base_roles
+    for key, role in base_roles.items():
+        assert role.expertise, key
+
+
 def test_working_notes_are_optional_and_validated(catalog_copy):
     path = catalog_copy / "company/roles/scribe.toml"
     path.write_text(path.read_text().replace("method = ", "method_ = ", 1))
@@ -430,14 +400,17 @@ def test_working_notes_are_optional_and_validated(catalog_copy):
 def test_working_notes_are_rendered_in_the_prompt():
     role = load_roles()["dev_backend"]
     prompt = _render_role(role)
+    assert f"- {role.expertise[0]}" in prompt
+    assert prompt.index("You are an expert in") < prompt.index("How you work")
     assert f"1. {role.method[0]}" in prompt
     assert f"- {role.watch_points[0]}" in prompt
     assert f"A good deliverable: {role.deliverable_format}" in prompt
 
 
 def test_prompt_omits_absent_working_notes():
-    role = load_roles()["dev_backend"].model_copy(update={"method": [], "watch_points": [], "deliverable_format": None})
+    role = load_roles()["dev_backend"].model_copy(update={"expertise": [], "method": [], "watch_points": [], "deliverable_format": None})
     prompt = _render_role(role)
+    assert "You are an expert in" not in prompt
     assert "How you work" not in prompt
     assert "Watch points" not in prompt
     assert "A good deliverable" not in prompt
