@@ -113,3 +113,25 @@ def test_cargo_prefixed_non_default_registry_is_flagged() -> None:
 ])
 def test_crates_index_url_is_matched_exactly(url: str) -> None:
     assert url in render_diff(lockfile_diff([f'"resolved": "{url}",']))
+
+
+@pytest.mark.parametrize("source", [
+    "git@evil.example.com:org/repo.git",
+    "github:user/repo",
+    "gitlab:user/repo",
+    "file:../local-pkg",
+    "link:../linked-pkg",
+])
+def test_schemeless_source_is_flagged(source: str) -> None:
+    out = render_diff(lockfile_diff([f'"resolved": "{source}",']))
+    assert source in out and "non-default registry" in out
+
+
+def test_schemeless_source_embedded_in_a_yarn_key_is_flagged() -> None:
+    out = render_diff(lockfile_diff(['"foo@github:user/repo":']))
+    assert "github:user/repo" in out
+
+
+def test_lockfile_metadata_with_colons_keeps_the_short_note() -> None:
+    out = render_diff(lockfile_diff(['"profile:x": 1,', '"integrity": "sha512-abc",', 'name = "file"']))
+    assert "non-default registry" not in out

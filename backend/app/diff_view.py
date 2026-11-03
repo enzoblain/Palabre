@@ -30,6 +30,11 @@ MAX_FLAGGED_LINE_CHARS = 200
 LOCKFILE_REVIEW_HINT = "review dependency changes in the file"
 # Cargo's `registry+` / `sparse+` markers are not part of the URL; `git+` and others are kept
 _SOURCE_URL = re.compile(r"(?:(?:registry|sparse)\+)?([a-z+]+://[^\s\"',)]+)", re.IGNORECASE)
+# Sources without a `scheme://`: scp-style git remotes and the npm/yarn shorthands (`github:user/repo`, `file:`, `link:`);
+# none of them is ever a default registry
+_SCHEMELESS_SOURCE = re.compile(
+    r"(?<![\w+.-])(?:git@[\w.-]+:|(?:github|gitlab|bitbucket|gist|file|link):)[^\s\"',)]+", re.IGNORECASE,
+)
 _FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
 _PLAIN_NEW_PATH = re.compile(r" b/(.+)$")
 _QUOTED_NEW_PATH = re.compile(r'"b/((?:[^"\\]|\\.)*)"$')
@@ -61,7 +66,7 @@ class FileDiff:
         added = (line[1:].strip() for line in hunks.split("\n")[1:] if line.startswith("+"))
         return [
             line for line in added
-            if any(not _is_default_registry(url) for url in _SOURCE_URL.findall(line))
+            if _SCHEMELESS_SOURCE.search(line) or any(not _is_default_registry(url) for url in _SOURCE_URL.findall(line))
         ]
 
 
