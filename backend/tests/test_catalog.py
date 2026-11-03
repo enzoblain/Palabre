@@ -245,6 +245,11 @@ def test_extended_index_gives_a_known_category_and_archetype_to_every_job():
         assert entry.existing == (entry.key in roles and roles[entry.key].archetype is None), entry.key
 
 
+def test_every_base_role_has_an_expertise():
+    missing = [key for key, role in load_roles().items() if role.archetype is None and not role.expertise]
+    assert missing == []
+
+
 def test_extended_jobs_of_lot_1_have_a_file_each():
     lot_categories = {
         "direction_strategy", "architecture", "software_development", "artificial_intelligence", "data_databases",
