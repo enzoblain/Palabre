@@ -89,6 +89,13 @@ nudged once; if it still does not start after another `IDLE_TASK_MINUTES`, the l
 because the CI is still running, the lead is woken (`merge_retry`) as soon as the CI is over,
 or as a mergeable task if every rule is then met.
 
+A run that ends without error while its task is still `in_progress` (or `changes_requested`) with no
+PR wakes the same dev again right away (`task_stalled`), unless a run or wakeup is already on the
+task. As a safety net, the scheduler does the same for a task whose dev has had no run or wakeup for
+`STALLED_TASK_MINUTES` (5 by default), for instance after a backend restart. Failed runs keep their
+own retries. After `MAX_STALLED_RESTARTS` (3 by default) restarts the lead is woken once
+(`task_run_failed`) instead of looping; any wakeup by someone else resets the count.
+
 A task never waits silently for its reviewer either: when QA or security post a report on a task in
 review, a reviewer whose last opinion is a comment without a verdict is woken up (`verification_done`)
 to give approve or changes. As a safety net, a task in review with no reviewer verdict for

@@ -33,6 +33,8 @@ their default unless you add them to the `environment:` of the `backend` service
 | `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
 | `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
 | `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
+| `STALLED_TASK_MINUTES` | `5` | Minutes a task in progress may stay without any run or wakeup before its dev is woken up again |
+| `MAX_STALLED_RESTARTS` | `3` | Times a dev is woken up again after a run that ended without submitting; the lead is told past it |
 | `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |
 | `MAX_REVIEW_REMINDERS` | `3` | Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it |
 | `MAX_REVIEW_ROUNDS` | `3` | Rounds of "changes requested" on a task before the lead has to step in |

@@ -34,7 +34,7 @@ from app.orchestrator.prompts import (
     version_rule,
     wake_prompt,
 )
-from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_failed
+from app.orchestrator.retries import RUNNABLE_TASK_STATUSES, on_task_run_ended, on_task_run_failed
 from app.orchestrator.scheduler import run_scheduler
 from app.projects import team_of
 from app.runner import ClaudeRunError, RunResult, RunSpec, SessionNotFound, UsageLimitReached, run_claude
@@ -334,6 +334,8 @@ class Orchestrator:
         await s.commit()
         if ok is False and run.task_id is not None and run.kind == "task":
             await on_task_run_failed(s, run.task_id, error)
+        elif ok and run.task_id is not None and run.kind == "task":
+            await on_task_run_ended(s, run.task_id)
 
     # --- Preparing a run -----------------------------------------------------------
 
