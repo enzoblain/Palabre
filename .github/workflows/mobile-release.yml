@@ -1,0 +1,220 @@
+# Builds the mobile app on a version tag: the iOS build goes to TestFlight, the Android build is an
+# artifact (.aab, not published to the Play Store). The App Store submission stays manual.
+# Never triggered by a pull request: the jobs hold signing secrets (see docs/mobile-release.md).
+# The secrets live in the protected GitHub environment "mobile-release", limited to v* tags.
+name: Mobile release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  # Pinned: the default Xcode of the runner image changes without notice
+  XCODE_VERSION: "16.4"
+
+jobs:
+  # Skips the signing jobs while the app or the tag does not allow a release build
+  detect:
+    name: Detect mobile app
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.detect.outputs.run }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: detect
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ ! -f mobile/app.json ]; then
+            echo "No mobile/app.json: mobile release skipped"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version="${REF_NAME#v}"
+          # A manual run on a branch has no version tag: the version is read from app.json
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            version=$(node -p 'require("./mobile/app.json").expo.version')
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  ios:
+    name: iOS to TestFlight
+    needs: detect
+    if: needs.detect.outputs.run == 'true'
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: mobile-release
+    env:
+      APP_VERSION: ${{ needs.detect.outputs.version }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      KEYCHAIN_PATH: ${{ runner.temp }}/palabre-build.keychain-db
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+      - run: npm ci
+      - name: Set the version
+        # Marketing version = release version, build number = run number
+        run: |
+          node -e '
+            const fs = require("fs");
+            const config = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            config.expo.version = process.env.APP_VERSION;
+            config.expo.ios = { ...config.expo.ios, buildNumber: process.env.BUILD_NUMBER };
+            fs.writeFileSync("app.json", JSON.stringify(config, null, 2) + "\n");
+          '
+      - name: Generate the native project
+        run: npx expo prebuild --platform ios --no-install
+      - name: Import the certificate and the provisioning profile
+        env:
+          CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # No set -x: the values below are secrets
+          set -eu
+          keychain_password=$(uuidgen)
+          printf '%s' "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$keychain_password" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$keychain_password" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$KEYCHAIN_PATH" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+          printf '%s' "$PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+          {
+            echo "PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")"
+            echo "TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")"
+          } >> "$GITHUB_ENV"
+          rm -f "$RUNNER_TEMP/profile.plist"
+      - name: Archive and export the IPA
+        run: |
+          set -eu
+          bundle_id=$(node -p 'require("./app.json").expo.ios.bundleIdentifier')
+          workspace=$(ls -d ios/*.xcworkspace | head -n 1)
+          scheme=$(basename "$workspace" .xcworkspace)
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict><key>${bundle_id}</key><string>${PROFILE_NAME}</string></dict>
+          </dict></plist>
+          PLIST
+          xcodebuild archive -workspace "$workspace" -scheme "$scheme" -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" CODE_SIGN_IDENTITY="Apple Distribution" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/ipa"
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -eu
+          # altool looks for AuthKey_<id>.p8 in this folder
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          xcrun altool --upload-app --type ios --file "$RUNNER_TEMP"/ipa/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+      # Whatever the result, no signing material stays on the runner
+      - name: Clean up the keychain and the keys
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
+          rm -rf "$HOME/private_keys" "$HOME/Library/MobileDevice/Provisioning Profiles" \
+            "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+
+  android:
+    name: Android bundle
+    needs: detect
+    if: needs.detect.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: mobile-release
+    env:
+      APP_VERSION: ${{ needs.detect.outputs.version }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Set the version
+        run: |
+          node -e '
+            const fs = require("fs");
+            const config = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            config.expo.version = process.env.APP_VERSION;
+            config.expo.android = { ...config.expo.android, versionCode: Number(process.env.BUILD_NUMBER) };
+            fs.writeFileSync("app.json", JSON.stringify(config, null, 2) + "\n");
+          '
+      - name: Generate the native project
+        run: npx expo prebuild --platform android --no-install
+      - name: Build the bundle
+        # JDK 17 is preinstalled on the runner image
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cd android && ./gradlew --no-daemon bundleRelease
+      - name: Sign the bundle with the upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # No set -x: the values below are secrets
+          set -eu
+          bundle=android/app/build/outputs/bundle/release/app-release.aab
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
+          # Drop the signature of the generated project (debug key), then sign with the upload key
+          zip -q -d "$bundle" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
+          "$JAVA_HOME_17_X64/bin/jarsigner" -keystore "$RUNNER_TEMP/upload.keystore" \
+            -storepass:env KEYSTORE_PASSWORD -keypass:env KEY_PASSWORD \
+            -sigalg SHA256withRSA -digestalg SHA-256 "$bundle" "$KEY_ALIAS"
+          "$JAVA_HOME_17_X64/bin/jarsigner" -verify "$bundle"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: palabre-android-${{ needs.detect.outputs.version }}-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.keystore"
