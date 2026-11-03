@@ -103,7 +103,7 @@ async def test_add_a_second_lead_is_refused(db):
     project = await _team(db)
     with pytest.raises(WorkflowError) as error:
         await api.add_employee(project.id, EmployeeIn(roles=["lead"]), db)
-    assert error.value.code == ErrorCode.INVALID_TEAM_PERMISSIONS
+    assert error.value.code == ErrorCode.LEAD_ALREADY_EXISTS
 
 
 async def test_add_member_refuses_a_full_team(db):
@@ -222,7 +222,7 @@ async def test_change_role_to_lead_is_refused(db):
     project = await _team(db)
     with pytest.raises(WorkflowError) as error:
         await api.update_employee(_by_name(project, "Bob").id, EmployeePatch(roles=["lead"]), db)
-    assert error.value.code == ErrorCode.INVALID_TEAM_PERMISSIONS
+    assert error.value.code == ErrorCode.LEAD_ALREADY_EXISTS
 
 
 async def test_change_personality_of_the_lead_is_allowed(db):

@@ -44,6 +44,7 @@ class ErrorCode(StrEnum):
     BRANCH_ALREADY_USED = "branch_already_used"
     NO_NAME_LEFT = "no_name_left"
     LEAD_PROTECTED = "lead_protected"
+    LEAD_ALREADY_EXISTS = "lead_already_exists"
     TEAM_TOO_LARGE = "team_too_large"
     TASK_WRONG_STATUS = "task_wrong_status"
     STALE_REVIEW_HEAD = "stale_review_head"

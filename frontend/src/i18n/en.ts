@@ -58,6 +58,7 @@ export const en = {
   "error.invalid_branch_name": "Invalid branch name",
   "error.branch_already_used": "This branch is already used by another task",
   "error.no_name_left": "No employee name left for this team",
+  "error.lead_already_exists": "The team already has a lead",
   "error.lead_protected": "The lead cannot be removed or change roles",
   "error.team_too_large": "The team is already at its maximum size",
   "error.task_wrong_status": "This task is not in the right status for this action",
