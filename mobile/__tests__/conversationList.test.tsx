@@ -41,7 +41,7 @@ describe("conversation list screen", () => {
   it("shows the empty message", async () => {
     listProjects.mockResolvedValue([]);
     await render(<ConversationListScreen />);
-    expect(await screen.findByText("Aucune conversation. Les messages de l'équipe apparaîtront ici.")).toBeTruthy();
+    expect(await screen.findByText("Aucune conversation. Les messages de l’équipe apparaîtront ici.")).toBeTruthy();
   });
 
   it("lists conversations with an accessible label including unread, and opens one on tap", async () => {
