@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - review: summarise lockfiles and truncate get_diff by whole files (#443)
 - review: flag non-default registry URLs in hidden lockfile diffs (#446)
+- review: flag schemeless sources in hidden lockfile diffs (#448)
 
 ### Fixed
 
