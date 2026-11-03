@@ -23,8 +23,10 @@ Prerequisite: a paid Apple Developer account. You do these steps once; the team 
 
 ### 1. Create the app in App Store Connect
 
-1. App Store Connect > Apps > "+" > New App. Pick the bundle identifier that is in `mobile/app.json`
-   (`expo.ios.bundleIdentifier`).
+1. Choose the app identifier, in reverse-domain form (for example `com.yourname.palabre`), and tell the lead:
+   the team sets it in `mobile/app.json` as `expo.ios.bundleIdentifier` and `expo.android.package`. Until it
+   is set, the workflow stops at its first job with a clear message. It cannot be changed once the app is published.
+2. App Store Connect > Apps > "+" > New App, with that bundle identifier.
 
 ### 2. Create the App Store Connect API key
 
