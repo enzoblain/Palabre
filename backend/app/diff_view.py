@@ -22,8 +22,9 @@ DEFAULT_REGISTRY_PREFIXES = (
     "https://rubygems.org/",
     "https://repo.packagist.org/",
     "https://proxy.golang.org/",
-    "https://github.com/rust-lang/crates.io-index",
 )
+# Hosts serving arbitrary content: only this exact URL is default (a prefix would let `/../` escape the path)
+DEFAULT_REGISTRY_URLS = frozenset({"https://github.com/rust-lang/crates.io-index"})
 MAX_FLAGGED_LINES_PER_LOCKFILE = 10
 MAX_FLAGGED_LINE_CHARS = 200
 LOCKFILE_REVIEW_HINT = "review dependency changes in the file"
@@ -60,8 +61,12 @@ class FileDiff:
         added = (line[1:].strip() for line in hunks.split("\n")[1:] if line.startswith("+"))
         return [
             line for line in added
-            if any(not url.startswith(DEFAULT_REGISTRY_PREFIXES) for url in _SOURCE_URL.findall(line))
+            if any(not _is_default_registry(url) for url in _SOURCE_URL.findall(line))
         ]
+
+
+def _is_default_registry(url: str) -> bool:
+    return url in DEFAULT_REGISTRY_URLS or url.startswith(DEFAULT_REGISTRY_PREFIXES)
 
 
 def _unquote_path(quoted: str) -> str:

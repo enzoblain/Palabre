@@ -105,3 +105,11 @@ def test_default_registries_of_other_ecosystems_are_not_flagged(line: str) -> No
 def test_cargo_prefixed_non_default_registry_is_flagged() -> None:
     out = render_diff(lockfile_diff(['source = "registry+https://evil.example.com/index"']))
     assert "https://evil.example.com/index" in out
+
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/rust-lang/crates.io-index/../../attacker/repo/archive/x.tgz",
+    "https://github.com/rust-lang/crates.io-index-evil",
+])
+def test_crates_index_url_is_matched_exactly(url: str) -> None:
+    assert url in render_diff(lockfile_diff([f'"resolved": "{url}",']))
