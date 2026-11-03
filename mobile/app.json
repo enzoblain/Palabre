@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Palabre",
+    "slug": "palabre",
+    "version": "0.28.0",
+    "scheme": "palabre",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router", "expo-secure-store", "expo-localization"],
+    "ios": { "supportsTablet": false },
+    "android": {},
+    "experiments": { "typedRoutes": true }
+  }
+}

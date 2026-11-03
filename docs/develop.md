@@ -8,6 +8,21 @@ cd frontend && npm install && npm run dev        # Vite dev server on localhost:
 To check the frontend (TypeScript typecheck, then Vite build), run `npm run check` in
 `frontend/`. No linter is configured yet.
 
+## Mobile app
+
+The app lives in `mobile/` (Expo SDK 58, see [Mobile app](mobile.md)). It needs Node 22.
+
+```sh
+cd mobile && npm install
+npx expo start              # then scan the QR code with Expo Go, or press i (iOS simulator) / a (Android emulator)
+npm run check               # type check, lint, tests and i18n key check; run by the "Mobile check" CI job
+```
+
+The three screens (login, conversation list, conversation) are placeholders for now. The app talks to the server over
+HTTPS only, so a phone or simulator needs the setup of [Remote access](remote-access.md). The device token is kept in
+`expo-secure-store`, never in `AsyncStorage`. User-facing strings go through `src/i18n` (French and English, the
+phone's language); colors come from the tokens in `src/theme`, taken from the [UI spec](mobile-ui.md).
+
 **Documentation rule.** A PR that changes a behavior, a config variable, a command or an MCP tool documented in `docs/` updates the right file of `docs/` in the same PR; the README stays short. Developers are told so in their prompt, and the Reviewer blocks (`changes`) a PR that does not; QA reports it as a bug.
 
 Roles live in [`backend/app/company/catalog/`](../backend/app/company/catalog), one TOML file per role

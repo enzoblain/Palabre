@@ -1,0 +1,39 @@
+{
+  "name": "palabre-mobile",
+  "private": true,
+  "version": "0.28.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest",
+    "check": "npm run typecheck && npm run lint && npm test && node scripts/check-i18n.mjs"
+  },
+  "dependencies": {
+    "expo": "58.0.22",
+    "expo-constants": "~58.0.14",
+    "expo-linking": "~58.0.15",
+    "expo-localization": "~58.0.5",
+    "expo-router": "~58.0.29",
+    "expo-secure-store": "~58.0.2",
+    "expo-status-bar": "~58.0.4",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.1"
+  },
+  "devDependencies": {
+    "@react-native/jest-preset": "^0.88.1",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "^29.5.14",
+    "@types/react": "~19.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~58.0.4",
+    "jest": "^29.7.0",
+    "jest-expo": "~58.0.13",
+    "react-dom": "^19.3.0",
+    "react-test-renderer": "^19.3.0",
+    "typescript": "~5.9"
+  }
+}
