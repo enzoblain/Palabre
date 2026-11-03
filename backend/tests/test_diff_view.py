@@ -138,3 +138,26 @@ def test_schemeless_source_embedded_in_a_yarn_key_is_flagged() -> None:
 def test_lockfile_metadata_with_colons_keeps_the_short_note() -> None:
     out = render_diff(lockfile_diff(['"profile:x": 1,', '"integrity": "sha512-abc",', 'name = "file"']))
     assert "non-default registry" not in out
+
+
+def added_file_diff(path: str, added_lines: list[str]) -> str:
+    """A diff as git prints a newly created file: `new file mode` header and an `@@ -0,0` hunk."""
+    body = "".join(f"+{line}\n" for line in added_lines)
+    header = f"diff --git a/{path} b/{path}\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/{path}\n"
+    return f"{header}@@ -0,0 +1,{len(added_lines)} @@\n{body}"
+
+
+def test_added_lockfile_is_hidden_and_the_files_after_it_are_kept() -> None:
+    lockfile = added_file_diff("mobile/package-lock.json", [f'"resolved": "https://registry.npmjs.org/p{n}",' for n in range(16000)])
+    out = render_diff(lockfile + file_diff("mobile/src/app.ts", 2) + file_diff("mobile/tsconfig.json", 1), max_chars=1000)
+    assert "registry.npmjs.org/p5" not in out
+    assert "mobile/package-lock.json (+16000 -0)" in out
+    assert "diff --git a/mobile/src/app.ts" in out and "diff --git a/mobile/tsconfig.json" in out
+    assert "non-default registry" not in out and "truncated" not in out
+
+
+@pytest.mark.parametrize("source", ["https://evil.example.com/x/-/x-1.0.0.tgz", "github:user/repo", "git@evil.example.com:org/repo.git"])
+def test_added_lockfile_flags_non_default_sources(source: str) -> None:
+    out = render_diff(added_file_diff("yarn.lock", ['"resolved": "https://registry.yarnpkg.com/a",', f'"resolved": "{source}",']))
+    assert "yarn.lock (+2 -0)" in out
+    assert source in out and "non-default registry" in out
