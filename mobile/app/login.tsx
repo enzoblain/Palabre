@@ -1,4 +1,4 @@
-import { type ComponentRef, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,6 +30,11 @@ export default function LoginScreen() {
   const accessCodeInput = useRef<ComponentRef<typeof TextInput>>(null);
   const deviceNameInput = useRef<ComponentRef<typeof TextInput>>(null);
 
+  // The field is read-only while submitting: focus it once the failed attempt has re-enabled it.
+  useEffect(() => {
+    if (error && !submitting) accessCodeInput.current?.focus();
+  }, [error, submitting]);
+
   const canSubmit = !submitting && server.trim() !== "" && accessCode !== "" && deviceName.trim() !== "";
 
   async function submit() {
@@ -55,7 +60,11 @@ export default function LoginScreen() {
         <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
           {translate("login.title")}
         </Text>
-        {expired && !error ? <Text style={{ color: colors.secondaryText }}>{translate("login.expired")}</Text> : null}
+        {expired && !error ? (
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: colors.secondaryText }}>
+            {translate("login.expired")}
+          </Text>
+        ) : null}
 
         <Text style={[styles.label, { color: colors.text }]}>{translate("login.server")}</Text>
         <TextInput
@@ -120,9 +129,18 @@ export default function LoginScreen() {
         />
 
         {error ? (
-          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.error }]}>
-            {`⚠︎ ${error}`}
-          </Text>
+          <View style={styles.errorRow}>
+            <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ color: colors.error }}>
+              ⚠︎
+            </Text>
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[styles.error, styles.flex, { color: colors.error }]}
+            >
+              {error}
+            </Text>
+          </View>
         ) : null}
 
         <Pressable
@@ -151,7 +169,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   eye: { minHeight: MIN_TOUCH_TARGET, justifyContent: "center" },
   help: { fontSize: FONT_SIZE.caption },
-  error: { fontSize: FONT_SIZE.body, marginTop: SPACING.sm },
+  errorRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
+  error: { fontSize: FONT_SIZE.body },
   button: {
     height: BUTTON_HEIGHT,
     borderRadius: RADIUS.button,

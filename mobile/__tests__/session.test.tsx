@@ -1,6 +1,7 @@
+import "@testing-library/react-native/matchers";
 import * as SecureStore from "expo-secure-store";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { Text, TextInput } from "react-native";
 import LoginScreen from "../app/login";
 import { api } from "../src/api";
 import { SessionProvider, pairAndStore, useSession } from "../src/session";
@@ -86,6 +87,7 @@ describe("SessionProvider", () => {
   });
 
   it("signs in from the login screen and shows an error on a wrong code", async () => {
+    const focusSpy = jest.spyOn(TextInput.prototype, "focus");
     await render(<SessionProvider><LoginScreen /></SessionProvider>);
     await waitFor(() => expect(screen.getByLabelText("Server address")).toBeTruthy());
     await fireEvent.changeText(screen.getByLabelText("Server address"), SERVER);
@@ -93,8 +95,21 @@ describe("SessionProvider", () => {
     fetchMock.mockResolvedValue(jsonResponse(401, {}));
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(screen.getByText(/Wrong access token/)).toBeTruthy();
+    expect(screen.getByText("Wrong access token")).toBeTruthy();
+    expect(focusSpy).toHaveBeenCalled();
+    expect(screen.getByText("⚠︎", { includeHiddenElements: true })).not.toBeVisible();
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it("announces the disconnected device message to screen readers", async () => {
+    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify({ server: SERVER, token: "pdev_abc" }));
+    await render(<SessionProvider><Probe /><LoginScreen /></SessionProvider>);
+    await waitFor(() => expect(screen.getByText(`signedIn|${SERVER}|false`)).toBeTruthy());
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "auth_invalid_token" }));
+    await act(async () => {
+      await api.listProjects().catch(() => undefined);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("This device was signed out. Sign in again.");
   });
 
   it("pairs when the device name is submitted from the keyboard", async () => {
