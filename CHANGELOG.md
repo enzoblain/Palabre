@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-03
+
+### Added
+
+- projects: expose unread direction messages and lead typing state (#358)
+- requests: let the boss answer requests in the chat instead of buttons (#354)
+- decisions: require a boss reply before validating a decision with requests (#360)
+- projects: expose the latest direction message in the project list (#361)
+- worktrees: announce in direction when the team's branch is recreated (#363)
+- frontend: phone bottom bar, projects page with unread badges, lighter settings (#369)
+- prompts: make the lead review the team on every boss message and action (#374)
+- frontend: phone project header and Info page, drop presence indicators (#376)
+- projects: edit project name and delete one or several projects (#377)
+- frontend: iMessage-style conversation bubbles with copy, info and typing dots (#380)
+- projects: change a project's main branch from its Infos (#381)
+- frontend: Messages-style two-column layout on large screens (#382)
+- catalog: add 48 new personality presets (#385)
+- catalog: add role expertise and rewrite technical role descriptions (#386)
+- catalog: rewrite the base role descriptions with concrete missions, steps and boundaries (#387)
+- projects: add, remove and change the members of a project's team (#389)
+- toolchains: add 13 archive toolchains (Rust, Java, Deno, Bun, .NET...) (#390)
+- catalog: rewrite lead, product owner, designer, scribe and dev role descriptions (#394)
+- orchestrator: resume in-progress tasks whose run ended without submitting (#395)
+- catalog: complete tech_writer and require expertise on base roles (#398)
+- frontend: one-line conversation header and team column on large screens (#397)
+- frontend: edit and delete a project from Infos, edit mode on the Projects screen (#396)
+- frontend: pick a personality from a searchable list (#401)
+- frontend: manage the team from the project info page (#402)
+- team: refuse a second lead with a dedicated 409 error (#403)
+- projects: refuse two leads on manual project creation (#405)
+
+### Changed
+
+- remove the research groups feature (#355)
+- frontend: remove the research screens and options (#370)
+- settings: remove the unused GET /settings/quota endpoint (#375)
+
+### Fixed
+
+- release: compare the version file name by equality (#356)
+- worktrees: recreate the team's branch when it is deleted on GitHub (#362)
+- report: make proposed decisions read-only in the report view (#365)
+- db: remove the on-disk files of the research projects the migration deletes (#366)
+- logging: keep httpx and httpcore loggers at WARNING at startup (#379)
+- projects: refuse the team branch or a task branch as main branch (#383)
+- catalog: make role expertise independent of the project's stack (#388)
+- team: check before cancelling runs and unassign tasks when a role cannot code (#392)
+- toolchains: never follow symlinks in _drop_write_bits (#393)
+
 ## [0.23.0] - 2026-11-01
 
 ### Added
@@ -596,7 +645,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/enzoblain/Palabre/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/enzoblain/Palabre/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/enzoblain/Palabre/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/enzoblain/Palabre/compare/v0.20.0...v0.21.0
