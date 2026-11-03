@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - auth: refuse with 401 a device revoked during a concurrent request (#432)
+- web: return focus to the row's Revoke button when a device revocation fails (#440)
 
 ## [0.27.0] - 2026-11-03
 
