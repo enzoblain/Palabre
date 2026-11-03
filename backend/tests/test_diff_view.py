@@ -124,6 +124,8 @@ def test_crates_index_url_is_matched_exactly(url: str) -> None:
     "bitbucket:user/repo",
     "gist:abc123",
     "portal:../portal-pkg",
+    "exec:./build-script.js",
+    "patch:left-pad@npm:1.3.0#./patches/left-pad.patch",
 ])
 def test_schemeless_source_is_flagged(source: str) -> None:
     out = render_diff(lockfile_diff([f'"resolved": "{source}",']))
@@ -133,6 +135,11 @@ def test_schemeless_source_is_flagged(source: str) -> None:
 def test_schemeless_source_embedded_in_a_yarn_key_is_flagged() -> None:
     out = render_diff(lockfile_diff(['"foo@github:user/repo":']))
     assert "github:user/repo" in out
+
+
+@pytest.mark.parametrize("line", ['"myexec:1.0.0": 1,', '"nopatch:x": 1,'])
+def test_name_ending_with_exec_or_patch_is_not_flagged(line: str) -> None:
+    assert "non-default registry" not in render_diff(lockfile_diff([line]))
 
 
 def test_lockfile_metadata_with_colons_keeps_the_short_note() -> None:
