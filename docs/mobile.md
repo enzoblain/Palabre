@@ -2,7 +2,7 @@
 
 Architecture of the Palabre mobile app: iPhone first, Android from the same code, a near clone of iMessage
 in look and behavior. This page is the plan the dev tasks follow; the screens come from the user stories and the
-UI spec of the mobile tasks, not from here. The web app ([Use the apps](use-the-apps.md)) stays as it is.
+UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-stories.md)). The web app ([Use the apps](use-the-apps.md)) stays as it is.
 
 ## Decisions
 
@@ -20,7 +20,7 @@ UI spec of the mobile tasks, not from here. The web app ([Use the apps](use-the-
 
 ```
 mobile/
-  app/              expo-router screens (projects list, conversation, project info, team, settings, login)
+  app/              expo-router screens (conversation list, conversation, project info, team, settings, login)
   src/api/          typed client, ported from frontend/src/api.ts
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
@@ -53,8 +53,8 @@ The user types the server address on first launch (for example `https://palabre.
 secure storage. It must be **HTTPS**: iOS blocks clear HTTP (App Transport Security) and Android blocks it by
 default from API 28, and the token must never cross a network in clear text anyway. A phone cannot reach
 `127.0.0.1`, so the user needs the setup described in [Remote access](remote-access.md): a TLS reverse proxy
-or a private network such as Tailscale. The app talks to the same `/api` as the web app, through the proxy
-on `2810` or directly on `2710`.
+or a private network such as Tailscale. The app talks to the same `/api` as the web app, through the TLS proxy
+on `2810` only: the backend port `2710` is never reached directly.
 
 The browser rules (CORS) do not apply to a native app: `cors_origins` needs no change.
 
@@ -80,11 +80,11 @@ Missing on the backend (to be agreed with the backend developers before the logi
 ### Real time
 
 The backend has no WebSocket or server-sent events. The web app polls (`ConversationView` every 2 seconds with
-`listMessages(conversationId, sinceId)`, which returns only the new messages; the projects list carries
+`listMessages(conversationId, sinceId)`, which returns only the new messages; the conversation list carries
 `unread_count`, `lead_writing` and the last direction message). The app does the same:
 
 - Conversation open and app in the foreground: poll messages every 2 s with `sinceId`.
-- Projects list in the foreground: poll `GET /projects` at a slower rhythm (about 5 s) for unread counts and the
+- Conversation list in the foreground: poll `GET /projects` at a slower rhythm (about 5 s) for unread counts and the
   typing indicator.
 - App in the background: stop polling, refresh once on return to the foreground (`AppState`).
 
@@ -135,7 +135,7 @@ TestFlight is impossible. This is a blocking question for the CEO (open question
 1. Scaffold `mobile/` (Expo, strict TypeScript, expo-router, `npm run check`, CI job, `docs/develop.md` entry). Front.
 2. Typed API client port and the drift test; secure storage of the connection. Front.
 3. Login screen: server URL, token, session, `401` handling. Front. Depends on 1 and 2.
-4. Projects list with unread counts and the typing indicator (polling). Front.
+4. Conversation list with unread counts and the typing indicator (polling). Front.
 5. Conversation: bubbles, composer, sending with retry, polling with `sinceId`. Front.
 6. Project info, team, settings and project creation screens. Front, one task per screen.
 7. DevOps: iOS (TestFlight) and Android workflows, secrets environment, versions. DevOps, with Security review.
