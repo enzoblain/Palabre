@@ -113,7 +113,7 @@ def boss_messages_rule(language: str) -> str:
 
 
 VERSION_RULE = """## Versions
-Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
+Version numbers follow Semantic Versioning 2.0.0, computed from the Conventional Commits merged since the last `vX.Y.Z` tag: `fix` and `perf` bump the patch, `feat` bumps the minor, a `!` or a `BREAKING CHANGE` footer bumps the major (while the version is 0.x, a breaking change bumps the minor). The highest bump wins. When commits follow the last tag but none requests a bump (only `ci`, `chore`, `docs`...), the release is a corrective patch; with no commit since the tag, there is no release. Check the commit titles since the last tag before choosing the number for a version bump, a release or `publish_version`."""
 
 VERSION_ROLES = {"lead", "devops"}
 

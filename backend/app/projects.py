@@ -480,7 +480,7 @@ async def settle_release(project: Project, decision: Decision, accepted: bool, s
 async def release_plan(project: Project) -> dict | None:
     """What the team's branch would publish: the next version (SemVer, from the Conventional Commits since
     the last vX.Y.Z tag), the previous one, the commits, the branch's tip and the number of commits
-    production lacks. None when there is nothing worth a release."""
+    production lacks. None when there is no commit to publish since the last tag."""
     repo = github.repo_slug(project.repo_url)
     production = await github.resolve_branch(repo, "")
     if project.default_branch == production:
