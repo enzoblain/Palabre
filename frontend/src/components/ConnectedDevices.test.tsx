@@ -66,7 +66,7 @@ describe("ConnectedDevices", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
   });
 
-  it("removes the row after a revocation, announces it and keeps focus in the section", async () => {
+  it("removes the row after a revocation, announces it and focuses the next row's Revoke button", async () => {
     revokeDevice.mockResolvedValue(undefined);
     renderSection();
     await userEvent.click(await screen.findByRole("button", { name: /Revoke.*Pixel/ }));
@@ -74,6 +74,15 @@ describe("ConnectedDevices", () => {
     await waitFor(() => expect(screen.queryByText("Pixel")).toBeNull());
     expect(revokeDevice).toHaveBeenCalledWith(1);
     expect(screen.getByText("Device revoked")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Revoke.*iPhone/ }));
+  });
+
+  it("focuses the section title when the revoked row was the last one", async () => {
+    revokeDevice.mockResolvedValue(undefined);
+    renderSection();
+    await userEvent.click(await screen.findByRole("button", { name: /Revoke.*iPhone/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    await waitFor(() => expect(screen.queryByText("iPhone")).toBeNull());
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Connected devices" }));
   });
 

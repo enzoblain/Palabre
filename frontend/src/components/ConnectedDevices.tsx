@@ -19,6 +19,8 @@ export function ConnectedDevices() {
   const [revoking, setRevoking] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const revokedIndexRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -31,13 +33,18 @@ export function ConnectedDevices() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  // The revoked row, and its button, are gone: keep keyboard users in the section.
-  useEffect(() => { if (outcome?.ok) titleRef.current?.focus(); }, [outcome]);
+  // The revoked row, and its button, are gone: focus the button of the row that took its place, else the title.
+  useEffect(() => {
+    if (!outcome?.ok) return;
+    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>("li button");
+    (buttons?.[revokedIndexRef.current] ?? titleRef.current)?.focus();
+  }, [outcome]);
 
   async function revoke(device: Device) {
     setRevoking(true);
     try {
       await api.revokeDevice(device.id);
+      revokedIndexRef.current = devices?.findIndex((item) => item.id === device.id) ?? 0;
       setDevices((current) => current && withoutDevice(current, device.id));
       setOutcome({ ok: true, text: t("settings.deviceRevoked") });
     } catch (err) {
@@ -61,7 +68,7 @@ export function ConnectedDevices() {
       )}
       {devices?.length === 0 && <p className="muted">{t("settings.devicesEmpty")}</p>}
       {devices && devices.length > 0 && (
-        <ul className="device-list">
+        <ul className="device-list" ref={listRef}>
           {devices.map((device) => (
             <li key={device.id}>
               <div className="device-info">
