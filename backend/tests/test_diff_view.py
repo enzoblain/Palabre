@@ -1,5 +1,7 @@
 """get_diff output: lockfiles summarised, truncation by whole files with the omitted ones named."""
 
+import pytest
+
 from app.diff_view import render_diff, split_diff
 
 
@@ -89,3 +91,17 @@ def test_code_is_shown_before_lockfile_notes() -> None:
 def test_flagged_lines_are_capped() -> None:
     out = render_diff(lockfile_diff([f'"resolved": "https://evil.example.com/{n}",' for n in range(50)]))
     assert "and 40 more" in out
+
+
+@pytest.mark.parametrize("line", [
+    'source = "registry+https://github.com/rust-lang/crates.io-index"',
+    'source = "sparse+https://index.crates.io/"',
+    'registry = "https://pypi.org/simple"',
+])
+def test_default_registries_of_other_ecosystems_are_not_flagged(line: str) -> None:
+    assert "non-default registry" not in render_diff(lockfile_diff([line]))
+
+
+def test_cargo_prefixed_non_default_registry_is_flagged() -> None:
+    out = render_diff(lockfile_diff(['source = "registry+https://evil.example.com/index"']))
+    assert "https://evil.example.com/index" in out

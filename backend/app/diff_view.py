@@ -27,7 +27,8 @@ DEFAULT_REGISTRY_PREFIXES = (
 MAX_FLAGGED_LINES_PER_LOCKFILE = 10
 MAX_FLAGGED_LINE_CHARS = 200
 LOCKFILE_REVIEW_HINT = "review dependency changes in the file"
-_SOURCE_URL = re.compile(r"(?:[a-z+]+)://[^\s\"',)]+", re.IGNORECASE)
+# Cargo's `registry+` / `sparse+` markers are not part of the URL; `git+` and others are kept
+_SOURCE_URL = re.compile(r"(?:(?:registry|sparse)\+)?([a-z+]+://[^\s\"',)]+)", re.IGNORECASE)
 _FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
 _PLAIN_NEW_PATH = re.compile(r" b/(.+)$")
 _QUOTED_NEW_PATH = re.compile(r'"b/((?:[^"\\]|\\.)*)"$')
@@ -51,7 +52,6 @@ class FileDiff:
         _, _, hunks = self.text.partition("\n@@")
         lines = hunks.split("\n")[1:]  # The first one is the rest of the header line
         return (sum(line.startswith("+") for line in lines), sum(line.startswith("-") for line in lines))
-
 
     @property
     def non_default_source_lines(self) -> list[str]:
