@@ -38,8 +38,3 @@ export function go(path: string, replace = false): void {
   }
 }
 
-/** Back to the previous screen; `fallback` when the page was opened directly (nothing to go back to). */
-export function goBack(fallback: string): void {
-  if (history.length > 1) history.back();
-  else go(fallback, true);
-}
