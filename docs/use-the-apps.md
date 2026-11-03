@@ -25,6 +25,10 @@ bottom asks for confirmation, then returns to the Projects screen.
 checkbox per project. Select projects, then delete the selection after a confirmation; Done leaves the mode.
 Projects are managed only from there and from Infos, no longer from the settings.
 
+**Connected devices**: the settings list the phones paired with the server (name, date added, last use, expiry).
+Revoke asks for a confirmation, then signs the phone out immediately (its next request is refused) and removes the row.
+Pairing a phone is done from the mobile app, not here.
+
 **Interface language**: the interface speaks the team language set in the settings (the one
 your agents write in), and the login screen uses the last language seen, else the browser's.
 French and English are translated; the other team languages show the interface in English.

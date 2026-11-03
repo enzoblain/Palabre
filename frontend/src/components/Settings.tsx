@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
+import { ConnectedDevices } from "./ConnectedDevices";
 
 export function Settings({ settings, projects, onSaved, onDisconnect }: {
   settings: AppSettings;
@@ -47,6 +48,7 @@ export function Settings({ settings, projects, onSaved, onDisconnect }: {
         </div>
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
+      <ConnectedDevices />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
       <section className="panel">
         <h2>{t("settings.server")}</h2>
