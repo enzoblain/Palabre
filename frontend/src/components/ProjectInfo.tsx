@@ -3,8 +3,8 @@ import { ApiError, type ProjectDetail, api } from "../api";
 import type { ProjectState } from "./TeamPanel";
 import { useI18n } from "../i18n";
 import { goBack } from "../router";
-import { Avatar } from "./Avatar";
 import { BackIcon } from "./Icons";
+import { TeamSection } from "./TeamSection";
 
 /** Header of a project screen: back arrow, name, and an optional action on the right. */
 export function ProjectBar({ name, onBack, children }: {
@@ -131,7 +131,6 @@ export function ProjectInfo({ project, onChanged, onDeleted }: {
   const { detail } = project;
   // The boss's objective for the project lives on the direction room
   const description = (detail.rooms.find((r) => r.kind === "direction") ?? detail.rooms[0])?.objective.trim();
-  const members = [...detail.employees].sort((a, b) => a.name.localeCompare(b.name));
   return (
     <>
       <ProjectBar name={detail.name} onBack={() => goBack(`/p/${detail.id}`)} />
@@ -148,20 +147,7 @@ export function ProjectInfo({ project, onChanged, onDeleted }: {
             <a href={detail.repo_url} target="_blank" rel="noopener noreferrer" className="info-link">{detail.repo_url}</a>
           ) : <p className="muted">{t("info.noGit")}</p>}
         </section>
-        <section aria-labelledby="info-members">
-          <h2 className="section-label" id="info-members">{t("info.members")}</h2>
-          <ul className="panel-list">
-            {members.map((e) => (
-              <li key={e.id} className="person member">
-                <Avatar name={e.name} size={34} />
-                <span className="member-text">
-                  <span className="truncate">{e.name}</span>
-                  <span className="member-role truncate">{e.title}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <TeamSection projectId={detail.id} members={detail.employees} onChanged={onChanged} />
         <DeleteProject detail={detail} onDeleted={onDeleted} />
       </div>
     </>

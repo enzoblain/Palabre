@@ -373,7 +373,11 @@ export const api = {
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
-
+  addEmployee: (projectId: number, body: { roles: string[]; personality: string | null }) =>
+    call<Employee>(`/projects/${projectId}/employees`, "POST", body),
+  updateEmployee: (employeeId: number, changes: { roles?: string[]; personality?: string }) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", changes),
+  removeEmployee: (employeeId: number) => call<void>(`/employees/${employeeId}`, "DELETE"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

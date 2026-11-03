@@ -491,3 +491,8 @@ details summary { cursor: pointer; margin-top: 6px; }
   /* Keep the end of the page reachable above the floating bar */
   .main.with-bottom-bar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
+
+/* --- Team management in the project info --- */
+.team-members { display: flex; flex-direction: column; gap: 10px; }
+.team-member-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.team-member-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
