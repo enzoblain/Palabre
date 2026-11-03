@@ -101,6 +101,10 @@ jobs:
           '
       - name: Generate the native project
         run: npx expo prebuild --platform ios --no-install
+      # prebuild --no-install skips pod install, which is what creates the .xcworkspace
+      - name: Install the CocoaPods dependencies
+        run: pod install
+        working-directory: mobile/ios
       - name: Import the certificate and the provisioning profile
         env:
           CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
