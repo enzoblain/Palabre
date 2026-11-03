@@ -67,11 +67,15 @@ jobs:
     env:
       APP_VERSION: ${{ needs.detect.outputs.version }}
       BUILD_NUMBER: ${{ github.run_number }}
-      KEYCHAIN_PATH: ${{ runner.temp }}/palabre-build.keychain-db
+      # The runner context is not allowed in a job's env: the path is set by the first step
+      KEYCHAIN_NAME: palabre-build.keychain-db
     defaults:
       run:
         working-directory: mobile
     steps:
+      - name: Set the keychain path
+        run: echo "KEYCHAIN_PATH=$RUNNER_TEMP/$KEYCHAIN_NAME" >> "$GITHUB_ENV"
+        working-directory: .
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
