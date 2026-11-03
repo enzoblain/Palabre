@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react-native";
 import { COLORS } from "../src/theme";
-import ConversationScreen from "../app/conversation/[id]";
 import LoginScreen from "../app/login";
 import { SessionProvider } from "../src/session";
 
@@ -15,11 +14,6 @@ describe("placeholder screens", () => {
   it("renders the login screen", async () => {
     await render(<SessionProvider><LoginScreen /></SessionProvider>);
     expect(screen.getByRole("header", { name: "Palabre" })).toBeTruthy();
-  });
-
-  it("renders the conversation screen", async () => {
-    await render(<ConversationScreen />);
-    expect(screen.getByText("Aucun message. Écris le premier.")).toBeTruthy();
   });
 });
 

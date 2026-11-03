@@ -73,6 +73,7 @@ Light / dark values are written `light/dark`.
 - Loading: 5 alternating skeleton bubbles.
 - Empty: "Aucun message. Écris le premier."
 - Error: banner "Messages indisponibles" + "Réessayer".
+- Implementation: the screen opens the project's direction room (first conversation); a sent message shows at once, a failed one stays with "Non envoyé. Touche pour réessayer." and a tap sends it again; a request from the lead carries a "Demande" label; new team messages are announced to VoiceOver. The tail is a smaller corner radius on the last bubble of a series.
 
 ## Input bar
 
