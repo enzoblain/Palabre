@@ -66,7 +66,7 @@ services:
     # It only sees new images under a moving tag (PALABRE_VERSION=latest), so turning it on
     # means trusting whatever is published there. It also holds the Docker socket, which is
     # root on the host: see docs/install.md.
-    image: docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
+    image: docker:29-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
     profiles: [autoupdate]
     restart: unless-stopped
     volumes:
