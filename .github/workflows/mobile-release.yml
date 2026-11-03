@@ -66,6 +66,8 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -73,6 +75,8 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - name: Select Xcode
         run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+      # Not --ignore-scripts: untested here (no network, no mobile/ in this branch); Expo and React Native
+      # dependencies may rely on install scripts. Try it on a tag run and adopt it if the build passes.
       - run: npm ci
       - name: Set the version
         # Marketing version = release version, build number = run number
@@ -171,11 +175,15 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      # Not --ignore-scripts: untested here (no network, no mobile/ in this branch); Expo and React Native
+      # dependencies may rely on install scripts. Try it on a tag run and adopt it if the build passes.
       - run: npm ci
       - name: Set the version
         run: |

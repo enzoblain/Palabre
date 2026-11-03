@@ -29,7 +29,7 @@ Prerequisite: a paid Apple Developer account. You do these steps once; the team 
 ### 2. Create the App Store Connect API key
 
 1. App Store Connect > Users and Access > Integrations > App Store Connect API > "+".
-2. Name it `palabre-ci`, access **App Manager** (the least that can upload builds).
+2. Name it `palabre-ci`, access **Developer** first. If the TestFlight upload is refused for lack of rights, recreate the key with **App Manager**.
 3. Download the `.p8` file (Apple gives it only once). Note the **Key ID** and the **Issuer ID** shown on the page.
 
 ### 3. Create the distribution certificate and the profile
