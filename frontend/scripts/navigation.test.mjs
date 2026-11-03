@@ -18,9 +18,9 @@ test("the bottom bar is hidden on every full-screen route", () => {
   for (const route of routes) assert.equal(showsBottomBar(route), false, JSON.stringify(route));
 });
 
-test("back arrow leads to the parent screen: info and conversation to their project, the others to the projects", () => {
+test("back arrow leads to the parent screen: info to its project, a conversation (room, DM, direction) and the others to the projects", () => {
   assert.equal(parentPath({ name: "info", projectId: 7 }), "/p/7");
-  assert.equal(parentPath({ name: "project", projectId: 7, conversationId: 3 }), "/p/7");
+  assert.equal(parentPath({ name: "project", projectId: 7, conversationId: 3 }), "/");
   assert.equal(parentPath({ name: "project", projectId: 7, conversationId: null }), "/");
   assert.equal(parentPath({ name: "new" }), "/");
 });
