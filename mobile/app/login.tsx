@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ComponentRef, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -27,6 +27,8 @@ export default function LoginScreen() {
   const [codeVisible, setCodeVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const accessCodeInput = useRef<ComponentRef<typeof TextInput>>(null);
+  const deviceNameInput = useRef<ComponentRef<typeof TextInput>>(null);
 
   const canSubmit = !submitting && server.trim() !== "" && accessCode !== "" && deviceName.trim() !== "";
 
@@ -40,6 +42,10 @@ export default function LoginScreen() {
       setAccessCode("");
       setSubmitting(false);
     }
+  }
+
+  function submitFromKeyboard() {
+    if (canSubmit) void submit();
   }
 
   const inputStyle = [styles.input, { backgroundColor: colors.secondaryBackground, color: colors.text }];
@@ -64,11 +70,15 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           editable={!submitting}
+          returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => accessCodeInput.current?.focus()}
         />
 
         <Text style={[styles.label, { color: colors.text }]}>{translate("login.token")}</Text>
         <View style={styles.row}>
           <TextInput
+            ref={accessCodeInput}
             accessibilityLabel={translate("login.token")}
             style={[...inputStyle, styles.flex]}
             value={accessCode}
@@ -79,6 +89,9 @@ export default function LoginScreen() {
             autoComplete="off"
             textContentType="none"
             editable={!submitting}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => deviceNameInput.current?.focus()}
           />
           <Pressable
             accessibilityRole="button"
@@ -86,7 +99,7 @@ export default function LoginScreen() {
             onPress={() => setCodeVisible((visible) => !visible)}
             style={styles.eye}
           >
-            <Text style={{ color: colors.sentBubble, fontSize: FONT_SIZE.body }}>
+            <Text style={{ color: colors.text, fontSize: FONT_SIZE.body, textDecorationLine: "underline" }}>
               {translate(codeVisible ? "login.hideToken" : "login.showToken")}
             </Text>
           </Pressable>
@@ -95,12 +108,15 @@ export default function LoginScreen() {
 
         <Text style={[styles.label, { color: colors.text }]}>{translate("login.deviceName")}</Text>
         <TextInput
+          ref={deviceNameInput}
           accessibilityLabel={translate("login.deviceName")}
           style={inputStyle}
           value={deviceName}
           onChangeText={setDeviceName}
           maxLength={100}
           editable={!submitting}
+          returnKeyType="go"
+          onSubmitEditing={submitFromKeyboard}
         />
 
         {error ? (
