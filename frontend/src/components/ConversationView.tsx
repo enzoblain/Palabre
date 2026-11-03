@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError, type Conversation, type Message, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import { useIsDesktop } from "../layout";
@@ -56,6 +56,25 @@ function Composer({ placeholder, onSend }: { placeholder: string; onSend: (conte
     </div>
   );
 }
+
+/** The bubbles. Memoized so a re-render of the conversation (polling, errors) does not walk hundreds of messages again. */
+const MessageList = memo(function MessageList({ messages, employees, selfNames }: {
+  messages: Message[];
+  employees: ProjectDetail["employees"];
+  selfNames: string[];
+}) {
+  const titles = useMemo(() => new Map(employees.map((e) => [e.id, e.title])), [employees]);
+  return (
+    <>
+      {messages.map((m, i) => {
+        const prev = messages[i - 1];
+        const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
+        const title = m.employee_id !== null ? titles.get(m.employee_id) : undefined;
+        return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={selfNames} />;
+      })}
+    </>
+  );
+});
 
 // The direction room is the boss's own conversation: its title would only repeat the project name
 function isDirectionTitle(room: Pick<Room, "kind">, conversation: Pick<Conversation, "title">): boolean {
@@ -119,7 +138,6 @@ export function ConversationView({ conversation, room, project, bossName, leadWr
   const currentId = useRef(conversation.id);
   currentId.current = conversation.id;
 
-  const employees = new Map(project.employees.map((e) => [e.id, e]));
   const lead = project.employees.find((e) => e.roles.includes("lead"));
   const myNames = useMemo(() => bossNames(bossName), [bossName]);
 
@@ -225,12 +243,7 @@ export function ConversationView({ conversation, room, project, bossName, leadWr
                 </p>
               </div>
             )}
-            {messages?.map((m, i) => {
-              const prev = messages[i - 1];
-              const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
-              const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-              return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
-            })}
+            {messages && <MessageList messages={messages} employees={project.employees} selfNames={myNames} />}
             {typing && lead && <TypingDots name={lead.name} />}
           </div>
 
