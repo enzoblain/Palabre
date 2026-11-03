@@ -24,6 +24,7 @@ import { useMessages } from "../../src/hooks/useMessages";
 import { translate } from "../../src/i18n";
 import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../../src/theme";
 
+const SCROLL_EVENT_THROTTLE_MS = 100;
 const NEAR_BOTTOM_PX = 80; // closer than this to the end counts as "at the bottom"
 
 /** One conversation: bubbles, new messages by polling, and the input bar. */
@@ -119,7 +120,7 @@ export default function ConversationScreen() {
               renderItem={renderItem}
               onContentSizeChange={onContentSizeChange}
               onScroll={onScroll}
-              scrollEventThrottle={100}
+              scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS}
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.content}

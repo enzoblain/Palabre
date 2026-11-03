@@ -5,6 +5,7 @@ import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors
 
 export const SEND_BUTTON_SIZE = 32;
 export const INPUT_MAX_LINES = 5;
+export const DISABLED_OPACITY = 0.4;
 const INPUT_LINE_HEIGHT = 22;
 const INPUT_PADDING_VERTICAL = 8;
 const SEND_HIT_SLOP = (MIN_TOUCH_TARGET - SEND_BUTTON_SIZE) / 2;
@@ -77,6 +78,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: (MIN_TOUCH_TARGET - SEND_BUTTON_SIZE) / 2,
   },
-  disabled: { opacity: 0.4 },
+  disabled: { opacity: DISABLED_OPACITY },
   arrow: { fontSize: FONT_SIZE.body, fontWeight: "700" },
 });

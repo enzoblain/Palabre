@@ -92,4 +92,39 @@ describe("useMessages", () => {
     expect(result.current.pending).toEqual([]);
     expect(result.current.messages?.map((m) => m.id)).toEqual([6]);
   });
+
+  it("does not skip a team message that lands before the boss's own send", async () => {
+    jest.useFakeTimers();
+    mocked.listMessages.mockResolvedValueOnce([message(1)]);
+    mocked.postMessage.mockResolvedValue(message(3, "Go", null));
+    const { result } = await renderHook(() => useMessages(1));
+    await waitFor(() => expect(result.current.messages?.map((m) => m.id)).toEqual([1]));
+
+    await act(async () => result.current.send("Go"));
+    expect(result.current.messages?.map((m) => m.id)).toEqual([1, 3]);
+
+    mocked.listMessages.mockResolvedValue([message(2, "Entre"), message(3, "Go", null)]);
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(mocked.listMessages).toHaveBeenLastCalledWith(9, 1);
+    await waitFor(() => expect(result.current.messages?.map((m) => m.id)).toEqual([1, 2, 3]));
+    jest.useRealTimers();
+  });
+
+  it("posts only once when retry is tapped twice quickly", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    mocked.postMessage.mockRejectedValueOnce(new Error("down"));
+    const { result } = await renderHook(() => useMessages(1));
+    await waitFor(() => expect(result.current.messages).toEqual([]));
+    await act(async () => result.current.send("Go"));
+
+    mocked.postMessage.mockResolvedValue(message(6, "Go", null));
+    const key = result.current.pending[0].key;
+    await act(async () => {
+      void result.current.retry(key);
+      void result.current.retry(key);
+    });
+    expect(mocked.postMessage).toHaveBeenCalledTimes(2);
+  });
 });

@@ -34,6 +34,7 @@ export function useMessages(projectId: number): MessagesState {
   const [name, setName] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [pending, setPending] = useState<PendingMessage[]>([]);
+  const retrying = useRef(new Set<string>()); // keys being re-sent: guards a fast double tap
   const [failed, setFailed] = useState(false);
 
   const target = useRef<Target | null>(null);
@@ -48,11 +49,7 @@ export function useMessages(projectId: number): MessagesState {
   }, []);
 
   const append = useCallback((incoming: Message[]) => {
-    setMessages((known) => {
-      const merged = mergeMessages(known ?? [], incoming);
-      lastId.current = merged[merged.length - 1]?.id;
-      return merged;
-    });
+    setMessages((known) => mergeMessages(known ?? [], incoming));
   }, []);
 
   const reload = useCallback(async () => {
@@ -61,6 +58,8 @@ export function useMessages(projectId: number): MessagesState {
       const batch = await api.listMessages(target.current.conversationId, lastId.current);
       if (!mounted.current) return;
       setName(target.current.name);
+      // Only polls move the cursor: a sent message's id can skip ones the team posted meanwhile.
+      if (batch.length > 0) lastId.current = Math.max(...batch.map((message) => message.id));
       append(batch);
       setFailed(false);
     } catch {
@@ -102,9 +101,11 @@ export function useMessages(projectId: number): MessagesState {
   const retry = useCallback(
     async (key: string) => {
       const item = pending.find((candidate) => candidate.key === key);
-      if (!item || item.status !== "failed") return;
+      if (!item || item.status !== "failed" || retrying.current.has(key)) return;
+      retrying.current.add(key);
       setStatus(key, "sending");
       await post(key, item.content);
+      retrying.current.delete(key);
     },
     [pending, post, setStatus],
   );

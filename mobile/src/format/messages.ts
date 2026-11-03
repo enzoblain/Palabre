@@ -37,11 +37,11 @@ export function toDisplayMessage(message: Message): DisplayMessage {
   };
 }
 
-/** Adds `incoming` after `known`, skipping ids already there (a poll can overlap a send). */
+/** Adds `incoming` to `known`, skipping ids already there (a poll can overlap a send), ordered by id. */
 export function mergeMessages(known: Message[], incoming: Message[]): Message[] {
   const seen = new Set(known.map((message) => message.id));
   const fresh = incoming.filter((message) => !seen.has(message.id));
-  return fresh.length === 0 ? known : [...known, ...fresh];
+  return fresh.length === 0 ? known : [...known, ...fresh].sort((a, b) => a.id - b.id);
 }
 
 function gapMs(previous: DisplayMessage, next: DisplayMessage): number {
