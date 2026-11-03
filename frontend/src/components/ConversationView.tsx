@@ -116,7 +116,9 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-export function ConversationView({ conversation, room, project, bossName, leadWriting, onRead }: {
+/** Memoized: the projects poll re-renders the shell every few seconds, and its props rarely change, so the
+ * message list is not rebuilt for nothing. */
+export const ConversationView = memo(function ConversationView({ conversation, room, project, bossName, leadWriting, onRead }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
@@ -257,4 +259,4 @@ export function ConversationView({ conversation, room, project, bossName, leadWr
       </div>
     </div>
   );
-}
+});
