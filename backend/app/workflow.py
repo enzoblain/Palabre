@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app import github
 from app.company.catalog import LEAD_KEY, QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
 from app.config import settings
+from app.diff_view import render_diff
 from app.errors import ErrorCode, WorkflowError
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
 from app.sensitive_paths import touches_sensitive_paths
@@ -26,7 +27,6 @@ from app.worktrees import (
     repo_dir,
 )
 
-MAX_DIFF_CHARS = 100_000
 SHORT_SHA_LENGTH = 8
 NO_HEAD = "none"  # head key of a review round that recorded no head SHA
 MIN_SHA_PREFIX_LENGTH = 7  # shortest commit prefix accepted as proof of which head was reviewed
@@ -583,8 +583,7 @@ async def get_diff(s: AsyncSession, project_id: int, task_id: int) -> str:
     # No external diff or textconv driver: the clone's config is written by the agent
     stat = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--stat", base)
     diff = await github.git(repo, "diff", "--no-ext-diff", "--no-textconv", base)
-    if len(diff) > MAX_DIFF_CHARS:
-        diff = diff[:MAX_DIFF_CHARS] + "\n\n[diff truncated: read the files directly for the rest]"
+    diff = render_diff(diff)
     head_line = f"Head: {task.reviewed_head}\n" if task.reviewed_head else ""
     return f"{head_line}{stat}\n{diff}"
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-03
+
+### Added
+
+- review: summarise lockfiles and truncate get_diff by whole files (#443)
+- review: flag non-default registry URLs in hidden lockfile diffs (#446)
+- review: flag schemeless sources in hidden lockfile diffs (#448)
+- review: flag portal: sources in hidden lockfile diffs (#449)
+
+### Fixed
+
+- review: decode quoted diff paths as bytes to support non-Latin-1 characters (#445)
+
 ## [0.28.0] - 2026-11-03
 
 ### Added
@@ -698,7 +711,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/enzoblain/Palabre/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/enzoblain/Palabre/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/enzoblain/Palabre/compare/v0.26.2...v0.27.0
 [0.26.2]: https://github.com/enzoblain/Palabre/compare/v0.26.1...v0.26.2
