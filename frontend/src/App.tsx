@@ -9,7 +9,7 @@ import { ProjectBar, ProjectInfo } from "./components/ProjectInfo";
 import { Projects, type ProjectsStatus } from "./components/Projects";
 import { Settings } from "./components/Settings";
 import { I18nProvider, useI18n } from "./i18n";
-import { backFallback, rememberOpenedProject, showsBottomBar } from "./navigation";
+import { backFallback, rememberOpenedProject, showsBottomBar, statusAfterFailure } from "./navigation";
 import { go, goBack, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -96,7 +96,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const reloadProjects = useCallback(() => api.listProjects().then((list) => {
     setProjects(list);
     setProjectsStatus("ready");
-  }).catch(() => setProjectsStatus("error")), []);
+  }).catch(() => setProjectsStatus(statusAfterFailure)), []);
   useEffect(() => {
     reloadProjects();
     api.getSettings().then((s) => {

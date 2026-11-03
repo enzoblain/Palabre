@@ -5,6 +5,13 @@ export function showsBottomBar(route: Route): boolean {
   return route.name === "home" || route.name === "settings";
 }
 
+export type LoadStatus = "loading" | "ready" | "error";
+
+/** A failed load only shows the error before anything loaded: a failed poll keeps the list on screen. */
+export function statusAfterFailure(status: LoadStatus): LoadStatus {
+  return status === "loading" ? "error" : status;
+}
+
 /** Fallback of the back button when the page was opened directly: the parent screen. */
 export function backFallback(route: Route): string {
   if (route.name === "info") return `/p/${route.projectId}`;

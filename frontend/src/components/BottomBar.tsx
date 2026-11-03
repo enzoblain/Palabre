@@ -4,11 +4,12 @@ import { GearIcon, PlusIcon, ProjectsIcon } from "./Icons";
 
 const ITEMS = [
   { route: "home", href: "#/", label: "nav.projects", Icon: ProjectsIcon },
+  // Never active: the bar is hidden on the creation screen.
   { route: "new", href: "#/new", label: "nav.newProject", Icon: PlusIcon },
   { route: "settings", href: "#/settings", label: "nav.settings", Icon: GearIcon },
 ] as const;
 
-/** Floating bar of the phone layout; hidden by CSS on large screens. */
+/** Floating bottom bar of the two root screens, on every screen width. */
 export function BottomBar({ route }: { route: Route }) {
   const { t } = useI18n();
   return (

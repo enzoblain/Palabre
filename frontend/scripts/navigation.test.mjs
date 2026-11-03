@@ -1,7 +1,7 @@
 // Unit tests of src/navigation.ts, run with Node's built-in test runner (no extra dependency).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { backFallback, filterProjects, lastOpenedFirst, showsBottomBar } from "../src/navigation.ts";
+import { backFallback, filterProjects, lastOpenedFirst, showsBottomBar, statusAfterFailure } from "../src/navigation.ts";
 
 test("the bottom bar shows on the two root screens only", () => {
   assert.equal(showsBottomBar({ name: "home" }), true);
@@ -36,4 +36,10 @@ test("the last opened project comes first", () => {
   assert.deepEqual(lastOpenedFirst(projects, 3).map((p) => p.id), [3, 1, 2]);
   assert.equal(lastOpenedFirst(projects, 99), projects);
   assert.equal(lastOpenedFirst(projects, null), projects);
+});
+
+test("a failed load shows the error only while nothing has loaded", () => {
+  assert.equal(statusAfterFailure("loading"), "error");
+  assert.equal(statusAfterFailure("ready"), "ready");
+  assert.equal(statusAfterFailure("error"), "error");
 });

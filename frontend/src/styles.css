@@ -329,10 +329,8 @@ details summary { cursor: pointer; margin-top: 6px; }
 .credits-banner { flex: none; padding: 8px 16px; font-size: 13px; background: var(--mention-me-bg); border-bottom: 1px solid var(--mention-me-border); }
 .credits-banner ul { margin: 2px 0 0; padding: 0; list-style: none; color: var(--muted); }
 
-/* --- Team panel (left column, a drawer under 900px) --- */
+/* --- Team members --- */
 .member-role { font-size: 12px; color: var(--muted); }
-.conv-people { font-size: 13px; min-width: 0; flex: 1; }
-.conv-people + .live-tag, .conv-people + .conv-members { margin-left: 0; }
 .message:focus { outline: none; }
 .message.request-closed .message-body, .message.request-closed .message-meta strong { color: var(--muted); }
 .request-closed-body summary { cursor: pointer; font-size: 13px; color: var(--muted, inherit); }

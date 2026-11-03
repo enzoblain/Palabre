@@ -24,7 +24,7 @@ export function Projects({ projects, status, onRetry, onDeleted }: {
   let body: React.ReactNode;
   if (status === "loading") {
     body = (
-      <div aria-busy="true" aria-label={t("common.loading")}>
+      <div role="status" aria-busy="true" aria-label={t("common.loading")}>
         {Array.from({ length: SKELETON_ROWS }, (_, i) => <div key={i} className="project-skeleton" />)}
       </div>
     );
