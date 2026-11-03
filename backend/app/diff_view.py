@@ -30,10 +30,10 @@ MAX_FLAGGED_LINE_CHARS = 200
 LOCKFILE_REVIEW_HINT = "review dependency changes in the file"
 # Cargo's `registry+` / `sparse+` markers are not part of the URL; `git+` and others are kept
 _SOURCE_URL = re.compile(r"(?:(?:registry|sparse)\+)?([a-z+]+://[^\s\"',)]+)", re.IGNORECASE)
-# Sources without a `scheme://`: scp-style git remotes and the npm/yarn shorthands (`github:user/repo`, `file:`, `link:`, `portal:`);
+# Sources without a `scheme://`: scp-style git remotes and the npm/yarn shorthands (`github:user/repo`, `file:`, `link:`, `portal:`, `exec:`, `patch:`);
 # none of them is ever a default registry
 _SCHEMELESS_SOURCE = re.compile(
-    r"(?<![\w+.-])(?:git@[\w.-]+:|(?:github|gitlab|bitbucket|gist|file|link|portal):)[^\s\"',)]+", re.IGNORECASE,
+    r"(?<![\w+.-])(?:git@[\w.-]+:|(?:github|gitlab|bitbucket|gist|file|link|portal|exec|patch):)[^\s\"',)]+", re.IGNORECASE,
 )
 _FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
 _PLAIN_NEW_PATH = re.compile(r" b/(.+)$")

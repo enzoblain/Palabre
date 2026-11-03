@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-03
+
+### Added
+
+- mobile: scaffold the Expo app with typed API client, i18n, theme and check (#442)
+- review: flag exec: and patch: sources in hidden lockfile diffs (#452)
+- mobile: add the sign-in screen and device pairing (#453)
+- mobile: add the iMessage-style conversation list (#454)
+- mobile: polish sign-in screen accessibility (#455)
+- mobile: add the conversation screen with bubbles and input bar (#458)
+- mobile: finish conversation screen accessibility (#460)
+
+### Fixed
+
+- mobile: single alert announcement and ignore stale 401s (#456)
+
 ## [0.29.0] - 2026-11-03
 
 ### Added
@@ -711,7 +727,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/enzoblain/Palabre/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/enzoblain/Palabre/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/enzoblain/Palabre/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/enzoblain/Palabre/compare/v0.26.2...v0.27.0

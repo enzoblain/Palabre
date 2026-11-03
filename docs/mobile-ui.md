@@ -14,6 +14,7 @@ Light / dark values are written `light/dark`.
 | Secondary text | `#6C6C70` / `#98989F` |
 | Separator | `#C6C6C8` / `#38383A` |
 | Sent bubble (boss) | `#0066E0` / `#0066E0`, white text |
+| Link / accent (text links, unread dot) | `#0066E0` / `#4DA3FF` |
 | Received bubble | `#E9E9EB` / `#26262A` |
 | Error | `#D70015` / `#FF453A` |
 | Success | `#17743A` / `#34C759` |
@@ -72,12 +73,13 @@ Light / dark values are written `light/dark`.
 - Loading: 5 alternating skeleton bubbles.
 - Empty: "Aucun message. Écris le premier."
 - Error: banner "Messages indisponibles" + "Réessayer".
+- Implementation: the screen opens the project's direction room (first conversation); a sent message shows at once, a failed one stays with "Non envoyé. Touche pour réessayer." and a tap sends it again; a request from the lead carries a "Demande" label; new team messages are announced to VoiceOver. The tail is a smaller corner radius on the last bubble of a series.
 
 ## Input bar
 
 - Multiline field (max 5 lines), secondary background, radius 18.
 - Round send button 32, blue, with an arrow, label "Envoyer", disabled when empty.
-- Sending: bubble at 60 % opacity.
+- Sending: the bubble background turns a paler blue (`sendingBubble`, 4.5:1 with the white text); the text is never faded.
 - Failure: error icon + "Non envoyé. Touche pour réessayer."
 - The bar follows the keyboard and respects the safe area.
 - No photos and no reactions in v1.
@@ -97,9 +99,12 @@ Light / dark values are written `light/dark`.
 | Pair (light / dark) | Ratio |
 | --- | --- |
 | White text on sent bubble `#0066E0` | 5.3 / 5.3 |
+| Link on background | 5.3 / 10.3 |
+| Link on secondary background | 4.7 / 6.4 |
 | Success on background | 5.8 / 9.5 |
 | Success on received bubble (task card) | 4.8 / 6.8 |
 | Error on background | 5.4 / 6.2 |
+| Error on secondary background | 4.8 / 5.0 |
 | Secondary text on background | 5.2 / 7.3 |
 | Secondary text on secondary background | 4.7 / 5.9 |
 | Blue dot and send button on background (icons) | 5.3 / 4.0 |

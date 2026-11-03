@@ -24,6 +24,9 @@ mobile/
   src/api/          typed client, ported from frontend/src/api.ts
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
+  src/format/       pure helpers: list sort, search, initials, avatar color, iMessage-style time; bubble series and time separators
+  src/hooks/        `usePolling` (foreground only, paused in the background), `useConversations`, `useMessages` (direction conversation polled every 2 s with `since_id`, optimistic send, retry of a failed one)
+  src/theme/        light and dark color tokens from mobile-ui.md
   app.json          name, bundle id, version, permissions
   package.json      its own lockfile and its own `npm run check`
 ```
@@ -67,6 +70,8 @@ Each phone gets its own long-lived, revocable device session (`/api/auth/devices
 3. Only the device token is stored (secure storage). The `ADMIN_TOKEN` is dropped from memory right after and never written to disk.
 4. The token is sent as a bearer token like any session token. Its expiry slides: `DEVICE_SESSION_TTL_SECONDS` (30 days by default) counted from the last use, written at most once a minute per device although the app polls every 2 s.
 5. On a `401` (revoked, expired or unknown token) the app clears the session and goes back to the login screen, like `onUnauthorized` on the web.
+
+The login screen (`app/login.tsx`) asks for the server address, the access code and a device name (default `iPhone` or `Android`). `src/session` (`SessionProvider`, `pairAndStore`) pairs, stores the device token and drives the navigation: signed-out users only reach the login screen, signed-in users restart straight on the list. A `401` sends the user back to the login screen with the server address kept in memory and a "signed out" notice. The access code lives only in the form state and the pairing call: it is never stored or logged, and is wiped from the form after a failure. Errors are distinct for a clear-text address, an unreachable server, a wrong code (`401`) and too many attempts (`429`).
 
 Management, behind a valid session (a device token or the web session): `GET /api/auth/devices` lists the devices (`id`, `name`, `created_at`, `last_used_at`, `expires_at`, never a token) and `DELETE /api/auth/devices/{id}` revokes one (`204`, `404` with `device_not_found` if unknown). Pairing needs the raw `ADMIN_TOKEN`: a session or device token cannot pair a new device.
 
