@@ -5,17 +5,22 @@ on:
     paths:
       - .github/workflows/verify-upload-artifact-pin.yml
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Check the pinned SHA against the v4.6.2 tag
         run: |
           set -eu
-          pinned=$(grep -o 'actions/upload-artifact@[0-9a-f]\{40\}' .github/workflows/mobile-release.yml 2>/dev/null | head -1 | cut -d@ -f2 || true)
-          pinned=${pinned:-ea165f8d65b6e75b540449e92b4886f43607fa02}
+          pinned=$(grep -o 'actions/upload-artifact@[0-9a-f]\{40\}' .github/workflows/mobile-release.yml | head -1 | cut -d@ -f2)
+          test -n "$pinned"
+          echo "pinned: $pinned"
           refs=$(git ls-remote https://github.com/actions/upload-artifact 'refs/tags/v4.6.2*')
           echo "$refs"
           echo "$refs" | grep -q "^$pinned"
