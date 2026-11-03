@@ -38,7 +38,7 @@ export function initials(name: string): string {
     .split(/[\s\-_.·]+/)
     .filter(Boolean)
     .slice(0, MAX_INITIALS)
-    .map((word) => word[0].toUpperCase())
+    .map((word) => String.fromCodePoint(word.codePointAt(0)!).toUpperCase())
     .join("");
 }
 

@@ -50,6 +50,10 @@ describe("initials and avatar color", () => {
     expect(initials("palabre web app")).toBe("PW");
     expect(initials("alpha")).toBe("A");
   });
+  it("takes the first code point of each word, outside the BMP too", () => {
+    expect(initials("😀 Team")).toBe("😀T");
+    expect(initials("𝒜lpha 𠮷野家")).toBe("𝒜𠮷");
+  });
   it("is stable for a name", () => {
     expect(avatarColor("Alpha")).toBe(avatarColor("Alpha"));
     expect(avatarColor("Alpha")).toMatch(/^hsl\(\d+, 45%, 38%\)$/);
