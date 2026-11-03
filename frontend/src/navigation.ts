@@ -12,10 +12,12 @@ export function statusAfterFailure(status: LoadStatus): LoadStatus {
   return status === "loading" ? "error" : status;
 }
 
-/** Where the back arrow leads: the parent screen, whatever the browser history holds (direct URL, reload). */
+/**
+ * Where the back arrow leads: the parent screen, whatever the browser history holds (direct URL, reload).
+ * A conversation has no project screen above it (opening a project redirects into a conversation), so it leads to the projects.
+ */
 export function parentPath(route: Route): string {
   if (route.name === "info") return `/p/${route.projectId}`;
-  if (route.name === "project" && route.conversationId !== null) return `/p/${route.projectId}`;
   return "/";
 }
 
