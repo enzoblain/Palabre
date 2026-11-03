@@ -8,6 +8,8 @@ SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 # Keep a Changelog sections, by Conventional Commits type; other types (chore, docs, test...) are not listed
 CHANGELOG_SECTIONS = {"feat": "Added", "fix": "Fixed", "perf": "Changed", "refactor": "Changed"}
 SECTION_ORDER = ["Added", "Changed", "Fixed"]
+# Section listing the other commits (ci, chore, docs...) of a corrective release that has nothing else to show
+MAINTENANCE_SECTION = "Chores"
 
 
 def is_release_commit(message: str) -> bool:
@@ -26,8 +28,15 @@ def _parse(message: str) -> tuple[str, str, bool, str] | None:
     return match["type"], desc, breaking, title
 
 
+def _conventional(commits: list[str]) -> list[tuple[str, str, bool, str]]:
+    """The parsed Conventional Commits, without the version bump commits."""
+    parsed = [_parse(message) for message in commits if not is_release_commit(message)]
+    return [item for item in parsed if item is not None]
+
+
 def bump_level(commits: list[str]) -> str | None:
-    """"major", "minor" or "patch" from the commits, None if none of them is worth a release."""
+    """"major", "minor" or "patch" from the commits. Commits that request no bump (ci, chore, docs...) alone
+    give a corrective "patch"; None when there is no commit at all since the last tag."""
     level = None
     for message in commits:
         parsed = _parse(message)
@@ -40,12 +49,15 @@ def bump_level(commits: list[str]) -> str | None:
             level = "minor"
         elif kind in ("fix", "perf") and level is None:
             level = "patch"
+    if level is None and _conventional(commits):
+        return "patch"
     return level
 
 
 def next_version(current: str, commits: list[str]) -> str | None:
     """The version after `current` (X.Y.Z), per SemVer 2.0.0 and the Conventional Commits: fix and perf
-    patch, feat minor, a breaking change major (minor while in 0.x). None when nothing deserves a release."""
+    patch, feat minor, a breaking change major (minor while in 0.x). Only commits without a bump (ci, chore,
+    docs...) give a corrective patch. None when there is no commit to publish."""
     level = bump_level(commits)
     if level is None:
         return None
@@ -60,17 +72,16 @@ def next_version(current: str, commits: list[str]) -> str | None:
 def changelog_body(commits: list[str]) -> str:
     """The sections of a Keep a Changelog entry, from the commits that change something for users."""
     sections: dict[str, list[str]] = {}
-    for message in commits:
-        parsed = _parse(message)
-        if parsed is None or is_release_commit(message):
-            continue
-        kind, desc, breaking, _ = parsed
+    corrective = not any(CHANGELOG_SECTIONS.get(kind) or breaking for kind, _, breaking, _ in _conventional(commits))
+    for kind, desc, breaking, _ in _conventional(commits):
         name = CHANGELOG_SECTIONS.get(kind)
         if name is None and not breaking:
-            continue
+            if not corrective:
+                continue
+            name = MAINTENANCE_SECTION
         line = desc
         sections.setdefault(name or "Changed", []).append(f"**Breaking:** {line}" if breaking else line)
-    return "\n\n".join(f"### {name}\n\n" + "\n".join(f"- {line}" for line in sections[name]) for name in SECTION_ORDER if name in sections)
+    return "\n\n".join(f"### {name}\n\n" + "\n".join(f"- {line}" for line in sections[name]) for name in [*SECTION_ORDER, MAINTENANCE_SECTION] if name in sections)
 
 
 def changelog_entry(version: str, date: str, commits: list[str]) -> str:

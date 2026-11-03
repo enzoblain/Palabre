@@ -39,12 +39,20 @@ LOCK = '{\n  "name": "x",\n  "version": "0.6.1",\n  "packages": {\n    "": {\n  
         ("0.6.1", ["feat!: gone"], "0.7.0"),
         ("1.2.3", ["feat!: gone"], "2.0.0"),
         ("1.2.3", ["fix: x\n\nBREAKING CHANGE: y"], "2.0.0"),
-        ("1.2.3", ["chore: a", "docs: b", "chore(release): 1.2.3"], None),
+        ("0.30.0", ["ci(mobile): set the iOS identifier", "chore(release): 0.30.0"], "0.30.1"),
+        ("1.2.3", ["chore: a", "docs: b", "chore(release): 1.2.3"], "1.2.4"),
+        ("1.2.3", [], None),
+        ("1.2.3", ["chore(release): 1.2.3"], None),
         ("1.2.3", ["not conventional"], None),
     ],
 )
 def test_next_version(current, commits, expected):
     assert release.next_version(current, commits) == expected
+
+
+def test_changelog_lists_the_chores_of_a_corrective_release():
+    entry = release.changelog_entry("0.30.1", "2026-11-03", ["ci(mobile): set the iOS identifier", "docs: x"])
+    assert "### Chores\n\n- mobile: set the iOS identifier\n- x" in entry
 
 
 def test_changelog_entry_and_links():
@@ -181,7 +189,7 @@ def test_entry_date_reads_the_date_of_a_version():
 
 
 async def test_prepare_release_refuses_when_nothing_deserves_a_release(gh):
-    gh.commits = ["chore: tidy", "docs: words"]
+    gh.commits = []
     with pytest.raises(WorkflowError, match="Nothing worth a release"):
         await projects.prepare_release(PROJECT)
 
