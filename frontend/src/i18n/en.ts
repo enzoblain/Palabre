@@ -67,6 +67,7 @@ export const en = {
   "error.pr_head_moved": "The pull request head moved since it was reviewed",
   "error.invalid_head_sha": "The reviewed commit is missing or too short",
   "error.task_not_yours": "This task is assigned to someone else",
+  "error.sensitive_flag_lead_only": "Only the lead can mark a task as sensitive",
   "error.task_waiting_for_dependencies": "This task is waiting for the tasks it depends on",
   "error.task_no_branch": "This task has no branch yet",
   "error.task_no_pull_request": "This task has no pull request yet",

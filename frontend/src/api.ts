@@ -261,6 +261,7 @@ export const ERROR_CODES = [
   "pr_head_moved",
   "invalid_head_sha",
   "task_not_yours",
+  "sensitive_flag_lead_only",
   "task_waiting_for_dependencies",
   "task_no_branch",
   "task_no_pull_request",

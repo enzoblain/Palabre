@@ -277,6 +277,8 @@ class Task(Base):
     severity: Mapped[str | None] = mapped_column(String(20))
     # Touches auth, data, dependencies or secrets: requires a security approval when gated
     sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set by the lead for a task that is risky by design: adds the security gate whatever the changed paths
+    marked_sensitive: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[TaskStatus] = mapped_column(str_enum(TaskStatus), default=TaskStatus.todo)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     # NULL = created by the boss. Not a foreign key, like Message.employee_id

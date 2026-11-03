@@ -52,6 +52,7 @@ class ErrorCode(StrEnum):
     PR_HEAD_MOVED = "pr_head_moved"
     INVALID_HEAD_SHA = "invalid_head_sha"
     TASK_NOT_YOURS = "task_not_yours"
+    SENSITIVE_FLAG_LEAD_ONLY = "sensitive_flag_lead_only"
     TASK_WAITING_FOR_DEPENDENCIES = "task_waiting_for_dependencies"
     TASK_NO_BRANCH = "task_no_branch"
     TASK_NO_PULL_REQUEST = "task_no_pull_request"
