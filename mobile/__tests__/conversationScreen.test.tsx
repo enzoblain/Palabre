@@ -1,6 +1,23 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import ConversationScreen from "../app/conversation/[id]";
 import { api, type Message } from "../src/api";
+import { MAX_FONT_SCALE } from "../src/theme";
+import { COLORS } from "../src/theme/tokens";
+
+const WCAG_AA_CONTRAST = 4.5;
+
+const luminance = (hex: string): number => {
+  const [red, green, blue] = [1, 3, 5].map((start) => {
+    const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+};
+const contrast = (first: string, second: string): number => {
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (light + 0.05) / (dark + 0.05);
+};
 
 const mockBack = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ back: mockBack }), useLocalSearchParams: () => ({ id: "1" }) }));
@@ -97,6 +114,43 @@ describe("conversation screen", () => {
     mocked.postMessage.mockResolvedValue(message(3, "Go", null));
     await fireEvent.press(failure);
     await screen.findByLabelText(/^Moi, Go, (?!.*Non envoyé)/);
+    expect(screen.queryByText(/Non envoyé/)).toBeNull();
+  });
+
+  it("paints the sending bubble with the pale background and no opacity", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    mocked.postMessage.mockReturnValue(new Promise(() => {}));
+    await render(<ConversationScreen />);
+    await screen.findByText("Aucun message. Écris le premier.");
+    await fireEvent.changeText(screen.getByLabelText("Message"), "Go");
+    await fireEvent.press(screen.getByRole("button", { name: "Envoyer" }));
+    const text = await screen.findByText("Go");
+    const bubble = screen.getByLabelText(/^Moi, Go/);
+    const bubbleStyle = StyleSheet.flatten(bubble.props.style);
+    expect(bubbleStyle.backgroundColor).toBe(COLORS.light.sendingBubble);
+    expect(bubbleStyle.opacity).toBeUndefined();
+    expect(StyleSheet.flatten(text.props.style).opacity).toBeUndefined();
+  });
+
+  it("caps the send glyph font scale like the other texts", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    await render(<ConversationScreen />);
+    await screen.findByText("Aucun message. Écris le premier.");
+    expect(screen.getByText("↑").props.maxFontSizeMultiplier).toBe(MAX_FONT_SCALE);
+  });
+
+  it("keeps the sending bubble text readable and the failure line out of VoiceOver", async () => {
+    for (const scheme of ["light", "dark"] as const) {
+      expect(contrast(COLORS[scheme].sendingBubble, COLORS[scheme].sentBubbleText)).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST);
+    }
+    mocked.listMessages.mockResolvedValue([]);
+    mocked.postMessage.mockRejectedValueOnce(new Error("down"));
+    await render(<ConversationScreen />);
+    await screen.findByText("Aucun message. Écris le premier.");
+    await fireEvent.changeText(screen.getByLabelText("Message"), "Go");
+    await fireEvent.press(screen.getByRole("button", { name: "Envoyer" }));
+    await screen.findByRole("button", { name: /Non envoyé/ });
+    expect(screen.getByText(/Non envoyé/, { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
     expect(screen.queryByText(/Non envoyé/)).toBeNull();
   });
 });

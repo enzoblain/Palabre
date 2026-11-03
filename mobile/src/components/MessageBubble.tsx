@@ -5,7 +5,6 @@ import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors
 
 export const BUBBLE_MAX_WIDTH = "75%";
 export const SERIES_GAP = 2;
-export const SENDING_OPACITY = 0.6;
 const TAIL_RADIUS = 4; // the corner next to the tail, as on iMessage
 const BUBBLE_PADDING_VERTICAL = 8;
 const BUBBLE_PADDING_HORIZONTAL = 12;
@@ -18,7 +17,9 @@ export function MessageBubble({ item, onRetry }: Props) {
   const colors = useColors();
   const { message, showAuthor, tail, firstInSeries } = item;
   const failed = message.status === "failed";
-  const background = message.own ? colors.sentBubble : colors.receivedBubble;
+  const sending = message.status === "sending";
+  const sentBackground = sending ? colors.sendingBubble : colors.sentBubble;
+  const background = message.own ? sentBackground : colors.receivedBubble;
   const textColor = message.own ? colors.sentBubbleText : colors.text;
   const tailCorner = message.own ? { borderBottomRightRadius: TAIL_RADIUS } : { borderBottomLeftRadius: TAIL_RADIUS };
 
@@ -30,7 +31,6 @@ export function MessageBubble({ item, onRetry }: Props) {
         styles.bubble,
         { backgroundColor: background },
         tail && tailCorner,
-        message.status === "sending" && { opacity: SENDING_OPACITY },
       ]}
     >
       {message.isRequest ? (
@@ -59,7 +59,12 @@ export function MessageBubble({ item, onRetry }: Props) {
         bubble
       )}
       {failed ? (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.failure, { color: colors.error }]}>
+        <Text
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          style={[styles.failure, { color: colors.error }]}
+        >
           {"! "}
           {translate("conversation.sendFailed")}
         </Text>

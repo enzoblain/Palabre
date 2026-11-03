@@ -45,7 +45,7 @@ export function MessageInput({ onSend }: Props) {
         onPress={submit}
         style={[styles.send, { backgroundColor: colors.sentBubble }, !content && styles.disabled]}
       >
-        <Text style={[styles.arrow, { color: colors.sentBubbleText }]}>↑</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.arrow, { color: colors.sentBubbleText }]}>↑</Text>
       </Pressable>
     </View>
   );

@@ -10,6 +10,7 @@ export type Colors = {
   sentBubble: string;
   link: string;
   sentBubbleText: string;
+  sendingBubble: string;
   receivedBubble: string;
   error: string;
   success: string;
@@ -26,6 +27,7 @@ export const COLORS: Record<ColorScheme, Colors> = {
     sentBubble: "#0066E0",
     link: "#0066E0",
     sentBubbleText: "#FFFFFF",
+    sendingBubble: "#4472B8", // paler blue that keeps 4.5:1 with white text
     receivedBubble: "#E9E9EB",
     error: "#D70015",
     success: "#17743A",
@@ -40,6 +42,7 @@ export const COLORS: Record<ColorScheme, Colors> = {
     sentBubble: "#0066E0",
     link: "#4DA3FF",
     sentBubbleText: "#FFFFFF",
+    sendingBubble: "#4472B8", // paler blue that keeps 4.5:1 with white text
     receivedBubble: "#26262A",
     error: "#FF453A",
     success: "#34C759",
