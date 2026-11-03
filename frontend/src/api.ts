@@ -69,14 +69,6 @@ export type Message = {
   created_at: string;
   // Automatic line from the platform (not the CEO, although it has no employee)
   is_system: boolean;
-  // Set when the lead asks the CEO something (the CEO answers in the chat, which closes it)
-  request_kind: string | null;
-  request_status: "pending" | "answered" | "validated" | "rejected" | "nuanced" | "withdrawn" | "merged" | null;
-  request_comment: string | null;
-  request_answered_at: string | null;
-  // The new request that replaced this one (status "merged")
-  request_merged_into: number | null;
-  request_decision_id: number | null;
 };
 
 export type AppSettings = {

@@ -278,15 +278,10 @@ export const fr: Messages = {
   "conv.sentAt": "Envoyé le {date}",
   "conv.actions": "Actions du message",
   "conv.typing": "{name} est en train d'écrire…",
-  "conv.originalRequest": "Demande d’origine",
   "conv.liftLimit": "Lever la limite de boucle",
   "conv.liftLimitTitle": "Les agents ne sont plus réveillés ici après trop d’exécutions en une heure. Cela relance le compte.",
   "conv.liftLimitDone": "Limite de boucle levée : l’équipe peut de nouveau être réveillée ici.",
 
-  "request.mergedInto": "Fusionnée dans {link}",
-  "request.link": "la demande #{id}",
-  "request.mergedAnother": "Fusionnée dans une autre demande",
-  "request.withdrawn": "Retirée par le lead",
 
   "task.todo": "à faire",
   "task.in_progress": "en cours",
