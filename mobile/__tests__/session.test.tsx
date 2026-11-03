@@ -96,4 +96,22 @@ describe("SessionProvider", () => {
     expect(screen.getByText(/Wrong access token/)).toBeTruthy();
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
+
+  it("pairs when the device name is submitted from the keyboard", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { token: "pdev_new" }));
+    await render(<SessionProvider><LoginScreen /></SessionProvider>);
+    await waitFor(() => expect(screen.getByLabelText("Server address")).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText("Server address"), SERVER);
+    await fireEvent.changeText(screen.getByLabelText("Administrator token"), ACCESS_CODE);
+    await fireEvent(screen.getByLabelText("Device name"), "submitEditing");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not call the network when the keyboard submits an empty access code", async () => {
+    await render(<SessionProvider><LoginScreen /></SessionProvider>);
+    await waitFor(() => expect(screen.getByLabelText("Server address")).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText("Server address"), SERVER);
+    await fireEvent(screen.getByLabelText("Device name"), "submitEditing");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
