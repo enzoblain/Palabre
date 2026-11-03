@@ -227,9 +227,14 @@ def _copy_components(source: Path, prefix: Path, components: tuple[str, ...]) ->
 
 def _drop_write_bits(path: Path) -> None:
     """Group/other write and setuid/setgid/sticky bits never survive the copy."""
-    # os.walk never follows links, so nothing outside the prefix is touched
+    if path.is_symlink():
+        return
+    path.chmod(path.lstat().st_mode & 0o755)
+    if not path.is_dir():
+        return
+    # os.walk never descends into links, so nothing outside the prefix is touched
     for directory, subdirectories, files in os.walk(path, followlinks=False):
-        for name in [".", *subdirectories, *files]:
+        for name in [*subdirectories, *files]:
             item = Path(directory, name)
             if not item.is_symlink():
                 item.chmod(item.lstat().st_mode & 0o755)

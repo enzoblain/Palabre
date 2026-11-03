@@ -1,4 +1,5 @@
 import io
+import stat
 import zipfile
 from pathlib import Path
 
@@ -294,3 +295,13 @@ def test_drop_write_bits_ignores_links_to_outside_folders(tmp_path):
     assert (prefix / "bin" / "tool").stat().st_mode & 0o777 == 0o755
     assert outside.stat().st_mode & 0o777 == 0o777
     assert (outside / "secret").stat().st_mode & 0o777 == 0o666
+
+
+def test_drop_write_bits_tightens_a_single_file(tmp_path):
+    binary = tmp_path / "tool"
+    binary.write_text("x")
+    binary.chmod(0o4777)
+
+    toolchains._drop_write_bits(binary)
+
+    assert stat.S_IMODE(binary.stat().st_mode) == 0o755
