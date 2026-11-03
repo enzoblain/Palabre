@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.2] - 2026-11-03
+
+### Fixed
+
+- mobile: set the keychain path in a step in mobile-release.yml (#466)
+
 ## [0.30.1] - 2026-11-03
 
 ### Fixed
@@ -733,7 +739,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.2...HEAD
+[0.30.2]: https://github.com/enzoblain/Palabre/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/enzoblain/Palabre/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/enzoblain/Palabre/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/enzoblain/Palabre/compare/v0.28.0...v0.29.0
