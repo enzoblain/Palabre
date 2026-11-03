@@ -252,6 +252,7 @@ export const fr: Messages = {
 
   "conv.members": "{count} membres",
   "conv.member": "{count} membre",
+  "conv.showTeam": "Afficher l'équipe",
   "conv.introTitle": "Parlez de {project} à votre équipe",
   "conv.intro": "Que construisez-vous, pour qui, et qu’est-ce qui compte le plus ?",
   "conv.introLead": "{name} ({title}) le lira et organisera le travail.",

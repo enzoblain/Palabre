@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Conversation, Project, ProjectDetail } from "../api";
+import type { Conversation, Employee, Project, ProjectDetail } from "../api";
 import { useI18n } from "../i18n";
 import type { Route } from "../router";
 import { Avatar } from "./Avatar";
@@ -87,6 +87,14 @@ export function ProjectMenu({ route, projects, project, onNavigate, asTitle }: {
   );
 }
 
+/** The lead first, then the others by name. */
+export function sortedPeople(employees: Employee[]): Employee[] {
+  return [...employees].sort((a, b) => {
+    const lead = Number(b.roles.includes("lead")) - Number(a.roles.includes("lead"));
+    return lead || a.name.localeCompare(b.name);
+  });
+}
+
 /** The left-hand "Team" column: who is there. Fixed at 280px, a drawer on small screens. */
 export function TeamPanel({ project, route, open, onClose, noProject }: {
   project: ProjectState | null;
@@ -97,10 +105,7 @@ export function TeamPanel({ project, route, open, onClose, noProject }: {
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const people = [...(project?.detail.employees ?? [])].sort((a, b) => {
-    const lead = Number(b.roles.includes("lead")) - Number(a.roles.includes("lead"));
-    return lead || a.name.localeCompare(b.name);
-  });
+  const people = sortedPeople(project?.detail.employees ?? []);
 
   // The main conversation: direction
   const homeRoom = project?.detail.rooms.find((r) => r.kind === "direction") ?? project?.detail.rooms[0];

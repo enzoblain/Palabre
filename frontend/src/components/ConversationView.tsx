@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError, type Conversation, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
+import { useIsDesktop } from "../layout";
 import type { Route } from "../router";
 import { MENTION_EVENT, usePolling } from "../util";
-import { SendIcon } from "./Icons";
+import { SendIcon, TeamIcon } from "./Icons";
+import { ConversationTeam } from "./ConversationTeam";
 import { bossNames } from "./Markdown";
 import { MessageRow, TypingDots } from "./MessageBubble";
 import { ProjectMenu } from "./TeamPanel";
@@ -110,6 +112,9 @@ export function ConversationView({ conversation, room, project, projects, route,
   onRead: () => void;
 }) {
   const { t } = useI18n();
+  const desktop = useIsDesktop();
+  const [teamOpen, setTeamOpen] = useState(false);
+  const teamButtonRef = useRef<HTMLButtonElement>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -185,6 +190,11 @@ export function ConversationView({ conversation, room, project, projects, route,
     }
   }
 
+  function closeTeam() {
+    setTeamOpen(false);
+    teamButtonRef.current?.focus();
+  }
+
   const empty = messages !== null && messages.length === 0;
 
   return (
@@ -194,34 +204,47 @@ export function ConversationView({ conversation, room, project, projects, route,
         {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
         <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }} asTitle />
         {!isDirectionTitle(room, conversation) && conversation.title && <span className="muted">· {conversation.title}</span>}
-        <span className="conv-members muted">{t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
-        <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
+        <span className="conv-members muted">· {t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
+        <span className="conv-head-actions">
+          <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
+          {desktop && (
+            <button ref={teamButtonRef} className="icon-btn" aria-label={t("conv.showTeam")} aria-expanded={teamOpen}
+              aria-controls="conv-team" onClick={() => (teamOpen ? closeTeam() : setTeamOpen(true))}>
+              <TeamIcon size={20} />
+            </button>
+          )}
+        </span>
       </header>
 
-      <div className="messages" ref={listRef} onScroll={onScroll}>
-        {messages === null && <p className="muted center">{t("common.loading")}</p>}
-        {empty && (
-          <div className="intro">
-            <h2>{t("conv.introTitle", { project: project.name })}</h2>
-            <p className="muted">
-              {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
-            </p>
+      <div className="conv-body">
+        <div className="conv-main">
+          <div className="messages" ref={listRef} onScroll={onScroll}>
+            {messages === null && <p className="muted center">{t("common.loading")}</p>}
+            {empty && (
+              <div className="intro">
+                <h2>{t("conv.introTitle", { project: project.name })}</h2>
+                <p className="muted">
+                  {[t("conv.intro"), lead && t("conv.introLead", { name: lead.name, title: lead.title })].filter(Boolean).join(" ")}
+                </p>
+              </div>
+            )}
+            {messages?.map((m, i) => {
+              const prev = messages[i - 1];
+              const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
+              const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
+              return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
+            })}
+            {typing && lead && <TypingDots name={lead.name} />}
           </div>
-        )}
-        {messages?.map((m, i) => {
-          const prev = messages[i - 1];
-          const grouped = !!prev && prev.employee_id === m.employee_id && prev.author_name === m.author_name;
-          const title = m.employee_id !== null ? employees.get(m.employee_id)?.title : undefined;
-          return <MessageRow key={m.id} message={m} grouped={grouped} title={title} selfNames={myNames} />;
-        })}
-        {typing && lead && <TypingDots name={lead.name} />}
-      </div>
 
-      {error && <p className="error composer-error">{error}</p>}
-      <Composer key={conversation.id} onSend={send}
-        placeholder={
-          empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
-        } />
+          {error && <p className="error composer-error">{error}</p>}
+          <Composer key={conversation.id} onSend={send}
+            placeholder={
+              empty ? t("conv.placeholderEmpty") : t("conv.placeholder", { project: project.name, boss: bossName || t("conv.bossFallback") })
+            } />
+        </div>
+        {desktop && teamOpen && <ConversationTeam employees={project.employees} onClose={closeTeam} />}
+      </div>
     </div>
   );
 }

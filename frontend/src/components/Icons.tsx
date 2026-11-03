@@ -30,3 +30,6 @@ export const ConversationIcon = (p: Props) => (
 export const ProjectsIcon = (p: Props) => (
   <Svg {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></Svg>
 );
+export const TeamIcon = (p: Props) => (
+  <Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2.3.7 4 2.5 4 5.6" /></Svg>
+);
