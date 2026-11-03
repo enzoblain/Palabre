@@ -5,6 +5,11 @@
   lockfiles, Dockerfiles, entrypoints, sudoers, `runner.py`, `config.py`, `mcp_server/`,
   scripts, secrets and CI files) needs security's approval, whatever the author flags. The
   files come from the pushed branch; the author's flag can only add the gate.
+- The lead can also mark a task `sensitive` (`create_task` / `update_task`, lead only: others get
+  `sensitive_flag_lead_only`) when its design is risky although its files are not on the list
+  (stored in `Task.marked_sensitive`, `false` by default, shown by `get_task` and `list_tasks`).
+  A task needs security's approval when the flag is set **or** its paths are sensitive: `false`
+  never lifts a detection from the paths. Setting the flag on a task already in review wakes security.
 - The GitHub token never reaches the agents: the server pushes, opens pull requests and
   merges for them. Agents only get the environment variables they need, and their own
   Claude token.

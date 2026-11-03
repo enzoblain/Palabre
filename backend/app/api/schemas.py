@@ -409,6 +409,7 @@ class TaskOut(ORM):
     assignee: str | None
     severity: str | None
     sensitive: bool
+    marked_sensitive: bool
     pr_url: str | None
     review_round: int
     created_at: datetime

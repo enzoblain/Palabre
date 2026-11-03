@@ -67,6 +67,7 @@ export const fr: Messages = {
   "error.pr_head_moved": "La tête de la pull request a bougé depuis sa review",
   "error.invalid_head_sha": "Le commit relu est manquant ou trop court",
   "error.task_not_yours": "Cette tâche est assignée à quelqu’un d’autre",
+  "error.sensitive_flag_lead_only": "Seul le lead peut marquer une tâche comme sensible",
   "error.task_waiting_for_dependencies": "Cette tâche attend les tâches dont elle dépend",
   "error.task_no_branch": "Cette tâche n’a pas encore de branche",
   "error.task_no_pull_request": "Cette tâche n’a pas encore de pull request",
