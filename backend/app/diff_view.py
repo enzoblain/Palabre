@@ -11,7 +11,12 @@ LOCKFILE_NAMES = frozenset({
     "uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
     "go.sum", "packages.lock.json", "gradle.lockfile", "pubspec.lock", "Podfile.lock", "flake.lock",
 })
-_FILE_HEADER = re.compile(r"^diff --git a/.+ b/(.+)$", re.MULTILINE)
+_FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
+_PLAIN_NEW_PATH = re.compile(r" b/(.+)$")
+_QUOTED_NEW_PATH = re.compile(r'"b/((?:[^"\\]|\\.)*)"$')
+_ESCAPE = re.compile(r"\\([0-7]{3}|.)")
+_SIMPLE_ESCAPES = {"t": b"\t", "n": b"\n", "r": b"\r", "a": b"\a", "b": b"\b", "f": b"\f", "v": b"\v"}
+PREAMBLE_LABEL = "(text before the first file)"
 
 
 @dataclass(frozen=True)
@@ -31,14 +36,39 @@ class FileDiff:
         return (sum(line.startswith("+") for line in lines), sum(line.startswith("-") for line in lines))
 
 
+def _unquote_path(quoted: str) -> str:
+    """Decodes the C-style escapes git applies to unusual paths (octal bytes are UTF-8)."""
+    def decode(match: re.Match[str]) -> bytes:
+        token = match.group(1)
+        return bytes([int(token, 8)]) if len(token) == 3 and token.isdigit() else _SIMPLE_ESCAPES.get(token, token.encode())
+    raw = _ESCAPE.sub(lambda match: decode(match).decode("latin-1"), quoted)
+    return raw.encode("latin-1").decode("utf-8", errors="replace")
+
+
+def _header_path(header_rest: str) -> str:
+    """The new path of a `diff --git` header, quoted or not; the raw remainder if it is neither."""
+    quoted = _QUOTED_NEW_PATH.search(header_rest)
+    if quoted:
+        return _unquote_path(quoted.group(1))
+    plain = _PLAIN_NEW_PATH.search(header_rest)
+    return plain.group(1) if plain else header_rest
+
+
 def split_diff(diff: str) -> list[FileDiff]:
-    """One FileDiff per file of a `git diff` output, in the order git printed them."""
-    starts = [match.start() for match in _FILE_HEADER.finditer(diff)]
+    """One FileDiff per file of a `git diff` output, in the order git printed them. Every
+    `diff --git` line starts a file, whatever its path looks like; leading text is kept apart."""
+    matches = list(_FILE_HEADER.finditer(diff))
+    if not matches:
+        return [FileDiff(path=PREAMBLE_LABEL, text=diff)] if diff else []
+    starts = [match.start() for match in matches]
     ends = [*starts[1:], len(diff)]
-    return [
-        FileDiff(path=_FILE_HEADER.match(diff, start).group(1), text=diff[start:end])
-        for start, end in zip(starts, ends, strict=False)
+    files = [
+        FileDiff(path=_header_path(match.group(1)), text=diff[start:end])
+        for match, start, end in zip(matches, starts, ends, strict=True)
     ]
+    if starts[0] > 0:
+        files.insert(0, FileDiff(path=PREAMBLE_LABEL, text=diff[: starts[0]]))
+    return files
 
 
 def render_diff(diff: str, max_chars: int = MAX_DIFF_CHARS) -> str:

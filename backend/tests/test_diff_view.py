@@ -12,9 +12,8 @@ def test_lockfile_content_is_replaced_by_its_counts() -> None:
     diff = file_diff("mobile/package-lock.json", 5000, 3) + file_diff("mobile/src/app.ts", 2)
     out = render_diff(diff)
     assert "+new 1\n" in out and "mobile/src/app.ts" in out
-    assert "+new 4999" not in out.split("mobile/src/app.ts")[0]
+    assert "+new 4999" not in out
     assert "mobile/package-lock.json (+5000 -3)" in out
-    assert out.count("+new 4999") == 0
 
 
 def test_all_files_after_a_lockfile_are_kept() -> None:
@@ -43,3 +42,15 @@ def test_small_diff_is_returned_unchanged() -> None:
 
 def test_empty_diff() -> None:
     assert render_diff("") == ""
+
+
+def test_quoted_path_after_a_lockfile_is_still_a_file_boundary() -> None:
+    quoted = 'diff --git "a/caf\\303\\251.ts" "b/caf\\303\\251.ts"\n--- "a/caf\\303\\251.ts"\n+++ "b/caf\\303\\251.ts"\n@@ -1 +1 @@\n+secret code\n'
+    out = render_diff(file_diff("package-lock.json", 10) + quoted)
+    assert "+secret code" in out
+    assert "package-lock.json (+10 -0)" in out
+    assert [f.path for f in split_diff(quoted)] == ["café.ts"]
+
+
+def test_text_before_the_first_file_is_kept() -> None:
+    assert render_diff("warning\n" + file_diff("a.py", 1)).startswith("warning\n")
