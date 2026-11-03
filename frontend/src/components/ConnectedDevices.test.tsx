@@ -93,6 +93,7 @@ describe("ConnectedDevices", () => {
     await userEvent.click(screen.getByRole("button", { name: "Revoke" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("Pixel")).toBeTruthy();
-    expect(screen.getByText(/nope/)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("nope");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Revoke.*Pixel/ }));
   });
 });
