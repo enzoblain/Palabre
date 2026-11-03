@@ -378,7 +378,6 @@ export const api = {
     call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
-  changeBranch: (id: number, branch: string) => call<ProjectDetail>(`/projects/${id}/branch`, "PUT", { branch }),
   createProject: (body: {
     name: string;
     repo_url?: string;
