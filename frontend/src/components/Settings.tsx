@@ -7,20 +7,10 @@ import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 
-const MODE_KEYS = {
-  startup: "mode.startup", scaleup: "mode.scaleup", enterprise: "mode.enterprise", multinational: "mode.multinational",
-} as const;
-
-/** Company size in the project language; an unknown mode is shown as stored. */
-function modeLabel(mode: string, t: (key: (typeof MODE_KEYS)[keyof typeof MODE_KEYS]) => string): string {
-  return Object.prototype.hasOwnProperty.call(MODE_KEYS, mode) ? t(MODE_KEYS[mode as keyof typeof MODE_KEYS]) : mode;
-}
-
-export function Settings({ settings, projects, onSaved, onProjectsChanged, onDisconnect }: {
+export function Settings({ settings, projects, onSaved, onDisconnect }: {
   settings: AppSettings;
   projects: Project[];
   onSaved: (settings: AppSettings) => void;
-  onProjectsChanged: () => void;
   onDisconnect: () => void;
 }) {
   const { t, tr } = useI18n();
@@ -58,7 +48,6 @@ export function Settings({ settings, projects, onSaved, onProjectsChanged, onDis
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
-      <ProjectsSettings projects={projects} onChanged={onProjectsChanged} />
       <section className="panel">
         <h2>{t("settings.server")}</h2>
         <p className="muted">{tr("settings.connectedTo", { server: <code>{getConnection()?.server}</code> })}</p>
@@ -154,103 +143,5 @@ function ClaudeAccounts({ count, projects }: { count: number; projects: Project[
         );
       })}
     </section>
-  );
-}
-
-function ProjectsSettings({ projects, onChanged }: { projects: Project[]; onChanged: () => void }) {
-  const { t, tr } = useI18n();
-  const [confirming, setConfirming] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function remove(project: Project) {
-    setDeleting(project.id);
-    setError(null);
-    try {
-      await api.deleteProject(project.id);
-      setConfirming(null);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setDeleting(null);
-    }
-  }
-
-  return (
-    <section className="panel">
-      <h2>{t("settings.projects")}</h2>
-      <p className="muted">
-        {tr("settings.projectsBranch", { dev: <code>dev</code>, main: <code>main</code> })}
-      </p>
-      <p className="muted">
-        {t("settings.projectsDelete")}
-      </p>
-      {error && <p className="error">{error}</p>}
-      {projects.length === 0 && <p className="muted">{t("settings.noProject")}</p>}
-      <ul className="project-list">
-        {projects.map((p) => (
-          <li key={p.id}>
-            <span className="project-initial">{p.name.slice(0, 1).toUpperCase()}</span>
-            <span className="truncate project-list-name">
-              {p.name} <span className="muted">· {modeLabel(p.mode, t)}</span>
-            </span>
-            {confirming !== p.id && <BranchField project={p} onChanged={onChanged} />}
-            {confirming === p.id ? (
-              <span className="row confirm-delete">
-                <span className="error">{t("settings.confirmDelete")}</span>
-                <button className="btn btn-small" onClick={() => setConfirming(null)} disabled={deleting === p.id}>{t("common.cancel")}</button>
-                <button className="btn btn-small btn-danger" onClick={() => remove(p)} disabled={deleting === p.id}>
-                  {deleting === p.id ? t("settings.deleting") : t("settings.deleteForGood")}
-                </button>
-              </span>
-            ) : (
-              <button className="btn btn-small" onClick={() => setConfirming(p.id)}>{t("common.delete")}</button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function BranchField({ project, onChanged }: { project: Project; onChanged: () => void }) {
-  const { t } = useI18n();
-  const [editing, setEditing] = useState(false);
-  const [branch, setBranch] = useState(project.default_branch);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      await api.changeBranch(project.id, branch.trim());
-      setEditing(false);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <button className="btn btn-small" title={t("settings.branchTitle")}
-        onClick={() => { setBranch(project.default_branch); setEditing(true); }}>
-        <code>{project.default_branch}</code>
-      </button>
-    );
-  }
-  return (
-    <form className="row branch-field" onSubmit={save}>
-      <input autoFocus required value={branch} onChange={(e) => setBranch(e.target.value)} spellCheck={false}
-        autoCapitalize="off" aria-label={t("settings.branchAria")} />
-      <button type="button" className="btn btn-small" onClick={() => setEditing(false)} disabled={saving}>{t("common.cancel")}</button>
-      <button className="btn btn-small btn-primary" disabled={saving || !branch.trim()}>{saving ? t("common.saving") : t("common.save")}</button>
-      {error && <span className="error">{error}</span>}
-    </form>
   );
 }

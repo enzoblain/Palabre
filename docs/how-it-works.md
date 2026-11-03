@@ -134,7 +134,7 @@ inbox is turned into requests in direction.
 A new project works on a `dev` branch, created from the repository's default branch if
 missing (an empty repository gets its default branch, `main` unless GitHub says otherwise, then `dev`, from a first commit with a minimal README and `.gitignore`). The production branch is the one GitHub declares as default (`main`, `master` or another; failing that `main`, then `master`), never assumed. Every agent is told to read the README and the tree of the team's branch first, and every
 task's pull request targets it. Only a release reaches production. To switch an existing
-project, point it at `dev` in the settings, or ask the lead to run `set_working_branch`
+project, point it at `dev` on the project's Infos page, or ask the lead to run `set_working_branch`
 (`dev`); open pull requests are retargeted. When a step is ready, the lead opens the pull
 request from `dev` to production and asks you in direction. You answer in the chat: when you say yes the lead
 ships it with `merge_release`, when you say no the lead closes it with `settle_decision` (`rejected`), and
