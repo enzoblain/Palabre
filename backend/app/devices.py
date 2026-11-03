@@ -5,7 +5,7 @@ import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DeviceSession
@@ -55,15 +55,20 @@ async def authenticate_device(
     now = now or datetime.now(UTC)
     token_hash = hash_device_token(admin_token, token)
     device = await s.scalar(select(DeviceSession).where(DeviceSession.token_hash == token_hash))
-    # The hash was found by an indexed lookup; the comparison keeps the check constant-time on the digest itself
+    # The lookup by HMAC is the real protection; the digest comparison is only a sanity check
     if device is None or not hmac.compare_digest(device.token_hash, token_hash):
         return False
+    # Statements by id, not ORM flushes: a device revoked meanwhile must not raise StaleDataError (500)
     if device.expires_at <= now:
-        await s.delete(device)
+        await s.execute(delete(DeviceSession).where(DeviceSession.id == device.id))
         await s.commit()
         return False
     if now - device.last_used_at >= TOUCH_INTERVAL:
-        device.last_used_at = now
-        device.expires_at = now + timedelta(seconds=ttl_seconds)
+        touched = await s.execute(
+            update(DeviceSession)
+            .where(DeviceSession.id == device.id)
+            .values(last_used_at=now, expires_at=now + timedelta(seconds=ttl_seconds))
+        )
         await s.commit()
+        return touched.rowcount > 0
     return True
