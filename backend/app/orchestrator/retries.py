@@ -1,11 +1,13 @@
-"""Task runs that failed (git error, crash, timeout...) are retried a few times, then
-the lead is told."""
+"""Task runs that failed (git error, crash, timeout...) or ended without submitting are retried
+a few times, then the lead is told."""
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import workflow
+from app.config import settings
 from app.models import AgentRun, Task, TaskStatus, Wakeup
 from app.services import emit_event
 
@@ -72,4 +74,57 @@ async def on_task_run_failed(s: AsyncSession, task_id: int, error: str | None) -
         "error": (error or "unknown error")[:300],
     }  # fmt: skip
     emit_event(s, task.project_id, "task_run_failed", payload, role="lead")
+    await s.commit()
+
+
+async def restart_stalled_task(s: AsyncSession, task: Task) -> bool:
+    """Wake the dev of a task still in progress (or sent back) whose work stopped without a PR,
+    up to max_stalled_restarts times, then tell the lead once. Does nothing while a run, a
+    wakeup or a queued event is on the task. Returns whether the dev was woken."""
+    if task.status not in {TaskStatus.in_progress, TaskStatus.changes_requested} or task.assignee_id is None:
+        return False
+    if await workflow.dev_busy(s, task) or not await workflow.dependencies_done(s, task):
+        return False
+    if task.stalled_restarts >= settings.max_stalled_restarts:
+        if task.stalled_restarts == settings.max_stalled_restarts:
+            task.stalled_restarts += 1  # The lead is told once
+            payload = {
+                "task_id": task.id, "conversation_id": task.conversation_id, "attempts": task.stalled_restarts - 1,
+                "error": "the agent stopped several times without submitting its work",
+            }  # fmt: skip
+            emit_event(s, task.project_id, "task_run_failed", payload, role="lead")
+        return False
+    task.stalled_restarts += 1
+    payload = {"task_id": task.id, "status": task.status.value, "attempt": task.stalled_restarts}
+    emit_event(s, task.project_id, "task_stalled", payload, employee_id=task.assignee_id)
+    return True
+
+
+async def on_task_run_ended(s: AsyncSession, task_id: int) -> None:
+    """A task run finished without error: if the work is still not submitted, resume it right away."""
+    task = await s.get(Task, task_id, populate_existing=True)
+    if task is not None and await restart_stalled_task(s, task):
+        await s.commit()
+
+
+async def restart_orphan_tasks(s: AsyncSession) -> None:
+    """Safety net: a task in progress whose dev has had no run or wakeup for stalled_task_minutes
+    (backend restarted, wakeup lost) is resumed. Failed runs are left to retry_failed_tasks."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.stalled_task_minutes)
+    tasks = await s.scalars(
+        select(Task).where(
+            Task.status.in_([TaskStatus.in_progress, TaskStatus.changes_requested]),
+            Task.assignee_id.is_not(None), Task.updated_at < cutoff,
+        )
+    )
+    for task in list(tasks):
+        failures, _ = await consecutive_failures(s, task.id)
+        if failures:
+            continue
+        last_run = await s.scalar(select(func.max(AgentRun.finished_at)).where(AgentRun.task_id == task.id))
+        last_open = await s.scalar(select(AgentRun.id).where(AgentRun.task_id == task.id, AgentRun.finished_at.is_(None)).limit(1))
+        last_wakeup = await s.scalar(select(func.max(Wakeup.created_at)).where(Wakeup.task_id == task.id))
+        if last_open is not None or any(at is not None and _aware(at) >= cutoff for at in (last_run, last_wakeup)):
+            continue
+        await restart_stalled_task(s, task)
     await s.commit()

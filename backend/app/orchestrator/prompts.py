@@ -42,6 +42,7 @@ REASONS: dict[str, str] = {
     "credits_back": "Claude credits ran out (since {since}) and are back: the team was paused and is resuming, the queued wakeups are replayed. Tasks in progress: {tasks}. Queued wakeups: {pending}. Check what stalled, nudge or reassign where needed, and tell the boss in direction where things stand.",
     "task_resume": "Back to your task #{task_id}: pick up where you left off (your commits are in this worktree), finish it, then submit_for_review.",
     "task_retry": "Your task #{task_id} could not run last time (attempt {attempt}). Work on it now.",
+    "task_stalled": "Task #{task_id} is still {status} but your last run ended without submitting (restart {attempt}). Pick up where you left off, finish it, then submit_for_review.",
     "task_run_failed": "Task #{task_id} failed {attempts} times in a row and is no longer retried. Last error: {error}. If the boss has to fix something, ask them with ask_ceo (or tell the lead); otherwise reassign or split the task.",
     "conversation_idle": "The conversation has gone quiet. Update the room document. The summary (update_summary) is a short summary of the project, not of the conversation: what it is, its goal, where it stands, what was delivered and decided, in the team's language. Rewrite it only if the project moved (delivery, validated decision); keep it to a few lines. Update the open questions too.",
 }

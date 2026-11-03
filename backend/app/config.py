@@ -123,6 +123,10 @@ class Settings(BaseSettings):
     merge_reminder_minutes: int = 10
     # Minutes a task in progress or in review may stay still before the lead is alerted (once per head SHA)
     idle_task_minutes: int = 10
+    # Minutes a task in progress may stay without any run, wakeup or activity before its dev is woken up again
+    stalled_task_minutes: int = Field(5, ge=1)
+    # Times a dev is woken up again after a run that ended without submitting; the lead is told past it
+    max_stalled_restarts: int = Field(3, ge=1)
     # Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told
     review_silence_minutes: int = Field(15, ge=1)
     # Reminders (watchdog and QA/security reports alike) a silent review gets per head SHA; the lead is told once past it

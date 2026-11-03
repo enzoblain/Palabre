@@ -12,5 +12,5 @@ EventType = Literal[
 
 # Events that make the assignee work on the task (task run) rather than talk
 TASK_EVENTS = frozenset(
-    {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge"}
+    {"task_assigned", "task_unblocked", "changes_requested", "pr_blocked", "task_retry", "task_resume", "task_nudge", "task_stalled"}
 )
