@@ -109,7 +109,7 @@ Step-by-step guide, secrets and rollback: [Mobile release](mobile-release.md). T
   fastlane). The App Store submission itself is done by hand by Enzo.
 - **Versions**: the marketing version follows the release version (`X.Y.Z`); the build number is the run number.
   `release.py` must bump `mobile/app.json` (and `package.json`) with the other version files: a backend task.
-- **Pins**: runner image (`macos-15` or the current stable one), Node 22 as everywhere, Expo and Xcode versions
+- **Pins**: runner image (`macos-26`, Xcode 26.6), Node 22 as everywhere, Expo and Xcode versions
   fixed, third-party actions pinned by SHA like the existing workflows, `permissions: contents: read` at the
   workflow level.
 
