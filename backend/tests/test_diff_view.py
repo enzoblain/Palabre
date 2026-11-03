@@ -121,6 +121,9 @@ def test_crates_index_url_is_matched_exactly(url: str) -> None:
     "gitlab:user/repo",
     "file:../local-pkg",
     "link:../linked-pkg",
+    "bitbucket:user/repo",
+    "gist:abc123",
+    "portal:../portal-pkg",
 ])
 def test_schemeless_source_is_flagged(source: str) -> None:
     out = render_diff(lockfile_diff([f'"resolved": "{source}",']))
