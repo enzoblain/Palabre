@@ -32,10 +32,17 @@ different versions fails. If that happens, run the compile commands above by han
 
 ## Version policy
 
-We stay on the latest stable release, and on the current LTS for runtimes (Node.js 26 in the CI;
-Python stays on 3.12 until the backend image and the locks move together). Nothing is bumped by hand:
+We stay on the latest stable release, and on the current LTS for runtimes. Nothing is bumped by hand:
 Dependabot opens one grouped weekly PR on `dev` per ecosystem (GitHub Actions, Docker base images,
 `docker-compose.yml` images, frontend npm, backend pip, see `.github/dependabot.yml`). Actions and
-images stay pinned by SHA or digest, so a bump is always a reviewed PR that CI builds and tests.
-When a runtime has a new LTS, change the version in `ci.yml` and the Dockerfile tag in the same PR
-(Dependabot then refreshes the digest).
+images stay pinned by SHA or digest, and only Dependabot resolves the real SHA or digest, so a bump
+is always a reviewed PR that CI builds and tests. Never write a pin by hand.
+
+Exceptions, bumped by a dedicated task and not by Dependabot:
+
+- PostgreSQL stays on 16: a major change is a data migration.
+- Python stays on 3.12 until the backend image and the locks move together.
+- Node.js: the CI `node-version` and the `frontend/Dockerfile` tag must stay on the same major.
+  Move both in the same PR, with the digest taken from the registry.
+
+The frontend has no `engines` field in `package.json`.
