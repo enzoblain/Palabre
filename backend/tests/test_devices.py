@@ -56,6 +56,17 @@ class FakeDeviceSession:
     async def delete(self, row: DeviceSession) -> None:
         self.store.rows.remove(row)
 
+    async def execute(self, statement):
+        """Runs the by-id update/delete statements of devices.py against the shared rows."""
+        params = statement.compile().params
+        matching = [r for r in self.store.rows if r.id == params["id_1"]]
+        if statement.is_delete:
+            self.store.rows[:] = [r for r in self.store.rows if r not in matching]
+        else:
+            for row in matching:
+                row.last_used_at, row.expires_at = params["last_used_at"], params["expires_at"]
+        return type("Result", (), {"rowcount": len(matching)})()
+
     async def commit(self) -> None:
         self.store.commits += 1
 
@@ -188,6 +199,34 @@ async def test_use_slides_the_expiry(store):
     assert await devices.authenticate_device(s, "secret", token, 1000, now=later)
     assert store.rows[0].expires_at == later + timedelta(seconds=1000)
     assert await devices.authenticate_device(s, "secret", token, 1000, now=NOW + timedelta(seconds=1800))
+
+
+async def test_device_revoked_during_touch_is_refused(store):
+    s = FakeDeviceSession(store)
+    _, token = await devices.create_device_session(s, "secret", "Pixel", 1000, now=NOW)
+    found = s.scalar
+
+    async def scalar_then_revoke(query):
+        row = await found(query)
+        store.rows.clear()
+        return row
+
+    s.scalar = scalar_then_revoke
+    assert not await devices.authenticate_device(s, "secret", token, 1000, now=NOW + timedelta(seconds=120))
+
+
+async def test_device_revoked_during_expiry_cleanup_is_refused(store):
+    s = FakeDeviceSession(store)
+    _, token = await devices.create_device_session(s, "secret", "Pixel", 100, now=NOW)
+    found = s.scalar
+
+    async def scalar_then_revoke(query):
+        row = await found(query)
+        store.rows.clear()
+        return row
+
+    s.scalar = scalar_then_revoke
+    assert not await devices.authenticate_device(s, "secret", token, 100, now=NOW + timedelta(seconds=100))
 
 
 async def test_writes_are_limited_to_one_per_minute(store):

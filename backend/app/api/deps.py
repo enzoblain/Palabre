@@ -11,9 +11,9 @@ from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import devices
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode
 from app.config import settings
-from app import devices
 from app.db import Base, SessionLocal, get_session
 from app.sessions import verify_session_token
 
