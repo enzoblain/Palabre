@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -630,6 +631,26 @@ def test_remove_project_files_removes_everything(tmp_path, monkeypatch):
     (tmp_path / "projects" / "project-4" / "repo").mkdir(parents=True)
     asyncio.run(worktrees.remove_project_files(4))
     assert not (tmp_path / "projects" / "project-4").exists()
+
+
+def test_remove_project_files_keeps_sessions_of_a_project_with_a_close_prefix(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "projects_dir", tmp_path / "projects")
+    monkeypatch.setattr(settings, "claude_store_dir", tmp_path / "claude")
+    prefix = re.sub(r"[^A-Za-z0-9]", "-", str(tmp_path / "projects"))
+    sessions = {}
+    for project_id in (1, 12):
+        name = f"{prefix}-project-{project_id}"
+        sessions[project_id] = [
+            tmp_path / "claude" / "employee-7" / "projects" / name,
+            tmp_path / "claude" / "employee-7" / "projects" / f"{name}-worktrees-task-3",
+            tmp_path / "claude" / "projects" / name,  # Legacy store
+        ]
+        for directory in sessions[project_id]:
+            directory.mkdir(parents=True)
+            (directory / "session.jsonl").write_text("{}")
+    asyncio.run(worktrees.remove_project_files(1))
+    assert not any(directory.exists() for directory in sessions[1])
+    assert all(directory.is_dir() and (directory / "session.jsonl").exists() for directory in sessions[12])
 
 
 SCRIPTS = Path(__file__).parent.parent / "scripts"
