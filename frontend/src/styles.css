@@ -390,7 +390,7 @@ details summary { cursor: pointer; margin-top: 6px; }
   display: grid; place-items: center;
 }
 
-/* --- Floating bottom bar (both root screens, every screen width) --- */
+/* --- Floating bottom bar (root screens, every screen width) --- */
 .bottom-bar {
   position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 5;
   max-width: 480px; margin: 0 auto; display: flex; padding: 6px; border-radius: 22px;

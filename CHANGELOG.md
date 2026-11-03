@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-03
+
+### Added
+
+- frontend: keep the bottom bar on the new project screen (#420)
+
 ## [0.26.2] - 2026-11-03
 
 ### Fixed
@@ -679,7 +685,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.26.2...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/enzoblain/Palabre/compare/v0.26.2...v0.27.0
 [0.26.2]: https://github.com/enzoblain/Palabre/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/enzoblain/Palabre/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/enzoblain/Palabre/compare/v0.25.0...v0.26.0

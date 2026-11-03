@@ -1,8 +1,8 @@
 import type { Route } from "./router";
 
-/** Only the two root screens, Projects and Settings, carry the bottom bar; every other screen is full screen. */
+/** The root screens (Projects, New project, Settings) carry the bottom bar; conversations and project info are full screen. */
 export function showsBottomBar(route: Route): boolean {
-  return route.name === "home" || route.name === "settings";
+  return route.name === "home" || route.name === "new" || route.name === "settings";
 }
 
 export type LoadStatus = "loading" | "ready" | "error";
