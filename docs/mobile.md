@@ -24,6 +24,7 @@ mobile/
   src/api/          typed client, ported from frontend/src/api.ts
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
+  src/theme/        light and dark color tokens from mobile-ui.md
   app.json          name, bundle id, version, permissions
   package.json      its own lockfile and its own `npm run check`
 ```
