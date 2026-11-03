@@ -32,8 +32,8 @@ class Download:
     algo: str = "sha256"
     # The download is one executable (not an archive), saved under this name
     single_file: str = ""
-    # The archive holds an install.sh (Rust): these are its extra arguments
-    install_args: tuple[str, ...] = ()
+    # Rust-style archive of components (one directory each, listed in a manifest.in): the ones to copy
+    components: tuple[str, ...] = ()
 
 
 Resolver = Callable[[str, str, Fetchers], Awaitable[Download]]
@@ -112,7 +112,7 @@ async def resolve_rust(selector: str, arch: str, fetch: Fetchers) -> Download:
     url = f"https://static.rust-lang.org/dist/rust-{version}-{triple}.tar.xz"
     sha = checksum_in(await fetch.text(url + ".sha256"))
     # rustc and cargo with the standard library; no docs, no linker (the image has no C compiler)
-    return Download(version, url, sha, install_args=(f"--components=rustc,cargo,rust-std-{triple}",))
+    return Download(version, url, sha, components=("rustc", "cargo", f"rust-std-{triple}"))
 
 
 # --- JVM -----------------------------------------------------------------------------

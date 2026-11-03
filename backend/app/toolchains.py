@@ -160,6 +160,8 @@ async def _install_archive(name: str, selector: str) -> str:
     if arch is None:
         raise WorkflowError(f"No {name} build for this machine ({platform.machine()})")
     download = await spec.resolve(selector or spec.default, arch, Fetchers(json=_get_json, text=_get_text))
+    if not VERSION_RE.match(download.version):
+        raise WorkflowError(f"Refusing the unexpected {name} version {download.version!r}")
     target = settings.toolchains_dir / f"{name}-{download.version}"
     if not target.is_dir():
         await _fetch_archive(download, target)
@@ -177,9 +179,9 @@ async def _fetch_archive(download: Download, target: Path) -> None:
     work = target.with_name(f"{target.name}.partial")
     await asyncio.to_thread(shutil.rmtree, work, ignore_errors=True)
     try:
-        if download.install_args:
+        if download.components:
             await _download_and_extract(download.url, download.checksum, work / "src", download.algo)
-            await _run_installer(_archive_root(work / "src"), work / "out", download.install_args)
+            await asyncio.to_thread(_copy_components, _archive_root(work / "src"), work / "out", download.components)
             built = work / "out"
         else:
             await _download_and_extract(download.url, download.checksum, work, download.algo, download.single_file)
@@ -195,18 +197,39 @@ def _archive_root(directory: Path) -> Path:
     return entries[0] if len(entries) == 1 and entries[0].is_dir() else directory
 
 
-async def _run_installer(source: Path, prefix: Path, args: tuple[str, ...]) -> None:
-    """Run the install.sh of a Rust-style archive into `prefix`, as the server, with a bare environment."""
-    cmd = ["sh", str(source / "install.sh"), f"--prefix={prefix}", "--disable-ldconfig", *args]
-    try:
-        proc = await asyncio.to_thread(
-            subprocess.run, cmd, env={"PATH": os.defpath}, umask=0o022,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600,
-        )  # fmt: skip
-    except subprocess.TimeoutExpired:
-        raise WorkflowError("Toolchain install timed out") from None
-    if proc.returncode:
-        raise WorkflowError(f"Toolchain install failed: {proc.stdout.decode(errors='replace')[-1500:]}")
+def _copy_components(source: Path, prefix: Path, components: tuple[str, ...]) -> None:
+    """Copy the listed components of a Rust-style archive into `prefix`, following their manifest.in.
+
+    Nothing from the archive is executed: its install.sh is not used.
+    """
+    for component in components:
+        base = source / component
+        manifest = base / "manifest.in"
+        if not manifest.is_file():
+            raise WorkflowError(f"The archive has no component {component!r}")
+        for line in manifest.read_text().splitlines():
+            kind, _, relative = line.partition(":")
+            if kind not in ("file", "dir"):
+                continue
+            path = Path(relative)
+            if path.is_absolute() or ".." in path.parts:
+                raise WorkflowError(f"Unsafe path in the archive: {relative!r}")
+            origin, destination = base / path, prefix / path
+            if origin.is_symlink() or not origin.exists():
+                raise WorkflowError(f"Unexpected entry in the archive: {relative!r}")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if kind == "dir":
+                shutil.copytree(origin, destination, symlinks=True, dirs_exist_ok=True)
+            else:
+                shutil.copy2(origin, destination)
+            _drop_write_bits(destination)
+
+
+def _drop_write_bits(path: Path) -> None:
+    """Group/other write and setuid/setgid/sticky bits never survive the copy."""
+    for item in [path, *path.rglob("*")]:
+        if not item.is_symlink():
+            item.chmod(item.lstat().st_mode & 0o755)
 
 
 # --- Python --------------------------------------------------------------------------

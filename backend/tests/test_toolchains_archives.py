@@ -54,7 +54,7 @@ async def test_rust_default_and_exact():
     })
     got = await specs.resolve_rust("stable", "x86_64", fetch)
     assert (got.version, got.url, got.checksum) == ("1.82.0", url, SHA)
-    assert got.install_args == ("--components=rustc,cargo,rust-std-x86_64-unknown-linux-gnu",)
+    assert got.components == ("rustc", "cargo", "rust-std-x86_64-unknown-linux-gnu")
     assert (await specs.resolve_rust("1.82.0", "x86_64", fetch)).url == url
     with pytest.raises(WorkflowError, match="exact version"):
         await specs.resolve_rust("1.82", "x86_64", fetch)
@@ -237,3 +237,41 @@ async def test_install_archive_end_to_end_without_network(tmp_path: Path, monkey
 async def test_unknown_toolchain_lists_the_available_ones():
     with pytest.raises(WorkflowError, match="rust"):
         await toolchains.install("cobol")
+
+
+def fake_rust_tarball(root: Path, manifest_line: str = "file:bin/rustc") -> None:
+    (root / "rustc" / "bin").mkdir(parents=True)
+    (root / "rustc" / "bin" / "rustc").write_text("bin")
+    (root / "rustc" / "manifest.in").write_text(f"{manifest_line}\ndir:lib/rustlib\n")
+    (root / "rustc" / "lib" / "rustlib").mkdir(parents=True)
+    (root / "rustc" / "lib" / "rustlib" / "x").write_text("lib")
+    (root / "rustc" / "install.sh").write_text("exit 1")
+
+
+def test_copy_components_copies_the_manifest_without_running_anything(tmp_path: Path):
+    fake_rust_tarball(tmp_path / "src")
+    toolchains._copy_components(tmp_path / "src", tmp_path / "out", ("rustc",))
+    assert (tmp_path / "out" / "bin" / "rustc").read_text() == "bin"
+    assert (tmp_path / "out" / "lib" / "rustlib" / "x").read_text() == "lib"
+    assert not (tmp_path / "out" / "install.sh").exists()
+
+
+def test_copy_components_refuses_escapes_and_missing_components(tmp_path: Path):
+    fake_rust_tarball(tmp_path / "src", "file:../../evil")
+    with pytest.raises(WorkflowError, match="Unsafe path"):
+        toolchains._copy_components(tmp_path / "src", tmp_path / "out", ("rustc",))
+    with pytest.raises(WorkflowError, match="no component"):
+        toolchains._copy_components(tmp_path / "src", tmp_path / "out", ("cargo",))
+
+
+async def test_install_archive_refuses_a_version_that_escapes_the_directory(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(settings, "toolchains_dir", tmp_path / "tc")
+    monkeypatch.setattr("platform.machine", lambda: "x86_64")
+
+    async def resolve(selector: str, arch: str, fetch: specs.Fetchers) -> specs.Download:
+        return specs.Download("../../evil", "https://example.test/fake.zip", SHA)
+
+    monkeypatch.setitem(specs.ARCHIVES, "fake", specs.Archive("Fake", ("bin/fake",), "9.9", resolve, specs.X86_ARM))
+    monkeypatch.setitem(toolchains.TOOLCHAINS, "fake", "Fake")
+    with pytest.raises(WorkflowError, match="unexpected fake version"):
+        await toolchains.install("fake")
