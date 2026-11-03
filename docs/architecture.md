@@ -19,3 +19,4 @@
   server whose tools depend on their role: only a lead can merge, only reviewers, QA and
   security can approve a pull request.
 - **Apps** (`frontend/`): React and TypeScript, served by nginx for the browser.
+- **Mobile app** (`mobile/`): Expo (React Native) and TypeScript, planned; talks to the same `/api`. See [Mobile app](mobile.md).

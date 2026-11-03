@@ -25,7 +25,6 @@ mobile/
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
   app.json          name, bundle id, version, permissions
-  eas.json / ios/   only if the build needs it, see Build
   package.json      its own lockfile and its own `npm run check`
 ```
 
@@ -98,23 +97,24 @@ the app works with polling. A WebSocket or SSE endpoint is not needed for v1.
 
 Detailed pipeline: the DevOps task. The sketch:
 
-- **Tooling**: EAS Build is the simplest, but it is a paid third-party service holding our certificates. The
-  decision is to build in **GitHub Actions on a macOS runner** (`npx expo prebuild`, then `xcodebuild archive` and
-  upload), so the signing material stays in our own GitHub secrets. Android builds on a Linux runner
-  (Gradle, an `.aab`).
-- **Triggers**: never on `pull_request`. Only on the release PR from `dev` (when a version is published) or by hand
-  (`workflow_dispatch`). The ordinary CI only runs `npm run check`.
-- **iOS**: archive, sign, upload to **TestFlight** with the App Store Connect API key (`xcrun altool` or
-  `fastlane pilot`). The App Store submission itself is done by hand by Enzo.
+- **Tooling**: decided by the CEO: build on **GitHub-hosted runners**, upload to TestFlight, **no EAS** (no paid
+  third-party service holding our certificates). iOS builds on a macOS runner (`npx expo prebuild`, then
+  `xcodebuild archive`); Android on a Linux runner (Gradle, an `.aab`). Signing material stays in our own GitHub
+  secrets.
+- **Triggers**: only a push of a `vX.Y.Z` tag or `workflow_dispatch`; never `pull_request`. The ordinary CI only
+  runs `npm run check`.
+- **iOS**: archive, sign, upload to **TestFlight** with `xcrun altool` and an App Store Connect API key only (no
+  fastlane). The App Store submission itself is done by hand by Enzo.
 - **Versions**: the marketing version follows the release version (`X.Y.Z`); the build number is the run number.
   `release.py` must bump `mobile/app.json` (and `package.json`) with the other version files: a backend task.
 - **Pins**: runner image (`macos-15` or the current stable one), Node 22 as everywhere, Expo and Xcode versions
-  fixed, actions pinned by SHA like the existing workflows, minimal `permissions`.
+  fixed, third-party actions pinned by SHA like the existing workflows, `permissions: contents: read` at the
+  workflow level.
 
 ### Signing conditions (Security)
 
 - Secrets (distribution certificate `.p12` and its password, provisioning profile, App Store Connect API key) live
-  in a **protected GitHub environment** with manual approval.
+  in a **protected GitHub environment** limited to `v*` tags, with required reviewers.
 - The job that signs is never triggered by `pull_request` and never runs code from a fork.
 - The certificate is imported into a **temporary keychain** created in the job; the keychain is deleted in a final
   step with `if: always()` so it goes away even when the build fails.
@@ -122,7 +122,13 @@ Detailed pipeline: the DevOps task. The sketch:
 - Android: the upload keystore is a secret of the same environment, decoded to a temporary file removed at the end.
 
 Prerequisite: a **paid Apple Developer account**. Without it only an unsigned simulator build can be checked, and
-TestFlight is impossible. This is a blocking question for the CEO.
+TestFlight is impossible. This is a blocking question for the CEO (open question 137).
+
+### Forbidden
+
+- `AsyncStorage` for tokens: `expo-secure-store` only.
+- App Transport Security exceptions and clear-text HTTP, on iOS and Android.
+- `any` in TypeScript.
 
 ## Task breakdown
 
@@ -142,6 +148,6 @@ screens.
 
 ## Open questions
 
-- Paid Apple Developer account: who holds it and who can create the certificates (CEO).
+- Paid Apple Developer account (question 137): who holds it and who can create the certificates (CEO).
 - Pairing flow versus a longer session (backend developers, Security).
 - Name and bundle identifier of the app (CEO).
