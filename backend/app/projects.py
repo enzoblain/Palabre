@@ -505,7 +505,7 @@ async def prepare_release(project: Project) -> dict:
     lands in the entry, and the version follows the bump level); nothing is committed when no file changes."""
     plan = await release_plan(project)
     if plan is None:
-        raise NothingToRelease(f"Nothing worth a release on {project.default_branch}: no feat, fix, perf or breaking commit since the last tag")
+        raise NothingToRelease(f"Nothing worth a release on {project.default_branch}: no commit since the last tag")
     version, tip = plan["version"], plan["tip"]
     repo = github.repo_slug(project.repo_url)
     result = {"version": version, "previous": plan["previous"], "sha": tip["sha"], "committed": False, "changes": ""}
