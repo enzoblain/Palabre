@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-03
+
+### Fixed
+
+- release: allow a corrective patch when only commits without a bump follow the last tag (#463)
+
 ## [0.30.0] - 2026-11-03
 
 ### Added
@@ -727,7 +733,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/enzoblain/Palabre/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/enzoblain/Palabre/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/enzoblain/Palabre/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/enzoblain/Palabre/compare/v0.27.0...v0.28.0
