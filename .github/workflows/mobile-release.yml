@@ -32,6 +32,8 @@ jobs:
       version: ${{ steps.detect.outputs.version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - id: detect
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -41,6 +43,13 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # The native projects cannot be generated without the app identifiers (chosen by the CEO)
+          for key in ios.bundleIdentifier android.package; do
+            if ! node -e 'const v = process.argv[1].split(".").reduce((o, k) => o?.[k], require("./mobile/app.json").expo); process.exit(v ? 0 : 1)' "$key"; then
+              echo "::error::expo.$key is missing in mobile/app.json (see docs/mobile-release.md)"
+              exit 1
+            fi
+          done
           version="${REF_NAME#v}"
           # The environment only accepts v* tags: a manual run must pick an existing tag
           if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
