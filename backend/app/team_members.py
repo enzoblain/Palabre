@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import projects, services
 from app.company.catalog import (
     MANDATORY_ROLE,
+    CODE,
     MAX_TEAM_SIZE,
     MIN_TEAM_SIZE,
     load_catalog,
@@ -88,7 +89,8 @@ async def change_member(
 ) -> None:  # fmt: skip
     """Change a member's roles and/or draw their personality from a preset. A new role set
     renews title, permissions and (unless `model` is given) model, keeps the personality, and
-    moves the member between the catalog channels. The lead keeps their roles."""
+    moves the member between the catalog channels. A member who can no longer code gets their
+    unfinished tasks back to todo, unassigned. The lead keeps their roles."""
     _check_preset(preset)
     if roles is not None:
         roles = list(dict.fromkeys(roles))
@@ -98,6 +100,8 @@ async def change_member(
         _check_team_rules([roles if e is employee else e.roles for e in project.employees])
     if roles is not None and roles != employee.roles:
         _rebuild(employee, roles, model)
+        if CODE not in employee.permissions:
+            await _unassign_open_tasks(s, employee)
         _move_between_channels(project, employee, roles)
     if preset is not None:
         _apply_preset(employee, preset)
@@ -133,22 +137,31 @@ def _move_between_channels(project: Project, employee: Employee, roles: list[str
             room.members.remove(employee)
 
 
+async def _unassign_open_tasks(s: AsyncSession, employee: Employee) -> None:
+    await s.execute(
+        update(Task)
+        .where(Task.assignee_id == employee.id, Task.status.not_in(CLOSED_STATUSES))
+        .values(assignee_id=None, status=TaskStatus.todo)
+    )
+
+
+def check_removable(project: Project, employee: Employee) -> None:
+    """Raise if the member cannot be removed (the lead, or a team already at its minimum size)."""
+    if MANDATORY_ROLE in employee.roles:
+        raise WorkflowError(f"The {MANDATORY_ROLE} cannot be removed", code=ErrorCode.LEAD_PROTECTED)
+    if len(project.employees) <= MIN_TEAM_SIZE:
+        raise WorkflowError(f"A team needs at least {MIN_TEAM_SIZE} members", code=ErrorCode.TEAM_TOO_SMALL)
+    _check_team_rules([e.roles for e in project.employees if e is not employee])
+
+
 async def remove_member(s: AsyncSession, project: Project, employee: Employee) -> None:
     """Let a member go: their unfinished tasks go back to todo, unassigned; they leave every
     room and their DMs are deleted; their messages stay (signed by name, and no longer read as
     the boss's). Their reviews of unfinished tasks are withdrawn, so those tasks need a new
     opinion before they can merge; their reviews of finished tasks are deleted with them.
     The lead cannot be removed."""
-    if MANDATORY_ROLE in employee.roles:
-        raise WorkflowError(f"The {MANDATORY_ROLE} cannot be removed", code=ErrorCode.LEAD_PROTECTED)
-    if len(project.employees) <= MIN_TEAM_SIZE:
-        raise WorkflowError(f"A team needs at least {MIN_TEAM_SIZE} members", code=ErrorCode.TEAM_TOO_SMALL)
-    _check_team_rules([e.roles for e in project.employees if e is not employee])
-    await s.execute(
-        update(Task)
-        .where(Task.assignee_id == employee.id, Task.status.not_in(CLOSED_STATUSES))
-        .values(assignee_id=None, status=TaskStatus.todo)
-    )
+    check_removable(project, employee)
+    await _unassign_open_tasks(s, employee)
     await s.execute(delete(Review).where(Review.reviewer_id == employee.id))
     for room in list(project.rooms):
         if room.kind == services.DM and employee in room.members:
