@@ -1,7 +1,7 @@
 // Unit tests of src/navigation.ts, run with Node's built-in test runner (no extra dependency).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { backFallback, filterProjects, lastOpenedFirst, showsBottomBar, statusAfterFailure } from "../src/navigation.ts";
+import { parentPath, filterProjects, lastOpenedFirst, showsBottomBar, statusAfterFailure } from "../src/navigation.ts";
 
 test("the bottom bar shows on the two root screens only", () => {
   assert.equal(showsBottomBar({ name: "home" }), true);
@@ -18,10 +18,11 @@ test("the bottom bar is hidden on every full-screen route", () => {
   for (const route of routes) assert.equal(showsBottomBar(route), false, JSON.stringify(route));
 });
 
-test("the info screen falls back to its project, the others to the projects", () => {
-  assert.equal(backFallback({ name: "info", projectId: 7 }), "/p/7");
-  assert.equal(backFallback({ name: "new" }), "/");
-  assert.equal(backFallback({ name: "project", projectId: 7, conversationId: 3 }), "/");
+test("back arrow leads to the parent screen: info and conversation to their project, the others to the projects", () => {
+  assert.equal(parentPath({ name: "info", projectId: 7 }), "/p/7");
+  assert.equal(parentPath({ name: "project", projectId: 7, conversationId: 3 }), "/p/7");
+  assert.equal(parentPath({ name: "project", projectId: 7, conversationId: null }), "/");
+  assert.equal(parentPath({ name: "new" }), "/");
 });
 
 test("project search ignores case and surrounding spaces, empty search keeps all", () => {

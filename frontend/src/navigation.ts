@@ -12,9 +12,10 @@ export function statusAfterFailure(status: LoadStatus): LoadStatus {
   return status === "loading" ? "error" : status;
 }
 
-/** Fallback of the back button when the page was opened directly: the parent screen. */
-export function backFallback(route: Route): string {
+/** Where the back arrow leads: the parent screen, whatever the browser history holds (direct URL, reload). */
+export function parentPath(route: Route): string {
   if (route.name === "info") return `/p/${route.projectId}`;
+  if (route.name === "project" && route.conversationId !== null) return `/p/${route.projectId}`;
   return "/";
 }
 
