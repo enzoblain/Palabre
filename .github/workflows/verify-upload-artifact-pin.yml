@@ -1,0 +1,21 @@
+name: Verify upload-artifact pin (one-off)
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/verify-upload-artifact-pin.yml
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the pinned SHA against the v4.6.2 tag
+        run: |
+          set -eu
+          pinned=$(grep -o 'actions/upload-artifact@[0-9a-f]\{40\}' .github/workflows/mobile-release.yml 2>/dev/null | head -1 | cut -d@ -f2 || true)
+          pinned=${pinned:-ea165f8d65b6e75b540449e92b4886f43607fa02}
+          refs=$(git ls-remote https://github.com/actions/upload-artifact 'refs/tags/v4.6.2*')
+          echo "$refs"
+          echo "$refs" | grep -q "^$pinned"
