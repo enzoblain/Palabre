@@ -61,7 +61,7 @@ export default function LoginScreen() {
           {translate("login.title")}
         </Text>
         {expired && !error ? (
-          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: colors.secondaryText }}>
+          <Text accessibilityRole="alert" style={{ color: colors.secondaryText }}>
             {translate("login.expired")}
           </Text>
         ) : null}
@@ -135,7 +135,6 @@ export default function LoginScreen() {
             </Text>
             <Text
               accessibilityRole="alert"
-              accessibilityLiveRegion="polite"
               style={[styles.error, styles.flex, { color: colors.error }]}
             >
               {error}
