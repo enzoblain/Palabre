@@ -233,6 +233,7 @@ label.narrow { max-width: 240px; }
 .composer {
   display: flex; align-items: flex-end; gap: 8px; margin: 0 20px 20px; padding: 6px 6px 6px 14px;
   border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+  contain: layout style; /* what changes while typing stays inside the box */
 }
 .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--active); }
 .composer textarea { flex: 1; border: none; padding: 6px 0; resize: none; max-height: 200px; field-sizing: content; box-shadow: none; background: transparent; }

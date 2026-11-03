@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, type ProjectDetail, type ProjectState, api } from "../api";
 import { useI18n } from "../i18n";
-import { goBack } from "../router";
+import { go } from "../router";
 import { BackIcon } from "./Icons";
 import { TeamSection } from "./TeamSection";
 
@@ -129,7 +129,7 @@ export function ProjectInfo({ project, onChanged, onDeleted }: {
   const description = (detail.rooms.find((r) => r.kind === "direction") ?? detail.rooms[0])?.objective.trim();
   return (
     <>
-      <ProjectBar name={detail.name} onBack={() => goBack(`/p/${detail.id}`)} />
+      <ProjectBar name={detail.name} onBack={() => go(`/p/${detail.id}`, true)} />
       <div className="page project-info">
         <ProjectForm detail={detail} onSaved={onChanged} />
         <section aria-labelledby="info-description">
