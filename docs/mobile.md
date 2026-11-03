@@ -2,7 +2,7 @@
 
 Architecture of the Palabre mobile app: iPhone first, Android from the same code, a near clone of iMessage
 in look and behavior. This page is the plan the dev tasks follow; the screens come from the user stories and the
-UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-stories.md)). The web app ([Use the apps](use-the-apps.md)) stays as it is.
+UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-stories.md) and the [UI spec](mobile-ui.md)). The web app ([Use the apps](use-the-apps.md)) stays as it is.
 
 ## Decisions
 
