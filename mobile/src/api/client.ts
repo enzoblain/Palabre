@@ -108,6 +108,7 @@ export async function pairDevice(server: string, adminToken: string, deviceName:
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) throw new ApiError(401, translate("api.wrongToken"));
     if (err instanceof ApiError && err.status === 404) throw new ApiError(404, translate("api.notPalabre"));
+    if (err instanceof ApiError && err.status === 429) throw new ApiError(429, errorMessage(429, "auth_locked"), err.detail, "auth_locked");
     throw err;
   }
 }

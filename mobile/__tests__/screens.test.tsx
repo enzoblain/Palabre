@@ -3,7 +3,13 @@ import { COLORS } from "../src/theme";
 import ConversationScreen from "../app/conversation/[id]";
 import ConversationListScreen from "../app/index";
 import LoginScreen from "../app/login";
+import { SessionProvider } from "../src/session";
 
+jest.mock("expo-secure-store", () => ({
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+}));
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
 
 describe("placeholder screens", () => {
@@ -14,7 +20,7 @@ describe("placeholder screens", () => {
   });
 
   it("renders the login screen", async () => {
-    await render(<LoginScreen />);
+    await render(<SessionProvider><LoginScreen /></SessionProvider>);
     expect(screen.getByRole("header", { name: "Palabre" })).toBeTruthy();
   });
 
