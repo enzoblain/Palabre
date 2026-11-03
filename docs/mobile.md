@@ -1,6 +1,6 @@
 # Mobile app
 
-Architecture of the Palabre mobile app: iPhone first, Android from the same code, a near clone of iMessage
+Architecture of the Palabre mobile app: iPhone only for now (Android later, same code), a near clone of iMessage
 in look and behavior. This page is the plan the dev tasks follow; the screens come from the user stories and the
 UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-stories.md) and the [UI spec](mobile-ui.md)). The web app ([Use the apps](use-the-apps.md)) stays as it is.
 
@@ -101,7 +101,7 @@ Step-by-step guide, secrets and rollback: [Mobile release](mobile-release.md). T
 
 - **Tooling**: decided by the CEO: build on **GitHub-hosted runners**, upload to TestFlight, **no EAS** (no paid
   third-party service holding our certificates). iOS builds on a macOS runner (`npx expo prebuild`, then
-  `xcodebuild archive`); Android on a Linux runner (Gradle, an `.aab`). Signing material stays in our own GitHub
+  `xcodebuild archive`); no Android build for now (no Google Play account). Signing material stays in our own GitHub
   secrets.
 - **Triggers**: only a push of a `vX.Y.Z` tag or `workflow_dispatch`; never `pull_request`. The ordinary CI only
   runs `npm run check`.
@@ -121,7 +121,6 @@ Step-by-step guide, secrets and rollback: [Mobile release](mobile-release.md). T
 - The certificate is imported into a **temporary keychain** created in the job; the keychain is deleted in a final
   step with `if: always()` so it goes away even when the build fails.
 - Nothing secret in the logs (no `set -x` around the import, no echo of the profile).
-- Android: the upload keystore is a secret of the same environment, decoded to a temporary file removed at the end.
 
 Prerequisite: a **paid Apple Developer account**. Without it only an unsigned simulator build can be checked, and
 TestFlight is impossible. This is a blocking question for the CEO (open question 137).
@@ -140,7 +139,7 @@ TestFlight is impossible. This is a blocking question for the CEO (open question
 4. Conversation list with unread counts and the typing indicator (polling). Front.
 5. Conversation: bubbles, composer, sending with retry, polling with `sinceId`. Front.
 6. Project info, team, settings and project creation screens. Front, one task per screen.
-7. DevOps: iOS (TestFlight) and Android workflows, secrets environment, versions. DevOps, with Security review.
+7. DevOps: iOS (TestFlight) workflow, secrets environment, versions. DevOps, with Security review.
 8. Release bump of the mobile version files in `release.py`. Backend.
 9. Device sessions or pairing (longer-lived, revocable token). Backend, then front.
 10. Push notifications: device registration, sending, then the app side. Backend, then front.
@@ -152,4 +151,3 @@ screens.
 
 - Paid Apple Developer account (question 137): who holds it and who can create the certificates (CEO).
 - Pairing flow versus a longer session (backend developers, Security).
-- Name and bundle identifier of the app (CEO).

@@ -1,4 +1,4 @@
-# Mobile release: TestFlight and Android build
+# Mobile release: TestFlight (iPhone)
 
 How the mobile app ([Mobile app](mobile.md)) is built and sent out. The workflow is
 `.github/workflows/mobile-release.yml`. Nothing here uses EAS or another paid service: the builds run on
@@ -8,25 +8,23 @@ GitHub-hosted runners and the signing material stays in our own GitHub secrets.
 
 On every `vX.Y.Z` tag (so on every published version), or on a manual run of the workflow:
 
-- **iOS** (macOS runner): the app is built, signed, and uploaded to **TestFlight**. The marketing version is the
+- **iPhone** (macOS runner): the app is built, signed, and uploaded to **TestFlight**. The marketing version is the
   release version, the build number is the run number. The App Store submission stays manual: in App Store
   Connect, pick the TestFlight build and submit it.
-- **Android** (Linux runner): an `.aab` bundle signed with the upload key is attached to the run as an artifact
-  (kept 30 days). It is **not** published to the Play Store yet.
+There is no Android build and no Google Play account for now: the app ships on iPhone only (CEO decision).
 
-Both jobs skip themselves if `mobile/` is missing. The pull request CI (`ci.yml`, job "Mobile check") only
+The job skips itself if `mobile/` is missing. The pull request CI (`ci.yml`, job "Mobile check") only
 runs `npm run check` in `mobile/` (type check, lint, tests) on Linux: no macOS runner, no secret.
 
 ## Guide for Enzo
 
-Prerequisite: a paid Apple Developer account. You do these steps once; the team never sees the values.
+Prerequisite: a paid Apple Developer account, the only account to create. You do these steps once; the team never sees the values.
 
 ### 1. Create the app in App Store Connect
 
-1. Choose the app identifier, in reverse-domain form (for example `com.yourname.palabre`), and tell the lead:
-   the team sets it in `mobile/app.json` as `expo.ios.bundleIdentifier` and `expo.android.package`. Until it
-   is set, the workflow stops at its first job with a clear message. It cannot be changed once the app is published.
-2. App Store Connect > Apps > "+" > New App, with that bundle identifier.
+1. The app identifier is `fr.enzoblain.palabre`. It is already set in `mobile/app.json` (`expo.ios.bundleIdentifier`)
+   and cannot be changed once the app is published.
+2. App Store Connect > Apps > "+" > New App, with the bundle identifier `fr.enzoblain.palabre`.
 
 ### 2. Create the App Store Connect API key
 
@@ -42,15 +40,7 @@ Prerequisite: a paid Apple Developer account. You do these steps once; the team 
 3. Developer portal > Profiles > "+" > **App Store Connect** (distribution). Pick the app and the certificate,
    download the `.mobileprovision`.
 
-### 4. Create the Android upload key
-
-```sh
-keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000
-```
-
-Keep the file and its passwords in your password manager: losing the key means asking Google for a reset.
-
-### 5. Put the secrets in GitHub
+### 4. Put the secrets in GitHub
 
 1. Repository > Settings > Environments > New environment, named `mobile-release`.
 2. In it: **Deployment branches and tags** > Selected > add the tag rule `v*`; **Required reviewers**: you.
@@ -65,14 +55,10 @@ Keep the file and its passwords in your password manager: losing the key means a
 | `IOS_DIST_CERT_P12_BASE64` | the `.p12` file, base64 |
 | `IOS_DIST_CERT_PASSWORD` | password of the `.p12` |
 | `IOS_PROVISIONING_PROFILE_BASE64` | the `.mobileprovision` file, base64 |
-| `ANDROID_KEYSTORE_BASE64` | `upload.keystore`, base64 |
-| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
-| `ANDROID_KEY_ALIAS` | `upload` |
-| `ANDROID_KEY_PASSWORD` | key password |
 
-### 6. Check
+### 5. Check
 
-The iOS and Android jobs each use the environment, so you approve **twice** per release (once per job).
+The job uses the environment, so you approve once per release.
 
 Run the workflow by hand (Actions > Mobile release > Run workflow). In "Use workflow from", pick an existing
 `vX.Y.Z` **tag**, not a branch: the environment refuses anything else, and the run fails with a clear message.
