@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, type MemberIn, type Personality, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type Role, api } from "../api";
+import { ApiError, type MemberIn, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type Role, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
 import { autoTeamProblems, teamProblems } from "../jobs";
@@ -14,7 +14,6 @@ export function NewProject({ claudeAccounts, onCreated }: {
   onCreated: (project: ProjectDetail) => void;
 }) {
   const { t } = useI18n();
-  const [personality, setPersonality] = useState<Personality | null>(null);
   const [presets, setPresets] = useState<Record<string, PersonalityPreset> | null>(null);
   const [name, setName] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -36,7 +35,6 @@ export function NewProject({ claudeAccounts, onCreated }: {
   useEffect(() => {
     api.names().then(setNames).catch(() => {});
     api.limits().then(setLimits).catch(() => {});
-    api.personality().then(setPersonality).catch(() => {});
     loadPresets();
     api.roles().then(setRoles).catch(() => {});
   }, []);
@@ -56,7 +54,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
   function chooseCreation(next: CreationMode) {
     setCreation(next);
     if (next === "auto") return setCustom(null);
-    if (personality && limits) setCustom((current) => current ?? [mandatoryMember(personality, names, limits.mandatory_role)]);
+    if (limits) setCustom((current) => current ?? [mandatoryMember(names, limits.mandatory_role)]);
   }
 
   const repoValid = GITHUB_URL.test(repoUrl.trim());
@@ -112,7 +110,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
 
       <CompanyTeamSection creation={creation} onCreationChange={chooseCreation} description={description}
         onDescriptionChange={setDescription} employeeCount={headCount} onEmployeeCountChange={setEmployeeCount}
-        custom={custom} onCustomChange={setCustom} roles={roles} personality={personality} presets={presets}
+        custom={custom} onCustomChange={setCustom} roles={roles} presets={presets}
         limits={limits} names={names} claudeAccounts={claudeAccounts} presetsFailed={presetsFailed}
         onRetryPresets={loadPresets} problems={problems} />
 

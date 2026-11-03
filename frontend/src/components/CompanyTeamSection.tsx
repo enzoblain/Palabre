@@ -1,4 +1,4 @@
-import type { CatalogLimits, MemberIn, Personality, PersonalityPreset, Role } from "../api";
+import type { CatalogLimits, MemberIn, PersonalityPreset, Role } from "../api";
 import { useI18n } from "../i18n";
 import { TeamEditor } from "./TeamEditor";
 
@@ -7,7 +7,7 @@ export type CreationMode = "auto" | "manual";
 /** Company team: hired from a description (auto) or listed by hand (manual). */
 export function CompanyTeamSection({
   creation, onCreationChange, description, onDescriptionChange, employeeCount, onEmployeeCountChange,
-  custom, onCustomChange, roles, personality, presets, limits, names, claudeAccounts,
+  custom, onCustomChange, roles, presets, limits, names, claudeAccounts,
   presetsFailed, onRetryPresets, problems,
 }: {
   creation: CreationMode;
@@ -19,7 +19,6 @@ export function CompanyTeamSection({
   custom: MemberIn[] | null;
   onCustomChange: (members: MemberIn[]) => void;
   roles: Record<string, Role> | null;
-  personality: Personality | null;
   presets: Record<string, PersonalityPreset> | null;
   limits: CatalogLimits | null;
   names: string[];
@@ -38,7 +37,7 @@ export function CompanyTeamSection({
           <button type="button" role="tab" aria-selected={creation === "auto"} className={creation === "auto" ? "selected" : ""}
             onClick={() => onCreationChange("auto")}>{t("new.creationAuto")}</button>
           <button type="button" role="tab" aria-selected={creation === "manual"} className={creation === "manual" ? "selected" : ""}
-            disabled={!roles || !personality || !presets || !limits} onClick={() => onCreationChange("manual")}>
+            disabled={!roles || !presets || !limits} onClick={() => onCreationChange("manual")}>
             {t("new.creationManual")}
           </button>
         </div>
@@ -66,8 +65,8 @@ export function CompanyTeamSection({
       ) : (
         <>
           {limits && <p className="muted">{t("new.introManual", { min: limits.min_team_size })}</p>}
-          {custom && roles && personality && presets && limits && (
-            <TeamEditor members={custom} onChange={onCustomChange} roles={roles} personality={personality} presets={presets}
+          {custom && roles && presets && limits && (
+            <TeamEditor members={custom} onChange={onCustomChange} roles={roles} presets={presets}
               names={names} claudeAccounts={claudeAccounts} limits={limits} mandatoryRole={limits.mandatory_role} />
           )}
         </>

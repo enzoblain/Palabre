@@ -106,23 +106,11 @@ export type Decision = {
   decided_at: string | null;
 };
 
-export type Axis = { key: string; label: string; low: string; high: string };
-export type Personality = {
-  levels: number[];
-  axes: Axis[];
-  quirks: string[];
-  // Style key (verbosity, tone) → possible values
-  style: Record<string, string[]>;
-};
-
-/** A named personality of the catalog (PersonalityPresetOut on the server); traits not listed are neutral. */
+/** A named personality of the catalog (PersonalityPresetOut on the server): the screen only shows its name and description. */
 export type PersonalityPreset = {
   key: string;
   label: string;
   description: string;
-  traits: Record<string, number>;
-  quirks: string[];
-  style: Record<string, string>;
 };
 
 export type Model = "haiku" | "sonnet" | "opus";
@@ -169,11 +157,8 @@ export type MemberIn = {
   name: string;
   roles: string[];
   model: string | null;
-  traits: Record<string, number>;
-  quirks: string[];
-  style: Record<string, string>;
-  // Key of the preset the personality started from (the fields above override it)
-  personality?: string | null;
+  // Key of a personality preset; null: the server draws one at random
+  personality: string | null;
   account: number | null;
 };
 
@@ -366,7 +351,6 @@ export const api = {
   saveSettings: (changes: { boss_name?: string; language?: string }) =>
     call<AppSettings>("/settings", "PUT", changes),
 
-  personality: () => call<Personality>("/catalog/personality"),
   personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
   roles: () => call<Record<string, Role>>("/catalog/roles"),
   limits: () => call<CatalogLimits>("/catalog/limits"),
