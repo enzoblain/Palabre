@@ -70,8 +70,12 @@ Keep the file and its passwords in your password manager: losing the key means a
 
 ### 6. Check
 
-Run the workflow by hand (Actions > Mobile release > Run workflow), approve the environment, and look for the
-build in App Store Connect > TestFlight (Apple processes it for a few minutes).
+The iOS and Android jobs each use the environment, so you approve **twice** per release (once per job).
+
+
+Run the workflow by hand (Actions > Mobile release > Run workflow). In "Use workflow from", pick an existing
+`vX.Y.Z` **tag**, not a branch: the environment refuses anything else, and the run fails with a clear message.
+Approve the environment, and look for the build in App Store Connect > TestFlight (Apple processes it for a few minutes).
 
 ## Security rules the workflow follows
 
