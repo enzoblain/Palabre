@@ -7,29 +7,6 @@ import { Markdown, mentionsAny } from "./Markdown";
 const LONG_PRESS_MS = 500;
 const COPIED_FEEDBACK_MS = 1500;
 
-/** What became of a request of the lead: the boss answers in the chat, so only the closed states show. */
-function RequestBox({ message: m }: { message: Message }) {
-  const { t, tr } = useI18n();
-  if (m.request_status === "withdrawn" || m.request_status === "merged") {
-    return (
-      <div className="request">
-        <p className="request-answer muted">
-          {m.request_status === "merged" && m.request_merged_into
-            ? tr("request.mergedInto", {
-                link: <a href={`#message-${m.request_merged_into}`} onClick={(e) => {
-                  const target = document.getElementById(`message-${m.request_merged_into}`);
-                  if (target) { e.preventDefault(); target.scrollIntoView({ block: "center" }); target.focus(); }
-                }}>{t("request.link", { id: m.request_merged_into })}</a>,
-              })
-            : m.request_status === "merged" ? t("request.mergedAnother") : t("request.withdrawn")}
-          {m.request_status === "withdrawn" && m.request_comment ? <>: <q>{m.request_comment}</q></> : ""}
-        </p>
-      </div>
-    );
-  }
-  return null;
-}
-
 /** Full date and time a message was sent, for the Info action. */
 function formatSentAt(value: string): string {
   return parseDate(value).toLocaleString(locale(), { dateStyle: "long", timeStyle: "medium" });
@@ -96,7 +73,6 @@ export const MessageRow = memo(function MessageRow({ message: m, grouped, title,
   const system = m.is_system;
   const boss = m.employee_id === null && !system;
   const forMe = !boss && !system && mentionsAny(m.content, selfNames);
-  const closed = m.request_status === "withdrawn" || m.request_status === "merged";
   const body = <div className="message-body"><Markdown content={m.content} selfNames={selfNames} /></div>;
 
   const cancelPress = () => window.clearTimeout(pressTimer.current);
@@ -107,7 +83,7 @@ export const MessageRow = memo(function MessageRow({ message: m, grouped, title,
   useEffect(() => cancelPress, []);
 
   return (
-    <div id={`message-${m.id}`} tabIndex={-1} className={`message${closed ? " request-closed" : ""}${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
+    <div id={`message-${m.id}`} tabIndex={-1} className={`message${grouped ? " grouped" : ""}${boss ? " from-boss" : ""}${system ? " from-system" : ""}${forMe ? " mentions-me" : ""}`}>
       <div className="bubble-wrap">
         {!grouped && !boss && (
           <div className="message-meta">
@@ -118,8 +94,7 @@ export const MessageRow = memo(function MessageRow({ message: m, grouped, title,
         <div className="bubble" onPointerDown={startPress} onPointerUp={cancelPress} onPointerLeave={cancelPress}
           onPointerCancel={cancelPress}
           onContextMenu={(e) => { e.preventDefault(); setMenuOpen(true); }}>
-          {closed ? <details className="request-closed-body"><summary>{t("conv.originalRequest")}</summary>{body}</details> : body}
-          {m.request_status && !boss && !system && <RequestBox message={m} />}
+          {body}
           <button className="bubble-more" aria-label={t("conv.actions")} aria-haspopup="menu" aria-expanded={menuOpen}
             onClick={() => setMenuOpen(true)}>⋯</button>
         </div>
