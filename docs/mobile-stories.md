@@ -1,6 +1,6 @@
 # Mobile app: v1 user stories
 
-User stories and acceptance criteria for the Palabre mobile app. Author: Chloé (Product Owner). For the technical design of the app, see the mobile architecture document, which is a separate topic.
+User stories and acceptance criteria for the Palabre mobile app. Author: Chloé (Product Owner). For the technical design of the app, see [Mobile app](mobile.md).
 
 Common rules for every story: iPhone first, Android from the same code, look and feel close to iMessage (Emma's spec). The user is the CEO.
 
