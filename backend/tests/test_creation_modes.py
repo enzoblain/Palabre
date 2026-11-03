@@ -181,6 +181,14 @@ async def test_manual_creation_without_the_lead_is_refused(projects_client):
     assert projects_client.created == []
 
 
+async def test_manual_creation_with_two_leads_is_refused(projects_client):
+    team = [*TEAM_PAYLOAD, {"name": "Zoe", "roles": ["lead"]}]
+    response = await projects_client.post("/projects", json=_payload(creation_mode="manual", employees=team))
+    assert response.status_code == 409
+    assert response.json()["code"] == ErrorCode.LEAD_ALREADY_EXISTS
+    assert projects_client.created == []
+
+
 async def test_manual_creation_without_a_team_is_refused(projects_client):
     response = await projects_client.post("/projects", json=_payload(creation_mode="manual"))
     assert response.status_code == 422

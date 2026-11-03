@@ -216,4 +216,4 @@ async def test_real_app_custom_team_with_two_leads_is_refused(real_client, monke
     monkeypatch.setattr(github, "resolve_branch", reachable_branch)
     team = [{"name": "Ada", "roles": ["lead"]}, {"name": "Bob", "roles": ["lead"]}]
     r = await real_client.post("/api/projects", json={"name": "P", "repo_url": "https://github.com/o/r", "employees": team})
-    assert r.status_code == 422 and r.json()["code"] == "invalid_team_permissions"
+    assert r.status_code == 409 and r.json()["code"] == "lead_already_exists"

@@ -167,6 +167,10 @@ def _check_team(employees: list[MemberIn]) -> None:
             ErrorCode.LEAD_REQUIRED,
             f"The team needs a {MANDATORY_ROLE} (they organize and merge)",
         )
+    if sum(MANDATORY_ROLE in e.roles for e in employees) > 1:
+        raise ApiError(
+            status.HTTP_409_CONFLICT, ErrorCode.LEAD_ALREADY_EXISTS, f"The team can have only one {MANDATORY_ROLE}"
+        )
     if problem := team_permission_error([e.roles for e in employees]):
         raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, ErrorCode.INVALID_TEAM_PERMISSIONS, problem)
     _check_accounts([e.account for e in employees if e.account is not None])
