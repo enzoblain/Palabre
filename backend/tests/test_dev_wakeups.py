@@ -16,8 +16,9 @@ from .conftest import make_employee, make_project, make_task
 class Session:
     """scalar() and scalars() serve queued answers in call order (the queries are ignored)."""
 
-    def __init__(self, *, scalar=(), scalars=()):
+    def __init__(self, *, scalar=(), scalars=(), get_result=None):
         self.scalar_results, self.scalars_results = list(scalar), list(scalars)
+        self.get_result = get_result
         self.added, self.commits = [], 0
 
     async def scalar(self, _query):
@@ -26,8 +27,8 @@ class Session:
     async def scalars(self, _query):
         return self.scalars_results.pop(0) if self.scalars_results else []
 
-    async def get(self, *_):
-        return make_project()
+    async def get(self, *_, **__):
+        return self.get_result or make_project()
 
     def add(self, obj):
         self.added.append(obj)
