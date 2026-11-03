@@ -100,7 +100,7 @@ the app works with polling. A WebSocket or SSE endpoint is not needed for v1.
 Step-by-step guide, secrets and rollback: [Mobile release](mobile-release.md). The sketch:
 
 - **Tooling**: decided by the CEO: build on **GitHub-hosted runners**, upload to TestFlight, **no EAS** (no paid
-  third-party service holding our certificates). iOS builds on a macOS runner (`npx expo prebuild`, then
+  third-party service holding our certificates). iOS builds on a macOS runner (`npx expo prebuild`, `pod install`, then
   `xcodebuild archive`); no Android build for now (no Google Play account). Signing material stays in our own GitHub
   secrets.
 - **Triggers**: only a push of a `vX.Y.Z` tag or `workflow_dispatch`; never `pull_request`. The ordinary CI only
