@@ -327,6 +327,7 @@ async def remove_employee(employee_id: int, s: SessionDep):
     the lead, `team_too_small` under the minimum size."""
     employee = await get_or_404(s, Employee, employee_id)
     project = await _project(s, employee.project_id)
+    team_members.check_removable(project, employee)  # Refuse before stopping any work
     await orchestrator.cancel_runs([employee_id])
     await team_members.remove_member(s, project, employee)
 

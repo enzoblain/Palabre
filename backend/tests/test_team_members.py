@@ -149,19 +149,21 @@ async def test_remove_member_unassigns_open_tasks_and_keeps_messages(db, cancell
     assert cancelled == [bob_id]
 
 
-async def test_remove_the_lead_is_refused(db):
+async def test_remove_the_lead_is_refused(db, cancelled):
     project = await _team(db, (("lead",), ("dev_backend",), ("reviewer",), ("qa",), ("qa",)))
     with pytest.raises(WorkflowError) as error:
         await api.remove_employee(_by_name(project, "Ada").id, db)
     assert error.value.code == ErrorCode.LEAD_PROTECTED
+    assert cancelled == []
 
 
-async def test_remove_below_the_minimum_size_is_refused(db):
+async def test_remove_below_the_minimum_size_is_refused(db, cancelled):
     project = await _team(db)
     assert len(project.employees) == MIN_TEAM_SIZE
     with pytest.raises(WorkflowError) as error:
         await api.remove_employee(_by_name(project, "Dan").id, db)
     assert error.value.code == ErrorCode.TEAM_TOO_SMALL
+    assert cancelled == []
 
 
 async def test_change_role_renews_permissions_and_channels(db):
@@ -173,6 +175,40 @@ async def test_change_role_renews_permissions_and_channels(db):
     project = await api.projects.load_project(db, project.id)
     dev = next(r for r in project.rooms if r.name == "dev")
     assert "Bob" not in {m.name for m in dev.members}
+
+
+async def test_change_role_to_one_without_code_unassigns_open_tasks(db):
+    project = await _team(db)
+    bob = _by_name(project, "Bob")
+    room_id = project.rooms[0].id
+    conversation = Conversation(room_id=room_id, title="c")
+    db.add(conversation)
+    await db.flush()
+    where = dict(project_id=project.id, room_id=room_id, conversation_id=conversation.id)
+    open_task = Task(**where, title="a", assignee_id=bob.id, status=TaskStatus.in_progress)
+    done_task = Task(**where, title="b", assignee_id=bob.id, status=TaskStatus.done)
+    db.add_all([open_task, done_task])
+    await db.commit()
+    await api.update_employee(bob.id, EmployeePatch(roles=["qa"]), db)
+    assert (open_task.assignee_id, open_task.status) == (None, TaskStatus.todo)
+    assert done_task.assignee_id == bob.id
+
+
+async def test_change_role_to_one_with_code_keeps_open_tasks(db):
+    project = await _team(db)
+    bob = _by_name(project, "Bob")
+    room_id = project.rooms[0].id
+    conversation = Conversation(room_id=room_id, title="c")
+    db.add(conversation)
+    await db.flush()
+    task = Task(
+        project_id=project.id, room_id=room_id, conversation_id=conversation.id, title="a",
+        assignee_id=bob.id, status=TaskStatus.in_progress,
+    )  # fmt: skip
+    db.add(task)
+    await db.commit()
+    await api.update_employee(bob.id, EmployeePatch(roles=["dev_frontend"]), db)
+    assert (task.assignee_id, task.status) == (bob.id, TaskStatus.in_progress)
 
 
 async def test_change_role_of_the_lead_is_refused(db):
@@ -220,12 +256,11 @@ async def test_remove_member_deletes_their_dms_and_withdraws_their_reviews(db):
     review = Review(task_id=task.id, reviewer_id=dan.id, verdict=Verdict.approve, round=1, body="ok")
     db.add(review)
     await db.commit()
-    dm_with_bob_id, dm_other_id, dan_id, review_id = dm_with_bob.id, dm_other.id, dan.id, review.id
+    bob_id, dm_with_bob_id, dm_other_id, dan_id, review_id = bob.id, dm_with_bob.id, dm_other.id, dan.id, review.id
 
     await api.remove_employee(dan_id, db)
     assert await db.get(Review, review_id) is None
     assert await db.get(Room, dm_other_id) is None
 
-    bob_id = (await db.get(Room, dm_with_bob_id)).members[0].id
     await api.remove_employee(bob_id, db)
     assert await db.get(Room, dm_with_bob_id) is None
