@@ -436,3 +436,16 @@ class AgentRun(Base):
     account: Mapped[int | None]
 
     employee: Mapped[Employee] = relationship()
+
+
+class DeviceSession(Base):
+    """A paired phone: only the HMAC of its token is stored; revoking deletes the row (see devices.py)."""
+
+    __tablename__ = "device_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = created_at_column()
+    last_used_at: Mapped[datetime] = created_at_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

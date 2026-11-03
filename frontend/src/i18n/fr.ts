@@ -34,6 +34,7 @@ export const fr: Messages = {
   "error.employee_not_found": "Cet employé n’existe pas",
   "error.message_not_found": "Ce message n’existe pas",
   "error.question_not_found": "Cette question n’existe pas",
+  "error.device_not_found": "Cet appareil n’existe pas",
   "error.mode_not_found": "Ce mode n’existe pas",
   "error.unknown_mode": "Mode inconnu",
   "error.invalid_repository": "Dépôt invalide",

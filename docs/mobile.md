@@ -60,22 +60,19 @@ The browser rules (CORS) do not apply to a native app: `cors_origins` needs no c
 
 ### Authentication
 
-The API is protected by a bearer token. The flow is the one of the web app (`POST /api/auth/session`):
+Each phone gets its own long-lived, revocable device session (`/api/auth/devices`), separate from the 12-hour web session (`POST /api/auth/session`, unchanged):
 
-1. The user enters the server URL and the `ADMIN_TOKEN` once.
-2. The app exchanges it for a session token (`expires_at`, 12 hours by default, `SESSION_TTL_SECONDS`).
-3. Only the session token is stored (secure storage). The `ADMIN_TOKEN` is dropped from memory right after the
-   exchange and never written to disk.
-4. On a `401` the app clears the session and goes back to the login screen, like `onUnauthorized` on the web.
+1. The user enters the server URL and the `ADMIN_TOKEN` (the access code) once.
+2. The app pairs with `POST /api/auth/devices` (`Authorization: Bearer <ADMIN_TOKEN>`, body `{"name": "<device name>"}`, 1 to 100 characters). It answers `201` with `id`, `name`, `created_at`, `last_used_at`, `expires_at` and `token`, an opaque `pdev_...` string returned this once only.
+3. Only the device token is stored (secure storage). The `ADMIN_TOKEN` is dropped from memory right after and never written to disk.
+4. The token is sent as a bearer token like any session token. Its expiry slides: `DEVICE_SESSION_TTL_SECONDS` (30 days by default) counted from the last use, written at most once a minute per device although the app polls every 2 s.
+5. On a `401` (revoked, expired or unknown token) the app clears the session and goes back to the login screen, like `onUnauthorized` on the web.
 
-Missing on the backend (to be agreed with the backend developers before the login task):
+Management, behind a valid session (a device token or the web session): `GET /api/auth/devices` lists the devices (`id`, `name`, `created_at`, `last_used_at`, `expires_at`, never a token) and `DELETE /api/auth/devices/{id}` revokes one (`204`, `404` with `device_not_found` if unknown). Pairing needs the raw `ADMIN_TOKEN`: a session or device token cannot pair a new device.
 
-- A 12-hour session means typing a 64-character secret on a phone every day. Options: a longer TTL for a
-  device session, or a refresh endpoint, or a pairing flow (the web app shows a QR code or a one-time code that
-  the phone scans, and gets its own revocable token). Pairing is the best experience and keeps the
-  `ADMIN_TOKEN` off the phone; it is a backend task. Until then, paste from a password manager and accept the
-  daily login.
-- No way to revoke one device: rotating `ADMIN_TOKEN` revokes every session.
+Security: the database stores only an HMAC-SHA256 of the token, keyed by a key derived from the `ADMIN_TOKEN`, so changing the `ADMIN_TOKEN` revokes every phone. A wrong token, at pairing or later, feeds the same per-IP failure counter as the rest of the API (`429` once locked). The database is read only for tokens starting with `pdev_`.
+
+Out of scope for v1: pairing by QR code or one-time code, push tokens, the web screen to revoke devices (separate task).
 
 ### Real time
 

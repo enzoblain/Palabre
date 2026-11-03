@@ -36,4 +36,5 @@ NOT_FOUND = {
     "Employee": ErrorCode.EMPLOYEE_NOT_FOUND,
     "Message": ErrorCode.MESSAGE_NOT_FOUND,
     "OpenQuestion": ErrorCode.QUESTION_NOT_FOUND,
+    "DeviceSession": ErrorCode.DEVICE_NOT_FOUND,
 }

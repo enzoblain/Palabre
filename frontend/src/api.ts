@@ -229,6 +229,7 @@ export const ERROR_CODES = [
   "employee_not_found",
   "message_not_found",
   "question_not_found",
+  "device_not_found",
   "mode_not_found",
   "unknown_mode",
   "invalid_repository",
