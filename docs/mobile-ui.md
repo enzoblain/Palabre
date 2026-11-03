@@ -79,7 +79,7 @@ Light / dark values are written `light/dark`.
 
 - Multiline field (max 5 lines), secondary background, radius 18.
 - Round send button 32, blue, with an arrow, label "Envoyer", disabled when empty.
-- Sending: bubble at 60 % opacity.
+- Sending: the bubble background turns a paler blue (`sendingBubble`, 4.5:1 with the white text); the text is never faded.
 - Failure: error icon + "Non envoyé. Touche pour réessayer."
 - The bar follows the keyboard and respects the safe area.
 - No photos and no reactions in v1.

@@ -4,7 +4,7 @@ import { translate } from "../i18n";
 import { AVATAR_INITIALS_MAX_FONT_SCALE, FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../theme";
 
 export const HEADER_AVATAR_SIZE = 32;
-const SIDE_WIDTH = 96; // same width on both sides keeps the name centered
+const SIDE_MIN_WIDTH = 96; // same minimum on both sides keeps the name centered; the back label may grow past it
 
 type Props = { name: string | null; onBack: () => void };
 
@@ -37,9 +37,9 @@ export function ConversationHeader({ name, onBack }: Props) {
 
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", minHeight: MIN_TOUCH_TARGET + SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
-  side: { width: SIDE_WIDTH, minHeight: MIN_TOUCH_TARGET, justifyContent: "center", paddingHorizontal: SPACING.md },
+  side: { minWidth: SIDE_MIN_WIDTH, minHeight: MIN_TOUCH_TARGET, justifyContent: "center", paddingHorizontal: SPACING.md },
   back: { fontSize: FONT_SIZE.body },
-  center: { flex: 1, alignItems: "center", gap: SPACING.xs },
+  center: { flex: 1, flexShrink: 1, alignItems: "center", gap: SPACING.xs },
   avatar: { width: HEADER_AVATAR_SIZE, height: HEADER_AVATAR_SIZE, borderRadius: HEADER_AVATAR_SIZE / 2, alignItems: "center", justifyContent: "center" },
   initials: { fontSize: FONT_SIZE.caption, fontWeight: "600" },
   name: { fontSize: FONT_SIZE.caption, fontWeight: "600" },
