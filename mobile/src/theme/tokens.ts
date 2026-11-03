@@ -8,6 +8,7 @@ export type Colors = {
   secondaryText: string;
   separator: string;
   sentBubble: string;
+  link: string;
   sentBubbleText: string;
   receivedBubble: string;
   error: string;
@@ -23,6 +24,7 @@ export const COLORS: Record<ColorScheme, Colors> = {
     secondaryText: "#6C6C70",
     separator: "#C6C6C8",
     sentBubble: "#0066E0",
+    link: "#0066E0",
     sentBubbleText: "#FFFFFF",
     receivedBubble: "#E9E9EB",
     error: "#D70015",
@@ -36,6 +38,7 @@ export const COLORS: Record<ColorScheme, Colors> = {
     secondaryText: "#98989F",
     separator: "#38383A",
     sentBubble: "#0066E0",
+    link: "#4DA3FF",
     sentBubbleText: "#FFFFFF",
     receivedBubble: "#26262A",
     error: "#FF453A",

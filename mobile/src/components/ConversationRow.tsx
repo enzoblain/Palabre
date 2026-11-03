@@ -49,7 +49,7 @@ export function ConversationRow({ item, onPress }: Props) {
           >
             {preview}
           </Text>
-          {unread ? <View style={[styles.dot, { backgroundColor: colors.sentBubble }]} /> : null}
+          {unread ? <View style={[styles.dot, { backgroundColor: colors.link }]} /> : null}
         </View>
       </View>
     </Pressable>

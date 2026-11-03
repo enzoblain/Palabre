@@ -17,7 +17,7 @@ export function ErrorBanner({ message, onRetry }: Props) {
         {message}
       </Text>
       <Pressable accessibilityRole="button" onPress={onRetry} style={styles.button}>
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.retry, { color: colors.sentBubble }]}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.retry, { color: colors.link }]}>
           {translate("common.retry")}
         </Text>
       </Pressable>
