@@ -50,6 +50,7 @@ From there the team works on its own:
    the squash commit's; the PR body says `Palabre task #60`. Review and QA comments and release notes are in English too (release notes keep the standard text, not Conventional Commits bullets).
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.
+   `get_diff` returns the `Head:` commit, the stat and the diff. Lockfiles (`package-lock.json`, `yarn.lock`, `uv.lock`, `Cargo.lock`... see `LOCKFILE_NAMES` in `diff_view.py`) are listed with their added and removed line counts but their content is not shown. The diff is cut by whole files at 100,000 characters: a file that does not fit is left out and named in a closing note, and the files after it are still shown.
    Security's approval is required (where the company has the gate) for a PR on a sensitive path, or for a task the lead marked `sensitive` with `create_task` / `update_task`; see [Security](security.md).
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
