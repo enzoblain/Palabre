@@ -19,7 +19,7 @@ concurrency:
 env:
   NODE_VERSION: "22"
   # Pinned: the default Xcode of the runner image changes without notice
-  XCODE_VERSION: "16.4"
+  XCODE_VERSION: "26.3"
 
 jobs:
   # Skips the signing jobs while the app or the tag does not allow a release build
