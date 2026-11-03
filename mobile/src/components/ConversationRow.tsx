@@ -2,14 +2,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ProjectListItem } from "../api";
 import { avatarColor, formatListTime, initials } from "../format/conversations";
 import { translate } from "../i18n";
-import { FONT_SIZE, MIN_TOUCH_TARGET, SPACING, useColors } from "../theme";
+import { AVATAR_INITIALS_MAX_FONT_SCALE, FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../theme";
 
 export const AVATAR_SIZE = 48;
 export const ROW_MIN_HEIGHT = 76;
 export const SEPARATOR_INSET = 76;
 const UNREAD_DOT_SIZE = 10;
 const PREVIEW_FONT_SIZE = 15;
-export const MAX_FONT_SCALE = 2; // Dynamic Type cap on the list
 
 type Props = { item: ProjectListItem; onPress: (item: ProjectListItem) => void };
 
@@ -29,7 +28,7 @@ export function ConversationRow({ item, onPress }: Props) {
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.secondaryBackground }]}
     >
       <View style={[styles.avatar, { backgroundColor: avatarColor(item.name) }]}>
-        <Text maxFontSizeMultiplier={1.2} style={styles.initials}>
+        <Text maxFontSizeMultiplier={AVATAR_INITIALS_MAX_FONT_SCALE} style={[styles.initials, { color: colors.avatarText }]}>
           {initials(item.name)}
         </Text>
       </View>
@@ -67,7 +66,7 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, alignItems: "center", justifyContent: "center" },
-  initials: { color: "#FFFFFF", fontSize: FONT_SIZE.body, fontWeight: "600" },
+  initials: { fontSize: FONT_SIZE.body, fontWeight: "600" },
   body: { flex: 1, gap: SPACING.xs },
   header: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   name: { flex: 1, fontSize: FONT_SIZE.body, fontWeight: "700" },

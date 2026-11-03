@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { translate } from "../i18n";
-import { FONT_SIZE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../theme";
+import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../theme";
 
 type Props = { message: string; onRetry: () => void };
 
@@ -13,11 +13,11 @@ export function ErrorBanner({ message, onRetry }: Props) {
       accessibilityLiveRegion="polite"
       style={[styles.banner, { backgroundColor: colors.secondaryBackground }]}
     >
-      <Text maxFontSizeMultiplier={2} style={[styles.message, { color: colors.error }]}>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.message, { color: colors.error }]}>
         {message}
       </Text>
       <Pressable accessibilityRole="button" onPress={onRetry} style={styles.button}>
-        <Text maxFontSizeMultiplier={2} style={[styles.retry, { color: colors.sentBubble }]}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.retry, { color: colors.sentBubble }]}>
           {translate("common.retry")}
         </Text>
       </Pressable>
