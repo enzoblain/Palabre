@@ -24,6 +24,12 @@ updates:
       docker-images:
         patterns:
           - "*"
+    # Exceptions of docs/dependencies.md: Python 3.12 and Node majors move by hand.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /
     target-branch: dev
@@ -33,6 +39,10 @@ updates:
       docker-compose-images:
         patterns:
           - "*"
+    # Exception of docs/dependencies.md: a PostgreSQL major is a data migration.
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /frontend
     target-branch: dev

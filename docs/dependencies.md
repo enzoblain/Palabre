@@ -38,11 +38,15 @@ Dependabot opens one grouped weekly PR on `dev` per ecosystem (GitHub Actions, D
 images stay pinned by SHA or digest, and only Dependabot resolves the real SHA or digest, so a bump
 is always a reviewed PR that CI builds and tests. Never write a pin by hand.
 
-Exceptions, bumped by a dedicated task and not by Dependabot:
+Exceptions, bumped by a dedicated task and not by Dependabot (each one has an `ignore` rule in
+`.github/dependabot.yml`):
 
-- PostgreSQL stays on 16: a major change is a data migration.
-- Python stays on 3.12 until the backend image and the locks move together.
-- Node.js: the CI `node-version` and the `frontend/Dockerfile` tag must stay on the same major.
-  Move both in the same PR, with the digest taken from the registry.
+- PostgreSQL stays on 16 (`postgres` majors ignored in the docker-compose entry): a major change is
+  a data migration.
+- Python stays on 3.12 (`python` major and minor ignored in the docker entry) until the backend
+  image and the locks move together.
+- Node.js majors (`node` majors ignored in the docker entry): the CI `node-version` and the
+  `frontend/Dockerfile` tag must stay on the same major, so a major is moved by hand in one PR,
+  with the digest taken from the registry. Dependabot still bumps minor and patch tags.
 
 The frontend has no `engines` field in `package.json`.
