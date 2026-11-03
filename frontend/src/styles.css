@@ -166,7 +166,8 @@ label.narrow { max-width: 240px; }
 .intro { margin: auto 20px 16px; padding: 20px; border: 1px dashed var(--border); border-radius: var(--radius); }
 .intro h2 { font-size: 18px; margin-bottom: 6px; }
 .intro p { margin: 0; }
-.message { display: flex; padding: 3px 16px; }
+/* Off-screen messages skip layout and paint, so a composer resize or a poll does not relayout hundreds of bubbles */
+.message { display: flex; padding: 3px 16px; content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .message.grouped { padding-top: 0; }
 .message.from-boss { justify-content: flex-end; }
 .bubble-wrap { position: relative; max-width: min(78%, 640px); min-width: 0; display: flex; flex-direction: column; }
@@ -233,6 +234,7 @@ label.narrow { max-width: 240px; }
 .composer {
   display: flex; align-items: flex-end; gap: 8px; margin: 0 20px 20px; padding: 6px 6px 6px 14px;
   border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+  contain: layout style; /* what changes while typing stays inside the box */
 }
 .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--active); }
 .composer textarea { flex: 1; border: none; padding: 6px 0; resize: none; max-height: 200px; field-sizing: content; box-shadow: none; background: transparent; }
