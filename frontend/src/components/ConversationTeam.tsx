@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import type { Employee } from "../api";
 import { useI18n } from "../i18n";
 import { Avatar } from "./Avatar";
-import { sortedPeople } from "./TeamPanel";
 
 /** The right-hand team column of a conversation on large screens. Takes the focus when it opens. */
 export function ConversationTeam({ employees, onClose }: { employees: Employee[]; onClose: () => void }) {
@@ -32,4 +31,12 @@ export function ConversationTeam({ employees, onClose }: { employees: Employee[]
       </ul>
     </aside>
   );
+}
+
+/** The lead first, then the others by name. */
+export function sortedPeople(employees: Employee[]): Employee[] {
+  return [...employees].sort((a, b) => {
+    const lead = Number(b.roles.includes("lead")) - Number(a.roles.includes("lead"));
+    return lead || a.name.localeCompare(b.name);
+  });
 }

@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectListItem, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
+import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectListItem, type ProjectState, api, getConnection, saveConnection, setUnauthorizedHandler } from "./api";
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { BottomBar } from "./components/BottomBar";
-import { InfoIcon, MenuIcon } from "./components/Icons";
+import { InfoIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { ProjectBar, ProjectInfo } from "./components/ProjectInfo";
-import { Projects } from "./components/Projects";
-import { ProjectsSidebar } from "./components/ProjectsSidebar";
+import { Projects, type ProjectsStatus } from "./components/Projects";
 import { Settings } from "./components/Settings";
-import { ProjectMenu, type ProjectState, TeamPanel } from "./components/TeamPanel";
 import { I18nProvider, useI18n } from "./i18n";
-import { useIsDesktop } from "./layout";
+import { backFallback, rememberOpenedProject, showsBottomBar } from "./navigation";
 import { go, goBack, useRoute } from "./router";
 import { formatTime, usePolling } from "./util";
 
@@ -78,8 +76,8 @@ function useProject(projectId: number | null) {
 function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const { t, language, setLanguage } = useI18n();
   const route = useRoute();
-  const desktop = useIsDesktop();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [projectsStatus, setProjectsStatus] = useState<ProjectsStatus>("loading");
   const [settings, setSettings] = useState<AppSettings>({
     boss_name: "", language, languages: {}, claude_accounts: 1,
   });
@@ -91,11 +89,14 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   const claudeAccounts = settings.claude_accounts;
   const projectId = "projectId" in route ? route.projectId : null;
   const { project, error, reload: reloadProject } = useProject(projectId);
-  // Small screens: the team panel is a drawer over the page, and closes once a link is followed
-  const [navOpen, setNavOpen] = useState(false);
-  useEffect(() => setNavOpen(false), [route]);
+  useEffect(() => {
+    if (projectId !== null) rememberOpenedProject(projectId);
+  }, [projectId]);
 
-  const reloadProjects = useCallback(() => api.listProjects().then(setProjects).catch(() => {}), []);
+  const reloadProjects = useCallback(() => api.listProjects().then((list) => {
+    setProjects(list);
+    setProjectsStatus("ready");
+  }).catch(() => setProjectsStatus("error")), []);
   useEffect(() => {
     reloadProjects();
     api.getSettings().then((s) => {
@@ -147,52 +148,33 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     if (error) main = <p className="error center">{error}</p>;
     else if (project && room && conversation) {
       main = <ConversationView conversation={conversation} room={room} project={project.detail}
-        projects={projects} route={route} bossName={bossName}
+        bossName={bossName}
         leadWriting={projects.find((p) => p.id === project.detail.id)?.lead_writing ?? false} onRead={reloadProjects} />;
     } else if (project && conversationId !== null) {
       main = <p className="muted center">{t("app.conversationMissing")}</p>;
     } else {
       main = <p className="muted center">{t("common.loading")}</p>;
     }
-  } else if (desktop && projects.length > 0) {
-    main = <p className="muted center">{t("home.selectProject")}</p>;
   } else {
-    main = <Projects projects={projects} onDeleted={onProjectsDeleted} />;
+    main = <Projects projects={projects} status={projectsStatus} onRetry={reloadProjects} onDeleted={onProjectsDeleted} />;
   }
 
-  const inProject = route.name === "project" || route.name === "info";
+  const bottomBar = showsBottomBar(route);
+  const onBack = () => goBack(backFallback(route));
   return (
-    <div className={`shell${desktop ? " desktop" : ""}${navOpen ? " nav-open" : ""}`}>
-      {desktop ? (
-        <ProjectsSidebar projects={projects} route={route} selectedId={projectId} onDeleted={onProjectsDeleted} />
-      ) : (
-        <>
-          <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
-          <TeamPanel project={inProject ? project : null} route={route} noProject={!inProject} open={navOpen}
-            onClose={() => setNavOpen(false)} />
-        </>
-      )}
-      <main className={`main${inProject || desktop ? "" : " with-bottom-bar"}`}>
+    <div className="shell">
+      <main className={`main${bottomBar ? " with-bottom-bar" : ""}`}>
         {route.name === "project" ? (
-          <ProjectBar name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"}
-            onBack={desktop ? undefined : () => goBack("/")}>
+          <ProjectBar name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"} onBack={onBack}>
             <button className="icon-btn" onClick={() => go(`/p/${route.projectId}/info`)} aria-label={t("info.open")}>
               <InfoIcon size={22} />
             </button>
           </ProjectBar>
-        ) : route.name === "info" || desktop ? null : (
-          <header className="topbar">
-            <button className="icon-btn topbar-nav" onClick={() => setNavOpen(true)} aria-label={t("app.openTeam")}
-              aria-expanded={navOpen}>
-              <MenuIcon />
-            </button>
-            <ProjectMenu route={route} projects={projects} project={null} />
-          </header>
-        )}
+        ) : route.name === "new" ? <ProjectBar name={t("new.title")} onBack={onBack} /> : null}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
       </main>
-      {!inProject && !desktop && <BottomBar route={route} />}
+      {bottomBar && <BottomBar route={route} />}
     </div>
   );
 }

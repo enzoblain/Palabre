@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** From this width up, the app shows projects and conversation side by side. Keep in step with the 900px rules of styles.css. */
+/** From this width up, a conversation can show its team column next to the messages. Keep in step with the 900px rules of styles.css. */
 export const DESKTOP_MIN_WIDTH_PX = 901;
 
 const DESKTOP_QUERY = `(min-width: ${DESKTOP_MIN_WIDTH_PX}px)`;
@@ -11,7 +11,7 @@ function subscribe(onChange: () => void): () => void {
   return () => query.removeEventListener("change", onChange);
 }
 
-/** True on large screens (two-column layout), false on phones and small tablets. */
+/** True on large screens (large layout), false on phones and small tablets. */
 export function useIsDesktop(): boolean {
   return useSyncExternalStore(subscribe, () => window.matchMedia(DESKTOP_QUERY).matches);
 }

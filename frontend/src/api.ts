@@ -53,6 +53,8 @@ export type Room = {
 };
 
 export type ProjectDetail = Project & { employees: Employee[]; rooms: Room[] };
+/** A project with the conversations of each of its rooms, by room id. */
+export type ProjectState = { detail: ProjectDetail; conversations: Record<number, Conversation[]> };
 /** The project after an edit; `warning` is set when the team still works on the previous main branch. */
 export type ProjectUpdated = ProjectDetail & { warning: string | null };
 
