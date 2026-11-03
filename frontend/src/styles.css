@@ -323,6 +323,7 @@ details summary { cursor: pointer; margin-top: 6px; }
 .project-bar .icon-btn { min-width: 44px; min-height: 44px; justify-content: center; }
 .project-bar-title { margin: 0; font-size: 16px; text-align: center; }
 .project-bar-end { display: flex; justify-content: flex-end; }
+.project-info { max-width: none; }
 .project-info section { display: flex; flex-direction: column; gap: 6px; }
 .project-info h2 { margin: 0; }
 .info-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
