@@ -33,18 +33,19 @@ export function ConnectedDevices() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  // The revoked row, and its button, are gone: focus the button of the row that took its place, else the title.
+  // After a success the revoked row is gone: focus the button of the row that took its place, else the title.
+  // After a failure the row is still there: give the focus back to its button.
   useEffect(() => {
-    if (!outcome?.ok) return;
+    if (!outcome) return;
     const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>("li button");
     (buttons?.[revokedIndexRef.current] ?? titleRef.current)?.focus();
   }, [outcome]);
 
   async function revoke(device: Device) {
     setRevoking(true);
+    revokedIndexRef.current = Math.max(0, devices?.findIndex((item) => item.id === device.id) ?? 0);
     try {
       await api.revokeDevice(device.id);
-      revokedIndexRef.current = devices?.findIndex((item) => item.id === device.id) ?? 0;
       setDevices((current) => current && withoutDevice(current, device.id));
       setOutcome({ ok: true, text: t("settings.deviceRevoked") });
     } catch (err) {
@@ -88,7 +89,7 @@ export function ConnectedDevices() {
         </ul>
       )}
       <div role="status">
-        {outcome && <p className={outcome.ok ? "success" : "error"}>{outcome.text}</p>}
+        {outcome && <p role={outcome.ok ? undefined : "alert"} className={outcome.ok ? "success" : "error"}>{outcome.text}</p>}
       </div>
       {pending && (
         <ConfirmDialog title={t("settings.deviceRevokeTitle", { name: pending.name })} confirmLabel={t("settings.deviceRevoke")}
