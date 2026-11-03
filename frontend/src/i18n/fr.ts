@@ -282,7 +282,6 @@ export const fr: Messages = {
   "conv.liftLimitTitle": "Les agents ne sont plus réveillés ici après trop d’exécutions en une heure. Cela relance le compte.",
   "conv.liftLimitDone": "Limite de boucle levée : l’équipe peut de nouveau être réveillée ici.",
 
-
   "task.todo": "à faire",
   "task.in_progress": "en cours",
   "task.review": "en revue",

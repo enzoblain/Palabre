@@ -281,7 +281,6 @@ export const en = {
   "conv.liftLimitTitle": "Agents stop being woken up here after too many runs in an hour. This restarts the count.",
   "conv.liftLimitDone": "Loop limit lifted: the team can be woken up again here.",
 
-
   "task.todo": "to do",
   "task.in_progress": "in progress",
   "task.review": "in review",
