@@ -376,9 +376,11 @@ def test_every_base_role_describes_how_it_works():
         assert role.method and role.watch_points and role.deliverable_format, role.key
 
 
-def test_technical_roles_state_their_expertise():
-    for key in ("dev_backend", "dev_frontend", "architect", "reviewer", "qa", "devops", "security"):
-        assert load_roles()[key].expertise, key
+def test_base_roles_state_their_expertise():
+    base_roles = {key: role for key, role in load_roles().items() if role.archetype is None}
+    assert base_roles
+    for key, role in base_roles.items():
+        assert role.expertise, key
 
 
 def test_working_notes_are_optional_and_validated(catalog_copy):
