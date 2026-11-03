@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CatalogLimits, MemberIn, Personality, PersonalityPreset, Role } from "../api";
+import type { CatalogLimits, MemberIn, PersonalityPreset, Role } from "../api";
 import { useI18n, translate } from "../i18n";
 import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
@@ -7,35 +7,15 @@ import { Avatar } from "./Avatar";
 import { ShuffleIcon } from "./Icons";
 import { JobPicker } from "./JobPicker";
 import { PersonalityPicker } from "./PersonalityPicker";
-import { applyPreset } from "../presets";
 import { type TeamProblem, teamWarningThreshold } from "../jobs";
 
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-/** A random personality, like the server draws one. */
-export function randomPersonality(personality: Personality): Pick<MemberIn, "traits" | "quirks" | "style"> {
-  const quirks = [...personality.quirks].sort(() => Math.random() - 0.5).slice(0, 1 + Math.floor(Math.random() * 2));
-  return {
-    traits: Object.fromEntries(personality.axes.map((a) => [a.key, pick(personality.levels)])),
-    quirks,
-    style: Object.fromEntries(Object.entries(personality.style).map(([k, values]) => [k, pick(values)])),
-  };
-}
-
-/** A blank agent, filled in by the boss: no name, no role, neutral opinions. */
-export function newMember(personality: Personality): MemberIn {
-  return {
-    name: "",
-    roles: [],
-    model: null,
-    account: null,
-    traits: Object.fromEntries(personality.axes.map((a) => [a.key, 0])),
-    quirks: [],
-    // The middle option of each style (e.g. "balanced"), not an extreme
-    style: Object.fromEntries(Object.entries(personality.style).map(([k, v]) => [k, v[Math.floor((v.length - 1) / 2)]])),
-  };
+/** A blank agent, filled in by the boss: no name, no role, and a personality the server draws. */
+export function newMember(): MemberIn {
+  return { name: "", roles: [], model: null, account: null, personality: null };
 }
 
 /** A first name from the catalog nobody in the team has yet. */
@@ -59,20 +39,15 @@ export function problemMessages(problems: TeamProblem[], minSize: number, maxSiz
   return problems.map((problem) => messages[problem]());
 }
 
-function poleWord(text: string): string {
-  return text.split(" — ")[0];
+/** The member every company starts with: the lead, with a drawn name. */
+export function mandatoryMember(names: string[], role: string): MemberIn {
+  return { ...newMember(), name: freeName(names, []), roles: [role] };
 }
 
-/** The member every company starts with: the lead, with a drawn name and personality. */
-export function mandatoryMember(personality: Personality, names: string[], role: string): MemberIn {
-  return { ...newMember(personality), ...randomPersonality(personality), name: freeName(names, []), roles: [role] };
-}
-
-export function TeamEditor({ members, onChange, roles, personality, presets, names, claudeAccounts, limits, mandatoryRole }: {
+export function TeamEditor({ members, onChange, roles, presets, names, claudeAccounts, limits, mandatoryRole }: {
   members: MemberIn[];
   onChange: (members: MemberIn[]) => void;
   roles: Record<string, Role>;
-  personality: Personality;
   presets: Record<string, PersonalityPreset>;
   names: string[];
   claudeAccounts: number;
@@ -88,14 +63,11 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
   const update = (i: number, changes: Partial<MemberIn>) =>
     onChange(members.map((m, j) => (j === i ? { ...m, ...changes } : m)));
 
-  // A new agent starts with a drawn personality; the boss picks the role
-  const freshMember = (): MemberIn => ({ ...newMember(personality), ...randomPersonality(personality) });
-
   function resize(count: number) {
     const n = Math.max(mandatoryRole ? 1 : 0, Math.min(limits.max_agents, count || 0));
     if (n <= members.length) return onChange(members.slice(0, n));
     const added = [...members];
-    while (added.length < n) added.push(freshMember());
+    while (added.length < n) added.push(newMember());
     onChange(added);
     setOpen(members.length); // Open the first new agent to fill it in
   }
@@ -152,10 +124,8 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
               <div className="editor-details">
                 {!locked && <JobPicker roles={roles} selected={m.roles}
                   onChange={(selected) => update(i, { roles: selected })} />}
-                <PersonalityPicker presets={presets} personality={personality} selected={m.personality ?? null}
-                  onSelect={(key) => update(i, key === null
-                    ? { ...randomPersonality(personality), personality: null }
-                    : applyPreset(presets[key], personality, m))} />
+                <PersonalityPicker presets={presets} selected={m.personality}
+                  onSelect={(personality) => update(i, { personality })} />
                 <div className="row">
                   {!locked && <label>
                     {t("editor.model")}
@@ -164,14 +134,6 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
                       {limits.models.map((model) => <option key={model} value={model}>{model}</option>)}
                     </select>
                   </label>}
-                  {Object.entries(personality.style).map(([key, values]) => (
-                    <label key={key}>
-                      {key[0].toUpperCase() + key.slice(1)}
-                      <select value={m.style[key] ?? ""} onChange={(e) => update(i, { style: { ...m.style, [key]: e.target.value } })}>
-                        {values.map((v) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </label>
-                  ))}
                   {claudeAccounts > 1 && !locked && (
                     <label>
                       {t("editor.account")}
@@ -179,36 +141,6 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
                         onChange={(account) => update(i, { account })} />
                     </label>
                   )}
-                  <button type="button" className="btn btn-small randomize"
-                    onClick={() => update(i, { ...randomPersonality(personality), personality: null })}>
-                    <ShuffleIcon size={14} /> {t("editor.randomPersonality")}
-                  </button>
-                </div>
-
-                <div className="axes">
-                  {personality.axes.map((axis) => (
-                    <div key={axis.key} className="axis" title={axis.label}>
-                      <span className="axis-pole" title={axis.low}>{poleWord(axis.low)}</span>
-                      <input type="range" min={-2} max={2} step={1} value={m.traits[axis.key] ?? 0}
-                        aria-label={axis.label}
-                        onChange={(e) => update(i, { traits: { ...m.traits, [axis.key]: Number(e.target.value) } })} />
-                      <span className="axis-pole" title={axis.high}>{poleWord(axis.high)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="quirks">
-                  <span className="muted">{t("editor.quirks")}</span>
-                  {[...new Set([...personality.quirks, ...m.quirks])].map((q) => (
-                    <label key={q} className="quirk">
-                      <input type="checkbox" checked={m.quirks.includes(q)}
-                        disabled={!m.quirks.includes(q) && m.quirks.length >= 5}
-                        onChange={() => update(i, { quirks: m.quirks.includes(q) ? m.quirks.filter((x) => x !== q) : [...m.quirks, q] })} />
-                      {q}
-                    </label>
-                  ))}
-                  <CustomQuirk disabled={m.quirks.length >= 5}
-                    onAdd={(q) => !m.quirks.includes(q) && update(i, { quirks: [...m.quirks, q] })} />
                 </div>
               </div>
             )}
@@ -221,28 +153,6 @@ export function TeamEditor({ members, onChange, roles, personality, presets, nam
         aria-describedby={atLimit ? "team-limit-help" : undefined}
         onClick={() => resize(members.length + 1)}>{t("editor.addAgent")}</button>
       {atLimit && <p id="team-limit-help" className="muted">{t("editor.limitHelp", { max: limits.max_agents })}</p>}
-    </div>
-  );
-}
-
-function CustomQuirk({ disabled, onAdd }: { disabled: boolean; onAdd: (quirk: string) => void }) {
-  const { t } = useI18n();
-  const [text, setText] = useState("");
-  const add = () => {
-    if (text.trim()) onAdd(text.trim().slice(0, 200));
-    setText("");
-  };
-  return (
-    <div className="row custom-quirk">
-      <input value={text} disabled={disabled} maxLength={200} placeholder={t("editor.quirkPlaceholder")}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            add();
-          }
-        }} />
-      <button type="button" className="btn btn-small" disabled={disabled || !text.trim()} onClick={add}>{t("common.add")}</button>
     </div>
   );
 }

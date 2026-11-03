@@ -304,16 +304,6 @@ button:focus-visible, .btn:focus-visible, a:focus-visible { outline: 2px solid v
 .editor-summary { flex: 1; font-size: 13px; }
 .editor-details { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
 .editor-details label { font-size: 13px; }
-.randomize { align-self: flex-end; }
-.axes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 20px; }
-.axis { display: grid; grid-template-columns: 1fr 110px 1fr; align-items: center; gap: 8px; font-size: 12px; }
-.axis-pole { color: var(--muted); }
-.axis-pole:first-child { text-align: right; }
-.axis input[type="range"] { width: 100%; accent-color: var(--accent); }
-.quirks { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-.quirk { flex-direction: row; align-items: flex-start; gap: 8px; font-weight: 400; }
-.quirk input { margin-top: 3px; }
-.custom-quirk input { flex: 1; padding: 5px 8px; }
 
 textarea { resize: vertical; line-height: 1.5; }
 
@@ -369,7 +359,6 @@ details summary { cursor: pointer; margin-top: 6px; }
   .composer-error { padding-left: 12px; padding-right: 12px; }
   .banner { margin-left: 12px; margin-right: 12px; }
   .composer { margin: 0 8px 8px; }
-  .axes { grid-template-columns: 1fr; }
   .connect-card { padding: 24px; }
   /* Below 16px, iOS zooms in on the field being typed in */
   input, textarea, select { font-size: 16px; }
@@ -447,13 +436,11 @@ details summary { cursor: pointer; margin-top: 6px; }
 @media (max-width: 640px) { .job-list { grid-template-columns: 1fr; } }
 
 .preset-picker { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.preset-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-.preset-option { display: flex; align-items: center; gap: 6px; min-height: 24px; }
-.preset-card { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: var(--radius); background: var(--bg-soft); }
-.preset-card p { margin: 0; }
-.preset-levels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.preset-levels li { display: grid; grid-template-columns: 1fr auto 3ch; gap: 8px; align-items: center; }
-.preset-bar { letter-spacing: 1px; color: var(--accent); }
+.preset-options { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; }
+.preset-option { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border-radius: var(--radius); font-weight: 400; }
+.preset-option.selected { background: var(--bg-soft); }
+.preset-option input { margin-top: 3px; }
+.preset-description { display: block; }
 
 /* --- Project list (also the left column of large screens) --- */
 .project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
