@@ -103,6 +103,7 @@ Light / dark values are written `light/dark`.
 | Success on background | 5.8 / 9.5 |
 | Success on received bubble (task card) | 4.8 / 6.8 |
 | Error on background | 5.4 / 6.2 |
+| Error on secondary background | 4.8 / 5.0 |
 | Secondary text on background | 5.2 / 7.3 |
 | Secondary text on secondary background | 4.7 / 5.9 |
 | Blue dot and send button on background (icons) | 5.3 / 4.0 |
