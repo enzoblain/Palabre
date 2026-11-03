@@ -4,7 +4,7 @@ import { translate } from "../i18n";
 import { AVATAR_INITIALS_MAX_FONT_SCALE, FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../theme";
 
 export const HEADER_AVATAR_SIZE = 32;
-const SIDE_MIN_WIDTH = 96; // same minimum on both sides keeps the name centered; the back label may grow past it
+const SIDE_MIN_WIDTH = 96; // both sides share this minimum so the name is centered by default; at the largest text sizes the back label grows past it and the name drifts off-center rather than truncating the label
 
 type Props = { name: string | null; onBack: () => void };
 
