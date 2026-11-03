@@ -14,7 +14,7 @@ LOCKFILE_NAMES = frozenset({
 _FILE_HEADER = re.compile(r"^diff --git (.*)$", re.MULTILINE)
 _PLAIN_NEW_PATH = re.compile(r" b/(.+)$")
 _QUOTED_NEW_PATH = re.compile(r'"b/((?:[^"\\]|\\.)*)"$')
-_ESCAPE = re.compile(r"\\([0-7]{3}|.)")
+_ESCAPE = re.compile(rb"\\([0-7]{3}|.)", re.DOTALL)
 _SIMPLE_ESCAPES = {"t": b"\t", "n": b"\n", "r": b"\r", "a": b"\a", "b": b"\b", "f": b"\f", "v": b"\v"}
 PREAMBLE_LABEL = "(text before the first file)"
 
@@ -38,11 +38,10 @@ class FileDiff:
 
 def _unquote_path(quoted: str) -> str:
     """Decodes the C-style escapes git applies to unusual paths (octal bytes are UTF-8)."""
-    def decode(match: re.Match[str]) -> bytes:
+    def decode(match: re.Match[bytes]) -> bytes:
         token = match.group(1)
-        return bytes([int(token, 8)]) if len(token) == 3 and token.isdigit() else _SIMPLE_ESCAPES.get(token, token.encode())
-    raw = _ESCAPE.sub(lambda match: decode(match).decode("latin-1"), quoted)
-    return raw.encode("latin-1").decode("utf-8", errors="replace")
+        return bytes([int(token, 8)]) if len(token) == 3 and token.isdigit() else _SIMPLE_ESCAPES.get(token.decode(), token)
+    return _ESCAPE.sub(decode, quoted.encode()).decode("utf-8", errors="replace")
 
 
 def _header_path(header_rest: str) -> str:

@@ -54,3 +54,8 @@ def test_quoted_path_after_a_lockfile_is_still_a_file_boundary() -> None:
 
 def test_text_before_the_first_file_is_kept() -> None:
     assert render_diff("warning\n" + file_diff("a.py", 1)).startswith("warning\n")
+
+
+def test_quoted_path_with_a_non_latin1_character_is_decoded() -> None:
+    quoted = 'diff --git "a/x\\t\u2603.py" "b/x\\t\u2603.py"\n+x\n'
+    assert [f.path for f in split_diff(quoted)] == ["x\t\u2603.py"]
