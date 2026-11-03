@@ -1,4 +1,5 @@
 import io
+import stat
 import zipfile
 from pathlib import Path
 
@@ -275,3 +276,32 @@ async def test_install_archive_refuses_a_version_that_escapes_the_directory(tmp_
     monkeypatch.setitem(toolchains.TOOLCHAINS, "fake", "Fake")
     with pytest.raises(WorkflowError, match="unexpected fake version"):
         await toolchains.install("fake")
+
+
+def test_drop_write_bits_ignores_links_to_outside_folders(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret").write_text("x")
+    outside.chmod(0o777)
+    (outside / "secret").chmod(0o666)
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "bin" / "tool").write_text("x")
+    (prefix / "bin" / "tool").chmod(0o777)
+    (prefix / "link").symlink_to(outside, target_is_directory=True)
+
+    toolchains._drop_write_bits(prefix)
+
+    assert (prefix / "bin" / "tool").stat().st_mode & 0o777 == 0o755
+    assert outside.stat().st_mode & 0o777 == 0o777
+    assert (outside / "secret").stat().st_mode & 0o777 == 0o666
+
+
+def test_drop_write_bits_tightens_a_single_file(tmp_path):
+    binary = tmp_path / "tool"
+    binary.write_text("x")
+    binary.chmod(0o4777)
+
+    toolchains._drop_write_bits(binary)
+
+    assert stat.S_IMODE(binary.stat().st_mode) == 0o755
