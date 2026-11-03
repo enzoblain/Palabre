@@ -13,10 +13,10 @@ Light / dark values are written `light/dark`.
 | Text | `#000000` / `#FFFFFF` |
 | Secondary text | `#6C6C70` / `#98989F` |
 | Separator | `#C6C6C8` / `#38383A` |
-| Sent bubble (boss) | `#0A7AFF`, white text |
+| Sent bubble (boss) | `#0066E0` / `#0066E0`, white text |
 | Received bubble | `#E9E9EB` / `#26262A` |
 | Error | `#D70015` / `#FF453A` |
-| Success | `#248A3D` / `#30D158` |
+| Success | `#17743A` / `#34C759` |
 
 ## Typography and measures
 
@@ -92,7 +92,20 @@ Light / dark values are written `light/dark`.
 
 ## Accessibility
 
-- AA contrast in both modes (4.5:1 for text, 3:1 for icons).
+- AA contrast in both modes (4.5:1 for text, 3:1 for icons). Ratios below are computed with the WCAG relative luminance formula:
+
+| Pair (light / dark) | Ratio |
+| --- | --- |
+| White text on sent bubble `#0066E0` | 5.3 / 5.3 |
+| Success on background | 5.8 / 9.5 |
+| Success on received bubble (task card) | 4.8 / 6.8 |
+| Error on background | 5.4 / 6.2 |
+| Secondary text on background | 5.2 / 7.3 |
+| Secondary text on secondary background | 4.7 / 5.9 |
+| Blue dot and send button on background (icons) | 5.3 / 4.0 |
+
+- Secondary text and error text must not be placed on the received bubble (below 4.5:1 there).
+- User-facing strings go through the i18n layer from the start (`src/i18n`), never hardcoded.
 - VoiceOver / TalkBack labels on every icon button, logical focus order, new messages announced as polite, reduced motion respected.
 - Dynamic Type: see Typography and measures.
 
