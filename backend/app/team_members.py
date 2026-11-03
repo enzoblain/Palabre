@@ -32,6 +32,8 @@ def _check_roles(roles: list[str]) -> None:
 def _check_team_rules(roles_by_employee: list[list[str]]) -> None:
     if not any(MANDATORY_ROLE in roles for roles in roles_by_employee):
         raise WorkflowError(f"The team needs a {MANDATORY_ROLE}", code=ErrorCode.LEAD_REQUIRED)
+    if sum(MANDATORY_ROLE in roles for roles in roles_by_employee) > 1:
+        raise WorkflowError(f"The team already has a {MANDATORY_ROLE}", code=ErrorCode.LEAD_ALREADY_EXISTS)
     if problem := team_permission_error(roles_by_employee):
         raise WorkflowError(problem, code=ErrorCode.INVALID_TEAM_PERMISSIONS)
 
