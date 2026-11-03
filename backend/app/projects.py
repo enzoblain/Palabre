@@ -96,7 +96,7 @@ async def create_project(
     ]
     s.add(project)
     if not employees:
-        await _open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
+        await open_channels(s, project)  # A custom team gets its channels from plan_custom_channels
     await ensure_direction(s, project)
     await s.commit()
     return project
@@ -107,7 +107,7 @@ def _channel_members(channel: dict, employees: list[Employee]) -> list[Employee]
     return [e for e in employees if "*" in roles or roles & set(e.roles)]
 
 
-async def _open_channels(s: AsyncSession, project: Project) -> None:
+async def open_channels(s: AsyncSession, project: Project) -> None:
     """Create the catalog's targeted channels the company is big enough for (each with a first
     conversation). Channels that already exist are left alone."""
     channels = load_catalog()["channels"]
@@ -172,7 +172,7 @@ async def plan_custom_channels(project_id: int) -> None:
             if project is None:
                 return
             if plan is None:
-                await _open_channels(s, project)
+                await open_channels(s, project)
             else:
                 by_name = {e.name: e for e in project.employees}
                 await _open_rooms(s, project, [(c.name, [by_name[n] for n in c.members]) for c in plan])
@@ -374,7 +374,7 @@ async def change_mode(s: AsyncSession, project: Project, mode: str) -> Project:
         room.members.extend(e for e in hired if channel and _channel_members(channel, [e]))
     project.employees = kept + hired  # Those left in `remaining` are deleted (orphans)
     project.mode = mode
-    await _open_channels(s, project)  # A bigger company gets the channels it lacked
+    await open_channels(s, project)  # A bigger company gets the channels it lacked
     await ensure_direction(s, project)
     await s.commit()
     return await load_project(s, project.id)

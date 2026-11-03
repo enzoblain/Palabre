@@ -43,6 +43,8 @@ class ErrorCode(StrEnum):
     INVALID_BRANCH_NAME = "invalid_branch_name"
     BRANCH_ALREADY_USED = "branch_already_used"
     NO_NAME_LEFT = "no_name_left"
+    LEAD_PROTECTED = "lead_protected"
+    TEAM_TOO_LARGE = "team_too_large"
     TASK_WRONG_STATUS = "task_wrong_status"
     STALE_REVIEW_HEAD = "stale_review_head"
     PR_HEAD_MOVED = "pr_head_moved"

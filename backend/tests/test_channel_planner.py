@@ -126,7 +126,7 @@ def opened(session: Session) -> dict[str, Room]:
 
 async def test_predefined_team_gets_targeted_channels():
     s = Session()
-    await projects._open_channels(s, project_of())
+    await projects.open_channels(s, project_of())
     rooms = opened(s)
     assert {"dev", "quality"} <= set(rooms)
     assert all({"dev", "dev_backend", "dev_frontend"} & set(e.roles) for e in rooms["dev"].members)
@@ -135,7 +135,7 @@ async def test_predefined_team_gets_targeted_channels():
 
 async def test_no_generic_channel_in_the_catalog():
     s = Session()
-    await projects._open_channels(s, project_of())
+    await projects.open_channels(s, project_of())
     assert not {"general", "engineering", "product"} & set(opened(s))
 
 

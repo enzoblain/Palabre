@@ -3,12 +3,13 @@
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
-from app import github, presence, projects
+from app import github, presence, projects, team_members
 from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
     EmployeeDetail,
+    EmployeeIn,
     EmployeeOut,
     EmployeePatch,
     LastMessageOut,
@@ -305,13 +306,42 @@ async def get_employee(employee_id: int, s: SessionDep):
     )
 
 
+@router.post("/projects/{project_id}/employees", response_model=EmployeeOut, status_code=status.HTTP_201_CREATED)
+async def add_employee(project_id: int, body: EmployeeIn, s: SessionDep):
+    """Add a member to the team: roles (and optionally a personality preset, a model, an
+    account); the first name is drawn from the catalog unless given and is unique in the
+    project. They join the default channels of their roles. 409 when a rule breaks
+    (permissions, size, unknown role or personality, name already used)."""
+    project = await _project(s, project_id)
+    if body.account is not None:
+        _check_accounts([body.account])
+    return await team_members.add_member(
+        s, project, name=body.name, roles=body.roles, preset=body.personality, model=body.model, account=body.account
+    )
+
+
+@router.delete("/employees/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_employee(employee_id: int, s: SessionDep):
+    """Remove a member: their running work is stopped, their unfinished tasks go back to todo
+    without assignee, they leave their channels, their messages stay. 409 `lead_protected` for
+    the lead, `team_too_small` under the minimum size."""
+    employee = await get_or_404(s, Employee, employee_id)
+    project = await _project(s, employee.project_id)
+    await orchestrator.cancel_runs([employee_id])
+    await team_members.remove_member(s, project, employee)
+
+
 @router.patch("/employees/{employee_id}", response_model=EmployeeOut)
 async def update_employee(employee_id: int, body: EmployeePatch, s: SessionDep):
-    """Edit an employee's personality, model or Claude account by hand."""
+    """Edit an employee's roles, personality, model or Claude account by hand. The lead's roles
+    cannot change (409 `lead_protected`)."""
     employee = await get_or_404(s, Employee, employee_id)
-    project = await get_or_404(s, Project, employee.project_id)
     projects.validate_personality(body.traits, body.style)
-    for field, value in body.model_dump(exclude_none=True, exclude={"account"}).items():
+    if body.roles is not None or body.personality is not None:
+        await team_members.change_member(
+            s, await _project(s, employee.project_id), employee, roles=body.roles, preset=body.personality, model=body.model
+        )
+    for field, value in body.model_dump(exclude_none=True, exclude={"account", "roles", "personality"}).items():
         setattr(employee, field, value)
     if "account" in body.model_fields_set:  # null puts the employee back in the automatic spread
         if body.account is not None:

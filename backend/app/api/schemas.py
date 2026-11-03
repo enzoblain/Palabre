@@ -115,7 +115,14 @@ class EmployeeDetail(EmployeeOut):
     system_prompt: str
 
 
+PERSONALITY_KEY_MAX_LENGTH = 40
+
+
 class EmployeePatch(BaseModel):
+    # New roles (not the lead's): title, permissions and, unless `model` is given, model follow them
+    roles: list[str] | None = Field(default=None, min_length=1)
+    # Key of a personality preset, applied before the explicit traits, quirks and style
+    personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     model: Literal["haiku", "sonnet", "opus"] | None = None
     traits: dict[str, int] | None = None
     quirks: list[str] | None = None
@@ -127,7 +134,6 @@ class EmployeePatch(BaseModel):
 # --- Projects ----------------------------------------------------------------------
 
 
-PERSONALITY_KEY_MAX_LENGTH = 40
 PROJECT_NAME_MAX_LENGTH = 200
 PROJECTS_DELETE_MAX = 100
 
@@ -143,6 +149,16 @@ class MemberIn(BaseModel):
     quirks: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(default=None, max_length=5)
     style: dict[str, str] | None = None
     # Key of a personality preset; traits, quirks and style given here override it
+    personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
+    account: int | None = Field(default=None, ge=1)
+
+
+class EmployeeIn(BaseModel):
+    """A member added to a running team. The name is drawn from the catalog when left out."""
+
+    name: str | None = Field(default=None, pattern=r"^[\w-]{1,40}$")
+    roles: list[str] = Field(min_length=1)
+    model: Literal["haiku", "sonnet", "opus"] | None = None
     personality: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=PERSONALITY_KEY_MAX_LENGTH)
     account: int | None = Field(default=None, ge=1)
 
