@@ -33,6 +33,7 @@ export const en = {
   "error.employee_not_found": "This employee does not exist",
   "error.message_not_found": "This message does not exist",
   "error.question_not_found": "This question does not exist",
+  "error.device_not_found": "This device does not exist",
   "error.mode_not_found": "This mode does not exist",
   "error.unknown_mode": "Unknown mode",
   "error.invalid_repository": "Invalid repository",

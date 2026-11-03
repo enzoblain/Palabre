@@ -20,6 +20,7 @@ class ErrorCode(StrEnum):
     EMPLOYEE_NOT_FOUND = "employee_not_found"
     MESSAGE_NOT_FOUND = "message_not_found"
     QUESTION_NOT_FOUND = "question_not_found"
+    DEVICE_NOT_FOUND = "device_not_found"
     MODE_NOT_FOUND = "mode_not_found"
     UNKNOWN_MODE = "unknown_mode"
     INVALID_REPOSITORY = "invalid_repository"
