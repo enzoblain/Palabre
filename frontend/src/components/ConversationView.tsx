@@ -1,14 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type Conversation, type Message, type Project, type ProjectDetail, type Room, api } from "../api";
+import { ApiError, type Conversation, type Message, type ProjectDetail, type Room, api } from "../api";
 import { useI18n } from "../i18n";
 import { useIsDesktop } from "../layout";
-import type { Route } from "../router";
 import { MENTION_EVENT, usePolling } from "../util";
 import { SendIcon, TeamIcon } from "./Icons";
 import { ConversationTeam } from "./ConversationTeam";
 import { bossNames } from "./Markdown";
 import { MessageRow, TypingDots } from "./MessageBubble";
-import { ProjectMenu } from "./TeamPanel";
 
 const POLL_MS = 2000;
 
@@ -99,12 +97,10 @@ function LiftLimitButton({ conversationId }: { conversationId: number }) {
   );
 }
 
-export function ConversationView({ conversation, room, project, projects, route, bossName, leadWriting, onRead }: {
+export function ConversationView({ conversation, room, project, bossName, leadWriting, onRead }: {
   conversation: Conversation;
   room: Room;
   project: ProjectDetail;
-  projects: Project[];
-  route: Route;
   bossName: string;
   // The lead is answering in the direction channel
   leadWriting: boolean;
@@ -200,11 +196,12 @@ export function ConversationView({ conversation, room, project, projects, route,
   return (
     <div className="conversation">
       <header className="conv-head">
-        {/* The boss's conversation carries the project's name; a click on it switches project */}
-        {/* Fresh object each render: ProjectMenu only reads it, keep it out of effect deps */}
-        <ProjectMenu route={route} projects={projects} project={{ detail: project, conversations: {} }} asTitle />
-        {!isDirectionTitle(room, conversation) && conversation.title && <span className="muted">· {conversation.title}</span>}
-        <span className="conv-members muted">· {t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length })}</span>
+        <span className="conv-members muted">
+          {[
+            !isDirectionTitle(room, conversation) && conversation.title,
+            t(room.members.length > 1 ? "conv.members" : "conv.member", { count: room.members.length }),
+          ].filter(Boolean).join(" · ")}
+        </span>
         <span className="conv-head-actions">
           <LiftLimitButton key={conversation.id} conversationId={conversation.id} />
           {desktop && (
