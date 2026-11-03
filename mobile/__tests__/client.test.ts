@@ -95,6 +95,19 @@ describe("requests", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores a 401 for a request sent with a previous connection", async () => {
+    const handler = jest.fn();
+    setUnauthorizedHandler(handler);
+    await saveConnection({ server: SERVER, token: "pdev_old" });
+    let answer: (res: Response) => void = () => {};
+    fetchMock.mockReturnValue(new Promise<Response>((resolve) => (answer = resolve)));
+    const pending = api.listProjects();
+    await saveConnection({ server: SERVER, token: "pdev_new" });
+    answer(jsonResponse(401, { code: "auth_invalid_token" }));
+    await expect(pending).rejects.toBeInstanceOf(ApiError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("reports an unreachable server", async () => {
     await saveConnection({ server: SERVER, token: "pdev_abc" });
     fetchMock.mockRejectedValue(new TypeError("Network request failed"));

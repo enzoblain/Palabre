@@ -89,8 +89,10 @@ async function request<T>(conn: Connection, path: string, method = "GET", body?:
 
 function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   if (!current) return Promise.reject(new ApiError(401, translate("api.notConnected")));
-  return request<T>(current, path, method, body).catch((err: unknown) => {
-    if (err instanceof ApiError && err.status === 401) onUnauthorized();
+  const sentWith = current;
+  return request<T>(sentWith, path, method, body).catch((err: unknown) => {
+    // A 401 for a previous connection must not sign out the one that replaced it
+    if (err instanceof ApiError && err.status === 401 && current === sentWith) onUnauthorized();
     throw err;
   });
 }
