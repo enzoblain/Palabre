@@ -16,7 +16,7 @@ describe("placeholder screens", () => {
   it("renders the conversation list in French", async () => {
     await render(<ConversationListScreen />);
     expect(screen.getByRole("header", { name: "Messages" })).toBeTruthy();
-    expect(screen.getByText("Aucune conversation. Les messages de l'équipe apparaîtront ici.")).toBeTruthy();
+    expect(screen.getByText("Aucune conversation. Les messages de l’équipe apparaîtront ici.")).toBeTruthy();
   });
 
   it("renders the login screen", async () => {
