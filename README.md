@@ -32,6 +32,7 @@ The server listens on port `2710` and the web app on port `2810`, both on `127.0
 - [Install the server](docs/install.md): requirements, required secrets, updates
 - [Use the apps](docs/use-the-apps.md): the web app and how to talk to your team
 - [Remote access](docs/remote-access.md): reach the server from another machine
+- [Mobile app](docs/mobile.md): architecture of the Expo app (stack, connection, build)
 - [Configuration](docs/configuration.md): every environment variable
 - [Security](docs/security.md): agent isolation, secrets, what is exposed
 - [Develop](docs/develop.md): run from source, add a job or a personality
