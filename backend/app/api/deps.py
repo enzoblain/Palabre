@@ -11,9 +11,10 @@ from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import devices
 from app.api.errors import NOT_FOUND, ApiError, ErrorCode
 from app.config import settings
-from app.db import Base, get_session
+from app.db import Base, SessionLocal, get_session
 from app.sessions import verify_session_token
 
 log = logging.getLogger(__name__)
@@ -103,18 +104,26 @@ async def _authenticate(request: Request, cred: HTTPAuthorizationCredentials | N
     now = time.monotonic()
     _check_lockout(ip, now)
     token = cred.credentials if cred else ""
-    if token and (_is_raw_admin_token(token) or (accept_session and verify_session_token(settings.admin_token, token))):
+    if token and (_is_raw_admin_token(token) or (accept_session and await _is_session_credential(token))):
         return
     raise _reject(ip, now)
 
 
+async def _is_session_credential(token: str) -> bool:
+    """A device token (database, only when it has the prefix) or a signed web session token."""
+    if devices.looks_like_device_token(token):
+        async with SessionLocal() as s:
+            return await devices.authenticate_device(s, settings.admin_token, token, settings.device_session_ttl_seconds)
+    return verify_session_token(settings.admin_token, token)
+
+
 async def require_admin(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
-    """The API's guard: a session token or the raw ADMIN_TOKEN (scripts), both throttled by the same failure counter."""
+    """The API's guard: a session token, a device token or the raw ADMIN_TOKEN (scripts), both throttled by the same failure counter."""
     await _authenticate(request, cred, accept_session=True)
 
 
 async def require_raw_admin_token(request: Request, cred: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> None:
-    """Only the raw ADMIN_TOKEN: a session token cannot mint a new session (no endless extension of a stolen one)."""
+    """Only the raw ADMIN_TOKEN: a session or device token cannot mint a new session (no endless extension of a stolen one)."""
     await _authenticate(request, cred, accept_session=False)
 
 

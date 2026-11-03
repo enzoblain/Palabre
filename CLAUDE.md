@@ -6,6 +6,7 @@ Palabre is a company of AI agents that works for its CEO (the user): a lead spli
 
 - Backend (`backend/`): Python 3.12+, FastAPI, SQLAlchemy async on PostgreSQL, the `mcp` SDK, httpx.
 - Frontend (`frontend/`): React + TypeScript + Vite, served by nginx for the browser.
+- Mobile app (`mobile/`): Expo (React Native) + TypeScript, iPhone first then Android; planned, see [Mobile app](docs/mobile.md).
 
 ## Module map
 
@@ -29,6 +30,8 @@ Backend, in `backend/app/`:
 - `mcp_server/`: the agents' tools (`tools.py`), which role gets which (`permissions.py`), request auth (`auth.py`), server setup (`server.py`).
 
 Frontend (`frontend/`): `src/` (`api.ts` backend client, `router.ts`, `components/`).
+
+Mobile (`mobile/`): Expo app with `app/` (expo-router screens) and `src/` (`api/` client ported from the web one, `components/`, `i18n/`); see [Mobile app](docs/mobile.md).
 
 ## Run and check
 

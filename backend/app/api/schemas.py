@@ -409,6 +409,7 @@ class TaskOut(ORM):
     assignee: str | None
     severity: str | None
     sensitive: bool
+    marked_sensitive: bool
     pr_url: str | None
     review_round: int
     created_at: datetime
@@ -498,3 +499,31 @@ class SessionOut(BaseModel):
 
     token: str
     expires_at: int
+
+
+class DeviceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def _strip_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+
+class DeviceOut(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeviceTokenOut(DeviceOut):
+    """Returned once, when the device is paired: the token cannot be read again."""
+
+    token: str

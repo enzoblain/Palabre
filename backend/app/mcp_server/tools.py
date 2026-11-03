@@ -248,8 +248,10 @@ async def create_task(
     acceptance_criteria: list[str],
     assignee: str | None = None,
     depends_on: list[int] | None = None,
+    sensitive: bool | None = None,
 ) -> dict:
-    """Create a task in the current room. assignee: an employee's first name."""
+    """Create a task in the current room. assignee: an employee's first name.
+    sensitive: lead only; true requires the security approval to merge, as for a PR on a sensitive path."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         me = await s.get(Employee, c.employee_id)
@@ -265,6 +267,7 @@ async def create_task(
             acceptance_criteria=acceptance_criteria,
             assignee=assignee,
             depends_on=depends_on or [],
+            sensitive=sensitive,
         )
         return workflow.task_summary(task)
 
@@ -286,8 +289,10 @@ async def update_task(
     acceptance_criteria: list[str] | None = None,
     depends_on: list[int] | None = None,
     status: Literal["todo", "cancelled"] | None = None,
+    sensitive: bool | None = None,
 ) -> dict:
-    """Edit a task. Status can only be reset to todo or cancelled; the rest follows the workflow."""
+    """Edit a task. Status can only be reset to todo or cancelled; the rest follows the workflow.
+    sensitive: lead only; true requires the security approval to merge, false never lifts a sensitivity detected from the changed paths."""
     c = current_caller(ctx)
     async with SessionLocal() as s:
         task = await workflow.update_task(
@@ -300,6 +305,7 @@ async def update_task(
             acceptance_criteria=acceptance_criteria,
             depends_on=depends_on,
             status=status,
+            sensitive=sensitive,
         )
         return await workflow.task_detail(s, c.project_id, task.id)
 

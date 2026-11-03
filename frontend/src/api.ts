@@ -5,6 +5,15 @@ export const pageServer: string | null = import.meta.env.DEV ? null : location.o
 
 // --- Types (mirror backend/app/api/schemas.py) -------------------------------------
 
+/** A paired phone (mirrors DeviceOut); the device token is never returned by the list. */
+export type Device = {
+  id: number;
+  name: string;
+  created_at: string;
+  last_used_at: string;
+  expires_at: string;
+};
+
 export type Project = {
   id: number;
   name: string;
@@ -229,6 +238,7 @@ export const ERROR_CODES = [
   "employee_not_found",
   "message_not_found",
   "question_not_found",
+  "device_not_found",
   "mode_not_found",
   "unknown_mode",
   "invalid_repository",
@@ -260,6 +270,7 @@ export const ERROR_CODES = [
   "pr_head_moved",
   "invalid_head_sha",
   "task_not_yours",
+  "sensitive_flag_lead_only",
   "task_waiting_for_dependencies",
   "task_no_branch",
   "task_no_pull_request",
@@ -358,6 +369,9 @@ export const api = {
   roles: () => call<Record<string, Role>>("/catalog/roles"),
   limits: () => call<CatalogLimits>("/catalog/limits"),
   names: () => call<string[]>("/catalog/names"),
+
+  listDevices: () => call<Device[]>("/auth/devices"),
+  revokeDevice: (id: number) => call<void>(`/auth/devices/${id}`, "DELETE"),
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),

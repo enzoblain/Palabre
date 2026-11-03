@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-03
+
+### Added
+
+- auth: add revocable long-lived device sessions for the mobile app (#430)
+- workflow: let the lead mark a task as sensitive (#431)
+- web: list and revoke connected devices in the settings (#437)
+
+### Fixed
+
+- auth: refuse with 401 a device revoked during a concurrent request (#432)
+- web: return focus to the row's Revoke button when a device revocation fails (#440)
+
 ## [0.27.0] - 2026-11-03
 
 ### Added
@@ -685,7 +698,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/enzoblain/Palabre/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/enzoblain/Palabre/compare/v0.26.2...v0.27.0
 [0.26.2]: https://github.com/enzoblain/Palabre/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/enzoblain/Palabre/compare/v0.26.0...v0.26.1

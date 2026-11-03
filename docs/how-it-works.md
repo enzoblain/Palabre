@@ -50,6 +50,7 @@ From there the team works on its own:
    the squash commit's; the PR body says `Palabre task #60`. Review and QA comments and release notes are in English too (release notes keep the standard text, not Conventional Commits bullets).
 3. **Reviewers, QA and security** read the diff and approve or request changes, as the
    company's rules require.
+   Security's approval is required (where the company has the gate) for a PR on a sensitive path, or for a task the lead marked `sensitive` with `create_task` / `update_task`; see [Security](security.md).
 4. **The lead** merges once every rule is met. Nothing reaches the project's branch otherwise.
 
 The platform keeps the lead on track. Every step of a task (pull request submitted, each

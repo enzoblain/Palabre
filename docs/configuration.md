@@ -25,6 +25,7 @@ their default unless you add them to the `environment:` of the `backend` service
 | Variable | Default | What it does |
 |---|---|---|
 | `SESSION_TTL_SECONDS` | `43200` | Lifetime of the session tokens the apps get by logging in with the `ADMIN_TOKEN` (`POST /api/auth/session`, 12 h); the apps ask for the `ADMIN_TOKEN` again once it ends. Changing the `ADMIN_TOKEN` revokes every session |
+| `DEVICE_SESSION_TTL_SECONDS` | `2592000` | Lifetime of a mobile device session (`POST /api/auth/devices`, 30 days). It slides: each use renews it (written at most once a minute), so a phone used at least once in that time never asks for the `ADMIN_TOKEN` again. Revoking a device (`DELETE /api/auth/devices/{id}`) or changing the `ADMIN_TOKEN` cuts it at once. The web session (`SESSION_TTL_SECONDS`) is unchanged |
 | `AUTH_MAX_FAILURES` / `AUTH_FAIL_WINDOW_SECONDS` | `10` / `300` | Failed authentications from one IP within the window before it gets `429` |
 | `TRUSTED_PROXY_HOSTS` | `["web"]` | JSON list of hosts whose `X-Real-IP` is believed (the web container's nginx) |
 | `CORS_ORIGINS` | the Vite dev server (`localhost:1420`) | JSON list of origins allowed to call the API from a browser. The web app (nginx proxy) does not need it; add an origin only to serve a front from elsewhere |

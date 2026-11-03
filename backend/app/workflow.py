@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import github
-from app.company.catalog import QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
+from app.company.catalog import LEAD_KEY, QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
 from app.config import settings
 from app.errors import ErrorCode, WorkflowError
 from app.models import Employee, Event, Project, Review, Task, TaskKind, TaskStatus, Verdict, Wakeup
@@ -130,7 +130,13 @@ def task_summary(task: Task) -> dict:
         "assignee": task.assignee.name if task.assignee else None,
         "depends_on": task.depends_on,
         "pr_url": task.pr_url,
+        "marked_sensitive": task.marked_sensitive,
     }
+
+
+def requires_security(task: Task) -> bool:
+    """Path-detected sensitivity (sticky once set) or the lead's flag."""
+    return task.sensitive or task.marked_sensitive
 
 
 # --- Tasks -------------------------------------------------------------------------
@@ -178,6 +184,22 @@ async def dependencies_done(s: AsyncSession, task: Task) -> bool:
     return all(st == TaskStatus.done for st in statuses)
 
 
+async def _check_can_mark_sensitive(s: AsyncSession, author: Employee | None) -> None:
+    """Only the lead (or the boss, author None) sets or clears the sensitive flag."""
+    if author is not None and LEAD_KEY not in held_role_keys(author.roles, load_catalog()["roles"]):
+        raise WorkflowError("Only the lead can mark a task as sensitive", code=ErrorCode.SENSITIVE_FLAG_LEAD_ONLY)
+
+
+async def _apply_sensitive_flag(s: AsyncSession, task: Task, sensitive: bool) -> None:
+    """Set the lead's flag; a task already in review that now needs security wakes the security reviewer."""
+    newly_required = sensitive and not requires_security(task)
+    task.marked_sensitive = sensitive
+    if newly_required and task.status == TaskStatus.review:
+        project = await s.get(Project, task.project_id)
+        if mode_process(project.mode)["security_gate"]:
+            emit_event(s, task.project_id, "sensitive_pr", {"task_id": task.id, "pr_url": task.pr_url}, role="security")
+
+
 async def create_task(
     s: AsyncSession,
     *,
@@ -190,8 +212,11 @@ async def create_task(
     acceptance_criteria: list[str],
     assignee: str | None,
     depends_on: list[int],
+    sensitive: bool | None = None,
 ) -> Task:
     await _check_dependencies(s, project_id, depends_on)
+    if sensitive is not None:
+        await _check_can_mark_sensitive(s, author)
     task = Task(
         project_id=project_id,
         room_id=room_id,
@@ -201,6 +226,7 @@ async def create_task(
         acceptance_criteria=acceptance_criteria,
         depends_on=depends_on,
         created_by_id=author.id if author else None,
+        marked_sensitive=bool(sensitive),
     )
     if assignee:
         task.assignee_id = (await find_employee(s, project_id, assignee)).id
@@ -236,9 +262,14 @@ async def update_task(
     depends_on: list[int] | None,
     status: str | None,
     author: Employee | None = None,
+    sensitive: bool | None = None,
 ) -> Task:
-    """author: who edits (None = the boss); recorded when they cancel the task."""
+    """author: who edits (None = the boss); recorded when they cancel the task.
+    sensitive: the lead's flag; it adds the security gate but never removes a path-detected one."""
     task = await get_task(s, project_id, task_id)
+    if sensitive is not None:
+        await _check_can_mark_sensitive(s, author)
+        await _apply_sensitive_flag(s, task, sensitive)
     if title is not None:
         task.title = title
     if description is not None:
@@ -518,7 +549,7 @@ async def submit_for_review(
     emit_event(s, project_id, "review_requested", payload, role="reviewer")
     if process["qa_gate"]:
         emit_event(s, project_id, "pr_ready", payload, role="qa")
-    if process["security_gate"] and task.sensitive:
+    if process["security_gate"] and requires_security(task):
         emit_event(s, project_id, "sensitive_pr", payload, role="security")
     await announce(s, task, f"PR submitted by {author.name} (round {task.review_round})")
     wake_lead(task, f"PR submitted by {author.name} (round {task.review_round})")
@@ -718,7 +749,7 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
         blockers.append(f"{seats[REVIEWER_KEY]}/{process['required_approvals']} reviewer approval(s)")
     if process["qa_gate"] and not seats[QA_KEY]:
         blockers.append("QA has not approved")
-    if process["security_gate"] and task.sensitive and not seats[SECURITY_KEY]:
+    if process["security_gate"] and requires_security(task) and not seats[SECURITY_KEY]:
         blockers.append("security has not approved this sensitive PR")
     if process["ci_required"] and task.pr_number is not None:
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, sha=ci_head):
