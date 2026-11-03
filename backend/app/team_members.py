@@ -36,6 +36,12 @@ def _check_team_rules(roles_by_employee: list[list[str]]) -> None:
         raise WorkflowError(problem, code=ErrorCode.INVALID_TEAM_PERMISSIONS)
 
 
+def _check_single_lead(roles: list[str], others: list[Employee]) -> None:
+    """Refuse the lead role for a member when another employee already holds it."""
+    if MANDATORY_ROLE in roles and any(MANDATORY_ROLE in other.roles for other in others):
+        raise WorkflowError(f"The team already has a {MANDATORY_ROLE}", code=ErrorCode.LEAD_ALREADY_EXISTS)
+
+
 def _check_preset(preset: str | None) -> None:
     if preset is not None and preset not in load_catalog()["personalities"]:
         raise WorkflowError(f"Unknown personality: {preset}", code=ErrorCode.UNKNOWN_PERSONALITY)
@@ -68,6 +74,7 @@ async def add_member(
     _check_preset(preset)
     if len(project.employees) >= MAX_TEAM_SIZE:
         raise WorkflowError(f"A team has at most {MAX_TEAM_SIZE} members", code=ErrorCode.TEAM_TOO_LARGE)
+    _check_single_lead(roles, project.employees)
     _check_team_rules([*(e.roles for e in project.employees), roles])
     member = custom_employee(roles, _free_name(project, name), preset=preset, model=model)
     employee = Employee(**asdict(member), account=account, mcp_token=secrets.token_urlsafe(32))
@@ -90,13 +97,14 @@ async def change_member(
     """Change a member's roles and/or draw their personality from a preset. A new role set
     renews title, permissions and (unless `model` is given) model, keeps the personality, and
     moves the member between the catalog channels. A member who can no longer code gets their
-    unfinished tasks back to todo, unassigned. The lead keeps their roles."""
+    unfinished tasks back to todo, unassigned. The lead keeps their roles and no one else can take them."""
     _check_preset(preset)
     if roles is not None:
         roles = list(dict.fromkeys(roles))
         _check_roles(roles)
         if MANDATORY_ROLE in employee.roles and roles != employee.roles:
             raise WorkflowError(f"The {MANDATORY_ROLE} cannot change roles", code=ErrorCode.LEAD_PROTECTED)
+        _check_single_lead(roles, [e for e in project.employees if e is not employee])
         _check_team_rules([roles if e is employee else e.roles for e in project.employees])
     if roles is not None and roles != employee.roles:
         _rebuild(employee, roles, model)
