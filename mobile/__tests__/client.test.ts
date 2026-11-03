@@ -119,4 +119,20 @@ describe("pairDevice", () => {
     fetchMock.mockResolvedValue(jsonResponse(401, {}));
     await expect(pairDevice(SERVER, "nope", "iPhone")).rejects.toMatchObject({ message: "Wrong access token" });
   });
+
+  it("turns a 404 into a not a Palabre server error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(404, {}));
+    await expect(pairDevice(SERVER, "admin-secret", "iPhone")).rejects.toMatchObject({
+      status: 404,
+      message: "This is not a Palabre server",
+    });
+  });
+
+  it("joins the messages of an array detail", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(422, { detail: [{ msg: "name too short" }, { msg: "name invalid" }] }));
+    await expect(pairDevice(SERVER, "admin-secret", "")).rejects.toMatchObject({
+      status: 422,
+      detail: "name too short, name invalid",
+    });
+  });
 });

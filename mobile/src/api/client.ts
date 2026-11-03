@@ -43,7 +43,7 @@ export function setUnauthorizedHandler(handler: () => void): void {
 
 const HTTPS_PREFIX = /^https:\/\//i;
 
-/** "palabre.example.com/" → "https://palabre.example.com"; clear-text HTTP is never accepted. */
+/** "palabre.example.com/" → "https://palabre.example.com"; a scheme is kept as typed, `request` refuses anything but https:// (see `isSecureServer`). */
 export function normalizeServer(input: string): string {
   const server = input.trim().replace(/\/+$/, "").replace(/\/api$/, "");
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(server)) return server;
@@ -108,6 +108,7 @@ export async function pairDevice(server: string, adminToken: string, deviceName:
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) throw new ApiError(401, translate("api.wrongToken"));
     if (err instanceof ApiError && err.status === 404) throw new ApiError(404, translate("api.notPalabre"));
+    if (err instanceof ApiError && err.status === 429) throw new ApiError(429, errorMessage(429, "auth_locked"), err.detail, "auth_locked");
     throw err;
   }
 }
