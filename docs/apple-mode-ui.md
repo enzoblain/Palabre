@@ -126,5 +126,5 @@ Web app (`frontend/`):
 
 - Screen 2: `ProjectTypeChoice` in the project creation form. Apple mode off is detected from the 404 of `GET /api/apple-hosts`.
 - Screen 3: `MacBuilders` in the settings (hidden while Apple mode is off), with `EnrollmentCodeDialog`. The Mac list is refreshed every 30 s. Revoked Macs are not listed.
-- Screen 4: the `AppleBuild` block (status, short commit, summary, error lines as plain text, "Retry" after an infra error). The web app has no task page yet, so the block is not mounted anywhere.
+- Screen 4: the `AppleBuild` block (status, short commit, summary, error lines as plain text, "Retry" after an infra error). It is mounted on the task page (`#/p/<project>/tasks/<task>`, opened from the tasks list, itself opened from the tasks button of the project bar), on Apple projects only. That page is minimal: title, status, assignee, PR link, description and acceptance criteria.
 - Not shown because the API does not return them yet: builds running / maximum and queue length per Mac, queue position, duration, error and test counts, screenshots, build history and the "old commit" label.

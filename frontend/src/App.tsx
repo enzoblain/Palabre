@@ -3,11 +3,13 @@ import { type AppSettings, type Connection, type ExhaustedAccount, type ProjectL
 import { Connect } from "./components/Connect";
 import { ConversationView } from "./components/ConversationView";
 import { BottomBar } from "./components/BottomBar";
-import { InfoIcon } from "./components/Icons";
+import { InfoIcon, ListIcon } from "./components/Icons";
 import { NewProject } from "./components/NewProject";
 import { ProjectBar, ProjectInfo } from "./components/ProjectInfo";
 import { Projects, type ProjectsStatus } from "./components/Projects";
 import { Settings } from "./components/Settings";
+import { TaskList } from "./components/TaskList";
+import { TaskPage } from "./components/TaskPage";
 import { I18nProvider, useI18n } from "./i18n";
 import { parentPath, rememberOpenedProject, showsBottomBar, statusAfterFailure } from "./navigation";
 import { go, useRoute } from "./router";
@@ -142,6 +144,11 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
     main = error ? <p className="error center">{error}</p> : <ProjectInfo project={project}
       onChanged={() => { reloadProject(); reloadProjects(); }}
       onDeleted={() => { reloadProjects(); go("/", true); }} />;
+  } else if (route.name === "tasks") {
+    main = <TaskList projectId={route.projectId} />;
+  } else if (route.name === "task") {
+    main = project ? <TaskPage taskId={route.taskId} platform={project.detail.platform ?? "generic"} />
+      : <p className="muted center">{t("common.loading")}</p>;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
     const conversation = room && project?.conversations[room.id].find((c) => c.id === conversationId);
@@ -166,10 +173,15 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
       <main className={`main${bottomBar ? " with-bottom-bar" : ""}`}>
         {route.name === "project" ? (
           <ProjectBar name={project?.detail.name ?? projects.find((p) => p.id === projectId)?.name ?? "Palabre"} onBack={onBack}>
+            <button className="icon-btn" onClick={() => go(`/p/${route.projectId}/tasks`)} aria-label={t("tasks.open")}>
+              <ListIcon size={22} />
+            </button>
             <button className="icon-btn" onClick={() => go(`/p/${route.projectId}/info`)} aria-label={t("info.open")}>
               <InfoIcon size={22} />
             </button>
           </ProjectBar>
+        ) : route.name === "tasks" || route.name === "task" ? (
+          <ProjectBar name={project?.detail.name ?? t("tasks.title")} onBack={onBack} />
         ) : route.name === "new" ? <ProjectBar name={t("new.title")} onBack={onBack} /> : null}
         {exhausted.length > 0 && <CreditsBanner accounts={exhausted} showAccount={claudeAccounts > 1} />}
         {main}
