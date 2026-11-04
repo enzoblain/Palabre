@@ -36,7 +36,7 @@ if [ -n "$guest_if" ]; then
     neighbours=$(ndp -an 2>/dev/null | awk -v i="$guest_if" '$1 ~ /^fe80:/ && $3 == i {sub(/%.*/, "", $1); print $1}')
     for neighbour in $neighbours; do
         for port in 22 80 443 5432; do
-            if nc -6 -z -G "$TIMEOUT" "$neighbour%$guest_if" "$port" >/dev/null 2>&1; then
+            if reachable "$neighbour%$guest_if" "$port"; then
                 echo "FAIL: [$neighbour%$guest_if]:$port is reachable over IPv6 from the VM" >&2
                 failed=1
             fi
