@@ -442,6 +442,14 @@ details summary { cursor: pointer; margin-top: 6px; }
 .mac-state { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .mac-online { color: var(--success); }
 .enrollment-code { font-size: 1.3em; padding: 10px 12px; user-select: all; overflow-wrap: anywhere; }
+.task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.task-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; min-height: 44px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); color: inherit; text-decoration: none; }
+.task-link-title { font-weight: 600; overflow-wrap: anywhere; }
+.task-title { margin: 0; overflow-wrap: anywhere; }
+.task-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.task-facts dt { color: var(--muted); }
+.task-facts dd { margin: 0; overflow-wrap: anywhere; }
+.task-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .apple-build { gap: 10px; }
 .build-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
 .build-passed svg { color: var(--success); }

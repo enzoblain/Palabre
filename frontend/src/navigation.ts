@@ -17,7 +17,8 @@ export function statusAfterFailure(status: LoadStatus): LoadStatus {
  * A conversation has no project screen above it (opening a project redirects into a conversation), so it leads to the projects.
  */
 export function parentPath(route: Route): string {
-  if (route.name === "info") return `/p/${route.projectId}`;
+  if (route.name === "info" || route.name === "tasks") return `/p/${route.projectId}`;
+  if (route.name === "task") return `/p/${route.projectId}/tasks`;
   return "/";
 }
 

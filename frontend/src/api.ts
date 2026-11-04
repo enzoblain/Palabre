@@ -1,4 +1,4 @@
-import { type Connection, type ErrorCode, isErrorCode, type CatalogLimits, type AppSettings, type OrchestratorStatus, type PersonalityPreset, type Role, type Device, type AppleHost, type AppleEnrollmentCode, type TaskBuild, type ProjectPlatform, type ProjectListItem, type ProjectDetail, type ProjectUpdated, type Employee, type MemberIn, type Conversation, type Message } from "@palabre/shared";
+import { type Connection, type ErrorCode, isErrorCode, type CatalogLimits, type AppSettings, type OrchestratorStatus, type PersonalityPreset, type Role, type Device, type AppleHost, type AppleEnrollmentCode, type TaskBuild, type Task, type TaskDetail, type ProjectPlatform, type ProjectListItem, type ProjectDetail, type ProjectUpdated, type Employee, type MemberIn, type Conversation, type Message } from "@palabre/shared";
 import { translate } from "./i18n";
 
 // Opened from the server's web port: the API is on the page's own address
@@ -140,6 +140,8 @@ export const api = {
   listAppleHosts: () => call<AppleHost[]>("/apple-hosts"),
   revokeAppleHost: (id: number) => call<void>(`/apple-hosts/${id}`, "DELETE"),
   createAppleEnrollmentCode: () => call<AppleEnrollmentCode>("/apple-enrollment-codes", "POST"),
+  listTasks: (projectId: number) => call<Task[]>(`/projects/${projectId}/tasks`),
+  getTask: (taskId: number) => call<TaskDetail>(`/tasks/${taskId}`),
   getTaskBuild: (taskId: number) => call<TaskBuild>(`/tasks/${taskId}`),
   retryAppleBuild: (taskId: number) => call<TaskBuild>(`/tasks/${taskId}/apple-build/retry`, "POST"),
 

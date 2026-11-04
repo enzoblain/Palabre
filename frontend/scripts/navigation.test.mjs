@@ -14,6 +14,8 @@ test("the bottom bar is hidden on every full-screen route", () => {
     { name: "project", projectId: 1, conversationId: null },
     { name: "project", projectId: 1, conversationId: 2 },
     { name: "info", projectId: 1 },
+    { name: "tasks", projectId: 1 },
+    { name: "task", projectId: 1, taskId: 4 },
   ];
   for (const route of routes) assert.equal(showsBottomBar(route), false, JSON.stringify(route));
 });
@@ -23,6 +25,8 @@ test("back arrow leads to the parent screen: info to its project, a conversation
   assert.equal(parentPath({ name: "project", projectId: 7, conversationId: 3 }), "/");
   assert.equal(parentPath({ name: "project", projectId: 7, conversationId: null }), "/");
   assert.equal(parentPath({ name: "new" }), "/");
+  assert.equal(parentPath({ name: "tasks", projectId: 7 }), "/p/7");
+  assert.equal(parentPath({ name: "task", projectId: 7, taskId: 5 }), "/p/7/tasks");
 });
 
 test("project search ignores case and surrounding spaces, empty search keeps all", () => {

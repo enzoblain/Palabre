@@ -41,6 +41,33 @@ export type TaskBuild = { apple_build: AppleBuild | null };
 
 export type ProjectPlatform = "generic" | "apple";
 
+/** A task as listed in a project (mirrors TaskOut). */
+export type Task = {
+  id: number;
+  project_id: number;
+  room_id: number;
+  conversation_id: number;
+  kind: string;
+  title: string;
+  status: string;
+  // Name of the assignee; null while nobody has it
+  assignee: string | null;
+  severity: string | null;
+  sensitive: boolean;
+  marked_sensitive: boolean;
+  pr_url: string | null;
+  review_round: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** A task with its description and criteria (mirrors TaskDetail, minus the reviews the page does not show). */
+export type TaskDetail = Task & TaskBuild & {
+  description: string;
+  acceptance_criteria: string[];
+  branch: string | null;
+};
+
 export type Project = {
   id: number;
   name: string;
