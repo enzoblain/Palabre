@@ -27,7 +27,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name (done) | P1 | none |
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
 | 5 | Project info screen: name, branch, description, git link, deletion (done) | P2 | batch 3 |
-| 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
+| 6 | Team management of a project: members, jobs, personalities (done) | P3 | batch 5 |
 | 7 | New project: form, automatic or manual team, team editor (done) | P3 | batch 3, shares the pickers of batch 6 |
 
 Batches 1 and 3 are independent. 6 and 7 share the job and personality pickers: build them once, in whichever of the two
@@ -123,20 +123,20 @@ Web source: `ProjectInfo.tsx` (`ProjectBar`, `ProjectForm`, `DeleteProject`).
 | Delete the project after a confirmation, with error and busy state | present | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
 | Loading and load error of the project | present | Same states | P2 |
 
-## Batch 6: team management of a project
+## Batch 6: team management of a project (done)
 
 Web source: `TeamSection.tsx`, `JobPicker.tsx`, `PersonalityPicker.tsx`, `presets.ts`, `jobs.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Team list sorted by name: avatar, name, job title, quirks | partial (members shown in the conversation info sheet, without quirks) | Section of the project page (batch 5) | P3 |
-| Lead badge, the lead cannot be edited or removed | absent | same | P3 |
-| Edit a member: jobs and personality, hint about what changes | absent | Pushed form screen | P3 |
-| Remove a member after a confirmation | absent | Swipe action with a confirmation alert | P3 |
-| Add a member: jobs and personality | absent | Pushed form screen | P3 |
-| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | present (built for batch 7) | Searchable list, details in a sheet | P3 |
+| Team list sorted by name: avatar, name, job title, quirks | present (name, job title and quirks) | Section of the project page (batch 5) | P3 |
+| Lead badge, the lead cannot be edited or removed | present | same | P3 |
+| Edit a member: jobs and personality, hint about what changes | present | Sheet with the jobs and personality pickers | P3 |
+| Remove a member after a confirmation | present | Labelled button then a confirmation alert, no swipe | P3 |
+| Add a member: jobs and personality | present | Sheet with the jobs and personality pickers | P3 |
+| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | present (shared with batch 7) | Searchable list, details in a sheet | P3 |
 | Personality picker: radio list, search without accents, "random" option, empty and no-match messages | present (built for batch 7) | Searchable single-choice list | P3 |
-| Catalog loading and failure of the team section | absent | Loading and retry states | P3 |
+| Catalog loading and failure of the team section | present | Loading and retry states | P3 |
 | `/catalog` calls: roles, personalities, limits, names | present | Add the typed calls to the client | P3 |
 
 ## Batch 7: new project (done)
