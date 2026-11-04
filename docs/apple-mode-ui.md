@@ -59,7 +59,7 @@ Mac de build
   - Expired (the lifetime from the API ends while the dialog is open): the code is replaced by "Code expiré" and a "Générer un nouveau code" button, announced in the live region.
 - "Révoquer ce Mac" asks a confirmation ("Révoquer build-mac-1 ? Il ne pourra plus recevoir de builds. Ses builds en cours seront arrêtés.") with "Révoquer" and "Annuler"; cancel is focused by default.
   - Revoking: "Révoquer" is `aria-disabled` with "Révocation…". Error: "Impossible de révoquer le Mac. Réessayer", `role="alert"`, the dialog stays open. Success: the dialog closes and "Mac révoqué" is announced.
-  - The backend ends the builds running on a revoked Mac as `error`: their task shows "Erreur d'infrastructure" with "Relancer" (screen 4).
+  - Depends on #550 (it only sets `revoked_at` today): the backend must end the builds running on a revoked Mac as `error`: their task shows "Erreur d'infrastructure" with "Relancer" (screen 4).
 - Loading: skeleton with "Chargement…". Error: "Impossible de charger l'état du Mac. Réessayer".
 - Visible only to users allowed to manage the server settings.
 
@@ -84,8 +84,8 @@ States, each with its own icon and word:
 |---|---|---|---|
 | `queued` | En attente · position n sur la file | clock | Position written in full ("position 2 sur la file"), also in the live region. If the Mac is offline: "En attente : le Mac est hors ligne" |
 | `running` | En cours | spinner | Spinner is replaced by text with reduced motion |
-| `passed` | Réussi | ✔ | Duration |
-| `failed` | Échoué | ✖ | Counts of errors and failed tests |
+| `passed` | Réussi | check | Duration |
+| `failed` | Échoué | cross | Counts of errors and failed tests |
 | `error` | Erreur d'infrastructure | warning | States it is not a code problem, "Relancer". The failure message says why: Mac not responding, Mac revoked, or "Délai dépassé" when the duration limit is reached |
 
 - The statuses are exactly those of the backend (`queued`, `running`, `passed`, `failed`, `error`). A timeout is an `error` with its reason in the message, and there is no `cancelled` status until the backend has one: the front never invents a status, and an unknown value is shown as "Statut inconnu" with the raw value in plain text.
@@ -101,7 +101,6 @@ States, each with its own icon and word:
 
 - Texts and error states of the three screens are written above.
 - Contrast, labels, and no information carried by color alone are specified.
-- To be validated by Chloé before development.
 
 ## 6. Review notes
 
@@ -120,4 +119,3 @@ Remarks of Emma and Sacha on the first version, and what was done:
 - "position 2 sur la file" in full: integrated in the table.
 - Statuses aligned with the backend (`timeout` and `cancelled`): integrated, only the five statuses of the backend remain; a timeout is an `error`.
 - Link from [Apple mode](apple-mode.md): done.
-- Chloé's validation before development: still required, to be confirmed on the PR.
