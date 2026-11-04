@@ -18,6 +18,7 @@ export const ERROR_CODES = [
   "question_not_found",
   "device_not_found",
   "apple_job_token_used",
+  "apple_enrollment_rate_limited",
   "mode_not_found",
   "unknown_mode",
   "invalid_repository",

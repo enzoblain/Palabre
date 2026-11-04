@@ -34,12 +34,15 @@ their default unless you add them to the `environment:` of the `backend` service
 | `IDLE_TASK_MINUTES` | `10` | Minutes a task may stay still (or wait for its dev to start) before the lead is alerted |
 | `LEAD_DEBOUNCE_SECONDS` | `30` | Window in which changes of a task are grouped into one lead wakeup |
 | `CI_MISSING_MINUTES` | `10` | Minutes after a submission without any CI check before the PR goes back to its dev |
-| `APPLE_MODE_ENABLED` | `false` | Exposes the Mac builder routes (`/api/apple-hosts`, `/api/apple-host/*`, see [Apple mode](apple-mode.md)); when off they answer `404` |
+| `APPLE_MODE_ENABLED` | `false` | Exposes the Mac builder routes (`/api/apple-hosts`, `/api/apple-enrollment-codes`, `/api/apple-host/*`, see [Apple mode](apple-mode.md)); when off they answer `404` |
 | `APPLE_MAX_VMS` | `2` | Build jobs running at once (1 or 2: Apple's limit per Mac); a claim gets nothing while all slots are busy |
 | `APPLE_JOB_TIMEOUT_SECONDS` | `1800` | Time after which a running job ends as an infra error (`error`) and its job token is revoked |
 | `APPLE_HEARTBEAT_TIMEOUT_SECONDS` | `60` | Silence after which a Mac shows as disconnected and its running jobs end as infra errors |
 | `APPLE_HOST_TOKEN_TTL_DAYS` | `90` | Lifetime of a Mac builder's token, from its registration |
 | `APPLE_LOG_EXCERPT_CHARS` | `20000` | Characters of the log tail kept with a job's result (the Mac may send more, only the end is stored) |
+| `APPLE_ENROLLMENT_CODE_TTL_SECONDS` | `900` | Lifetime of a Mac enrollment code (one use), returned by the API as `ttl_seconds` |
+| `APPLE_ENROLL_MAX_ATTEMPTS` | `10` | Enrollment attempts one IP may make per window; beyond that the answer is `429` |
+| `APPLE_ENROLL_WINDOW_SECONDS` | `60` | Window of the enrollment attempt limit |
 | `STALLED_TASK_MINUTES` | `5` | Minutes a task in progress may stay without any run or wakeup before its dev is woken up again |
 | `MAX_STALLED_RESTARTS` | `3` | Times a dev is woken up again after a run that ended without submitting; the lead is told past it |
 | `REVIEW_SILENCE_MINUTES` | `15` | Minutes a task in review may wait for a reviewer's verdict before the reviewer is woken up again and the lead told |

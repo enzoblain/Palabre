@@ -96,6 +96,7 @@ export const en = {
   "error.question_not_found": "This question does not exist",
   "error.device_not_found": "This device does not exist",
   "error.apple_job_token_used": "This build job token was already used",
+  "error.apple_enrollment_rate_limited": "Too many enrollment attempts, try again shortly",
   "error.mode_not_found": "This mode does not exist",
   "error.unknown_mode": "Unknown mode",
   "error.invalid_repository": "Invalid repository",

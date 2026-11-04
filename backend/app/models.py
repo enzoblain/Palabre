@@ -464,6 +464,18 @@ class AppleHost(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
 
+class AppleEnrollmentCode(Base):
+    """A one-time code a Mac exchanges for its first token: only its SHA-256 is stored (see apple.py)."""
+
+    __tablename__ = "apple_enrollment_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = created_at_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
 class AppleJob(Base):
     """A build of a project's branch at one commit, queued for the Mac builder (see apple.py)."""
 
