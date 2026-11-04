@@ -43,7 +43,11 @@ not how the company is organized. For an `apple` project:
 - the Apple tools below are offered to developers, QA and the reviewer (see `permissions.py`); on a
   `generic` project they answer "not an Apple project";
 - the project must contain a `.palabre/apple.toml` (scheme, destination, Xcode version, optional
-  `test_plan`), read by the backend from the task branch. Without it the tools answer with the expected
+  `test_plan`), read by the backend from the task branch. **Its values are untrusted** (any agent or
+  dependency PR controls the file): the backend validates `scheme`, `destination` and `test_plan` against a
+  strict pattern (letters, digits, `.`, `_`, `-`, space, and for `destination` the `key=value,...` form)
+  before queuing, and rejects the job otherwise. The Xcode version is only a *key*: the image is chosen by
+  the server (see below), never by the file. Without the file the tools answer with the expected
   file, so an agent can add it itself;
 - the apple mode must be enabled on the server (`APPLE_MODE_ENABLED`) and a host worker enrolled; otherwise
   project creation with `platform=apple` is refused with a clear error.
@@ -68,7 +72,8 @@ to the head SHA it built, so a verdict on an old commit is never shown as curren
 A result holds: the status, the duration, build errors and warnings parsed from `xcodebuild`, the failed
 tests (name, message, file:line from the `.xcresult`), the log, and optional simulator screenshots. The
 backend stores them in the database (summary) and in `APPLE_ARTIFACTS_DIR` (log, screenshots, kept
-`APPLE_ARTIFACT_RETENTION_DAYS`). Screenshots are served by the API so the front and the mobile app can
+`APPLE_ARTIFACT_RETENTION_DAYS`). Build logs and failure messages are attacker-controlled text: the front and mobile apps render them as
+plain text, and `apple_job_logs` stays paginated and capped. Screenshots are served by the API so the front and the mobile app can
 show them; agents get their URL, never a path.
 
 ## Backend ↔ Mac
@@ -79,15 +84,19 @@ Pull model over HTTPS, using endpoints under `/api/apple-host/` (separate from t
 from the apps' API, with their own auth):
 
 1. `POST /api/apple-host/claim`: the host worker long-polls (about 25 s) and receives at most one job if
-   fewer than `APPLE_MAX_VMS` VMs run. The job holds the commit, the `apple.toml` content, the Xcode image
-   to use and a **job token**.
-2. The worker clones the pinned image, starts the VM and passes it the job token and the backend URL (see
-   below), then waits for it.
-3. The VM downloads the source, builds, and uploads the logs and results with the job token.
+   fewer than `APPLE_MAX_VMS` VMs run. The job holds the commit, the validated `apple.toml` values, the
+   image reference chosen by the server and a **job token**.
+2. The worker clones the pinned image, starts the VM, then runs the job runner script in it with
+   `tart exec`, passing the backend URL and the job token as an environment variable of that one process
+   (Tart has no guest metadata channel). The worker then waits for it.
+3. The VM downloads the source, builds, and uploads the logs and results with the job token. The build
+   itself (`xcodebuild`) runs as a separate unprivileged guest user that cannot read the runner's
+   environment, so build code (SwiftPM plugin, Run Script phase) never sees the token.
 4. The worker sends `POST /api/apple-host/jobs/{id}/finish` (exit status) and runs `tart delete`. If the
    VM exceeds `APPLE_JOB_TIMEOUT_SECONDS`, the worker kills and deletes it, and the job ends as `timeout`.
 5. The worker sends a heartbeat every 15 s. A job whose worker went silent for `APPLE_HEARTBEAT_TIMEOUT_SECONDS`
-   is marked `error` and its slot freed (the VM is deleted at the worker's next start, which wipes every
+   is marked `error`, its job token is revoked at that moment (the VM may still be running until the worker
+   restarts) and its slot freed. The same revocation applies when the backend ends a job as `timeout`. (The VM is deleted at the worker's next start, which wipes every
    VM that is not in its list of live jobs).
 
 ### Authentication, with no long-term secret on the VM
@@ -95,12 +104,17 @@ from the apps' API, with their own auth):
 Two different credentials, with a different scope each:
 
 - **Host worker credential** (on the Mac host, never in a VM): a client certificate issued by the backend
-  at enrollment (`mTLS`, or a bearer token if the Mac sits behind the existing reverse proxy; the
-  certificate is preferred because it never travels in a header). It can only call `/api/apple-host/*`:
-  claim a job, send heartbeats, finish a job. It cannot read a project, a conversation or call GitHub.
-  It is revocable from the server (and expires: 90 days, renewed by the worker). It is the only
-  long-lived credential involved, it is not one of the three forbidden kinds (Claude, GitHub, Apple), and
-  it opens nothing but the job queue.
+  at enrollment, used with **mTLS** (the one choice for the first iteration). The reverse proxy terminates
+  mTLS, strips any incoming certificate header from clients and sets the fingerprint header itself; the
+  backend is not reachable without going through the proxy, so the header cannot be spoofed. It can only
+  call `/api/apple-host/*`: claim a job, send heartbeats, finish a job. It cannot read a conversation or
+  call GitHub, but it can read the source of the jobs it claims, which is why enrollment is gated and the
+  credential is revocable from the server. It expires after 90 days and is renewed by the worker with a
+  still-valid, non-revoked certificate only (a stolen one cannot renew itself after revocation). It is the
+  only long-lived credential involved, it is not one of the three forbidden kinds (Claude, GitHub, Apple).
+- **Enrollment** is never open: it needs a one-time enrollment code generated by an authenticated user of
+  the app (single use, short TTL, stored hashed). Without a valid code the enrollment endpoint answers
+  nothing useful, even when `APPLE_MODE_ENABLED=true`.
 - **Job token** (the only secret that enters the VM): random, created when the job is claimed, valid for
   that job only, stored hashed, revoked when the job ends or times out, and usable only for three
   things: download this job's source bundle, upload its logs and results, read its own status. Same
@@ -119,9 +133,12 @@ at the one-time URL guarded by the job token. The VM unpacks it into its own dis
   in CI. Apple's license limits a Mac to 2 macOS VMs at once, which `APPLE_MAX_VMS=2` reflects.
 - **Base image**: built by us with Packer from a Cirrus Labs macOS base image, with a given Xcode, its
   simulators, `xcbeautify`, Ruby/`bundler`, SwiftLint, and an autostarted *job runner script* (a shell
-  script, no daemon) that reads the job from the guest metadata and does the steps of step 3 above.
+  script, no daemon) that does the steps of step 3 above with the values the worker gives it through `tart exec`.
   The image contains no credential. It is **pinned by digest** (`APPLE_IMAGE`, `name@sha256:...`), never
-  by tag; updating Xcode means building a new image, testing it, then changing the digest (one commit, one
+  by tag. The image is chosen **only by the server** from config: `APPLE_IMAGE`, or an allow-list of
+  digests keyed by Xcode version; a value outside the list is rejected. The worker never takes an image
+  from the job content or from `apple.toml`. The worker also never interpolates `apple.toml` values into a
+  command it runs on the host: they enter the VM only as data (arguments of the guest script). Updating Xcode means building a new image, testing it, then changing the digest (one commit, one
   config change, revertible).
 - **One clone per job**: `tart clone <digest> job-<id>`, `tart run`, `tart delete`. A VM is never
   reused or reset in place, so a project cannot leave anything for the next one.
@@ -134,7 +151,9 @@ time, and by default Tart's NAT lets a VM reach the host and the LAN. So:
 - VMs run with Tart's **softnet** (`--net-softnet`), with `--net-softnet-block` on the private ranges
   (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `100.64.0.0/10`, loopback/multicast),
   which covers the host and the LAN. The backend is reached through its public (or tunnel) address, which
-  is allowed explicitly by `--net-softnet-allow` when the server is on a private address.
+  is allowed explicitly by `--net-softnet-allow` when the server is on a private address. Because that
+  option takes a CIDR, the `pf` anchor below narrows it to the backend IP on port 443 only, so no other
+  port of that host (the database included) is reachable.
 - A **second layer** on the host: a `pf` anchor loaded at boot that applies the same rules to the VM
   interface. A softnet bug must not be enough to reach the LAN.
 - The VM uses a public DNS resolver, not the host's.
@@ -161,7 +180,8 @@ wait time are shown in monitoring, so the boss can see when 2 VMs are not enough
 
 - **PR checks for a Swift project**: a workflow template (`.github/workflows/swift-ci.yml` in the project,
   added by the creation of an `apple` project) runs `xcodebuild test` on a pinned macOS runner image. It
-  has no secret and `contents: read` only. The "CI must be green to merge" rule applies as for any
+  triggers on `pull_request` (never `pull_request_target`), pins third-party actions by commit SHA, has
+  no secret and `contents: read` only. The "CI must be green to merge" rule applies as for any
   project; the VM job gives the agents their fast loop, the CI is the check of record. (GitHub macOS
   minutes cost more than Linux ones; the workflow only runs on PRs, with concurrency cancelation.)
 - **Signing and publication** happen only in GitHub Actions, on a version tag, in a protected environment
@@ -179,7 +199,7 @@ To add to `backend/app/config.py` and [Configuration](configuration.md) (all opt
 |---|---|---|
 | `APPLE_MODE_ENABLED` | `false` | Allows `platform=apple` projects and exposes `/api/apple-host/*` and the Apple tools |
 | `APPLE_MAX_VMS` | `2` | VMs running at once (Apple's limit per Mac; never above 2) |
-| `APPLE_IMAGE` | | Image to clone, pinned by digest; refused if it has no `@sha256:` |
+| `APPLE_IMAGE` | | Image to clone, pinned by digest; refused if it has no `@sha256:` (or a digest allow-list keyed by Xcode version) |
 | `APPLE_JOB_TIMEOUT_SECONDS` | `1800` | Maximum duration of a job before the VM is killed |
 | `APPLE_HEARTBEAT_TIMEOUT_SECONDS` | `60` | Silence of the host worker after which its jobs are in error |
 | `APPLE_QUEUE_MAX_WAIT_SECONDS` | `1800` | Wait in the queue before a job ends in error |
@@ -187,7 +207,7 @@ To add to `backend/app/config.py` and [Configuration](configuration.md) (all opt
 | `APPLE_ARTIFACTS_DIR` | `/data/apple-artifacts` | Where logs and screenshots are stored |
 | `APPLE_ARTIFACT_RETENTION_DAYS` | `14` | Age after which logs and screenshots are deleted |
 | `APPLE_LOG_MAX_BYTES` | `20971520` | Size beyond which a log is cut (the tail is kept) |
-| `APPLE_HOST_CERT_FINGERPRINTS` | `[]` | JSON list of the enrolled host worker certificates (managed by the enrollment endpoint) |
+| `APPLE_HOST_CERT_FINGERPRINTS` | `[]` | JSON list of the enrolled host worker certificates (managed by the enrollment endpoint, which needs a one-time code) |
 
 On the Mac (a `/etc/palabre-apple-worker.toml`, owned by root, no secret except the host certificate path):
 `backend_url`, `client_cert` / `client_key` paths, `image` digest (must equal the server's), `max_vms`,
@@ -212,7 +232,7 @@ Rollback: stop the worker (`launchctl bootout`), set `APPLE_MODE_ENABLED=false`.
 
 ## Security review points
 
-Checked against the list of Inès in #mode-apple (to be confirmed by her review of this page): outbound
+Checked against the list of Inès in #mode-apple (her review of this page asked for the enrollment code and the untrusted `apple.toml` rules, now written above): outbound
 filtering of the VM (softnet block + `pf`, backend endpoint and internet only), no shared folder (source
 by bundle), images pinned by digest, a clean clone per job, signing outside the VM, short-lived job token
 scoped to one job, no Claude/GitHub/Apple key on the Mac. Residual risks, accepted: a build can use the
