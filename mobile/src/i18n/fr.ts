@@ -17,7 +17,7 @@ export const fr: Messages = {
   "login.deviceName": "Nom de l’appareil",
   "login.showToken": "Afficher le jeton",
   "login.hideToken": "Masquer le jeton",
-  "login.expired": "Cet appareil a été déconnecté. Reconnecte-toi.",
+  "login.expired": "Cet appareil a été déconnecté. Reconnectez-vous.",
   "nav.projects": "Projets",
   "nav.newProject": "Nouveau projet",
   "nav.settings": "Réglages",
