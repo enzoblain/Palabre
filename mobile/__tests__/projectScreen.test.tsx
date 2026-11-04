@@ -101,6 +101,13 @@ describe("project screen", () => {
     expect(await screen.findByText("Nom déjà pris")).toBeTruthy();
   });
 
+  it("exposes the branch hint as visible text only, not as an accessibility hint", async () => {
+    await render(<ProjectScreen />);
+    const branchInput = await screen.findByLabelText("Branche principale");
+    expect(branchInput.props.accessibilityHint).toBeUndefined();
+    expect(screen.getByText(/Là d’où partent les tâches/)).toBeTruthy();
+  });
+
   it("deletes the project after a confirmation, then goes back to the list", async () => {
     mocked.deleteProject.mockResolvedValue(undefined);
     await render(<ProjectScreen />);

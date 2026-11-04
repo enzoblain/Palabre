@@ -284,7 +284,7 @@ export const fr: Messages = {
   "project.saved": "Enregistré.",
   "project.description": "Description",
   "project.noDescription": "Pas encore de description.",
-  "project.descriptionHint": "Pour la changer, demande à ton lead dans la conversation.",
+  "project.descriptionHint": "Pour la changer, demandez à votre lead dans la conversation.",
   "project.git": "Dépôt git",
   "project.noGit": "Aucun dépôt lié.",
   "project.delete": "Supprimer ce projet",
