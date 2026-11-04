@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages and read marker. Missing for the batches: settings, update and delete project, employees, catalog, orchestrator status, rate limit lift, accounts | Add calls batch by batch, keeping the drift test | P1 |
+| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages and read marker. Missing for the batches: settings, update and delete project, employees, catalog, orchestrator status, rate limit lift, accounts | Add calls batch by batch | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |
