@@ -38,6 +38,7 @@ def is_task_branch_name(branch: str | None) -> bool:
 
 HTTP_NOT_FOUND = 404
 HTTP_CONFLICT = 409
+# Also returned for invalid dispatch inputs, not only for a workflow without `workflow_dispatch`
 HTTP_UNPROCESSABLE = 422
 
 

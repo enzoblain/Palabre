@@ -432,3 +432,23 @@ async def test_claim_sweep_does_not_commit_before_the_claim_ends(client, session
     await queue_job(db)
     assert (await claim(client, host["token"])).status_code == 200
     assert commits_during_sweep == [False]
+
+
+async def test_publishing_to_testflight_needs_the_admin_token(client):
+    assert (await client.post("/api/projects/1/testflight")).status_code == 401
+    assert (await client.post("/api/projects/1/testflight", headers=bearer("wrong"))).status_code in (401, 403)
+
+
+async def test_publishing_to_testflight_is_hidden_when_apple_mode_is_off(client, monkeypatch):
+    monkeypatch.setattr(settings, "apple_mode_enabled", False)
+    assert (await client.post("/api/projects/1/testflight", headers=bearer(settings.admin_token))).status_code == 404
+
+
+async def test_publishing_to_testflight_answers_202_with_the_version(client, monkeypatch):
+    async def publish(_project):
+        return "1.2.3"
+
+    monkeypatch.setattr(apple, "publish_testflight", publish)
+    r = await client.post("/api/projects/1/testflight", headers=bearer(settings.admin_token))
+    assert r.status_code == 202
+    assert r.json() == {"version": "1.2.3"}
