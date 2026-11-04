@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, type ProjectDetail, type ProjectState, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { BackIcon } from "./Icons";
 import { TeamSection } from "./TeamSection";
 
@@ -71,6 +72,47 @@ function ProjectForm({ detail, onSaved }: { detail: ProjectDetail; onSaved: () =
         {status && <span className={status.ok ? "success" : "error"} role="status">{status.text}</span>}
       </div>
     </form>
+  );
+}
+
+/** Sends the latest release of a Swift project to TestFlight; the backend refuses it unless its build is green. */
+export function PublishTestflight({ projectId }: { projectId: number }) {
+  const { t } = useI18n();
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function publish() {
+    setConfirming(false);
+    setSending(true);
+    setStatus(null);
+    try {
+      const { version } = await api.publishTestflight(projectId);
+      setStatus({ ok: true, text: t("info.testflightStarted", { version }) });
+    } catch (err) {
+      setStatus({ ok: false, text: err instanceof ApiError ? err.message : String(err) });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby="info-testflight">
+      <h2 className="section-label" id="info-testflight">{t("info.testflight")}</h2>
+      <p className="muted">{t("info.testflightHint")}</p>
+      <div className="row">
+        <button className="btn btn-primary" onClick={() => setConfirming(true)} disabled={sending}>
+          {sending ? t("info.testflightSending") : t("info.testflightPublish")}
+        </button>
+        {status && <span className={status.ok ? "success" : "error"} role="status">{status.text}</span>}
+      </div>
+      {confirming && (
+        <ConfirmDialog title={t("info.testflightConfirmTitle")} confirmLabel={t("info.testflightPublish")}
+          busy={false} onConfirm={() => void publish()} onCancel={() => setConfirming(false)}>
+          <p>{t("info.testflightConfirmBody")}</p>
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }
 
@@ -144,6 +186,7 @@ export function ProjectInfo({ project, onChanged, onDeleted }: {
           ) : <p className="muted">{t("info.noGit")}</p>}
         </section>
         <TeamSection projectId={detail.id} members={detail.employees} onChanged={onChanged} />
+        {detail.platform === "apple" && <PublishTestflight projectId={detail.id} />}
         <DeleteProject detail={detail} onDeleted={onDeleted} />
       </div>
     </>

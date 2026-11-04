@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-04
+
+### Added
+
+- apple: register the Mac builder and queue build jobs (#507)
+- apple: enroll the Mac builder with a one-time hashed code (#510)
+- apple: add the Mac builder worker that builds jobs in throw-away Tart VMs (#509)
+- apple: create Apple/Swift projects with a starter Swift package (#511)
+- apple: show the Swift build on the task and gate the merge on it (#512)
+- apple: add a pf anchor as second network barrier for the Mac builder (#514)
+- frontend: add the Apple/Swift project type, the Mac builder state and the Swift build block (#515)
+- apple: recheck the pf anchor before every Mac builder job (#517)
+- apple: publish a Swift app to TestFlight from a protected workflow (#516)
+- frontend: confirm before publishing a Swift project to TestFlight (#521)
+- frontend: add a task list and a task detail page with the Swift build (#518)
+- frontend: polish the task page UX (#525)
+
+### Fixed
+
+- security: flag Swift and Xcode manifests as sensitive (#519)
+- security: flag Xcode shared schemes and SwiftPM plugins as sensitive (#520)
+- apple: give the non-Apple retry guard its own error code (#522)
+- apple: make platform optional in shared types and tighten TestFlight workflow tests (#523)
+- frontend: say TestFlight sending started instead of sent (#524)
+
 ## [0.32.2] - 2026-11-04
 
 ### Fixed
@@ -807,7 +832,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.32.2...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/enzoblain/Palabre/compare/v0.32.2...v0.33.0
 [0.32.2]: https://github.com/enzoblain/Palabre/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/enzoblain/Palabre/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/enzoblain/Palabre/compare/v0.31.1...v0.32.0

@@ -11,10 +11,10 @@ import stat
 from collections import defaultdict
 from pathlib import Path
 
-from app import agent_pool, claude_store
+from app import agent_pool, apple_template, claude_store
 from app.config import settings
 from app.github import BRANCH_PATTERN, UPLOAD_PACK_SCRIPT, GitHubError, git, repo_slug, resolve_branch, upload_pack_command
-from app.models import Employee, Project, Task
+from app.models import Employee, Project, ProjectPlatform, Task
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +96,17 @@ async def _sync_repo(project: Project) -> Path:
     return repo
 
 
+async def bundle_branch(project: Project, branch: str, commit_sha: str, destination: Path) -> None:
+    """Writes a git bundle of `branch` to `destination`, if the branch still points at `commit_sha`.
+    The Mac gets the code from the backend, so it never needs a GitHub token."""
+    async with _repo_locks[project.id]:
+        repo = await _sync_repo(project)
+        ref = f"refs/remotes/origin/{branch}"
+        if not await _has_ref(repo, ref) or (await git(repo, "rev-parse", ref)).strip() != commit_sha:
+            raise GitHubError(f"Branch {branch} no longer points at {commit_sha}")
+        await git(repo, "bundle", "create", str(destination), ref)
+
+
 async def follow_main_branch(project: Project, branch: str) -> None:
     """Point the reference clone's `origin/HEAD` at the repository's new default branch."""
     repo = await sync_repo(project)
@@ -160,6 +171,15 @@ def initial_readme(project: Project) -> str:
     return f"# {project.name}\n\nProject started with Palabre. Describe the product and how to run it here.\n"
 
 
+def _initial_files(project: Project) -> dict[str, str]:
+    """Path to content of the first commit: README and .gitignore, plus the Swift package of an Apple project."""
+    files = {"README.md": initial_readme(project), ".gitignore": INITIAL_GITIGNORE}
+    if project.platform == ProjectPlatform.apple:
+        files[".gitignore"] += apple_template.APPLE_GITIGNORE
+        files.update(apple_template.starter_files(project.name))
+    return files
+
+
 async def _initial_commit(project: Project, repo: Path) -> None:
     """A brand-new GitHub repository has no commit: tasks need a branch to start from, so
     a first commit (minimal README and .gitignore) is pushed. Production (the repository's default branch) comes
@@ -170,9 +190,11 @@ async def _initial_commit(project: Project, repo: Path) -> None:
     # Already made by an attempt whose push failed: only the pushes are left
     if not await _has_ref(repo, f"refs/heads/{production}"):
         await git(repo, "checkout", "--quiet", "--orphan", production)
-        (repo / "README.md").write_text(initial_readme(project))
-        (repo / ".gitignore").write_text(INITIAL_GITIGNORE)
-        await git(repo, "add", "README.md", ".gitignore")
+        files = _initial_files(project)
+        for path, content in files.items():
+            (repo / path).parent.mkdir(parents=True, exist_ok=True)
+            (repo / path).write_text(content)
+        await git(repo, "add", *files)
         await git(
             repo, "-c", "user.name=Palabre", "-c", "user.email=palabre@palabre.local",
             "commit", "--quiet", "-m", "Initial commit",

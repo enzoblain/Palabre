@@ -8,6 +8,7 @@ SENSITIVE_NAMES = {
     "requirements.txt", "requirements.in", "requirements-dev.txt", "requirements-dev.in", "pyproject.toml", "poetry.lock", "uv.lock", "pipfile", "pipfile.lock",
     "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "npm-shrinkwrap.json",
     "cargo.toml", "cargo.lock", "go.mod", "go.sum", "gemfile", "gemfile.lock", "composer.json", "composer.lock",
+    "package.swift", "package.resolved",
     # Container, entrypoint, privileges, secrets
     "dockerfile", "entrypoint.sh", "docker-entrypoint.sh", "sudoers", ".env",
     # Settings and agent runner
@@ -15,9 +16,12 @@ SENSITIVE_NAMES = {
     # The gate itself (catalog.py holds its role keys and team checks), the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
     "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "extended_roles.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts",
 }
+# File name suffixes: Xcode project files, build settings and shared schemes (pre/post build actions) run scripts at build time and their name varies
+SENSITIVE_SUFFIXES = (".pbxproj", ".xcconfig", ".xcscheme")
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
-SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
+# plugins/ holds SwiftPM build plugins, which run at build time
+SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/", "plugins/")
 # Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
 SENSITIVE_ROLE_DIRS = (
     "catalog/company/roles/", "catalog/company/personalities/",
@@ -32,7 +36,7 @@ def is_sensitive_path(path: str) -> bool:
         return True
     if name.startswith(("docker-compose", "compose.")):
         return True
-    if name.startswith(".env.") or name.endswith((".pem", ".key")):
+    if name.startswith(".env.") or name.endswith((".pem", ".key") + SENSITIVE_SUFFIXES):
         return True
     posix = p.as_posix()
     return any(f"/{d}" in f"/{posix}" for d in SENSITIVE_DIRS + SENSITIVE_ROLE_DIRS)

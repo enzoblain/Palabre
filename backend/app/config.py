@@ -140,6 +140,24 @@ class Settings(BaseSettings):
     # Minutes after a submission without any CI check before the PR goes back to its dev
     ci_missing_minutes: int = 10
 
+    # Apple mode: a Mac builder polls /api/apple-host/* for build jobs (see docs/apple-mode.md)
+    apple_mode_enabled: bool = False
+    # VMs running at once: Apple's licence allows two macOS VMs per Mac
+    apple_max_vms: int = Field(2, ge=1, le=2)
+    # Seconds a job may run before it ends as an infra error
+    apple_job_timeout_seconds: int = Field(1800, gt=0)
+    # Seconds of silence of a Mac after which its running jobs end as infra errors (and it shows as disconnected)
+    apple_heartbeat_timeout_seconds: int = Field(60, gt=0)
+    # Lifetime of a Mac builder's token
+    apple_host_token_ttl_days: int = Field(90, gt=0)
+    # Characters of the log tail kept with a job's result
+    apple_log_excerpt_chars: int = Field(20000, gt=0)
+    # Seconds an enrollment code stays valid
+    apple_enrollment_code_ttl_seconds: int = Field(900, gt=0)
+    # Enrollment attempts one IP may make per window before answering 429
+    apple_enroll_max_attempts: int = Field(10, gt=0)
+    apple_enroll_window_seconds: int = Field(60, gt=0)
+
     @field_validator("admin_token")
     @classmethod
     def _admin_token_strong(cls, v: str) -> str:

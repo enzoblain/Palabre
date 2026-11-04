@@ -4,7 +4,7 @@ from fastapi import APIRouter, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app import workflow
+from app import apple, workflow
 from app.api.conversations import get_visible_room
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
@@ -25,9 +25,14 @@ async def task_detail(s, task: Task) -> TaskDetail:
     reviews = await s.scalars(
         select(Review).where(Review.task_id == task.id).options(selectinload(Review.reviewer)).order_by(Review.id)
     )
+    project = await s.get(Project, task.project_id)
+    build = {}
+    if apple.is_apple_project(project):
+        build = {"apple_build": apple.build_detail(await apple.latest_task_job(s, task.id))}
     return TaskDetail.model_validate(
         {
             **TaskOut.model_validate(task).model_dump(),
+            **build,
             "description": task.description,
             "acceptance_criteria": task.acceptance_criteria,
             "depends_on": task.depends_on,
@@ -114,6 +119,14 @@ async def merge_blockers(task_id: int, s: SessionDep) -> dict:
         return {"task_id": task.id, "status": task.status.value, "blockers": [f"task is {task.status.value}"]}
     project = await get_or_404(s, Project, task.project_id)
     return {"task_id": task.id, "status": task.status.value, "blockers": await workflow.merge_blockers(s, project, task)}
+
+
+@router.post("/tasks/{task_id}/apple-build/retry", response_model=TaskDetail)
+async def retry_apple_build(task_id: int, s: SessionDep):
+    """Relaunch the Swift build after an infra error."""
+    task = await load_task(s, task_id)
+    await workflow.retry_apple_build(s, task.project_id, task.id)
+    return await task_detail(s, await load_task(s, task_id))
 
 
 @router.post("/tasks/{task_id}/merge", response_model=TaskDetail)

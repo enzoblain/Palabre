@@ -1,0 +1,360 @@
+"""Unit tests of the Mac worker logic with a fake VM tool and a fake backend: no Mac, no Tart."""
+
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+import worker  # noqa: E402
+from vm import ExecResult, TartVm  # noqa: E402
+
+DIGEST = "ghcr.io/example/macos-xcode@sha256:" + "a" * 64
+
+
+def make_config(**overrides: Any) -> worker.Config:
+    values: dict[str, Any] = {
+        "backend_url": "https://palabre.example", "token_file": Path("/nonexistent"), "image": DIGEST,
+        "job_timeout_seconds": 60, "poll_interval_seconds": 0,
+    }  # fmt: skip
+    return worker.Config(**{**values, **overrides})
+
+
+def make_job(job_id: int) -> dict[str, Any]:
+    return {"id": job_id, "job_token": f"pjob_secret{job_id}", "source_url": f"/api/apple-host/jobs/{job_id}/source",
+            "commit_sha": "c" * 40, "branch": "task/1", "project_id": 1}  # fmt: skip
+
+
+class FakeVm:
+    def __init__(self, exec_result: ExecResult | None = None, hold: float = 0, fail_clone: bool = False) -> None:
+        self.exec_result = exec_result or ExecResult(0, "ok", False)
+        self.hold = hold
+        self.fail_clone = fail_clone
+        self.existing: list[str] = []
+        self.lock = threading.Lock()
+        self.live = 0
+        self.max_live = 0
+        self.created: list[str] = []
+        self.deleted: list[str] = []
+        self.stdin: list[str] = []
+        self.dead = False
+        self.probes = 0
+        self.probe_failures = 0
+
+    def clone(self, image: str, name: str) -> None:
+        if self.fail_clone:
+            raise RuntimeError("clone failed")
+        with self.lock:
+            self.live += 1
+            self.max_live = max(self.max_live, self.live)
+            self.created.append(name)
+
+    def start(self, name: str) -> None:
+        pass
+
+    def is_alive(self, name: str) -> bool:
+        return not self.dead
+
+    def exec(self, name: str, command: Any, stdin: str, timeout: float, max_output: int) -> ExecResult:
+        if list(command) == worker.GUEST_PROBE_COMMAND:
+            self.probes += 1
+            return ExecResult(1, "unable to connect", False) if self.probes <= self.probe_failures else ExecResult(0, "", False)
+        self.stdin.append(stdin)
+        time.sleep(self.hold)
+        return self.exec_result
+
+    def delete(self, name: str) -> None:
+        with self.lock:
+            if name in self.created:
+                self.live -= 1
+            self.deleted.append(name)
+
+    def list(self) -> list[str]:
+        return self.existing
+
+
+class FakeBackend:
+    def __init__(self, jobs: list[dict[str, Any]]) -> None:
+        self.jobs = jobs
+        self.results: list[tuple[int, str, str]] = []
+        self.fail_results = 0
+        self.lock = threading.Lock()
+
+    def claim(self) -> dict[str, Any] | None:
+        with self.lock:
+            return self.jobs.pop(0) if self.jobs else None
+
+    def heartbeat(self) -> None:
+        pass
+
+    def result(self, job: dict[str, Any], status: str, log_excerpt: str) -> None:
+        if self.fail_results:
+            self.fail_results -= 1
+            raise RuntimeError("network")
+        self.results.append((job["id"], status, log_excerpt))
+
+
+def make_worker(
+    vm: FakeVm, backend: FakeBackend, check_network: Callable[[], None] = lambda: None, **config: Any
+) -> worker.Worker:
+    return worker.Worker(make_config(**config), backend, vm, sleep=lambda _: None, check_network=check_network)
+
+
+class VerdictTest(unittest.TestCase):
+    def test_exit_codes(self) -> None:
+        self.assertEqual(worker.verdict(ExecResult(0, "", False)), "passed")
+        self.assertEqual(worker.verdict(ExecResult(worker.EXIT_FAILED, "", False)), "failed")
+        self.assertEqual(worker.verdict(ExecResult(137, "", False)), "error")
+        self.assertEqual(worker.verdict(ExecResult(-1, "", True)), "error")
+
+
+class ProcessTest(unittest.TestCase):
+    def run_job(self, vm: FakeVm, **config: Any) -> FakeBackend:
+        backend = FakeBackend([])
+        make_worker(vm, backend, **config).process(make_job(7))
+        return backend
+
+    def test_passed_job_deletes_vm_and_sends_token_on_stdin_only(self) -> None:
+        vm = FakeVm()
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results, [(7, "passed", "ok")])
+        self.assertEqual(vm.created, ["job-7"])
+        self.assertEqual(vm.deleted, ["job-7"])
+        self.assertEqual(vm.stdin, ["pjob_secret7\n"])
+
+    def test_broken_test_is_failed(self) -> None:
+        backend = self.run_job(FakeVm(ExecResult(worker.EXIT_FAILED, "1 test failed", False)))
+        self.assertEqual(backend.results[0][1], "failed")
+
+    def test_timeout_is_infra_error_and_vm_deleted(self) -> None:
+        vm = FakeVm(ExecResult(-1, "partial", True))
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertIn("Time limit", backend.results[0][2])
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_crashed_vm_is_infra_error(self) -> None:
+        vm = FakeVm(ExecResult(255, "lost", False))
+        vm.dead = True
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_clone_failure_is_error_and_still_cleans(self) -> None:
+        vm = FakeVm(fail_clone=True)
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_exception_in_exec_still_deletes(self) -> None:
+        vm = FakeVm()
+        vm.exec = lambda *a, **k: (_ for _ in ()).throw(OSError("boom"))  # type: ignore[method-assign]
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_guest_not_ready_is_retried_then_job_runs_once(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 3
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results, [(7, "passed", "ok")])
+        self.assertEqual(vm.probes, 4)
+        self.assertEqual(vm.stdin, ["pjob_secret7\n"])
+
+    def test_job_output_saying_connection_refused_is_not_retried(self) -> None:
+        vm = FakeVm(ExecResult(255, "connection refused", False))
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(len(vm.stdin), 1)
+
+    def test_deadline_reached_while_booting_is_a_timeout(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 10**6
+        backend = self.run_job(vm, job_timeout_seconds=0)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertIn("Time limit", backend.results[0][2])
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_boot_attempts_exhausted_is_an_error(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 10**6
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(vm.probes, worker.BOOT_ATTEMPTS)
+        self.assertEqual(vm.stdin, [])
+
+    def test_token_is_redacted_from_the_log(self) -> None:
+        backend = self.run_job(FakeVm(ExecResult(0, "token pjob_secret7 leaked", False)))
+        self.assertNotIn("pjob_secret7", backend.results[0][2])
+
+    def test_result_delivery_is_retried(self) -> None:
+        backend = FakeBackend([])
+        backend.fail_results = 2
+        make_worker(FakeVm(), backend).process(make_job(7))
+        self.assertEqual(len(backend.results), 1)
+
+
+class PfRecheckTest(unittest.TestCase):
+    def pf_checker(self, state: dict[str, str]) -> Callable[[], None]:
+        labels = "\n".join(f'label "{label}"' for label in worker.PF_ANCHOR_LABELS)
+        return lambda: worker.require_pf_anchor(
+            lambda: labels if state["anchor"] == "loaded" else "", lambda: state["info"]
+        )
+
+    def test_pf_disabled_while_running_refuses_the_job(self) -> None:
+        state = {"anchor": "loaded", "info": "Status: Enabled"}
+        vm, backend = FakeVm(), FakeBackend([])
+        make_worker(vm, backend, self.pf_checker(state)).process(make_job(1))
+        state["info"] = "Status: Disabled"
+        make_worker(vm, backend, self.pf_checker(state)).process(make_job(2))
+        self.assertEqual([r[:2] for r in backend.results], [(1, "passed"), (2, "error")])
+        self.assertIn("run install.sh again", backend.results[1][2])
+        self.assertEqual(vm.created, ["job-1"])
+
+    def test_anchor_emptied_between_two_jobs_refuses_the_second(self) -> None:
+        state = {"anchor": "loaded", "info": "Status: Enabled"}
+        vm, backend = FakeVm(), FakeBackend([])
+        w = make_worker(vm, backend, self.pf_checker(state))
+        w.process(make_job(1))
+        state["anchor"] = "empty"
+        w.process(make_job(2))
+        self.assertEqual([r[:2] for r in backend.results], [(1, "passed"), (2, "error")])
+        self.assertIn("missing rules", backend.results[1][2])
+        self.assertEqual(vm.created, ["job-1"])
+
+
+class QueueTest(unittest.TestCase):
+    def drain(self, count: int, max_vms: int = 2) -> tuple[FakeVm, FakeBackend]:
+        vm = FakeVm(hold=0.05)
+        backend = FakeBackend([make_job(i) for i in range(1, count + 1)])
+        w = make_worker(vm, backend, max_vms=max_vms)
+        while backend.jobs or w._threads and any(t.is_alive() for t in w._threads):
+            w.poll_once()
+        for thread in w._threads:
+            thread.join()
+        return vm, backend
+
+    def test_never_more_than_two_vms_and_all_jobs_finish(self) -> None:
+        vm, backend = self.drain(6)
+        self.assertEqual(len(backend.results), 6)
+        self.assertLessEqual(vm.max_live, 2)
+        self.assertEqual(sorted(vm.deleted), sorted(vm.created))
+
+    def test_max_vms_one_serialises(self) -> None:
+        vm, _ = self.drain(3, max_vms=1)
+        self.assertEqual(vm.max_live, 1)
+
+    def test_slot_is_released_when_claim_finds_nothing(self) -> None:
+        w = make_worker(FakeVm(), FakeBackend([]))
+        for _ in range(5):
+            self.assertFalse(w.poll_once())
+
+    def test_leftover_job_vms_are_deleted_at_start(self) -> None:
+        vm = FakeVm()
+        vm.existing = ["job-3", "base-image", "job-9"]
+        make_worker(vm, FakeBackend([])).cleanup_leftovers()
+        self.assertEqual(vm.deleted, ["job-3", "job-9"])
+
+
+class ConfigTest(unittest.TestCase):
+    def write(self, directory: str, text: str) -> Path:
+        path = Path(directory) / "w.toml"
+        path.write_text(text)
+        return path
+
+    def test_unpinned_image_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, 'backend_url="https://x"\ntoken_file="/t"\nimage="img:latest"\n')
+            with self.assertRaises(ValueError):
+                worker.load_config(path)
+
+    def test_network_isolation_is_always_applied(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, f'backend_url="https://x"\ntoken_file="/t"\nimage="{DIGEST}"\nnet_extra_args=["--net-softnet-allow=10.1.2.3/32"]\n')
+            config = worker.load_config(path)
+        self.assertEqual(config.net_args[: len(worker.ISOLATION_NET_ARGS)], worker.ISOLATION_NET_ARGS)
+        self.assertIn("--net-softnet", config.net_args)
+        self.assertIn("--net-softnet-block=192.168.0.0/16", config.net_args)
+        self.assertEqual(config.net_args[-1], "--net-softnet-allow=10.1.2.3/32")
+
+    def test_plain_http_backend_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, f'backend_url="http://x"\ntoken_file="/t"\nimage="{DIGEST}"\n')
+            with self.assertRaises(ValueError):
+                worker.load_config(path)
+
+    def test_more_than_two_vms_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, f'backend_url="https://x"\ntoken_file="/t"\nimage="{DIGEST}"\nmax_vms=3\n')
+            with self.assertRaises(ValueError):
+                worker.load_config(path)
+
+    def test_token_file_must_be_private(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            token = Path(d) / "token"
+            token.write_text("pmac_x\n")
+            os.chmod(token, 0o644)
+            with self.assertRaises(PermissionError):
+                worker.read_host_token(token)
+            os.chmod(token, 0o600)
+            self.assertEqual(worker.read_host_token(token), "pmac_x")
+
+
+class PfAnchorTest(unittest.TestCase):
+    ACTIVE = "\n".join(f'block drop quick ... label "{label}"' for label in worker.PF_ANCHOR_LABELS)
+
+    ENABLED = "Status: Enabled for 0 days 00:01:00"
+
+    def test_active_anchor_is_accepted(self) -> None:
+        worker.require_pf_anchor(lambda: self.ACTIVE, lambda: self.ENABLED)
+
+    def test_rules_loaded_but_pf_disabled_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "pf is disabled"):
+            worker.require_pf_anchor(lambda: self.ACTIVE, lambda: "Status: Disabled")
+
+    def test_empty_anchor_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "not active"):
+            worker.require_pf_anchor(lambda: "", lambda: self.ENABLED)
+
+    def test_partial_anchor_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-mac"):
+            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-mac", "other"), lambda: self.ENABLED)
+
+    def test_anchor_without_ipv6_block_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-ipv6"):
+            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-ipv6", "other"), lambda: self.ENABLED)
+
+    def test_unreadable_anchor_refuses_to_start(self) -> None:
+        def unreadable() -> str:
+            raise OSError("sudo: a password is required")
+
+        with self.assertRaisesRegex(RuntimeError, "run install.sh again"):
+            worker.require_pf_anchor(unreadable, lambda: self.ENABLED)
+
+
+class TartVmDeleteTest(unittest.TestCase):
+    def test_delete_is_attempted_even_when_stop_times_out(self) -> None:
+        calls: list[str] = []
+        tart = TartVm()
+
+        def fake_run(*args: str, timeout: float = 0) -> subprocess.CompletedProcess[str]:
+            calls.append(args[0])
+            if args[0] == "stop":
+                raise subprocess.TimeoutExpired("tart", timeout)
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        tart._run = fake_run  # type: ignore[method-assign]
+        with self.assertRaises(RuntimeError):
+            tart.delete("job-7")
+        self.assertEqual(calls, ["stop", "delete"])
+
+
+if __name__ == "__main__":
+    unittest.main()

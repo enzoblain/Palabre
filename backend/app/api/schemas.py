@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Model, Permission
 from app.github import BRANCH_PATTERN
-from app.models import RequestStatus
+from app.models import ProjectPlatform, RequestStatus
 
 
 class ORM(BaseModel):
@@ -199,6 +199,8 @@ class ProjectIn(BaseModel):
     employee_count: int | None = Field(default=None, le=MAX_TEAM_SIZE)
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=MAX_TEAM_SIZE)
+    # What the code is: "apple" needs a connected Mac builder and starts the repository with a Swift package
+    platform: ProjectPlatform = ProjectPlatform.generic
 
 
 class ProjectOut(ORM):
@@ -208,6 +210,7 @@ class ProjectOut(ORM):
     default_branch: str
     mode: str
     seed: int
+    platform: ProjectPlatform = ProjectPlatform.generic
     created_at: datetime
 
 
@@ -429,7 +432,21 @@ class ReviewOut(ORM):
     _reviewer_name = field_validator("reviewer", mode="before")(_name_of)
 
 
+class AppleBuildOut(BaseModel):
+    job_id: int
+    status: Literal["queued", "running", "passed", "failed", "error"]
+    commit_sha: str
+    # An infra error (timeout, lost Mac) is not a failing build: it can be retried
+    infra_error: bool
+    summary: str
+    # Lines of the build log that look like errors: untrusted text, to be shown as plain text
+    errors: list[str]
+    finished_at: str | None
+
+
 class TaskDetail(TaskOut):
+    # Only for an Apple project: its newest build (null until one is queued)
+    apple_build: AppleBuildOut | None = None
     description: str
     acceptance_criteria: list[str]
     depends_on: list[int]
@@ -527,3 +544,67 @@ class DeviceTokenOut(DeviceOut):
     """Returned once, when the device is paired: the token cannot be read again."""
 
     token: str
+
+
+class AppleHostCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def _strip_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+
+class AppleHostOut(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    expires_at: datetime
+    last_seen_at: datetime | None
+    revoked_at: datetime | None
+    connected: bool
+
+
+class AppleHostTokenOut(AppleHostOut):
+    """Returned once, when the Mac is registered: the token cannot be read again."""
+
+    token: str
+
+
+class AppleEnrollmentCodeOut(BaseModel):
+    """Returned once, when the code is generated: only its hash is stored."""
+
+    code: str
+    expires_at: datetime
+    ttl_seconds: int
+
+
+class AppleEnroll(AppleHostCreate):
+    code: str = Field(min_length=1, max_length=200)
+
+
+class AppleJobClaim(BaseModel):
+    """What the Mac gets when it claims a job: the job token is shown once and only valid for this job."""
+
+    id: int
+    project_id: int
+    branch: str
+    commit_sha: str
+    job_token: str
+    source_url: str
+
+
+class AppleJobResult(BaseModel):
+    """The Mac's verdict: `error` is an infra failure, not a failing build."""
+
+    status: Literal["passed", "failed", "error"]
+    log_excerpt: str = ""
+
+
+class AppleTestflightOut(BaseModel):
+    """The version whose TestFlight publication was started."""
+
+    version: str

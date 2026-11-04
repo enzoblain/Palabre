@@ -13,12 +13,14 @@ from app.sensitive_paths import is_sensitive_path, touches_sensitive_paths
     "backend/app/sensitive_paths.py", "backend/app/workflow.py", "backend/app/company/catalog.toml", "backend/app/company/catalog/company/extended_roles.toml",
     "frontend/nginx.conf", "frontend/src/api.ts", "backend/app/toolchains.py",
     "CLAUDE.md", "claude.md", "./Claude.MD", ".github/CODEOWNERS", ".github/dependabot.yml", "docker-compose.override.yml", "compose.yaml",
+    "Package.swift", "App/Package.resolved", "App/App.xcodeproj/project.pbxproj", "Legacy.PBXPROJ", "Config/Release.xcconfig", "Debug.XCConfig",
+    "App.xcodeproj/xcshareddata/xcschemes/App.xcscheme", "Release.XCScheme", "Plugins/Lint/plugin.swift", "App/Sources/MyApp/plugins/Gen.swift",
 ])
 def test_sensitive(path):
     assert is_sensitive_path(path)
 
 
-@pytest.mark.parametrize("path", ["README.md", "backend/app/services.py", "frontend/src/App.tsx", "docs/runner.md"])
+@pytest.mark.parametrize("path", ["README.md", "backend/app/services.py", "frontend/src/App.tsx", "docs/runner.md", "App/Sources/main.swift", "App/Info.plist", "App/Sources/plugin.swift", "App/Schemes/App.xcscheme.md"])
 def test_not_sensitive(path):
     assert not is_sensitive_path(path)
 

@@ -14,7 +14,7 @@ async def no_pr(*_):
 
 class FakeSession:
     async def get(self, model, pk):
-        return SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev", mode=None)
+        return SimpleNamespace(id=1, repo_url="https://github.com/acme/app", default_branch="dev", mode=None, platform="generic")
 
     async def commit(self):
         pass
@@ -236,7 +236,7 @@ async def test_sensitive_files_close_the_gate_whatever_the_flag(monkeypatch):
     monkeypatch.setattr(workflow, "mode_process", lambda _: {
         "qa_gate": False, "security_gate": True, "required_approvals": 0, "ci_required": False, "docs_required": False,
     })
-    blockers = await workflow.merge_blockers(Sess(), SimpleNamespace(mode=None), task)
+    blockers = await workflow.merge_blockers(Sess(), SimpleNamespace(mode=None, platform="generic"), task)
     assert "security has not approved this sensitive PR" in blockers
 
 

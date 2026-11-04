@@ -16,7 +16,7 @@ services:
 
   backend:
     # Published image (`docker compose pull`); `docker compose up -d --build` builds it here instead
-    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-0.32.2}
+    image: ghcr.io/enzoblain/palabre:${PALABRE_VERSION:-0.33.0}
     build:
       context: ./backend
       args:
@@ -51,7 +51,7 @@ services:
 
   web:
     # The app in a browser (phone...): the interface, with /api passed on to the backend
-    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.32.2}
+    image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.33.0}
     build:
       # Repo root: the image also needs shared/
       context: .
@@ -69,7 +69,7 @@ services:
     # It only sees new images under a moving tag (PALABRE_VERSION=latest), so turning it on
     # means trusting whatever is published there. It also holds the Docker socket, which is
     # root on the host: see docs/install.md.
-    image: docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
+    image: docker:28-cli@sha256:625d9431a9f54c5a2bc90f24f0e1c3d55b1349fd857dd85035f98c2c9acbdd4d
     profiles: [autoupdate]
     restart: unless-stopped
     volumes:
@@ -77,7 +77,7 @@ services:
       - .:/project:ro
     environment:
       INTERVAL: ${PALABRE_UPDATE_INTERVAL:-300}
-      PALABRE_VERSION: ${PALABRE_VERSION:-0.32.2}
+      PALABRE_VERSION: ${PALABRE_VERSION:-0.33.0}
     # The project is reached at its path on the host (a link to /project), so the
     # containers it recreates keep the labels of this compose project
     entrypoint:
@@ -85,7 +85,7 @@ services:
       - -c
       - |
         set -u
-        case "$${PALABRE_VERSION:-0.32.2}" in latest) ;; *) echo "Warning: PALABRE_VERSION is not 'latest' (it is '$${PALABRE_VERSION:-0.32.2}'): this updater will never find a new version";; esac
+        case "$${PALABRE_VERSION:-0.33.0}" in latest) ;; *) echo "Warning: PALABRE_VERSION is not 'latest' (it is '$${PALABRE_VERSION:-0.33.0}'): this updater will never find a new version";; esac
         project=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$$(hostname)")
         dir=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$$(hostname)")
         mkdir -p "$$(dirname "$$dir")" && { [ -e "$$dir" ] || ln -s /project "$$dir"; }
