@@ -16,8 +16,8 @@ The worker (`worker.py`, standard library only) polls the backend (`POST /api/ap
    a time limit, a crashed VM, a failed clone or any other exit code is `error` (infra).
 
 Before the job, the worker probes the guest with a harmless command (`/usr/bin/true`) until `tart exec` answers, so a job
-that fails is never mistaken for a guest that is not ready and never runs twice. `job_timeout_seconds` covers the probe
-and the job, not `tart clone` and the VM start. The VM is always deleted: if `tart stop` hangs, `tart delete` still runs.
+that fails is never mistaken for a guest that is not ready and never runs twice. `job_timeout_seconds` starts after `tart clone`
+and the VM start, and covers the boot probe and the job. The VM is always deleted: if `tart stop` hangs, `tart delete` still runs.
 
 At most `max_vms` jobs run at once (2 at most, Apple's limit); a free slot is needed before a job is claimed, so
 the next jobs wait in the backend's queue. At start, every leftover `job-*` VM is deleted. The log sent back is the
@@ -31,9 +31,12 @@ gets the job token.
 On the Mac (Apple silicon), as an administrator:
 
 1. Create a standard (non-admin) user `palabre`. System Settings, Energy: no automatic sleep. Firewall on.
-2. Install Tart: `brew install cirruslabs/cli/tart`.
-3. In the Palabre app (or with the admin token), register the Mac: `POST /api/apple-hosts {"name": "mac-enzo"}`. The answer
-   holds the `pmac_...` token, shown once.
+2. Install Tart: `brew install cirruslabs/cli/tart`. The worker needs `--net-softnet-block`, so use Tart 2.16.0 or newer
+   (to my knowledge the first release with `--net-softnet-allow` and `--net-softnet-block`; check that `tart run --help` lists
+   `--net-softnet-block`).
+3. Register the Mac with a one-time enrollment code. An admin generates it (`POST /api/apple-enrollment-codes`, answer
+   `penr_...`, shown once, valid `APPLE_ENROLLMENT_CODE_TTL_SECONDS`, 15 minutes by default). Then, from the Mac:
+   `POST /api/apple-host/enroll {"name": "mac-enzo", "code": "penr_..."}`. The answer holds the `pmac_...` token, shown once.
 4. Save the token: `sudo install -m 600 -o palabre /dev/null /etc/palabre-apple-worker.token`, then paste it in that file.
 5. Pull the image as the worker user: `sudo -u palabre tart pull <image@sha256:...>` (the digest set as `APPLE_IMAGE` on the server).
 6. Write `/etc/palabre-apple-worker.toml` (no secret in it):
@@ -51,8 +54,11 @@ On the Mac (Apple silicon), as an administrator:
    The worker always starts VMs with `--net-softnet` and blocks `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and
    `169.254.0.0/16`, so the VM (which runs untrusted code) reaches neither the Mac nor your LAN. It cannot be turned off
    from the config. If the server lives on a private address, allow exactly that host with `net_extra_args`
-   (`--net-softnet-allow=<ip>/32`). `backend_url` must use `https://`. `job_timeout_seconds` starts once the VM is booted,
-   not at `tart clone`.
+   (`--net-softnet-allow=<ip>/32`). `backend_url` must use `https://`. `job_timeout_seconds` starts after `tart clone` and the
+   VM start, and includes the boot probe.
+
+   DNS: the VM needs a resolver. If name resolution fails because the private ranges are blocked, allow only the softnet
+   gateway with `net_extra_args = ["--net-softnet-allow=192.168.64.1/32"]`, not the whole `192.168.0.0/16`.
 
 7. From a copy of the repository, run `cd deploy/apple-host && sudo ./install.sh`. It copies the worker to
    `/usr/local/lib/palabre-apple-worker`, installs the launchd daemon (starts at boot, restarted on failure) and starts it.
@@ -65,9 +71,9 @@ Upgrade the worker: pull the repository and run `sudo ./install.sh` again (it is
 `cd deploy/apple-host && python3 -m unittest test_worker` : the queue limit, timeouts, cleanup and verdicts, with a
 fake VM tool and a fake backend (no Mac needed).
 
-## Known limit: no GUI session
+## Known limit: no GUI session (LaunchDaemon vs LaunchAgent)
 
-Virtualization.framework may refuse to boot macOS guests without a logged-in GUI session, and a LaunchDaemon has none.
+The installer sets up a LaunchDaemon. Virtualization.framework may refuse to boot macOS guests without a logged-in GUI session, and a LaunchDaemon has none.
 Not validated on the real Mac yet. If `tart run` fails from the daemon, use a LaunchAgent instead: put the plist in
 `/Users/palabre/Library/LaunchAgents/`, enable automatic login for `palabre`, and load it with
 `launchctl bootstrap gui/<uid> <plist>`. Roll back the same way with `launchctl bootout gui/<uid> <plist>`.

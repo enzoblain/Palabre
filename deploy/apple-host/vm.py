@@ -84,6 +84,7 @@ class TartVm:
             errors.append(error)
         if errors:
             raise RuntimeError(f"tart cleanup of {name} incomplete: {errors[-1]}")
+
     def list(self) -> list[str]:
         result = self._run("list", "--source", "local", "--format", "json", timeout=LIST_TIMEOUT_SECONDS)
         if result.returncode != 0:
