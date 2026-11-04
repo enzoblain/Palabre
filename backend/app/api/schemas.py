@@ -557,6 +557,18 @@ class AppleHostTokenOut(AppleHostOut):
     token: str
 
 
+class AppleEnrollmentCodeOut(BaseModel):
+    """Returned once, when the code is generated: only its hash is stored."""
+
+    code: str
+    expires_at: datetime
+    ttl_seconds: int
+
+
+class AppleEnroll(AppleHostCreate):
+    code: str = Field(min_length=1, max_length=200)
+
+
 class AppleJobClaim(BaseModel):
     """What the Mac gets when it claims a job: the job token is shown once and only valid for this job."""
 

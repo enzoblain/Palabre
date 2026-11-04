@@ -6,15 +6,16 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import status
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ApiError, ErrorCode
 from app.config import settings
-from app.models import AppleHost, AppleJob, AppleJobStatus
+from app.models import AppleEnrollmentCode, AppleHost, AppleJob, AppleJobStatus
 
 HOST_TOKEN_PREFIX = "pmac_"
 JOB_TOKEN_PREFIX = "pjob_"
+ENROLLMENT_CODE_PREFIX = "penr_"
 FINAL_STATUSES = (AppleJobStatus.passed, AppleJobStatus.failed, AppleJobStatus.error)
 # What the Mac may report: a queued or running status is the server's to set
 REPORTABLE_STATUSES = FINAL_STATUSES
@@ -50,6 +51,39 @@ async def create_host(s: AsyncSession, name: str, now: datetime | None = None) -
     s.add(host)
     await s.commit()
     return host, token
+
+
+async def create_enrollment_code(s: AsyncSession, now: datetime | None = None) -> tuple[AppleEnrollmentCode, str]:
+    """Generates a one-time enrollment code and returns it with its row; the code is never recoverable afterwards."""
+    now = now or datetime.now(UTC)
+    await s.execute(delete(AppleEnrollmentCode).where(AppleEnrollmentCode.expires_at <= now))
+    code = new_token(ENROLLMENT_CODE_PREFIX)
+    row = AppleEnrollmentCode(
+        code_hash=hash_token(code), created_at=now,
+        expires_at=now + timedelta(seconds=settings.apple_enrollment_code_ttl_seconds),
+    )  # fmt: skip
+    s.add(row)
+    await s.commit()
+    return row, code
+
+
+async def enroll_host(s: AsyncSession, code: str, name: str, now: datetime | None = None) -> tuple[AppleHost, str]:
+    """Spends the code and registers the Mac in one transaction; the conditional UPDATE lets only one of two
+    concurrent exchanges win. An unknown, expired or spent code is the same 401."""
+    now = now or datetime.now(UTC)
+    spent = await s.execute(
+        update(AppleEnrollmentCode)
+        .where(
+            AppleEnrollmentCode.code_hash == hash_token(code),
+            AppleEnrollmentCode.consumed_at.is_(None),
+            AppleEnrollmentCode.expires_at > now,
+        )
+        .values(consumed_at=now)
+    )
+    if spent.rowcount == 0:
+        await s.rollback()
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_TOKEN, "Invalid enrollment code")
+    return await create_host(s, name, now)
 
 
 async def authenticate_host(s: AsyncSession, token: str, now: datetime | None = None) -> AppleHost | None:

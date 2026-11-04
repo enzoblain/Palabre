@@ -2,6 +2,7 @@
 
 import asyncio
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
@@ -10,9 +11,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 
 from app import apple, worktrees
-from app.api.deps import SessionDep, authentication_failure, check_lockout_for, get_or_404, require_admin, require_raw_admin_token
+from app.api.deps import SessionDep, authentication_failure, check_lockout_for, client_ip, get_or_404, require_admin
 from app.api.errors import ApiError, ErrorCode
-from app.api.schemas import AppleHostCreate, AppleHostOut, AppleHostTokenOut, AppleJobClaim, AppleJobResult
+from app.api.schemas import (
+    AppleEnroll, AppleEnrollmentCodeOut, AppleHostOut, AppleHostTokenOut, AppleJobClaim, AppleJobResult,
+)
 from app.config import settings
 from app.models import AppleHost, AppleJob, AppleJobStatus, Project
 
@@ -28,6 +31,36 @@ admin_router = APIRouter(tags=["apple"], dependencies=[Depends(require_apple_mod
 host_router = APIRouter(prefix="/apple-host", tags=["apple-host"], dependencies=[Depends(require_apple_mode)])
 
 
+# Enrollment attempts per client IP (monotonic timestamps), in memory: a restart resets it
+_enroll_attempts: dict[str, list[float]] = {}
+# Past this many tracked IPs, expired entries are swept
+_SWEEP_ABOVE = 1024
+
+
+def _recent_attempts(ip: str, now: float) -> list[float]:
+    recent = [t for t in _enroll_attempts.get(ip, []) if now - t < settings.apple_enroll_window_seconds]
+    if recent:
+        _enroll_attempts[ip] = recent
+    else:
+        _enroll_attempts.pop(ip, None)
+    return recent
+
+
+def _count_enroll_attempt(ip: str, now: float) -> None:
+    """Counts every attempt, valid or not, and answers 429 once the IP made too many in the window."""
+    if len(_enroll_attempts) > _SWEEP_ABOVE:
+        for known in list(_enroll_attempts):
+            _recent_attempts(known, now)
+    recent = _recent_attempts(ip, now)
+    if len(recent) >= settings.apple_enroll_max_attempts:
+        retry = max(1, int(settings.apple_enroll_window_seconds - (now - recent[0])) + 1)
+        raise ApiError(
+            status.HTTP_429_TOO_MANY_REQUESTS, ErrorCode.APPLE_ENROLLMENT_RATE_LIMITED,
+            "Too many enrollment attempts", headers={"Retry-After": str(retry)},
+        )  # fmt: skip
+    _enroll_attempts.setdefault(ip, []).append(now)
+
+
 def _host_out(host: AppleHost) -> AppleHostOut:
     return AppleHostOut(
         id=host.id, name=host.name, created_at=host.created_at, expires_at=host.expires_at,
@@ -36,12 +69,12 @@ def _host_out(host: AppleHost) -> AppleHostOut:
 
 
 @admin_router.post(
-    "/apple-hosts", response_model=AppleHostTokenOut, status_code=201, dependencies=[Depends(require_raw_admin_token)]
+    "/apple-enrollment-codes", response_model=AppleEnrollmentCodeOut, status_code=201, dependencies=[Depends(require_admin)]
 )
-async def register_host(body: AppleHostCreate, s: SessionDep) -> AppleHostTokenOut:
-    """Registers a Mac builder; its token is in this answer only. Needs the raw ADMIN_TOKEN."""
-    host, token = await apple.create_host(s, body.name)
-    return AppleHostTokenOut(**_host_out(host).model_dump(), token=token)
+async def create_enrollment_code(s: SessionDep) -> AppleEnrollmentCodeOut:
+    """Generates the one-time code a Mac exchanges for its token; it is in this answer only."""
+    row, code = await apple.create_enrollment_code(s)
+    return AppleEnrollmentCodeOut(code=code, expires_at=row.expires_at, ttl_seconds=settings.apple_enrollment_code_ttl_seconds)
 
 
 @admin_router.get("/apple-hosts", response_model=list[AppleHostOut], dependencies=[Depends(require_admin)])
@@ -87,6 +120,14 @@ async def current_job(
             raise await authentication_failure(request) from error
         raise
     return job
+
+
+@host_router.post("/enroll", response_model=AppleHostTokenOut, status_code=201)
+async def enroll(body: AppleEnroll, request: Request, s: SessionDep) -> AppleHostTokenOut:
+    """Exchanges an enrollment code for the Mac's first token, shown once. No bearer: the code is the credential."""
+    _count_enroll_attempt(await client_ip(request), time.monotonic())
+    host, token = await apple.enroll_host(s, body.code, body.name)
+    return AppleHostTokenOut(**_host_out(host).model_dump(), token=token)
 
 
 @host_router.post("/heartbeat", status_code=204)

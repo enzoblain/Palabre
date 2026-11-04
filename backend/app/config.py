@@ -152,6 +152,11 @@ class Settings(BaseSettings):
     apple_host_token_ttl_days: int = Field(90, gt=0)
     # Characters of the log tail kept with a job's result
     apple_log_excerpt_chars: int = Field(20000, gt=0)
+    # Seconds an enrollment code stays valid
+    apple_enrollment_code_ttl_seconds: int = Field(900, gt=0)
+    # Enrollment attempts one IP may make per window before answering 429
+    apple_enroll_max_attempts: int = Field(10, gt=0)
+    apple_enroll_window_seconds: int = Field(60, gt=0)
 
     @field_validator("admin_token")
     @classmethod

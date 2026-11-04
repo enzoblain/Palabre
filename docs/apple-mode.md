@@ -207,7 +207,8 @@ Behind `APPLE_MODE_ENABLED` (otherwise `404`). Tokens are random and stored as a
 
 | Route | Auth | What |
 |---|---|---|
-| `POST /api/apple-hosts` `{name}` | raw `ADMIN_TOKEN` | Registers a Mac; `201` with its `pmac_` token, shown once |
+| `POST /api/apple-enrollment-codes` | admin | Generates a one-time code (`penr_...`); `201` with `{code, expires_at, ttl_seconds}`, the code is shown once, only its SHA-256 is stored |
+| `POST /api/apple-host/enroll` `{name, code}` | the code | Spends the code and registers the Mac; `201` with its `pmac_` token, shown once. An unknown, expired or spent code is `401`; more than `APPLE_ENROLL_MAX_ATTEMPTS` attempts per IP in the window is `429 apple_enrollment_rate_limited` with `Retry-After` |
 | `GET /api/apple-hosts` | admin | Macs with `last_seen_at` and `connected` (seen within `APPLE_HEARTBEAT_TIMEOUT_SECONDS`) |
 | `DELETE /api/apple-hosts/{id}` | admin | Revokes the token: the Mac's next call is `401` |
 | `POST /api/apple-host/heartbeat` | host token | `204`, records the Mac as seen |
@@ -219,8 +220,10 @@ An invalid, unknown or revoked token is `401`. Running jobs past `APPLE_JOB_TIME
 silent, are ended as `error` (summary says which) and their job token is revoked; this is checked on every claim.
 The tables are `apple_hosts` and `apple_jobs`, created at startup like the others. Queuing a job from the agents'
 tools (`apple.enqueue_job` has no caller until they land), renewal and the cancel/wait limits of this page are not built yet.
-Enrollment codes are not built either: for now a Mac is registered with the raw `ADMIN_TOKEN`; the code (hashed,
-about 15 minutes, consumed atomically, rate limited) is handled by task #558.
+Enrollment codes live in `apple_enrollment_codes` (hash, expiry, consumption date). They last
+`APPLE_ENROLLMENT_CODE_TTL_SECONDS` (15 minutes by default) and are spent by one conditional update in the same
+transaction as the Mac's registration, so of two simultaneous exchanges only one succeeds. Every exchange attempt counts
+against the caller's IP, valid or not (in memory, reset by a restart).
 
 Revoking a Mac also ends its running jobs as `error` (summary `Mac builder revoked`), so their job tokens stop
 working at once. A job token and the source download are each spent by one atomic conditional update: of two

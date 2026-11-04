@@ -1,5 +1,7 @@
 """Mac builder: registration, hashed tokens, the job queue, one-time job tokens and the error statuses."""
 
+import asyncio
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -15,7 +17,7 @@ from app.api import apple as apple_api
 from app.api import deps
 from app.api.errors import ApiError, api_error
 from app.config import settings
-from app.models import AppleHost, AppleJob, AppleJobStatus, Base, Project
+from app.models import AppleEnrollmentCode, AppleHost, AppleJob, AppleJobStatus, Base, Project
 
 NOW = datetime(2030, 1, 1, tzinfo=UTC)
 SHA = "a" * 40
@@ -49,6 +51,7 @@ def apple_mode(monkeypatch):
 @pytest_asyncio.fixture
 async def client(sessions, monkeypatch, tmp_path):
     deps._failures.clear()
+    apple_api._enroll_attempts.clear()
     monkeypatch.setattr(settings, "runtime_dir", tmp_path)
 
     async def per_request_session():
@@ -70,7 +73,8 @@ def bearer(token: str) -> dict[str, str]:
 
 
 async def register(client, name: str = "mac-mini") -> dict:
-    r = await client.post("/api/apple-hosts", json={"name": name}, headers=bearer(settings.admin_token))
+    code = (await client.post("/api/apple-enrollment-codes", headers=bearer(settings.admin_token))).json()["code"]
+    r = await client.post("/api/apple-host/enroll", json={"name": name, "code": code})
     assert r.status_code == 201
     return r.json()
 
@@ -106,14 +110,82 @@ async def test_registration_returns_the_token_once_and_stores_only_its_hash(clie
     assert "token" not in listed[0]
 
 
-async def test_registration_needs_the_raw_admin_token(client):
-    r = await client.post("/api/apple-hosts", json={"name": "x"}, headers=bearer("wrong"))
+async def generate_code(client) -> dict:
+    r = await client.post("/api/apple-enrollment-codes", headers=bearer(settings.admin_token))
+    assert r.status_code == 201
+    return r.json()
+
+
+async def enroll(client, code: str, name: str = "mac"):
+    return await client.post("/api/apple-host/enroll", json={"name": name, "code": code})
+
+
+async def test_code_is_stored_hashed_and_reports_its_lifetime(client, db):
+    issued = await generate_code(client)
+    assert issued["code"].startswith("penr_") and issued["ttl_seconds"] == settings.apple_enrollment_code_ttl_seconds == 900
+    row = await db.scalar(select(AppleEnrollmentCode))
+    assert row.code_hash == apple.hash_token(issued["code"]) and issued["code"] not in repr(row.__dict__)
+    assert datetime.fromisoformat(issued["expires_at"]) > datetime.now(UTC)
+
+
+async def test_generating_a_code_needs_admin_authentication(client):
+    r = await client.post("/api/apple-enrollment-codes", headers=bearer("wrong"))
     assert r.status_code == 401
 
 
-async def test_registration_rejects_a_blank_name(client):
-    r = await client.post("/api/apple-hosts", json={"name": "  "}, headers=bearer(settings.admin_token))
-    assert r.status_code == 422
+async def test_a_code_is_spent_by_its_first_exchange(client):
+    code = (await generate_code(client))["code"]
+    assert (await enroll(client, code)).status_code == 201
+    assert (await enroll(client, code)).status_code == 401
+
+
+async def test_an_unknown_code_is_401(client):
+    assert (await enroll(client, "penr_nope")).status_code == 401
+
+
+async def test_an_expired_code_is_401(client, db):
+    code = (await generate_code(client))["code"]
+    row = await db.scalar(select(AppleEnrollmentCode))
+    row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    await db.commit()
+    assert (await enroll(client, code)).status_code == 401
+
+
+async def test_two_concurrent_exchanges_of_one_code_cannot_both_win(client, sessions):
+    code = (await generate_code(client))["code"]
+    answers = await asyncio.gather(enroll(client, code, "a"), enroll(client, code, "b"))
+    assert sorted(r.status_code for r in answers) == [201, 401]
+    async with sessions() as s:
+        assert len((await s.scalars(select(AppleHost))).all()) == 1
+
+
+async def test_a_blank_name_is_422_and_keeps_the_code(client):
+    code = (await generate_code(client))["code"]
+    assert (await enroll(client, code, "  ")).status_code == 422
+    assert (await enroll(client, code)).status_code == 201
+
+
+async def test_exchange_is_rate_limited_per_ip(client, monkeypatch):
+    monkeypatch.setattr(settings, "apple_enroll_max_attempts", 3)
+    for _ in range(3):
+        assert (await enroll(client, "penr_nope")).status_code == 401
+    code = (await generate_code(client))["code"]
+    limited = await enroll(client, code)
+    assert limited.status_code == 429 and limited.json()["code"] == "apple_enrollment_rate_limited"
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+async def test_exchange_works_again_after_the_window(client, monkeypatch):
+    monkeypatch.setattr(settings, "apple_enroll_max_attempts", 1)
+    assert (await enroll(client, "penr_nope")).status_code == 401
+    assert (await enroll(client, "penr_nope")).status_code == 429
+    apple_api._enroll_attempts["1.1.1.1"] = [time.monotonic() - settings.apple_enroll_window_seconds - 1]
+    assert (await enroll(client, "penr_nope")).status_code == 401
+
+
+async def test_the_old_registration_route_is_gone(client):
+    r = await client.post("/api/apple-hosts", json={"name": "x"}, headers=bearer(settings.admin_token))
+    assert r.status_code == 405
 
 
 async def test_mode_disabled_hides_the_routes(client, monkeypatch):
@@ -333,11 +405,12 @@ async def test_claim_frees_a_slot_taken_by_a_timed_out_job(client, sessions, db,
 async def test_tokens_are_not_logged(client, caplog, db):
     caplog.set_level("DEBUG")
     host = await register(client)
+    issued = await generate_code(client)
     await queue_job(db)
     claimed = (await claim(client, host["token"])).json()
     await client.post("/api/apple-host/heartbeat", headers=bearer(host["token"]))
     await client.post("/api/apple-host/claim", headers=bearer("pmac_wrong"))
-    for secret in (host["token"], claimed["job_token"], "pmac_wrong", settings.admin_token):
+    for secret in (host["token"], issued["code"], claimed["job_token"], "pmac_wrong", settings.admin_token):
         assert secret not in caplog.text
 
 
