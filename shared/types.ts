@@ -48,7 +48,7 @@ export type Project = {
   default_branch: string;
   mode: string;
   seed: number;
-  platform: "generic" | "apple";
+  platform?: ProjectPlatform;
   created_at: string;
 };
 
