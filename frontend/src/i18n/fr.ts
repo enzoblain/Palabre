@@ -130,7 +130,7 @@ export const fr: Messages = {
   "info.testflightHint": "Envoie la dernière version publiée sur TestFlight. Possible seulement si son build et ses tests sont verts.",
   "info.testflightPublish": "Publier sur TestFlight",
   "info.testflightSending": "Envoi…",
-  "info.testflightStarted": "Version {version} envoyée sur TestFlight",
+  "info.testflightStarted": "Envoi de la version {version} sur TestFlight lancé",
   "info.testflightConfirmTitle": "Publier sur TestFlight ?",
   "info.testflightConfirmBody": "La dernière version publiée sera envoyée sur TestFlight. Cette action ne peut pas être annulée.",
   "app.conversationMissing": "Cette conversation n’existe pas.",

@@ -31,7 +31,7 @@ describe("PublishTestflight", () => {
     renderSection();
     await userEvent.click(screen.getByRole("button", { name: "Publish to TestFlight" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Publish to TestFlight" }));
-    expect(await screen.findByText("Version 1.2.3 sent to TestFlight")).toBeTruthy();
+    expect(await screen.findByText("Sending version 1.2.3 to TestFlight started")).toBeTruthy();
     expect(publishTestflight).toHaveBeenCalledWith(7);
   });
 
