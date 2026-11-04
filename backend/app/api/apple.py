@@ -2,7 +2,6 @@
 
 import asyncio
 import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
@@ -53,11 +52,9 @@ async def list_hosts(s: SessionDep) -> list[AppleHostOut]:
 
 @admin_router.delete("/apple-hosts/{host_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def revoke_host(host_id: int, s: SessionDep) -> Response:
-    """Revokes the token: the Mac's next call is a 401. Revoking twice keeps the first date."""
+    """Revokes the token: the Mac's next call is a 401 and its running jobs end as errors. Revoking twice keeps the first date."""
     host = await get_or_404(s, AppleHost, host_id)
-    if host.revoked_at is None:
-        host.revoked_at = datetime.now(UTC)
-        await s.commit()
+    await apple.revoke_host(s, host)
     return Response(status_code=204)
 
 
@@ -99,7 +96,7 @@ async def heartbeat(_host: AppleHost = Depends(current_host)) -> Response:
 
 
 @host_router.post("/claim", response_model=AppleJobClaim, responses={204: {"description": "No job to run"}})
-async def claim_job(s: SessionDep, host: AppleHost = Depends(current_host)):
+async def claim_job(s: SessionDep, host: AppleHost = Depends(current_host)) -> Response | AppleJobClaim:
     """Hands the Mac its next job, with the job token for it; 204 when none is queued or all VM slots are busy."""
     claimed = await apple.claim_job(s, host)
     if claimed is None:

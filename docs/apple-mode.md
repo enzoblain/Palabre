@@ -218,7 +218,16 @@ Behind `APPLE_MODE_ENABLED` (otherwise `404`). Tokens are random and stored as a
 An invalid, unknown or revoked token is `401`. Running jobs past `APPLE_JOB_TIMEOUT_SECONDS`, or whose Mac went
 silent, are ended as `error` (summary says which) and their job token is revoked; this is checked on every claim.
 The tables are `apple_hosts` and `apple_jobs`, created at startup like the others. Queuing a job from the agents'
-tools, enrollment codes, renewal and the cancel/wait limits of this page are not built yet.
+tools (`apple.enqueue_job` has no caller until they land), renewal and the cancel/wait limits of this page are not built yet.
+Enrollment codes are not built either: for now a Mac is registered with the raw `ADMIN_TOKEN`; the code (hashed,
+about 15 minutes, consumed atomically, rate limited) is a follow-up task to be confirmed by the lead.
+
+Revoking a Mac also ends its running jobs as `error` (summary `Mac builder revoked`), so their job tokens stop
+working at once. A job token and the source download are each spent by one atomic conditional update: of two
+concurrent calls with the same token, only one wins and the other gets `403 apple_job_token_used`. Claims are
+serialised with a Postgres advisory lock, so two Macs cannot exceed `APPLE_MAX_VMS`. The source is marked as downloaded
+before the bundle is built: if that fails (the branch moved), the token is spent and the Mac reports `error`.
+Overdue jobs are only swept on a claim, so a dead Mac's job stays `running` until the next claim.
 
 ## Configuration
 

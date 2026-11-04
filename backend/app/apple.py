@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ApiError, ErrorCode
@@ -20,6 +20,14 @@ FINAL_STATUSES = (AppleJobStatus.passed, AppleJobStatus.failed, AppleJobStatus.e
 REPORTABLE_STATUSES = FINAL_STATUSES
 TIMEOUT_SUMMARY = "Job timed out"
 HOST_LOST_SUMMARY = "Mac builder stopped answering"
+HOST_REVOKED_SUMMARY = "Mac builder revoked"
+# Arbitrary key of the Postgres advisory lock that serialises job claims (the VM limit is a count across rows)
+CLAIM_LOCK_KEY = 550_001
+
+
+def as_utc(moment: datetime) -> datetime:
+    """Timestamps read back from SQLite (tests) are naive: they were stored as UTC."""
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def hash_token(token: str) -> str:
@@ -50,7 +58,7 @@ async def authenticate_host(s: AsyncSession, token: str, now: datetime | None = 
     if not token.startswith(HOST_TOKEN_PREFIX):
         return None
     host = await s.scalar(select(AppleHost).where(AppleHost.token_hash == hash_token(token)))
-    if host is None or host.revoked_at is not None or host.expires_at <= now:
+    if host is None or host.revoked_at is not None or as_utc(host.expires_at) <= now:
         return None
     host.last_seen_at = now
     await s.commit()
@@ -60,7 +68,7 @@ async def authenticate_host(s: AsyncSession, token: str, now: datetime | None = 
 def is_connected(host: AppleHost, now: datetime | None = None) -> bool:
     now = now or datetime.now(UTC)
     window = timedelta(seconds=settings.apple_heartbeat_timeout_seconds)
-    return host.revoked_at is None and host.last_seen_at is not None and now - host.last_seen_at < window
+    return host.revoked_at is None and host.last_seen_at is not None and now - as_utc(host.last_seen_at) < window
 
 
 async def enqueue_job(s: AsyncSession, project_id: int, branch: str, commit_sha: str) -> AppleJob:
@@ -70,8 +78,9 @@ async def enqueue_job(s: AsyncSession, project_id: int, branch: str, commit_sha:
     return job
 
 
-def _end(job: AppleJob, status_: AppleJobStatus, summary: str, now: datetime) -> None:
-    job.status, job.summary, job.finished_at = status_, summary, now
+def _end(job: AppleJob, new_status: AppleJobStatus, summary: str, now: datetime) -> None:
+    """Ends a job as an infra failure and revokes its job token."""
+    job.status, job.summary, job.finished_at, job.job_token_hash = new_status, summary, now, None
 
 
 async def expire_overdue_jobs(s: AsyncSession, now: datetime | None = None) -> list[AppleJob]:
@@ -79,34 +88,58 @@ async def expire_overdue_jobs(s: AsyncSession, now: datetime | None = None) -> l
     now = now or datetime.now(UTC)
     deadline = now - timedelta(seconds=settings.apple_job_timeout_seconds)
     silence = now - timedelta(seconds=settings.apple_heartbeat_timeout_seconds)
-    running = await s.scalars(select(AppleJob).where(AppleJob.status == AppleJobStatus.running))
+    rows = await s.execute(
+        select(AppleJob, AppleHost.last_seen_at)
+        .outerjoin(AppleHost, AppleHost.id == AppleJob.host_id)
+        .where(AppleJob.status == AppleJobStatus.running)
+    )
     expired = []
-    for job in running:
-        host = await s.get(AppleHost, job.host_id) if job.host_id else None
-        if job.claimed_at is not None and job.claimed_at <= deadline:
+    for job, last_seen_at in rows.all():
+        if job.claimed_at is not None and as_utc(job.claimed_at) <= deadline:
             _end(job, AppleJobStatus.error, TIMEOUT_SUMMARY, now)
-        elif host is None or host.last_seen_at is None or host.last_seen_at <= silence:
+        elif last_seen_at is None or as_utc(last_seen_at) <= silence:
             _end(job, AppleJobStatus.error, HOST_LOST_SUMMARY, now)
         else:
             continue
-        job.job_token_hash = None
         expired.append(job)
     if expired:
         await s.commit()
     return expired
 
 
+async def revoke_host(s: AsyncSession, host: AppleHost, now: datetime | None = None) -> None:
+    """Revokes the builder and ends its running jobs as infra errors, so their job tokens stop working too."""
+    now = now or datetime.now(UTC)
+    if host.revoked_at is None:
+        host.revoked_at = now
+    running = await s.scalars(
+        select(AppleJob).where(AppleJob.host_id == host.id, AppleJob.status == AppleJobStatus.running)
+    )
+    for job in running:
+        _end(job, AppleJobStatus.error, HOST_REVOKED_SUMMARY, now)
+    await s.commit()
+
+
+async def _lock_claims(s: AsyncSession) -> None:
+    """Serialises the slot check with the claim on Postgres, held until the commit; SQLite has one writer anyway."""
+    if s.get_bind().dialect.name == "postgresql":
+        await s.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CLAIM_LOCK_KEY})
+
+
 async def claim_job(s: AsyncSession, host: AppleHost, now: datetime | None = None) -> tuple[AppleJob, str] | None:
     """Hands the oldest queued job to the builder with a fresh job token, if fewer than apple_max_vms jobs run."""
     now = now or datetime.now(UTC)
+    await _lock_claims(s)
     await expire_overdue_jobs(s, now)
     running = await s.scalar(select(func.count()).select_from(AppleJob).where(AppleJob.status == AppleJobStatus.running))
     if running >= settings.apple_max_vms:
+        await s.rollback()
         return None
     job = await s.scalar(
         select(AppleJob).where(AppleJob.status == AppleJobStatus.queued).order_by(AppleJob.id).limit(1).with_for_update(skip_locked=True)
     )
     if job is None:
+        await s.rollback()
         return None
     token = new_token(JOB_TOKEN_PREFIX)
     job.status, job.host_id, job.claimed_at, job.job_token_hash = AppleJobStatus.running, host.id, now, hash_token(token)
@@ -119,22 +152,37 @@ def check_job_token(job: AppleJob, token: str) -> None:
     if job.job_token_hash is None or not hmac.compare_digest(job.job_token_hash, hash_token(token)):
         raise ApiError(status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_TOKEN, "Invalid token")
     if job.status in FINAL_STATUSES:
-        raise ApiError(status.HTTP_403_FORBIDDEN, ErrorCode.APPLE_JOB_TOKEN_USED, "Job token already used")
+        raise _token_spent()
+
+
+def _token_spent() -> ApiError:
+    return ApiError(status.HTTP_403_FORBIDDEN, ErrorCode.APPLE_JOB_TOKEN_USED, "Job token already used")
 
 
 async def mark_source_downloaded(s: AsyncSession, job: AppleJob, now: datetime | None = None) -> None:
-    """The source is served once per job: a second download with the same token is refused."""
-    if job.source_downloaded_at is not None:
-        raise ApiError(status.HTTP_403_FORBIDDEN, ErrorCode.APPLE_JOB_TOKEN_USED, "Source already downloaded")
-    job.source_downloaded_at = now or datetime.now(UTC)
+    """The source is served once per job: the conditional UPDATE lets only one of two concurrent downloads win."""
+    claimed = await s.execute(
+        update(AppleJob)
+        .where(AppleJob.id == job.id, AppleJob.status == AppleJobStatus.running, AppleJob.source_downloaded_at.is_(None))
+        .values(source_downloaded_at=now or datetime.now(UTC))
+    )
     await s.commit()
+    if claimed.rowcount == 0:
+        raise _token_spent()
 
 
 async def record_result(
     s: AsyncSession, job: AppleJob, result: AppleJobStatus, log_excerpt: str, now: datetime | None = None
 ) -> None:
-    """Stores the Mac's verdict and the tail of its log; the job token is spent from here on."""
-    tail = log_excerpt[-settings.apple_log_excerpt_chars :]
-    _end(job, result, "", now or datetime.now(UTC))
-    job.log_excerpt = tail
+    """Stores the Mac's verdict and the tail of its log; only one verdict wins, the job token is spent from here on."""
+    recorded = await s.execute(
+        update(AppleJob)
+        .where(AppleJob.id == job.id, AppleJob.status == AppleJobStatus.running)
+        .values(
+            status=result, summary="", finished_at=now or datetime.now(UTC),
+            log_excerpt=log_excerpt[-settings.apple_log_excerpt_chars :],
+        )
+    )  # fmt: skip
     await s.commit()
+    if recorded.rowcount == 0:
+        raise _token_spent()
