@@ -137,7 +137,7 @@ Web source: `TeamSection.tsx`, `JobPicker.tsx`, `PersonalityPicker.tsx`, `preset
 | Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | present (built for batch 7) | Searchable list, details in a sheet | P3 |
 | Personality picker: radio list, search without accents, "random" option, empty and no-match messages | present (built for batch 7) | Searchable single-choice list | P3 |
 | Catalog loading and failure of the team section | absent | Loading and retry states | P3 |
-| `/catalog` calls: roles, personalities, limits, names | absent in `src/api` | Add the typed calls to the client | P3 |
+| `/catalog` calls: roles, personalities, limits, names | present | Add the typed calls to the client | P3 |
 
 ## Batch 7: new project (done)
 
