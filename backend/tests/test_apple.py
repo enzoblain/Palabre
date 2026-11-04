@@ -344,3 +344,18 @@ async def test_tokens_are_not_logged(client, caplog, db):
 async def test_host_token_is_unique_in_the_database(db):
     _host, token = await apple.create_host(db, "m")
     assert await db.scalar(select(AppleHost).where(AppleHost.token_hash == apple.hash_token(token))) is not None
+
+
+async def test_claim_sweep_does_not_commit_before_the_claim_ends(client, sessions, db, monkeypatch):
+    commits_during_sweep: list[bool] = []
+    real_expire = apple.expire_overdue_jobs
+
+    async def spy(s, now=None, *, commit=True):
+        commits_during_sweep.append(commit)
+        return await real_expire(s, now, commit=commit)
+
+    monkeypatch.setattr(apple, "expire_overdue_jobs", spy)
+    host = await register(client)
+    await queue_job(db)
+    assert (await claim(client, host["token"])).status_code == 200
+    assert commits_during_sweep == [False]

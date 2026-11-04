@@ -83,8 +83,10 @@ def _end(job: AppleJob, new_status: AppleJobStatus, summary: str, now: datetime)
     job.status, job.summary, job.finished_at, job.job_token_hash = new_status, summary, now, None
 
 
-async def expire_overdue_jobs(s: AsyncSession, now: datetime | None = None) -> list[AppleJob]:
-    """Ends the running jobs past their time limit or whose Mac went silent, as infra errors, and revokes their token."""
+async def expire_overdue_jobs(s: AsyncSession, now: datetime | None = None, *, commit: bool = True) -> list[AppleJob]:
+    """Ends the running jobs past their time limit or whose Mac went silent, as infra errors, and revokes their token.
+
+    With commit=False the caller owns the transaction (the claim lock must last until its own commit)."""
     now = now or datetime.now(UTC)
     deadline = now - timedelta(seconds=settings.apple_job_timeout_seconds)
     silence = now - timedelta(seconds=settings.apple_heartbeat_timeout_seconds)
@@ -103,7 +105,7 @@ async def expire_overdue_jobs(s: AsyncSession, now: datetime | None = None) -> l
             continue
         expired.append(job)
     if expired:
-        await s.commit()
+        await (s.commit() if commit else s.flush())
     return expired
 
 
@@ -130,16 +132,16 @@ async def claim_job(s: AsyncSession, host: AppleHost, now: datetime | None = Non
     """Hands the oldest queued job to the builder with a fresh job token, if fewer than apple_max_vms jobs run."""
     now = now or datetime.now(UTC)
     await _lock_claims(s)
-    await expire_overdue_jobs(s, now)
+    await expire_overdue_jobs(s, now, commit=False)
     running = await s.scalar(select(func.count()).select_from(AppleJob).where(AppleJob.status == AppleJobStatus.running))
     if running >= settings.apple_max_vms:
-        await s.rollback()
+        await s.commit()
         return None
     job = await s.scalar(
         select(AppleJob).where(AppleJob.status == AppleJobStatus.queued).order_by(AppleJob.id).limit(1).with_for_update(skip_locked=True)
     )
     if job is None:
-        await s.rollback()
+        await s.commit()
         return None
     token = new_token(JOB_TOKEN_PREFIX)
     job.status, job.host_id, job.claimed_at, job.job_token_hash = AppleJobStatus.running, host.id, now, hash_token(token)
