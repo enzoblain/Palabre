@@ -26,7 +26,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages (done) | P1 | batch 1 (same screen) |
 | 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name (done) | P1 | none |
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
-| 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
+| 5 | Project info screen: name, branch, description, git link, deletion (done) | P2 | batch 3 |
 | 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
 | 7 | New project: form, automatic or manual team, team editor (done) | P3 | batch 3, shares the pickers of batch 6 |
 
@@ -109,19 +109,19 @@ Web source: `Settings.tsx`, `ConnectedDevices.tsx`, `ConfirmDialog.tsx`, `Accoun
 | Automatic account spreading shown as the effective account | present | Label of the picker's first option | P3 |
 | Server: connected URL and a disconnect button | present (button with a confirmation alert) | Button in the Server section, with confirmation | P1 |
 
-## Batch 5: project info screen
+## Batch 5: project info screen (done)
 
 Web source: `ProjectInfo.tsx` (`ProjectBar`, `ProjectForm`, `DeleteProject`).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Project screen reachable from a conversation (info icon) | partial (the conversation info sheet exists, not the project page) | Link at the bottom of the info sheet, or a pushed screen | P2 |
-| Edit name (100 characters) and main branch, saved together, backend warning shown | absent | Form with a save button, inline status | P2 |
-| Unsaved-change detection that enables the save button | absent | same | P2 |
-| Description (the direction room objective) with a hint to change it by asking the lead | absent (objective shown read-only in the conversation info sheet) | Text block on the page | P3 |
-| Git link opened in a new tab, or "no git" text | absent | Opens with the system browser | P3 |
-| Delete the project after a confirmation, with error and busy state | absent | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
-| Loading and load error of the project | partial (conversation screen only) | Same states | P2 |
+| Project screen reachable from a conversation (info icon) | present | Link at the bottom of the info sheet opening a pushed screen | P2 |
+| Edit name (100 characters) and main branch, saved together, backend warning shown | present | Form with a save button, inline status | P2 |
+| Unsaved-change detection that enables the save button | present | same | P2 |
+| Description (the direction room objective) with a hint to change it by asking the lead | present (read-only, with the hint) | Text block on the page | P3 |
+| Git link opened in a new tab, or "no git" text | present | Opens with the system browser | P3 |
+| Delete the project after a confirmation, with error and busy state | present | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
+| Loading and load error of the project | present | Same states | P2 |
 
 ## Batch 6: team management of a project
 
@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: update and delete project, employees, orchestrator status (catalog and project creation are there) | Add calls batch by batch, keeping the client shared with the web app | P1 |
+| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: employees, orchestrator status (catalog and project creation are there) | Add calls batch by batch, keeping the client shared with the web app | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |

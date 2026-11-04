@@ -23,7 +23,8 @@ const contrast = (first: string, second: string): number => {
 };
 
 const mockBack = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ back: mockBack }), useLocalSearchParams: () => ({ id: "1" }) }));
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ back: mockBack, push: mockPush }), useLocalSearchParams: () => ({ id: "1" }) }));
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
 jest.mock("expo-secure-store", () => ({}));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
@@ -103,6 +104,14 @@ describe("conversation screen", () => {
     expect(await screen.findByText("Ship the app")).toBeTruthy();
     expect(screen.getByText("Élise · Lead / CTO")).toBeTruthy();
     expect(screen.getByText("1 membre")).toBeTruthy();
+  });
+
+  it("opens the project page from the info sheet", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    await render(<ConversationScreen />);
+    fireEvent.press(await screen.findByText("Infos"));
+    fireEvent.press(await screen.findByText("Page du projet"));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/project/[id]", params: { id: "1" } });
   });
 
   it("shows skeleton bubbles while loading", async () => {
