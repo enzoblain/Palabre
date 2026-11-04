@@ -75,7 +75,7 @@ describe("bubbleLabel", () => {
   it("reads who, what, when and the failure", () => {
     const [mine] = display({ employee_id: null, author_name: "Enzo", content: "Go" });
     expect(bubbleLabel({ ...mine, status: "failed" }, new Date("2026-01-01T12:00:00Z"), "fr")).toMatch(
-      /^Moi, Go, .+, Non envoyé\. Touche pour réessayer\.$/,
+      /^Moi, Go, .+, Non envoyé\. Touchez pour réessayer\.$/,
     );
     const [theirs] = display({ request_kind: "question" });
     expect(bubbleLabel(theirs, new Date("2026-01-01T12:00:00Z"), "fr")).toMatch(/^Élise, Demande, Salut, /);

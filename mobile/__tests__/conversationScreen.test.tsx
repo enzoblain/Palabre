@@ -162,7 +162,7 @@ describe("conversation screen", () => {
     await fireEvent.changeText(screen.getByLabelText("Message"), "  Go  ");
     await fireEvent.press(screen.getByRole("button", { name: "Envoyer" }));
     expect(mocked.postMessage).toHaveBeenCalledWith(9, "Go");
-    const failure = await screen.findByRole("button", { name: /Go, .*Non envoyé\. Touche pour réessayer\./ });
+    const failure = await screen.findByRole("button", { name: /Go, .*Non envoyé\. Touchez pour réessayer\./ });
     expect(screen.getByLabelText("Message").props.value).toBe("");
 
     mocked.postMessage.mockResolvedValue(message(3, "Go", null));
