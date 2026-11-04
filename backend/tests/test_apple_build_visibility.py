@@ -1,14 +1,18 @@
 """What the task shows of its Swift build (MCP detail, tasks API) and the guards of the retry."""
 
+from types import SimpleNamespace
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
+from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import apple, main, workflow
 from app.api import deps, tasks as tasks_api
 from app.api.errors import ApiError, api_error
+from app.mcp_server import tools as mcp_tools
 from app.errors import ErrorCode, WorkflowError
 from app.models import AppleJobStatus, Base, Conversation, Project, Room, Task, TaskStatus
 
@@ -117,7 +121,7 @@ async def test_retrying_a_generic_project_is_refused(db):
     project, task = await add_task(db, "generic")
     with pytest.raises(WorkflowError) as error:
         await workflow.retry_apple_build(db, project.id, task.id)
-    assert error.value.code == ErrorCode.APPLE_BUILD_NOT_RETRYABLE
+    assert error.value.code == ErrorCode.APPLE_BUILD_NOT_APPLE_PROJECT
 
 
 @pytest.mark.parametrize(("task_status", "pr_number"), [(TaskStatus.in_progress, 12), (TaskStatus.review, None)])
@@ -134,3 +138,18 @@ async def test_the_api_refuses_to_retry_a_build_that_is_not_an_infra_error(db, c
     response = await client.post(f"/api/tasks/{task.id}/apple-build/retry")
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["code"] == ErrorCode.APPLE_BUILD_NOT_RETRYABLE
+
+
+async def test_the_api_refuses_to_retry_a_build_on_a_generic_project(db, client):
+    _, task = await add_task(db, "generic")
+    response = await client.post(f"/api/tasks/{task.id}/apple-build/retry")
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == ErrorCode.APPLE_BUILD_NOT_APPLE_PROJECT
+
+
+async def test_the_mcp_tool_tells_the_lead_the_project_is_not_an_apple_one(db, sessions, monkeypatch):
+    project, task = await add_task(db, "generic")
+    monkeypatch.setattr(mcp_tools, "SessionLocal", sessions)
+    monkeypatch.setattr(mcp_tools, "current_caller", lambda _ctx: SimpleNamespace(project_id=project.id))
+    with pytest.raises(ToolError, match="not an Apple project"):
+        await mcp_tools.retry_apple_build(None, task.id)

@@ -25,6 +25,7 @@ export const ERROR_CODES = [
   "apple_publish_build_not_green",
   "apple_publish_workflow_missing",
   "apple_publish_not_apple",
+  "apple_build_not_apple_project",
   "mode_not_found",
   "unknown_mode",
   "invalid_repository",

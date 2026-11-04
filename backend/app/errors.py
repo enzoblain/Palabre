@@ -29,6 +29,7 @@ class ErrorCode(StrEnum):
     APPLE_PUBLISH_BUILD_NOT_GREEN = "apple_publish_build_not_green"
     APPLE_PUBLISH_WORKFLOW_MISSING = "apple_publish_workflow_missing"
     APPLE_PUBLISH_NOT_APPLE = "apple_publish_not_apple"
+    APPLE_BUILD_NOT_APPLE_PROJECT = "apple_build_not_apple_project"
     MODE_NOT_FOUND = "mode_not_found"
     UNKNOWN_MODE = "unknown_mode"
     INVALID_REPOSITORY = "invalid_repository"
