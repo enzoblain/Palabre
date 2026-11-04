@@ -6,7 +6,7 @@ see an Apple key. The App Store submission stays manual.
 
 ## What happens
 
-1. In the web app, the "Publish to TestFlight" button on the info page of a Swift project (it shows the version sent or the translated error) starts the publication for the latest release: `POST /api/projects/{id}/testflight` (admin
+1. In the web app, the "Publish to TestFlight" button on the info page of a Swift project (it asks for a confirmation, then shows the version sent or the translated error) starts the publication for the latest release: `POST /api/projects/{id}/testflight` (admin
    token, Apple mode on). Palabre takes the latest `vX.Y.Z` tag, refuses if the checks of its commit are red or still running
    (`apple_publish_build_not_green`), then starts the workflow `swift-testflight.yml` on that tag. The answer is `202` with the version.
 2. The workflow has four jobs. `verify` (no secret) checks the run is on the tag `vX.Y.Z` of the version asked. `test` (no secret)
