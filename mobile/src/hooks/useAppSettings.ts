@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type AppSettings } from "../api";
+import { useMounted } from "./useMounted";
 
 export type AppSettingsState = {
   settings: AppSettings | null; // null until the first load
@@ -13,13 +14,7 @@ export type AppSettingsState = {
 export function useAppSettings(): AppSettingsState {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [failed, setFailed] = useState(false);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
 
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {

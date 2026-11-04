@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { ApiError, api, type Device } from "../../api";
 import { formatDateTime, neverUsed, withoutDevice } from "../../format/settings";
@@ -8,6 +8,7 @@ import { ErrorBanner } from "../ErrorBanner";
 import { ActionButton } from "./ActionButton";
 import { SettingsSection } from "./SettingsSection";
 import { StatusText, type Outcome } from "./StatusText";
+import { useMounted } from "../../hooks/useMounted";
 
 const errorText = (err: unknown): string => (err instanceof ApiError ? err.message : String(err));
 
@@ -17,13 +18,7 @@ export function DevicesSection() {
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
 
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {

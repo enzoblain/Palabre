@@ -18,6 +18,7 @@ const SCREEN_EDGES = ["top", "left", "right"] as const; // the tab bar owns the 
 export default function SettingsScreen() {
   const colors = useColors();
   const { signOut } = useSession();
+  const connection = getConnection();
   const { settings, failed, reload, save } = useAppSettings();
   return (
     <SafeAreaView edges={SCREEN_EDGES} style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -39,7 +40,7 @@ export default function SettingsScreen() {
         ) : null}
         <DevicesSection />
         {settings ? <AccountsSection count={settings.claude_accounts} /> : null}
-        <ServerSection server={getConnection()?.server ?? ""} onDisconnect={() => void signOut()} />
+        {connection ? <ServerSection server={connection.server} onDisconnect={() => void signOut()} /> : null}
       </ScrollView>
     </SafeAreaView>
   );

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiError, type AppSettings } from "../../api";
 import { translate } from "../../i18n";
-import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../../theme";
+import { CHECKMARK_ICON_SIZE, FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../../theme";
 import { SettingsSection } from "./SettingsSection";
 import { StatusText, type Outcome } from "./StatusText";
 
@@ -40,7 +40,7 @@ export function LanguageSection({ settings, onSave }: Props) {
             <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.label, { color: colors.text }]}>
               {label}
             </Text>
-            {selected ? <Ionicons accessible={false} name="checkmark" size={22} color={colors.link} /> : null}
+            {selected ? <Ionicons accessible={false} name="checkmark" size={CHECKMARK_ICON_SIZE} color={colors.link} /> : null}
           </Pressable>
         );
       })}

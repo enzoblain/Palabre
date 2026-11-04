@@ -118,6 +118,16 @@ describe("settings screen: team language", () => {
   });
 });
 
+describe("settings screen: team language failure", () => {
+  it("shows the API error and keeps the selection when saving fails", async () => {
+    mocked.saveSettings.mockRejectedValue(new ApiError(500, "Échec"));
+    await render(<SettingsScreen />);
+    await fireEvent.press(await screen.findByRole("radio", { name: "English" }));
+    expect(await screen.findByText("Échec")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Français" })).toBeChecked();
+  });
+});
+
 describe("settings screen: connected devices", () => {
   it("shows the loading state while the devices load", async () => {
     mocked.listDevices.mockReturnValue(new Promise(() => {}));
@@ -187,6 +197,29 @@ describe("settings screen: Claude accounts", () => {
     await fireEvent.press(await screen.findByRole("radio", { name: "Compte 2" }));
     expect(mocked.setAccount).toHaveBeenCalledWith(2, 2);
     expect(await screen.findByText("Compte 2", { exact: true })).toBeTruthy();
+  });
+});
+
+describe("settings screen: Claude accounts failures", () => {
+  const twoAccounts = () => mocked.getSettings.mockResolvedValue(settings({ claude_accounts: 2 }));
+
+  it("says why and keeps the label when pinning an account fails", async () => {
+    twoAccounts();
+    mocked.listProjects.mockResolvedValue([{ id: 1 }]);
+    mocked.getProject.mockResolvedValue({ id: 1, name: "Alpha", employees: [employee(1, null)] } as ProjectDetail);
+    mocked.setAccount.mockRejectedValue(new ApiError(500, "Compte indisponible"));
+    await render(<SettingsScreen />);
+    await fireEvent.press(await screen.findByRole("button", { name: "Compte Claude de Agent1" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "Compte 2" }));
+    expect(await screen.findByText("Compte indisponible")).toBeTruthy();
+    expect(screen.getByText("Auto (compte 1)")).toBeTruthy();
+  });
+
+  it("shows the accounts error when the employees cannot be loaded", async () => {
+    twoAccounts();
+    mocked.listProjects.mockRejectedValue(new ApiError(500, "down"));
+    await render(<SettingsScreen />);
+    expect(await screen.findByText("Impossible de charger les comptes des agents.")).toBeTruthy();
   });
 });
 

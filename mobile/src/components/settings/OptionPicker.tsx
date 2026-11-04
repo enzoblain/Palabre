@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { translate } from "../../i18n";
-import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../../theme";
+import { CHECKMARK_ICON_SIZE, FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../../theme";
 
 export type Option<T> = { value: T; label: string };
 
@@ -45,7 +45,7 @@ export function OptionPicker<T extends string | number | null>({ title, options,
                 <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.label, { color: colors.text }]}>
                   {option.label}
                 </Text>
-                {isSelected ? <Ionicons accessible={false} name="checkmark" size={22} color={colors.link} /> : null}
+                {isSelected ? <Ionicons accessible={false} name="checkmark" size={CHECKMARK_ICON_SIZE} color={colors.link} /> : null}
               </Pressable>
             );
           })}

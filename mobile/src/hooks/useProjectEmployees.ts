@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type Employee, type ProjectDetail } from "../api";
+import { useMounted } from "./useMounted";
 
 export type ProjectEmployeesState = {
   projects: ProjectDetail[] | null; // null until loaded
@@ -12,13 +13,7 @@ export type ProjectEmployeesState = {
 export function useProjectEmployees(enabled: boolean): ProjectEmployeesState {
   const [projects, setProjects] = useState<ProjectDetail[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
 
   useEffect(() => {
     if (!enabled) return;
