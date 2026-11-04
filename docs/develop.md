@@ -1,7 +1,7 @@
 # Develop
 
 ```sh
-docker compose up -d --build                     # server and web app, from backend/ and frontend/
+docker compose up -d --build                     # server and web app, from backend/ and frontend/ (the web image is built from the repo root, it needs shared/)
 cd frontend && npm install && npm run dev        # Vite dev server on localhost:1420
 ```
 

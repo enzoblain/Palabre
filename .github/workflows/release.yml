@@ -17,7 +17,7 @@ jobs:
         include:
           - { image: palabre, context: ./backend }
           # The app in a browser, on its own port
-          - { image: palabre-web, context: ./frontend }
+          - { image: palabre-web, context: ., file: frontend/Dockerfile }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # Both architectures: a NAS can be Intel/AMD or ARM
@@ -39,6 +39,7 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
