@@ -80,6 +80,12 @@ Management, behind a valid session (a device token or the web session): `GET /ap
 
 Security: the database stores only an HMAC-SHA256 of the token, keyed by a key derived from the `ADMIN_TOKEN`, so changing the `ADMIN_TOKEN` revokes every phone. A wrong token, at pairing or later, feeds the same per-IP failure counter as the rest of the API (`429` once locked). The database is read only for tokens starting with `pdev_`.
 
+## Navigation
+
+The root screens live in the `app/(tabs)` group, shown with a bottom tab bar (expo-router `Tabs`) that mirrors the web bottom bar, in the same order: Projects (the conversation list, `index`), New project (`new`) and Settings (`settings`). The bar sits above the iPhone home indicator and the Android gesture bar (the tab screens only take the top and side safe areas). Labels come from the `nav.*` messages. New project and Settings show a placeholder until their screens are built (see [Mobile parity](mobile-parity.md)).
+
+`conversation/[id]` is pushed on the root stack, above the tabs: going back returns to the tab it was opened from. The login screen is outside the tab group, so signed-out users never see the bar.
+
 Out of scope for v1: pairing by QR code or one-time code, push tokens, the web screen to revoke devices (separate task).
 
 ### Real time
