@@ -255,7 +255,7 @@ Small tasks, with their dependencies (B backend, M MCP, F front, D DevOps, W doc
 1. **W** Merge this page and link it from [Architecture](architecture.md). No dependency.
 2. **B** `Project.platform` column, migration, API schema, validation of `APPLE_MODE_ENABLED`, `.palabre/apple.toml` reader. No dependency.
 3. **B** `apple_jobs` table, the queue and its states, the timeouts and the heartbeat. After 2.
-4. **B** `/api/apple-host/*` endpoints, enrollment, job tokens, git bundle serving, artifact storage. After 3.
+4. **B** `/api/apple-host/*` endpoints, enrollment gated by a one-time code, apple.toml validation and server-side image choice, job tokens, git bundle serving, artifact storage. After 3.
 5. **M** The Apple MCP tools and their permissions, the "job ended" event and wakeup, the Apple prompt block. After 3.
 6. **F** "Swift / iPhone app" choice at creation, platform shown in Infos, job list with status and screenshots (web). After 2 and 4.
 7. **F** The same on the mobile app. After 6.
