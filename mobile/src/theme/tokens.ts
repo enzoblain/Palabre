@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 /** Design tokens of docs/mobile-ui.md, light and dark. */
 export type ColorScheme = "light" | "dark";
 
@@ -12,6 +14,8 @@ export type Colors = {
   sentBubbleText: string;
   sendingBubble: string;
   receivedBubble: string;
+  mentionedBubble: string; // received bubble that mentions the boss, with a `link` colored border
+  codeBackground: string;
   error: string;
   success: string;
   avatarText: string;
@@ -29,6 +33,8 @@ export const COLORS: Record<ColorScheme, Colors> = {
     sentBubbleText: "#FFFFFF",
     sendingBubble: "#4472B8", // paler blue that keeps 4.5:1 with white text
     receivedBubble: "#E9E9EB",
+    mentionedBubble: "#DCE8FA",
+    codeBackground: "rgba(0, 0, 0, 0.12)",
     error: "#D70015",
     success: "#17743A",
     avatarText: "#FFFFFF",
@@ -44,6 +50,8 @@ export const COLORS: Record<ColorScheme, Colors> = {
     sentBubbleText: "#FFFFFF",
     sendingBubble: "#4472B8", // paler blue that keeps 4.5:1 with white text
     receivedBubble: "#26262A",
+    mentionedBubble: "#1F3350",
+    codeBackground: "rgba(255, 255, 255, 0.15)",
     error: "#FF453A",
     success: "#34C759",
     avatarText: "#FFFFFF",
@@ -56,6 +64,6 @@ export const FONT_SIZE = { body: 17, caption: 12, largeTitle: 34 } as const;
 export const MAX_FONT_SCALE = 2; // Dynamic Type cap on text that can wrap or grow
 export const AVATAR_INITIALS_MAX_FONT_SCALE = 1.2; // initials must stay inside the avatar circle
 export const CHECKMARK_ICON_SIZE = 22;
-export const MIN_TOUCH_TARGET = 44;
+export const MIN_TOUCH_TARGET = Platform.select({ ios: 44, default: 48 }); // 44 pt on iOS, 48 dp on Android
 export const BUTTON_HEIGHT = 50;
 export const DESTRUCTIVE_TOUCH_TARGET = 48; // dp on Android, above the 44 pt of iOS: one size for both

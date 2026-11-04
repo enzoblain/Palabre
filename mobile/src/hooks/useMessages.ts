@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Message, type Room } from "../api";
+import { api, type Employee, type Message, type Room } from "../api";
 import { mergeMessages } from "../format/messages";
 import { usePolling } from "./usePolling";
 
@@ -20,7 +20,13 @@ export type MessagesState = {
 };
 
 /** What the conversation info panel and the typing indicator need. */
-export type ConversationInfo = { room: Room; leadName: string | null };
+export type ConversationInfo = {
+  room: Room;
+  leadName: string | null;
+  leadTitle: string | null;
+  conversationId: number;
+  employees: Employee[]; // their titles label the authors
+};
 
 type Target = { name: string; conversationId: number; info: ConversationInfo };
 
@@ -31,7 +37,14 @@ async function findTarget(projectId: number): Promise<Target> {
   const conversation = room ? (await api.listConversations(room.id))[0] : undefined;
   if (!conversation) throw new Error("no conversation");
   const lead = project.employees.find((employee) => employee.roles.includes("lead"));
-  return { name: project.name, conversationId: conversation.id, info: { room, leadName: lead?.name ?? null } };
+  const info: ConversationInfo = {
+    room,
+    leadName: lead?.name ?? null,
+    leadTitle: lead?.title ?? null,
+    conversationId: conversation.id,
+    employees: project.employees,
+  };
+  return { name: project.name, conversationId: conversation.id, info };
 }
 
 /** The messages of a project's conversation: polled with since_id, with optimistic sends. */
