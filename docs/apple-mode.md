@@ -3,6 +3,7 @@
 Apple mode lets the team build iPhone apps in Swift. The agents stay on our Linux servers; a dedicated
 Apple-silicon Mac only **compiles and tests** inside throw-away macOS virtual machines (VMs). This page
 fixes the structure; nothing described here is implemented yet (see [Task breakdown](#task-breakdown)).
+The screens (project type choice, Mac state, build result) are specified in [Apple mode UI](apple-mode-ui.md).
 
 Rules set by the boss (decision 80), each one is enforced by a mechanism below:
 
