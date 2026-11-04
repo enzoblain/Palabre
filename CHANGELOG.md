@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-04
+
+### Added
+
+- mobile: add a bottom tab bar with the web root sections (#478)
+
+### Changed
+
+- shared: share API types and error codes between the web and mobile apps (#476)
+
+### Fixed
+
+- mobile: show conversation info and the lead typing indicator (#474)
+- mobile: keep the conversation pinned to the latest message (#477)
+- mobile: use real icons and check contrast in the tab bar (#482)
+
 ## [0.30.5] - 2026-11-04
 
 ### Fixed
@@ -757,7 +773,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.5...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/enzoblain/Palabre/compare/v0.30.5...v0.31.0
 [0.30.5]: https://github.com/enzoblain/Palabre/compare/v0.30.4...v0.30.5
 [0.30.4]: https://github.com/enzoblain/Palabre/compare/v0.30.3...v0.30.4
 [0.30.3]: https://github.com/enzoblain/Palabre/compare/v0.30.2...v0.30.3
