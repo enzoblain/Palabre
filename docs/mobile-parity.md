@@ -25,7 +25,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | 1 | Conversation screen basics: info sheet, typing indicator (done), scroll behavior (pending) | P1 | none |
 | 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages | P1 | batch 1 (same screen) |
 | 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name | P1 | none |
-| 4 | Settings screen: name, language, connected devices, Claude accounts, server | P2 | batch 3 (tab bar) |
+| 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
 | 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
 | 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
 | 7 | New project: form, automatic or manual team, team editor | P3 | batch 3, shares the pickers of batch 6 |
@@ -92,22 +92,22 @@ Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `Proj
 | Sign-in: server URL, token, error and busy state | present (pairs the phone and stores a device token) | none | |
 | Server field hidden when the page is served by the backend | n/a (web only) | none | |
 
-## Batch 4: settings screen
+## Batch 4: settings screen (done)
 
 Web source: `Settings.tsx`, `ConnectedDevices.tsx`, `ConfirmDialog.tsx`, `AccountSelect.tsx`, `devices.ts`, `jobs.ts`
 (`spreadAccounts`).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Settings screen reachable from the navigation | absent | Third tab of the bar (batch 3) | P2 |
-| Boss name: edit, save, success and error messages, required hint | absent | Grouped form row, save in the navigation bar | P2 |
-| Team language: pick among the server languages, saved on change | absent | Picker row | P3 |
-| Connected devices: list with name, added, last used, expires; "never used" | absent (the API client already has `listDevices` and `revokeDevice`) | List section | P2 |
-| Revoke a device after a confirmation, status message, focus handling | absent | Swipe or button then a confirmation alert; the current phone should warn it signs out | P2 |
-| Loading, error with retry and empty state of the devices list | absent | Same three states | P2 |
-| Claude accounts: count explanation, and per employee account choice per project when there are several | absent | One section per project, picker per employee | P3 |
-| Automatic account spreading shown as the effective account | absent | Label of the picker's first option | P3 |
-| Server: connected URL and a disconnect button | partial (sign-out exists in the session but has no screen) | Button in the Server section, with confirmation | P1 |
+| Settings screen reachable from the navigation | present | Third tab of the bar (batch 3) | P2 |
+| Boss name: edit, save, success and error messages, required hint | present | Grouped form row, save in the navigation bar | P2 |
+| Team language: pick among the server languages, saved on change | present | Picker row | P3 |
+| Connected devices: list with name, added, last used, expires; "never used" | present | List section | P2 |
+| Revoke a device after a confirmation, status message, focus handling | present (button then a confirmation alert, no swipe; the alert warns that revoking the phone in hand signs it out) | Button then a confirmation alert | P2 |
+| Loading, error with retry and empty state of the devices list | present | Same three states | P2 |
+| Claude accounts: count explanation, and per employee account choice per project when there are several | present | One section per project, picker per employee | P3 |
+| Automatic account spreading shown as the effective account | present | Label of the picker's first option | P3 |
+| Server: connected URL and a disconnect button | present (button with a confirmation alert) | Button in the Server section, with confirmation | P1 |
 
 ## Batch 5: project info screen
 
@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages and read marker. Missing for the batches: settings, update and delete project, employees, catalog, orchestrator status, rate limit lift, accounts | Add calls batch by batch, keeping the client shared with the web app | P1 |
+| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages and read marker. Missing for the batches: update and delete project, employees, catalog, orchestrator status, rate limit lift | Add calls batch by batch, keeping the client shared with the web app | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |
