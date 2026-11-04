@@ -61,7 +61,6 @@ export function ProjectForm({ detail, onSaved }: Props) {
       />
       <TextInput
         accessibilityLabel={translate("project.branch")}
-        accessibilityHint={translate("project.branchHint")}
         value={branch}
         onChangeText={setBranch}
         autoCapitalize="none"
