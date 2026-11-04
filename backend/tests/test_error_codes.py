@@ -77,18 +77,18 @@ def test_codes_are_snake_case_and_unique():
     assert set(NOT_FOUND.values()) <= set(ErrorCode)
 
 
-API_TS = Path(__file__).resolve().parents[2] / "frontend" / "src" / "api.ts"
+ERRORS_TS = Path(__file__).resolve().parents[2] / "shared" / "errors.ts"
 ERROR_CODES_BLOCK = re.compile(r"export const ERROR_CODES = \[(.*?)\] as const", re.DOTALL)
 
 
 def test_frontend_error_codes_match_backend():
-    block = ERROR_CODES_BLOCK.search(API_TS.read_text())
-    assert block, f"ERROR_CODES array not found in {API_TS}"
+    block = ERROR_CODES_BLOCK.search(ERRORS_TS.read_text())
+    assert block, f"ERROR_CODES array not found in {ERRORS_TS}"
     frontend = set(re.findall(r'"([^"]+)"', block.group(1)))
     backend = {c.value for c in ErrorCode}
     assert frontend == backend, (
-        f"api.ts ERROR_CODES is out of sync with ErrorCode: "
-        f"missing in api.ts: {sorted(backend - frontend)}; extra in api.ts: {sorted(frontend - backend)}"
+        f"shared/errors.ts ERROR_CODES is out of sync with ErrorCode: "
+        f"missing in errors.ts: {sorted(backend - frontend)}; extra in errors.ts: {sorted(frontend - backend)}"
     )
 
 
