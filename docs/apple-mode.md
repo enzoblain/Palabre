@@ -106,8 +106,7 @@ Two different credentials, with a different scope each:
 
 - **Host worker credential** (on the Mac host, never in a VM): a random bearer token, sent in the
   `Authorization` header over HTTPS. Enrolled hosts live in an `apple_hosts` table (name, hashed token,
-  created, expiry, last seen, revoked); only the hash is stored, same model as the agents' run tokens
-  (`mcp_server/run_tokens.py`), so nothing depends on the reverse proxy (no client certificate, no header
+  created, expiry, last seen, revoked); only the hash is stored: the SHA-256 (hex) of the random token, looked up by its hash, never the token itself, so nothing depends on the reverse proxy (no client certificate, no header
   to forward or clean). It can only call `/api/apple-host/*`: claim a job, send heartbeats, finish a job.
   It cannot read a conversation or call GitHub, but it can read the source of the jobs it claims, which is
   why enrollment is gated and the token is revocable from the server (the `apple_hosts` row is marked
@@ -122,7 +121,7 @@ Two different credentials, with a different scope each:
 - **Job token** (the only secret that enters the VM): random, created when the job is claimed, valid for
   that job only, stored hashed, revoked when the job ends or times out, and usable only for three
   things: download this job's source bundle, upload its logs and results, read its own status. Same
-  pattern as the agents' run tokens (`mcp_server/run_tokens.py`).
+  principle as the host token: only the SHA-256 (hex) of the random token is stored.
 
 The source never needs a GitHub token on the Mac: the backend, which already holds the token and a clone
 of each project (`worktrees.py`), builds a `git bundle` of the task branch at the job's SHA and serves it
@@ -133,7 +132,7 @@ at the one-time URL guarded by the job token. The VM unpacks it into its own dis
 ### Tool and image
 
 - **Tart** (Apple Virtualization framework, Apple silicon, runs macOS guests, APFS copy-on-write
-  clones). Alternatives (Anka, UTM) are paid or not scriptable enough; Tart is open source and widely used
+  clones). Anka is paid; Tart is open source and widely used
   in CI. Apple's license limits a Mac to 2 macOS VMs at once, which `APPLE_MAX_VMS=2` reflects.
 - **Base image**: built by us with Packer from a Cirrus Labs macOS base image, with a given Xcode, its
   simulators, `xcbeautify`, Ruby/`bundler`, SwiftLint, and a *job runner script* (a shell
@@ -145,8 +144,7 @@ at the one-time URL guarded by the job token. The VM unpacks it into its own dis
   from the job content or from `apple.toml`. The worker also never interpolates `apple.toml` values into a
   command it runs on the host: they enter the VM only as data (arguments of the guest script). Updating Xcode means building a new image, testing it, then changing the digest (one commit, one
   config change, revertible).
-- **Plan B for the VM tool: Lume** (MIT, CLI, also Apple Virtualization framework, same clone/run/delete
-  cycle). To keep the switch cheap, the host worker calls the VM tool in **one place only** (a small
+- **Plan B for the VM tool: UTM** (decision #84; same Apple virtualization, with a command line). To keep the switch cheap, the host worker calls the VM tool in **one place only** (a small
   module with `clone`, `run`, `exec`, `delete`, `list`); the rest of the worker and the backend only know
   those operations, not Tart.
 - **One clone per job**: `tart clone <digest> job-<id>`, `tart run`, `tart delete`. A VM is never
@@ -250,7 +248,7 @@ To add to `backend/app/config.py` and [Configuration](configuration.md) (all opt
 | `APPLE_LOG_MAX_BYTES` | `20971520` | Size beyond which a log is cut (the tail is kept) |
 | `APPLE_HOST_TOKEN_TTL_DAYS` | `90` | Lifetime of a host token before it must be renewed |
 
-On the Mac (a `/etc/palabre-apple-worker.toml`, owned by root, no secret except the path of the token file, mode 600, owned by the worker user):
+On the Mac (a `/etc/palabre-apple-worker.toml`, owned by root, with no secret: the token lives in `token_file`, a separate file with mode 600 owned by the worker user):
 `backend_url`, `token_file` path, `image` digest (must equal the server's), `max_vms`,
 the blocked ranges of the network section.
 
@@ -261,7 +259,7 @@ One-time, by hand or with a script in `deploy/apple-host/` (idempotent, `set -eu
 - macOS (Apple silicon, current), automatic sleep off, FileVault compatible, a non-admin `palabre` user
   for the worker, firewall on.
 - Xcode command line tools, **Tart**, **Packer** (with the Tart plugin), **Softnet**.
-- The host worker (a single Python script using only the standard library, run by `launchd` as the
+- The host worker ([Mac builder](apple-host.md): a Python script using only the standard library, run by `launchd` as the
   `palabre` user, restarted on failure) and its `pf` anchor.
 - A disk with room for the image (about 50-80 GB per Xcode image) and its clones; the worker deletes
   leftover `job-*` VMs and prunes old images.

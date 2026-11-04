@@ -10,6 +10,8 @@ On GitHub Actions, a hook in `tests/conftest.py` prints an `::error` annotation 
 
 Frontend: `cd frontend && npm run check` runs the typecheck, the build, the component tests (Vitest with jsdom and Testing Library, `src/**/*.test.tsx`), the pure-helper tests (Node's test runner, `scripts/*.test.mjs`), then the i18n and CSP checks.
 
+Mac builder worker (stdlib, no Mac needed): `cd deploy/apple-host && python3 -m unittest test_worker`, see [Mac builder](apple-host.md).
+
 Compose smoke test (needs docker, takes a few minutes):
 
 ```sh
