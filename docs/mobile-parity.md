@@ -28,7 +28,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
 | 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
 | 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
-| 7 | New project: form, automatic or manual team, team editor | P3 | batch 3, shares the pickers of batch 6 |
+| 7 | New project: form, automatic or manual team, team editor (done) | P3 | batch 3, shares the pickers of batch 6 |
 
 Batches 1 and 3 are independent. 6 and 7 share the job and personality pickers: build them once, in whichever of the two
 comes first, as shared components.
@@ -76,7 +76,7 @@ Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `Proj
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Bottom bar with Projects, New project, Settings | present (three tabs; New project and Settings show a placeholder until batches 4 and 7) | none | |
+| Bottom bar with Projects, New project, Settings | present (three tabs) | none | |
 | Project list: avatar, name, last message preview, unread badge | present | none | |
 | Loading skeleton, error with retry, empty state with a "create project" button | present (skeleton, error banner, empty text and a create button) | none | P2 |
 | Search field (web: only above 8 projects) | present (always shown, matches on the name) | none | |
@@ -134,25 +134,25 @@ Web source: `TeamSection.tsx`, `JobPicker.tsx`, `PersonalityPicker.tsx`, `preset
 | Edit a member: jobs and personality, hint about what changes | absent | Pushed form screen | P3 |
 | Remove a member after a confirmation | absent | Swipe action with a confirmation alert | P3 |
 | Add a member: jobs and personality | absent | Pushed form screen | P3 |
-| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | absent | Searchable list, details in a sheet | P3 |
-| Personality picker: radio list, search without accents, "random" option, empty and no-match messages | absent | Searchable single-choice list | P3 |
+| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | present (built for batch 7) | Searchable list, details in a sheet | P3 |
+| Personality picker: radio list, search without accents, "random" option, empty and no-match messages | present (built for batch 7) | Searchable single-choice list | P3 |
 | Catalog loading and failure of the team section | absent | Loading and retry states | P3 |
 | `/catalog` calls: roles, personalities, limits, names | absent in `src/api` | Add the typed calls to the client | P3 |
 
-## Batch 7: new project
+## Batch 7: new project (done)
 
 Web source: `NewProject.tsx`, `CompanyTeamSection.tsx`, `TeamEditor.tsx`, `AccountSelect.tsx`, `presets.ts`, `jobs.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| New project screen | absent | Second tab of the bar, or a "+" in the list header (decision for batch 3) | P3 |
-| Name (200 characters) and GitHub repository URL with live validation | absent | Form with inline error | P3 |
-| Team by description (automatic): description text and head count within the server limits | absent | Segmented control "Automatic / Manual" | P3 |
-| Team by hand (manual): lead locked first, name per member with a random free name button, jobs, personality, model, Claude account | absent | List of member rows opening a form (shares batch 6 pickers) | P3 |
-| Team size limit warning and help, minimum size, problems list (no lead, duplicate or invalid name, no job) | absent | Inline messages above the submit button | P3 |
-| Presets failing to load with retry; manual tab disabled until the catalog is loaded | absent | same | P3 |
-| Submit, busy state, API error, opens the new project | absent | Navigate to the new project's conversation | P3 |
-| Cancel | absent | Back button | P3 |
+| New project screen | present | Second tab of the bar, or a "+" in the list header (decision for batch 3) | P3 |
+| Name (200 characters) and GitHub repository URL with live validation | present | Form with inline error | P3 |
+| Team by description (automatic): description text and head count within the server limits | present | Segmented control "Automatic / Manual" | P3 |
+| Team by hand (manual): lead locked first, name per member with a random free name button, jobs, personality, model, Claude account | present | List of member rows opening a form (shares batch 6 pickers) | P3 |
+| Team size limit warning and help, minimum size, problems list (no lead, duplicate or invalid name, no job) | present | Inline messages above the submit button | P3 |
+| Presets failing to load with retry; manual tab disabled until the catalog is loaded | present | same | P3 |
+| Submit, busy state, API error, opens the new project | present | Navigate to the new project's conversation | P3 |
+| Cancel | present | Back button | P3 |
 
 ## Cross-cutting differences
 
@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: update and delete project, employees, catalog, orchestrator status | Add calls batch by batch, keeping the client shared with the web app | P1 |
+| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: update and delete project, employees, orchestrator status (catalog and project creation are there) | Add calls batch by batch, keeping the client shared with the web app | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |

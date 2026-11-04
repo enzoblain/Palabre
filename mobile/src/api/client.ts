@@ -3,19 +3,33 @@ import { ApiError, errorMessage, readErrorCode } from "./errors";
 import { deleteStoredConnection, readStoredConnection, writeStoredConnection } from "./storage";
 import type {
   AppSettings,
+  CatalogLimits,
   Connection,
   Conversation,
   Device,
   DevicePaired,
   Employee,
+  MemberIn,
   Message,
   OrchestratorStatus,
+  PersonalityPreset,
   ProjectDetail,
   ProjectListItem,
+  Role,
 } from "@palabre/shared";
 
 const MESSAGES_PAGE_SIZE = 200;
 const PAIRING_DEVICE_NAME_MAX = 100;
+
+export type NewProjectBody = {
+  name: string;
+  repo_url?: string;
+  mode: string;
+  creation_mode?: "manual" | "auto";
+  description?: string;
+  employee_count?: number;
+  employees?: MemberIn[];
+};
 
 let current: Connection | null = null;
 let onUnauthorized: () => void = () => {};
@@ -132,6 +146,13 @@ export const api = {
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
 
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
+
+  createProject: (body: NewProjectBody) => call<ProjectDetail>("/projects", "POST", body),
+
+  personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
+  limits: () => call<CatalogLimits>("/catalog/limits"),
+  names: () => call<string[]>("/catalog/names"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>
