@@ -19,6 +19,7 @@ command -v tart >/dev/null 2>&1 || { echo "install Tart first (brew install cirr
 chown root:wheel "$CONFIG"
 chmod 644 "$CONFIG"
 TOKEN_FILE=$(/usr/bin/python3 -I -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["token_file"])' "$CONFIG")
+[ ! -L "$TOKEN_FILE" ] || { echo "$TOKEN_FILE must not be a symlink" >&2; exit 1; }
 [ -f "$TOKEN_FILE" ] || { echo "missing token file $TOKEN_FILE" >&2; exit 1; }
 chown palabre "$TOKEN_FILE"
 chmod 600 "$TOKEN_FILE"

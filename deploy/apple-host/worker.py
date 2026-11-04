@@ -32,6 +32,9 @@ BOOT_RETRY_SECONDS = 5
 DEFAULT_JOB_TIMEOUT_SECONDS = 1800
 DEFAULT_POLL_INTERVAL_SECONDS = 5
 GUEST_PROBE_COMMAND = ["/usr/bin/true"]  # answers 0 once the guest agent is up, whatever the job is
+# The VM runs untrusted code: it must never reach the Mac or the LAN. Always applied, the config can only add to them.
+BLOCKED_NETWORKS = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16")
+ISOLATION_NET_ARGS = ("--net-softnet", *(f"--net-softnet-block={network}" for network in BLOCKED_NETWORKS))
 IMAGE_PATTERN = re.compile(r"^[\w./-]+@sha256:[0-9a-f]{64}$")
 
 
@@ -43,7 +46,7 @@ class Config:
     max_vms: int = APPLE_MAX_VMS
     job_timeout_seconds: int = DEFAULT_JOB_TIMEOUT_SECONDS
     poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS
-    net_args: tuple[str, ...] = ()
+    net_args: tuple[str, ...] = ISOLATION_NET_ARGS
 
 
 def load_config(path: Path) -> Config:
@@ -52,14 +55,17 @@ def load_config(path: Path) -> Config:
     image = str(raw["image"])
     if not IMAGE_PATTERN.match(image):
         raise ValueError("image must be pinned by digest (name@sha256:...)")
+    backend_url = str(raw["backend_url"]).rstrip("/")
+    if not backend_url.startswith("https://"):
+        raise ValueError("backend_url must use https://")
     max_vms = int(raw.get("max_vms", APPLE_MAX_VMS))
     if not 1 <= max_vms <= APPLE_MAX_VMS:
         raise ValueError(f"max_vms must be between 1 and {APPLE_MAX_VMS}")
     return Config(
-        backend_url=str(raw["backend_url"]).rstrip("/"), token_file=Path(raw["token_file"]), image=image,
+        backend_url=backend_url, token_file=Path(raw["token_file"]), image=image,
         max_vms=max_vms, job_timeout_seconds=int(raw.get("job_timeout_seconds", DEFAULT_JOB_TIMEOUT_SECONDS)),
         poll_interval_seconds=int(raw.get("poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS)),
-        net_args=tuple(str(arg) for arg in raw.get("net_args", [])),
+        net_args=ISOLATION_NET_ARGS + tuple(str(arg) for arg in raw.get("net_extra_args", [])),
     )  # fmt: skip
 
 
@@ -68,6 +74,16 @@ def read_host_token(path: Path) -> str:
     if path.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
         raise PermissionError(f"{path} must be readable by its owner only (chmod 600)")
     return path.read_text().strip()
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuses redirects so a proxy cannot make the Authorization header leave for another host."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 class Vm(Protocol):
@@ -98,7 +114,7 @@ class HttpBackend:
         request.add_header("Authorization", f"Bearer {token}")
         request.add_header("Content-Type", "application/json")
         try:
-            with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            with _OPENER.open(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
                 return response.status, response.read()
         except urllib.error.HTTPError as error:
             return error.code, b""

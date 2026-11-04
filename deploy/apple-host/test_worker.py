@@ -243,6 +243,21 @@ class ConfigTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 worker.load_config(path)
 
+    def test_network_isolation_is_always_applied(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, f'backend_url="https://x"\ntoken_file="/t"\nimage="{DIGEST}"\nnet_extra_args=["--net-softnet-allow=10.1.2.3/32"]\n')
+            config = worker.load_config(path)
+        self.assertEqual(config.net_args[: len(worker.ISOLATION_NET_ARGS)], worker.ISOLATION_NET_ARGS)
+        self.assertIn("--net-softnet", config.net_args)
+        self.assertIn("--net-softnet-block=192.168.0.0/16", config.net_args)
+        self.assertEqual(config.net_args[-1], "--net-softnet-allow=10.1.2.3/32")
+
+    def test_plain_http_backend_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = self.write(d, f'backend_url="http://x"\ntoken_file="/t"\nimage="{DIGEST}"\n')
+            with self.assertRaises(ValueError):
+                worker.load_config(path)
+
     def test_more_than_two_vms_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             path = self.write(d, f'backend_url="https://x"\ntoken_file="/t"\nimage="{DIGEST}"\nmax_vms=3\n')

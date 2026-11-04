@@ -44,8 +44,15 @@ On the Mac (Apple silicon), as an administrator:
    image = "ghcr.io/example/macos-xcode@sha256:<64 hex>"
    max_vms = 2
    job_timeout_seconds = 1800
-   # net_args = ["--net-softnet", "--net-softnet-block=10.0.0.0/8"]  # see apple-mode.md, network isolation
+   # Optional, added after the isolation arguments the worker always applies (see below):
+   # net_extra_args = ["--net-softnet-allow=203.0.113.10/32"]
    ```
+
+   The worker always starts VMs with `--net-softnet` and blocks `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and
+   `169.254.0.0/16`, so the VM (which runs untrusted code) reaches neither the Mac nor your LAN. It cannot be turned off
+   from the config. If the server lives on a private address, allow exactly that host with `net_extra_args`
+   (`--net-softnet-allow=<ip>/32`). `backend_url` must use `https://`. `job_timeout_seconds` starts once the VM is booted,
+   not at `tart clone`.
 
 7. From a copy of the repository, run `cd deploy/apple-host && sudo ./install.sh`. It copies the worker to
    `/usr/local/lib/palabre-apple-worker`, installs the launchd daemon (starts at boot, restarted on failure) and starts it.
