@@ -23,7 +23,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | Batch | Content | Priority | Depends on |
 |---|---|---|---|
 | 1 | Conversation screen basics: info sheet, typing indicator (done), scroll behavior (pending) | P1 | none |
-| 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages | P1 | batch 1 (same screen) |
+| 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages (done) | P1 | batch 1 (same screen) |
 | 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name (done) | P1 | none |
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
 | 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
@@ -46,28 +46,28 @@ Web source: `ConversationView.tsx`, `ConversationTeam.tsx`, `MessageBubble.tsx` 
 | Open on the latest message, stay at the bottom after sending or on a new message, do not force down when the user scrolled up | in progress | Message list scroll behavior | P1 |
 | Info sheet refreshed while open (objective and summary are read once) | partial | Re-read the room with the message poll | P3 |
 
-## Batch 2: message content and actions
+## Batch 2: message content and actions (delivered)
 
 Web source: `MessageBubble.tsx`, `Markdown.tsx`, `ConversationView.tsx` (composer, `MessageList`), `util.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Message body rendered as Markdown (lists, code, links, tables via GFM, line breaks) | absent (plain text) | Native rendering of the same Markdown subset inside the bubble | P1 |
-| `@Name` mentions highlighted, and a different style when the boss is mentioned (`bossNames`, `mention-me`) | absent | Colored span in the bubble; bubble tinted when it mentions the boss | P1 |
-| Links open outside the app, only `http(s)` and `mailto` | absent | Open with the system browser, same allow-list | P1 |
-| Author name and job title above a bubble | partial (name only, no title) | Title next to the name, from the project employees | P2 |
+| Message body rendered as Markdown (lists, code, links, tables via GFM, line breaks) | present | Native rendering of the same Markdown subset inside the bubble | P1 |
+| `@Name` mentions highlighted, and a different style when the boss is mentioned (`bossNames`, `mention-me`) | present | Colored span in the bubble; bubble tinted when it mentions the boss | P1 |
+| Links open outside the app, only `http(s)` and `mailto` | present | Open with the system browser, same allow-list | P1 |
+| Author name and job title above a bubble | present | Title next to the name, from the project employees | P2 |
 | Grouping of consecutive messages from one author | present | none | |
-| Messages from the platform (`is_system`) labelled "Platform" | partial (no label) | Centered system line with the label | P2 |
-| Copy a message (long press, context menu, "⋯" button) with copied or failed feedback | absent | Long press opens an action sheet with Copy | P1 |
-| Info action: full date and time of sending | absent | Second entry of the same action sheet | P2 |
-| Composer placeholder naming the project and the boss, and a different one in an empty conversation | partial (fixed text) | Same placeholders | P3 |
-| Empty conversation intro (project name, lead name and title) | absent | Intro text in the list's empty state | P2 |
+| Messages from the platform (`is_system`) labelled "Platform" | present | Centered system line with the label | P2 |
+| Copy a message (long press, context menu, "⋯" button) with copied or failed feedback | present | Long press opens an action sheet with Copy | P1 |
+| Info action: full date and time of sending | present | Second entry of the same action sheet | P2 |
+| Composer placeholder naming the project and the boss, and a different one in an empty conversation | present | Same placeholders | P3 |
+| Empty conversation intro (project name, lead name and title) | present | Intro text in the list's empty state | P2 |
 | Initial loading state of the list | present (skeleton) | none | |
-| Send error shown under the composer, draft kept on failure | partial (failed bubble with retry; the draft is cleared on send) | Keep the retry bubble, no change needed unless the draft must survive | P3 |
-| Tap a teammate to insert `@Name` in the composer | absent (the web does it from the desktop team column) | Tap a member in the info sheet inserts the mention | P2 |
+| Send error shown under the composer, draft kept on failure | present (the failed bubble keeps the text and retries it, the field is cleared on send) | Retry bubble | P3 |
+| Tap a teammate to insert `@Name` in the composer | present | Tap a member in the info sheet inserts the mention | P2 |
 | Enter inserts a newline on touch screens, the button sends | present (multiline field and send button) | none | |
 | Read marker: opening the direction room marks it read, and each new message while open | present | none | |
-| "Lift the limit" button (restarts the anti-loop window of the conversation) | absent | Action in the info sheet, with the result message | P2 |
+| "Lift the limit" button (restarts the anti-loop window of the conversation) | present | Action in the info sheet, with the result message | P2 |
 
 ## Batch 3: app shell and project list (delivered, except the deliberate language difference)
 

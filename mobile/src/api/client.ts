@@ -140,5 +140,7 @@ export const api = {
     ),
   postMessage: (conversationId: number, content: string) =>
     call<Message>(`/conversations/${conversationId}/messages`, "POST", { content }),
+  getSettings: () => call<AppSettings>("/settings"),
+  liftRateLimit: (conversationId: number) => call<void>(`/conversations/${conversationId}/lift-rate-limit`, "POST"),
   markDirectionRead: (projectId: number) => call<ProjectListItem>(`/projects/${projectId}/direction/read`, "POST"),
 };

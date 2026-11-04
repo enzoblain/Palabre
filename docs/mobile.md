@@ -22,7 +22,8 @@ UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-sto
 mobile/
   app/              expo-router screens (conversation list, conversation, project info, team, settings, login)
   src/api/          typed client, ported from frontend/src/api.ts; types and error codes come from ../shared
-  src/components/   bubbles, composer, list rows, typing dots
+  src/components/   bubbles, composer, list rows, typing dots, Markdown body, message actions sheet (copy, sent time)
+  src/markdown/     parser of the Markdown subset of the web app (GFM tables, lists, code, links, mentions); only http(s) and mailto links open
   src/i18n/         same keys as the web app
   src/format/       pure helpers: list sort, search, initials, avatar color, iMessage-style time; bubble series and time separators
   src/hooks/        `usePolling` (foreground only, paused in the background), `useConversations`, `useMessages` (direction conversation polled every 2 s with `since_id`, optimistic send, retry of a failed one)

@@ -16,6 +16,8 @@ Light / dark values are written `light/dark`.
 | Sent bubble (boss) | `#0066E0` / `#0066E0`, white text |
 | Link / accent (text links, unread dot) | `#0066E0` / `#4DA3FF` |
 | Received bubble | `#E9E9EB` / `#26262A` |
+| Received bubble that mentions the boss | `#DCE8FA` / `#1F3350`, with a 2 px border in the link color (non-color cue, 3:1) and the mention in bold and underlined |
+| Code background | `rgba(0,0,0,.12)` / `rgba(255,255,255,.15)` |
 | Error | `#D70015` / `#FF453A` |
 | Success | `#17743A` / `#34C759` |
 
