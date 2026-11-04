@@ -16,11 +16,12 @@ SENSITIVE_NAMES = {
     # The gate itself (catalog.py holds its role keys and team checks), the role permissions, the project instructions injected into every agent prompt, installs run by the server, the front's CSP and token storage
     "sensitive_paths.py", "workflow.py", "catalog.py", "catalog.toml", "personality_pool.toml", "extended_roles.toml", "claude.md", "toolchains.py", "nginx.conf", "api.ts",
 }
-# File name suffixes: Xcode project files and build settings run scripts at build time and their name varies
-SENSITIVE_SUFFIXES = (".pbxproj", ".xcconfig")
+# File name suffixes: Xcode project files, build settings and shared schemes (pre/post build actions) run scripts at build time and their name varies
+SENSITIVE_SUFFIXES = (".pbxproj", ".xcconfig", ".xcscheme")
 # Directory prefixes (relative to the repository root)
 # Matched anywhere in the path: a false positive (docs/mcp_server/) only costs a security look
-SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/")
+# plugins/ holds SwiftPM build plugins, which run at build time
+SENSITIVE_DIRS = ("mcp_server/", "scripts/", "sudoers.d/", ".github/", "plugins/")
 # Role files carry permissions and personality presets end up in agent prompts: adding one cannot skip the gate, whatever its name
 SENSITIVE_ROLE_DIRS = (
     "catalog/company/roles/", "catalog/company/personalities/",
