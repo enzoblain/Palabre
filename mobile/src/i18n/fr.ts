@@ -126,7 +126,6 @@ export const fr: Messages = {
   "error.main_branch_is_task_branch": "Une branche de tâche ne peut pas être la branche principale",
   "error.not_found": "Introuvable",
   "common.save": "Enregistrer",
-  "common.cancel": "Annuler",
   "settings.loading": "Chargement des réglages",
   "settings.error": "Impossible de charger les réglages.",
   "settings.you": "Vous",

@@ -125,7 +125,6 @@ export const en = {
   "error.main_branch_is_task_branch": "A task branch cannot be the main branch",
   "error.not_found": "Not found",
   "common.save": "Save",
-  "common.cancel": "Cancel",
   "settings.loading": "Loading settings",
   "settings.error": "Unable to load the settings.",
   "settings.you": "You",

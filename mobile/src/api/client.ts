@@ -131,7 +131,6 @@ export const api = {
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
 
-  getSettings: () => call<AppSettings>("/settings"),
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
