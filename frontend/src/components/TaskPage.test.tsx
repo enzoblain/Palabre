@@ -28,9 +28,10 @@ describe("TaskPage", () => {
     getTask.mockResolvedValue(task());
     renderPage("generic");
     expect(await screen.findByText("Add login")).toBeTruthy();
-    expect(screen.getByText("in_progress")).toBeTruthy();
+    expect(screen.getByText("In progress")).toBeTruthy();
     expect(screen.getByText("Salomé")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "https://github.com/a/b/pull/9" }).getAttribute("href")).toBe("https://github.com/a/b/pull/9");
+    expect(screen.getByRole("link", { name: "View pull request (opens in a new tab)" }).getAttribute("href")).toBe("https://github.com/a/b/pull/9");
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1, name: "Add login" }));
   });
 
   it("shows the Swift build on an Apple project only", async () => {
