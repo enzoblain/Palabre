@@ -17,6 +17,7 @@ export function DeleteBar({ count, busy, error, onDelete }: Props) {
       ) : null}
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={busy ? translate("list.deleting") : translate("list.deleteSelected", { count })}
         accessibilityState={{ disabled, busy }}
         disabled={disabled}
         onPress={onDelete}

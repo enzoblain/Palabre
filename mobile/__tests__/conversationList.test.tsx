@@ -141,6 +141,19 @@ describe("conversation list screen", () => {
       await waitFor(() => expect(screen.queryByRole("button", { name: /^Supprimer/ })).toBeNull());
     });
 
+    it("labels the delete button while the deletion is pending", async () => {
+      (api.deleteProjects as jest.Mock).mockReturnValue(new Promise(() => {}));
+      await render(<ConversationListScreen />);
+      await screen.findByText("Beta");
+      await fireEvent.press(screen.getByRole("button", { name: "Modifier" }));
+      await fireEvent.press(screen.getByRole("checkbox", { name: "Sélectionner Alpha" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Supprimer (1)" }));
+      await act(async () => {
+        confirmDeletion();
+      });
+      expect(screen.getByRole("button", { name: "Suppression…" })).toBeBusy();
+    });
+
     it("shows the error and stays in edit mode when the deletion fails", async () => {
       (api.deleteProjects as jest.Mock).mockRejectedValue(new Error("boom"));
       await render(<ConversationListScreen />);
