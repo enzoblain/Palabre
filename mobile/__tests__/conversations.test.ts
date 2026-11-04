@@ -8,6 +8,7 @@ const item = (over: Partial<ProjectListItem>): ProjectListItem => ({
   name: "Alpha",
   repo_url: "",
   default_branch: "main",
+  platform: "generic",
   mode: "enterprise",
   seed: 1,
   platform: "generic",
