@@ -41,6 +41,7 @@ export default function ConversationScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
   const list = useRef<FlatList<ChatItem>>(null);
   const atBottom = useRef(true);
+  const userScrolling = useRef(false); // only user gestures may move us off the bottom
   const [unseen, setUnseen] = useState(false);
 
   const display = useMemo<DisplayMessage[]>(
@@ -87,9 +88,22 @@ export default function ConversationScreen() {
   };
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Layout changes (first render, keyboard, new content) also emit scroll events: ignore them.
+    if (!userScrolling.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     atBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < NEAR_BOTTOM_PX;
     if (atBottom.current) setUnseen(false);
+  };
+
+  const startUserScroll = () => {
+    userScrolling.current = true;
+  };
+  const endUserScroll = () => {
+    userScrolling.current = false;
+  };
+
+  const onListLayout = () => {
+    if (atBottom.current) scrollToEnd();
   };
 
   const sendAndStick = (content: string) => {
@@ -126,7 +140,14 @@ export default function ConversationScreen() {
               keyExtractor={(item) => item.key}
               renderItem={renderItem}
               onContentSizeChange={onContentSizeChange}
+              onLayout={onListLayout}
               onScroll={onScroll}
+              onScrollBeginDrag={startUserScroll}
+              onScrollEndDrag={(event) => {
+                // Without momentum the gesture is over; otherwise wait for the momentum to end.
+                if (!event.nativeEvent.velocity?.y) endUserScroll();
+              }}
+              onMomentumScrollEnd={endUserScroll}
               scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS}
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"

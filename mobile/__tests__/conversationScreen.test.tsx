@@ -191,3 +191,29 @@ describe("conversation screen", () => {
     expect(screen.queryByText(/Non envoyé/)).toBeNull();
   });
 });
+
+describe("conversation scrolling", () => {
+  const metrics = (offsetY: number) => ({
+    nativeEvent: {
+      contentOffset: { x: 0, y: offsetY },
+      contentSize: { width: 300, height: 2000 },
+      layoutMeasurement: { width: 300, height: 600 },
+    },
+  });
+
+  it("stays at the bottom on layout events, then flags new messages once the user scrolled up", async () => {
+    mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+    await render(<ConversationScreen />);
+    await screen.findByText("Salut");
+    const list = screen.getByTestId("message-list");
+    fireEvent.scroll(list, metrics(0));
+    fireEvent(list, "contentSizeChange", 300, 2000);
+    expect(screen.queryByRole("button", { name: /nouveau/i })).toBeNull();
+
+    fireEvent(list, "scrollBeginDrag", metrics(0));
+    fireEvent.scroll(list, metrics(0));
+    fireEvent(list, "momentumScrollEnd", metrics(0));
+    fireEvent(list, "contentSizeChange", 300, 2100);
+    expect(await screen.findByRole("button", { name: /nouveau/i })).toBeTruthy();
+  });
+});
