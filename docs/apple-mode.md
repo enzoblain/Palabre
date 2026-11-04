@@ -220,7 +220,7 @@ silent, are ended as `error` (summary says which) and their job token is revoked
 The tables are `apple_hosts` and `apple_jobs`, created at startup like the others. Queuing a job from the agents'
 tools (`apple.enqueue_job` has no caller until they land), renewal and the cancel/wait limits of this page are not built yet.
 Enrollment codes are not built either: for now a Mac is registered with the raw `ADMIN_TOKEN`; the code (hashed,
-about 15 minutes, consumed atomically, rate limited) is a follow-up task to be confirmed by the lead.
+about 15 minutes, consumed atomically, rate limited) is handled by task #558.
 
 Revoking a Mac also ends its running jobs as `error` (summary `Mac builder revoked`), so their job tokens stop
 working at once. A job token and the source download are each spent by one atomic conditional update: of two
