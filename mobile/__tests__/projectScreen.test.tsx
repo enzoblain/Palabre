@@ -27,7 +27,6 @@ const detail = (over: Partial<ProjectDetail> = {}): ProjectDetail => ({
   name: "Alpha",
   repo_url: "https://github.com/acme/alpha",
   default_branch: "main",
-  platform: "generic",
   mode: "enterprise",
   seed: 1,
   platform: "generic",
