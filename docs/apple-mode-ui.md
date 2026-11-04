@@ -1,6 +1,6 @@
 # Mockup: Apple mode screens
 
-Spec of the three screens of [Apple mode](apple-mode.md): project type choice at creation, state of the builder Mac in the settings, and the Swift build result on a task. All visible texts are French and go through the app's translation mechanism. Nothing here is implemented yet.
+Spec of the three screens of [Apple mode](apple-mode.md): project type choice at creation, state of the builder Mac in the settings, and the Swift build result on a task. All visible texts are French and go through the app's translation mechanism. The web app implements screens 2 and 3 and the build block of screen 4 (see [Implementation status](#7-implementation-status)).
 
 ## 1. Principles
 
@@ -119,3 +119,12 @@ Remarks of Emma and Sacha on the first version, and what was done:
 - "position 2 sur la file" in full: integrated in the table.
 - Statuses aligned with the backend (`timeout` and `cancelled`): integrated, only the five statuses of the backend remain; a timeout is an `error`.
 - Link from [Apple mode](apple-mode.md): done.
+
+## 7. Implementation status
+
+Web app (`frontend/`):
+
+- Screen 2: `ProjectTypeChoice` in the project creation form. Apple mode off is detected from the 404 of `GET /api/apple-hosts`.
+- Screen 3: `MacBuilders` in the settings (hidden while Apple mode is off), with `EnrollmentCodeDialog`. The Mac list is refreshed every 30 s. Revoked Macs are not listed.
+- Screen 4: the `AppleBuild` block (status, short commit, summary, error lines as plain text, "Retry" after an infra error). The web app has no task page yet, so the block is not mounted anywhere.
+- Not shown because the API does not return them yet: builds running / maximum and queue length per Mac, queue position, duration, error and test counts, screenshots, build history and the "old commit" label.
