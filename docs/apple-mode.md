@@ -161,8 +161,10 @@ time, and by default Tart's NAT lets a VM reach the host and the LAN. So:
   is allowed explicitly by `--net-softnet-allow` when the server is on a private address. Because that
   option takes a CIDR, the `pf` anchor below narrows it to the backend IP on port 443 only, so no other
   port of that host (the database included) is reachable.
-- A **second layer** on the host: a `pf` anchor loaded at boot that applies the same rules to the VM
-  interface. A softnet bug must not be enough to reach the LAN.
+- A **second layer** on the host: a `pf` anchor (`deploy/apple-host/com.palabre.apple-vm.pf.conf`) loaded at boot that blocks
+  the private ranges and the Mac's own addresses from the VM subnet, DNS to the gateway excepted. A softnet bug must not be
+  enough to reach the LAN. The worker refuses to start if the anchor is not loaded, and `check-isolation.sh`, run inside a
+  VM, proves it (install, check and rollback: [Mac builder](apple-host.md)).
 - The VM uses a public DNS resolver, not the host's.
 - Outbound internet is allowed because SwiftPM, CocoaPods, Homebrew and Apple's downloads need it; it is
   limited by the rules above, not by a host allow-list that would break packages. To tighten it later,
@@ -311,6 +313,6 @@ Small tasks, with their dependencies (B backend, M MCP, F front, D DevOps, W doc
 7. **F** The same on the mobile app. After 6.
 8. **D** The Packer template of the Xcode base image and the way to publish and pin it by digest. No dependency.
 9. **D** The host worker (VM tool behind a single module, token file and renewal), its `launchd` unit and the install script for the Mac. After 4 and 8.
-10. **D** Network isolation (softnet, `pf` anchor, DNS) and its automated check from a VM. After 8; Inès reviews it.
+10. **D** Network isolation (softnet, `pf` anchor, DNS) and its automated check from a VM. After 8; Inès reviews it. Done: see [Mac builder](apple-host.md); the check on the real Mac is still to run.
 11. **D** The `swift-ci.yml` template (pushed at creation only if the GitHub token has the `workflow` scope, else added by the first task) and the release workflow with the protected environment. After 2.
 12. **B/D** End-to-end test on the real Mac with a sample Swift project, and monitoring of the queue. After 5, 9, 10, 11.

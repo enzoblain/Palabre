@@ -275,6 +275,28 @@ class ConfigTest(unittest.TestCase):
             self.assertEqual(worker.read_host_token(token), "pmac_x")
 
 
+class PfAnchorTest(unittest.TestCase):
+    ACTIVE = "\n".join(f'block drop quick ... label "{label}"' for label in worker.PF_ANCHOR_LABELS)
+
+    def test_active_anchor_is_accepted(self) -> None:
+        worker.require_pf_anchor(lambda: self.ACTIVE)
+
+    def test_empty_anchor_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "not active"):
+            worker.require_pf_anchor(lambda: "")
+
+    def test_partial_anchor_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-mac"):
+            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-mac", "other"))
+
+    def test_unreadable_anchor_refuses_to_start(self) -> None:
+        def unreadable() -> str:
+            raise OSError("sudo: a password is required")
+
+        with self.assertRaisesRegex(RuntimeError, "run install.sh again"):
+            worker.require_pf_anchor(unreadable)
+
+
 class TartVmDeleteTest(unittest.TestCase):
     def test_delete_is_attempted_even_when_stop_times_out(self) -> None:
         calls: list[str] = []
