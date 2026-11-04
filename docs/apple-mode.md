@@ -223,6 +223,17 @@ Enrollment codes live in `apple_enrollment_codes` (hash, expiry, consumption dat
 transaction as the Mac's registration, so of two simultaneous exchanges only one succeeds. Every exchange attempt counts
 against the caller's IP, valid or not (in memory, reset by a restart).
 
+### Creating an Apple project
+
+`POST /api/projects` takes an optional `platform` (`generic` by default, so nothing changes without it, or `apple`);
+`ProjectOut` returns it. With `platform=apple` the request is refused with `422` and the code `apple_host_required`
+(message in French: no Mac builder is connected) when `APPLE_MODE_ENABLED` is off or no Mac builder has answered within
+`APPLE_HEARTBEAT_TIMEOUT_SECONDS`. The refusal comes before anything is created. When the GitHub repository is
+empty, its first commit holds the starter Swift package next to the README: `Package.swift`, one source and one
+`XCTest` test that passes, and a `.gitignore` that covers `.build/`. The module is named after the project
+(`apple_template.module_name`). A repository that already has commits is left as it is. The package holds no
+key, token or signing setting: signing stays in GitHub CI.
+
 Revoking a Mac also ends its running jobs as `error` (summary `Mac builder revoked`), so their job tokens stop
 working at once. A job token and the source download are each spent by one atomic conditional update: of two
 concurrent calls with the same token, only one wins and the other gets `403 apple_job_token_used`. Claims are

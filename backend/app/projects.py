@@ -23,7 +23,7 @@ from app.company.catalog import load_catalog
 from app.company.team import Employee as TeamMember
 from app.company.team import Team, custom_employee, generate_team, generate_team_from_roles, reroll_employee
 from app.models import (
-    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, RequestAnswer, RequestStatus, Room, Task,
+    AgentRun, AppSetting, Conversation, Decision, DecisionStatus, Employee, Event, Message, OpenQuestion, Project, ProjectPlatform, RequestAnswer, RequestStatus, Room, Task,
     TaskStatus,
 )  # fmt: skip
 # NothingToRelease now lives in app.errors; kept importable from here for one release for external callers
@@ -63,6 +63,7 @@ async def create_project(
     creation_mode: str | None = None,
     description: str | None = None,
     employee_count: int | None = None,
+    platform: ProjectPlatform = ProjectPlatform.generic,
 ) -> Project:
     """`employees`: a team built by hand (see MemberIn); otherwise it is drawn for the mode.
     `creation_mode` "auto": `employee_count` employees whose roles are chosen for the `description`
@@ -88,7 +89,7 @@ async def create_project(
     else:
         team = generate_team(mode, seed)
     project = Project(
-        name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed,
+        name=name, repo_url=repo_url, default_branch=default_branch, mode=team.mode, seed=team.seed, platform=platform,
     )
     project.employees = [
         Employee(**asdict(member), account=(accounts or {}).get(member.name), mcp_token=secrets.token_urlsafe(32))

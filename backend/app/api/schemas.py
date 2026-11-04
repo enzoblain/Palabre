@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.company.catalog import KEY_PATTERN, MAX_TEAM_SIZE, Category, Effort, ExtendedCategory, Model, Permission
 from app.github import BRANCH_PATTERN
-from app.models import RequestStatus
+from app.models import ProjectPlatform, RequestStatus
 
 
 class ORM(BaseModel):
@@ -199,6 +199,8 @@ class ProjectIn(BaseModel):
     employee_count: int | None = Field(default=None, le=MAX_TEAM_SIZE)
     # Team built by hand (instead of drawn at random for the mode)
     employees: list[MemberIn] | None = Field(default=None, min_length=1, max_length=MAX_TEAM_SIZE)
+    # What the code is: "apple" needs a connected Mac builder and starts the repository with a Swift package
+    platform: ProjectPlatform = ProjectPlatform.generic
 
 
 class ProjectOut(ORM):
@@ -208,6 +210,7 @@ class ProjectOut(ORM):
     default_branch: str
     mode: str
     seed: int
+    platform: ProjectPlatform = ProjectPlatform.generic
     created_at: datetime
 
 

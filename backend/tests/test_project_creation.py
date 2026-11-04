@@ -6,6 +6,7 @@ import pytest
 
 from app import github, projects, worktrees
 from app.company.catalog import load_catalog
+from app.models import ProjectPlatform
 
 
 @pytest.fixture
@@ -64,7 +65,7 @@ async def test_initial_commit_pushes_production_before_dev(repo, monkeypatch, tm
 
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(worktrees, "resolve_branch", github.resolve_branch)  # the fake of `repo`
-    project = SimpleNamespace(name="App", repo_url=URL, default_branch="dev")
+    project = SimpleNamespace(name="App", repo_url=URL, default_branch="dev", platform=ProjectPlatform.generic)
     await worktrees._initial_commit(project, tmp_path)
     pushes = [a[-1] for a in calls if a[0] == "push"]
     assert pushes == ["main:refs/heads/main", "main:refs/heads/dev"]
@@ -141,7 +142,7 @@ async def test_initial_commit_has_a_readme_and_gitignore(repo, monkeypatch, tmp_
 
     monkeypatch.setattr(worktrees, "git", git)
     monkeypatch.setattr(worktrees, "resolve_branch", github.resolve_branch)
-    project = SimpleNamespace(name="App", repo_url=URL, default_branch="main")
+    project = SimpleNamespace(name="App", repo_url=URL, default_branch="main", platform=ProjectPlatform.generic)
     await worktrees._initial_commit(project, tmp_path)
     assert (tmp_path / "README.md").read_text().startswith("# App")
     assert (tmp_path / ".gitignore").exists()

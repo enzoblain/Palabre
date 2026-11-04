@@ -3,7 +3,7 @@
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
-from app import github, presence, projects, team_members
+from app import apple, github, presence, projects, team_members
 from app.accounts import account_count
 from app.api.deps import SessionDep, get_or_404
 from app.api.errors import ApiError, ErrorCode
@@ -27,11 +27,17 @@ from app.api.schemas import (
 )
 from app.company.catalog import MANDATORY_ROLE, MIN_TEAM_SIZE, load_catalog, team_permission_error
 from app.company.team import render_system_prompt
-from app.models import Employee, Message, Project
+from app.config import settings
+from app.models import Employee, Message, Project, ProjectPlatform
 from app.orchestrator.dispatcher import orchestrator
 from app.worktrees import remove_project_files
 from app import services
 from app.services import boss_display_name
+
+APPLE_HOST_REQUIRED_MESSAGE = (
+    "Impossible de créer un projet Apple/Swift : aucun Mac builder n'est connecté. "
+    "Connectez un Mac builder, puis réessayez."
+)
 
 router = APIRouter(tags=["projects"])
 
@@ -97,6 +103,7 @@ async def create_project(body: ProjectIn, s: SessionDep):
             ErrorCode.INVALID_REPOSITORY,
             str(exc),
         ) from None
+    await _check_apple_platform(body, s)
     _check_creation_mode(body)
     _check_accounts(body.accounts.values())
     if body.employees is not None:
@@ -105,6 +112,14 @@ async def create_project(body: ProjectIn, s: SessionDep):
     if body.employees:
         projects.plan_custom_channels_later(project.id)
     return _detail(await _project(s, project.id))
+
+
+async def _check_apple_platform(body: ProjectIn, s: SessionDep) -> None:
+    """An Apple project is built on the Mac builder: refused while the mode is off or no Mac is connected."""
+    if body.platform != ProjectPlatform.apple:
+        return
+    if not settings.apple_mode_enabled or not await apple.has_connected_host(s):
+        raise _invalid_creation(ErrorCode.APPLE_HOST_REQUIRED, APPLE_HOST_REQUIRED_MESSAGE)
 
 
 def _invalid_creation(code: ErrorCode, message: str) -> ApiError:
