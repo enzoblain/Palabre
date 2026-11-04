@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import stat
+import subprocess
 import threading
 import time
 import tomllib
@@ -35,6 +36,11 @@ GUEST_PROBE_COMMAND = ["/usr/bin/true"]  # answers 0 once the guest agent is up,
 # The VM runs untrusted code: it must never reach the Mac or the LAN. Always applied, the config can only add to them.
 BLOCKED_NETWORKS = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16")
 ISOLATION_NET_ARGS = ("--net-softnet", *(f"--net-softnet-block={network}" for network in BLOCKED_NETWORKS))
+PF_ANCHOR = "palabre/apple-vm"
+PF_ANCHOR_LABELS = ("palabre-apple-vm-dns", "palabre-apple-vm-private", "palabre-apple-vm-mac", "palabre-apple-vm-ipv6")
+PF_READ_COMMAND = ("sudo", "-n", "/sbin/pfctl", "-a", PF_ANCHOR, "-s", "rules")  # the one command sudoers allows
+PF_INFO_COMMAND = ("sudo", "-n", "/sbin/pfctl", "-s", "info")  # the second command sudoers allows
+PF_READ_TIMEOUT_SECONDS = 10
 IMAGE_PATTERN = re.compile(r"^[\w./-]+@sha256:[0-9a-f]{64}$")
 
 
@@ -67,6 +73,39 @@ def load_config(path: Path) -> Config:
         poll_interval_seconds=int(raw.get("poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS)),
         net_args=ISOLATION_NET_ARGS + tuple(str(arg) for arg in raw.get("net_extra_args", [])),
     )  # fmt: skip
+
+
+def require_pf_anchor(read_rules: Callable[[], str] | None = None, read_info: Callable[[], str] | None = None) -> None:
+    """Second network barrier: refuses to start unless pf is enabled and the anchor that blocks the LAN and the Mac is loaded."""
+    try:
+        rules = (read_rules or _read_pf_rules)()
+        info = (read_info or _read_pf_info)()
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RuntimeError(f"cannot read the pf anchor {PF_ANCHOR}; run install.sh again") from error
+    if "Status: Enabled" not in info:
+        raise RuntimeError("pf is disabled, so the anchor filters nothing; run install.sh again")
+    missing = [label for label in PF_ANCHOR_LABELS if label not in rules]
+    if missing:
+        raise RuntimeError(
+            f"the pf anchor {PF_ANCHOR} is not active (missing rules: {', '.join(missing)}); run install.sh again"
+        )
+
+
+def _read_pf_rules() -> str:
+    return _run_pf(PF_READ_COMMAND)
+
+
+def _read_pf_info() -> str:
+    return _run_pf(PF_INFO_COMMAND)
+
+
+def _run_pf(command: tuple[str, ...]) -> str:
+    result = subprocess.run(
+        command, capture_output=True, text=True, timeout=PF_READ_TIMEOUT_SECONDS, check=False
+    )
+    if result.returncode != 0:
+        raise OSError(result.stderr.strip()[-200:])
+    return result.stdout
 
 
 def read_host_token(path: Path) -> str:
@@ -289,6 +328,7 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     config = load_config(args.config)
+    require_pf_anchor()
     backend = HttpBackend(config.backend_url, read_host_token(config.token_file))
     Worker(config, backend, TartVm(net_args=config.net_args)).run_forever()
 

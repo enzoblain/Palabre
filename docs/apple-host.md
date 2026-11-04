@@ -63,12 +63,49 @@ On the Mac (Apple silicon), as an administrator:
 7. From a copy of the repository, run `cd deploy/apple-host && sudo ./install.sh`. It copies the worker to
    `/usr/local/lib/palabre-apple-worker`, installs the launchd daemon (starts at boot, restarted on failure) and starts it.
 
+   The same script installs the second network barrier, a `pf` anchor, see the next section. The worker refuses to start
+   (clear message in the log) while that anchor is not loaded.
+
 Check: `tail -f /var/log/palabre-apple-worker.log`, and the Mac shows as connected in the app.
 Upgrade the worker: pull the repository and run `sudo ./install.sh` again (it is idempotent).
 
+## Second network barrier: the `pf` anchor
+
+Tart's softnet is the first barrier; the anchor is the second, on the host. `install.sh` fills
+`com.palabre.apple-vm.pf.conf` and loads it as the anchor `palabre/apple-vm`. From the VM subnet (`192.168.64.0/24`, Tart's
+default, change it with `VM_NET=... VM_GATEWAY=... VM_IF=... sudo -E ./install.sh`) it blocks `10.0.0.0/8`, `172.16.0.0/12`,
+`192.168.0.0/16`, `169.254.0.0/16` and every IP address the Mac has, with one exception: DNS (port 53) to the gateway only.
+All IPv6 traffic coming in from the VM bridge (`bridge100` by default, `VM_IF`) is dropped too, so a guest cannot reach
+the Mac by its `fe80::` address. Internet stays open over IPv4.
+
+The install is idempotent: it adds one `anchor` line to `/etc/pf.conf` (copy kept in `/etc/pf.conf.palabre-backup`), installs the
+`com.palabre.apple-pf` daemon that enables `pf` at boot, and a sudoers entry that lets `palabre` run only
+`pfctl -a palabre/apple-vm -s rules` and `pfctl -s info`, which is how the worker proves pf is enabled and the anchor
+is loaded before it starts. Run `install.sh`
+again after the Mac's IP changes or after a macOS update that resets `/etc/pf.conf`.
+
+A backend on a private address is blocked by the anchor too: use a public address (or a tunnel).
+
+### Commissioning check (required before the first real job)
+
+Inside a VM (`tart run` a clone of the image, then `tart exec`), copy `check-isolation.sh` and run it with the Mac's LAN IP
+(and other LAN hosts, such as the router):
+
+```sh
+tart exec <vm> /bin/sh -s -- <mac_ip> <router_ip> < deploy/apple-host/check-isolation.sh
+```
+
+It also probes the VM's default gateway and the link-local IPv6 neighbours of the VM's link, which must not answer. It fails if the Mac, a LAN address, one address of each private range or `169.254.169.254` accepts or refuses a connection
+(only a dropped packet counts as blocked), or if `github.com` or `swiftpackageindex.com` is not reachable. Run it again after
+every change of network, of image or of `pf`. With softnet on, the check also passes if softnet alone works, so it does not
+prove the anchor by itself: run it once more in a VM started without the softnet flags (plain `tart run`, no
+`--net-softnet`), where it must also pass; that proves the second barrier alone. The worker checks that pf is enabled and the
+anchor is loaded only at startup, so restart it after any `pfctl -d` or macOS update. Not run on the real Mac yet: the rules are checked by `pfctl -n` only
+at install time, so this step is the real proof.
+
 ## Tests
 
-`cd deploy/apple-host && python3 -m unittest test_worker` : the queue limit, timeouts, cleanup and verdicts, with a
+`cd deploy/apple-host && python3 -m unittest test_worker` : the queue limit, timeouts, cleanup, verdicts and the refusal to start without the anchor, with a
 fake VM tool and a fake backend (no Mac needed).
 
 ## Known limit: no GUI session (LaunchDaemon vs LaunchAgent)
@@ -83,4 +120,8 @@ Not validated on the real Mac yet. If `tart run` fails from the daemon, use a La
 - Stop the worker: `sudo launchctl bootout system /Library/LaunchDaemons/com.palabre.apple-worker.plist`, and remove that file
   and `/usr/local/lib/palabre-apple-worker` to uninstall. Leftover VMs: `tart list`, then `tart delete job-<id>`.
 - Revoke the token: `DELETE /api/apple-hosts/{id}`.
+- Network barrier: `sudo launchctl bootout system /Library/LaunchDaemons/com.palabre.apple-pf.plist`, remove that file,
+  `/etc/pf.anchors/palabre-apple-vm` and `/etc/sudoers.d/palabre-apple-pf`, restore `/etc/pf.conf.palabre-backup`
+  to `/etc/pf.conf`, then `sudo pfctl -f /etc/pf.conf`. The worker will not start without the anchor: do this only with
+  the worker stopped (softnet still isolates the VMs).
 - Previous image: put the previous digest in the config file (and in `APPLE_IMAGE`), then `sudo ./install.sh`.
