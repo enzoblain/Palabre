@@ -10,6 +10,7 @@ export type DeliveryStatus = "sent" | "sending" | "failed";
 export type DisplayMessage = {
   key: string;
   author: string;
+  employeeId: number | null;
   content: string;
   createdAt: string;
   own: boolean; // the boss: bubbles on the right
@@ -28,6 +29,7 @@ export function toDisplayMessage(message: Message): DisplayMessage {
   return {
     key: `m${message.id}`,
     author: message.author_name,
+    employeeId: message.employee_id,
     content: message.content,
     createdAt: message.created_at,
     own: message.employee_id === null && !message.is_system,
@@ -59,6 +61,11 @@ export function formatBubbleTime(iso: string, now: Date = new Date(), locale?: s
   const time = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   if (date.toDateString() === now.toDateString()) return time;
   return `${date.toLocaleDateString(locale, { day: "numeric", month: "short" })}, ${time}`;
+}
+
+/** Full date and time of sending, for the Info action. */
+export function formatSentAt(iso: string, locale?: string): string {
+  return parseDate(iso).toLocaleString(locale, { dateStyle: "long", timeStyle: "medium" });
 }
 
 /** Series of bubbles, a centered time after each pause over 1 h, system lines apart. */

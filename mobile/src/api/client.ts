@@ -2,17 +2,35 @@ import { translate } from "../i18n";
 import { ApiError, errorMessage, readErrorCode } from "./errors";
 import { deleteStoredConnection, readStoredConnection, writeStoredConnection } from "./storage";
 import type {
+  AppSettings,
+  CatalogLimits,
   Connection,
   Conversation,
   Device,
   DevicePaired,
+  Employee,
+  MemberIn,
   Message,
+  OrchestratorStatus,
+  PersonalityPreset,
   ProjectDetail,
   ProjectListItem,
+  Role,
+  ProjectUpdated,
 } from "@palabre/shared";
 
 const MESSAGES_PAGE_SIZE = 200;
 const PAIRING_DEVICE_NAME_MAX = 100;
+
+export type NewProjectBody = {
+  name: string;
+  repo_url?: string;
+  mode: string;
+  creation_mode?: "manual" | "auto";
+  description?: string;
+  employee_count?: number;
+  employees?: MemberIn[];
+};
 
 let current: Connection | null = null;
 let onUnauthorized: () => void = () => {};
@@ -119,8 +137,31 @@ export const api = {
   listDevices: () => call<Device[]>("/auth/devices"),
   revokeDevice: (id: number) => call<void>(`/auth/devices/${id}`, "DELETE"),
 
+  getSettings: () => call<AppSettings>("/settings"),
+  saveSettings: (changes: { boss_name?: string; language?: string }) => call<AppSettings>("/settings", "PUT", changes),
+  addEmployee: (projectId: number, body: { roles: string[]; personality: string | null }) =>
+    call<Employee>(`/projects/${projectId}/employees`, "POST", body),
+  updateEmployee: (employeeId: number, changes: { roles?: string[]; personality?: string }) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", changes),
+  removeEmployee: (employeeId: number) => call<void>(`/employees/${employeeId}`, "DELETE"),
+  setAccount: (employeeId: number, account: number | null) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
+
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
+    call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
+  deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
+  deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
+
+  orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
+
+  createProject: (body: NewProjectBody) => call<ProjectDetail>("/projects", "POST", body),
+
+  personalities: () => call<Record<string, PersonalityPreset>>("/catalog/personalities"),
+  roles: () => call<Record<string, Role>>("/catalog/roles"),
+  limits: () => call<CatalogLimits>("/catalog/limits"),
+  names: () => call<string[]>("/catalog/names"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>
@@ -129,5 +170,6 @@ export const api = {
     ),
   postMessage: (conversationId: number, content: string) =>
     call<Message>(`/conversations/${conversationId}/messages`, "POST", { content }),
+  liftRateLimit: (conversationId: number) => call<void>(`/conversations/${conversationId}/lift-rate-limit`, "POST"),
   markDirectionRead: (projectId: number) => call<ProjectListItem>(`/projects/${projectId}/direction/read`, "POST"),
 };

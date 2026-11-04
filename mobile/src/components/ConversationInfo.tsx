@@ -1,13 +1,69 @@
+import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { Room } from "../api";
+import { api, ApiError, type Room } from "../api";
 import { translate } from "../i18n";
 import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, SPACING, useColors } from "../theme";
 
-type Props = { room: Room; visible: boolean; onClose: () => void };
+type Props = {
+  room: Room;
+  conversationId: number;
+  visible: boolean;
+  onClose: () => void;
+  onMention: (name: string) => void; // tapping a member writes "@Name" in the composer
+  onOpenProject: () => void; // leads to the project page (name, branch, deletion)
+};
+
+type Feedback = { ok: boolean; text: string };
+
+/** Restarts the anti-loop window of the conversation, for the boss who cannot write in a read-only channel. */
+function LiftLimit({ conversationId }: { conversationId: number }) {
+  const colors = useColors();
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  const lift = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.liftRateLimit(conversationId);
+      setFeedback({ ok: true, text: translate("conversation.liftLimitDone") });
+    } catch (err) {
+      setFeedback({ ok: false, text: err instanceof ApiError ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.help, { color: colors.secondaryText }]}>
+        {translate("conversation.liftLimitHelp")}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy, busy }}
+        disabled={busy}
+        onPress={lift}
+        style={[styles.member, busy && styles.busy]}
+      >
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: colors.link }]}>
+          {translate("conversation.liftLimit")}
+        </Text>
+      </Pressable>
+      <View accessibilityLiveRegion="polite">
+        {feedback ? (
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: feedback.ok ? colors.success : colors.error }]}>
+            {feedback.text}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 /** The room document (objective, summary) and its members, as the web conversation info. */
-export function ConversationInfo({ room, visible, onClose }: Props) {
+export function ConversationInfo({ room, conversationId, visible, onClose, onMention, onOpenProject }: Props) {
   const colors = useColors();
   const sections = [
     { title: translate("conversation.objective"), body: room.objective },
@@ -46,10 +102,25 @@ export function ConversationInfo({ room, visible, onClose }: Props) {
             {translate(room.members.length > 1 ? "conversation.members" : "conversation.member", { count: room.members.length })}
           </Text>
           {room.members.map((member) => (
-            <Text key={member.id} maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: colors.text }]}>
-              {member.name} · {member.title}
-            </Text>
+            <Pressable
+              key={member.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${member.name}, ${member.title}`}
+              accessibilityHint={translate("conversation.mention", { name: member.name })}
+              onPress={() => onMention(member.name)}
+              style={styles.member}
+            >
+              <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: colors.text }]}>
+                {member.name} · {member.title}
+              </Text>
+            </Pressable>
           ))}
+          <LiftLimit conversationId={conversationId} />
+          <Pressable accessibilityRole="link" onPress={onOpenProject} style={styles.member}>
+            <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: colors.link }]}>
+              {translate("conversation.openProject")}
+            </Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -65,4 +136,7 @@ const styles = StyleSheet.create({
   content: { padding: SPACING.lg, gap: SPACING.sm },
   heading: { fontSize: FONT_SIZE.caption, fontWeight: "600", textTransform: "uppercase", marginTop: SPACING.md },
   body: { fontSize: FONT_SIZE.body },
+  help: { fontSize: FONT_SIZE.caption },
+  member: { minHeight: MIN_TOUCH_TARGET, justifyContent: "center" },
+  busy: { opacity: 0.4 },
 });

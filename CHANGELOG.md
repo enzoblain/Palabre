@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-04
+
+### Added
+
+- mobile: add the settings screen (batch 4 of the web parity) (#488)
+- mobile: credits banner, edit mode, last opened first and first-run redirect (#487)
+- mobile: message content and actions (batch 2 of the parity inventory) (#489)
+- mobile: add the new project screen (batch 7 of the web parity) (#490)
+- mobile: add the project info screen (batch 5 of the web parity) (#491)
+- mobile: add team management to the project page (batch 6 of the web parity) (#493)
+
+### Fixed
+
+- mobile: polish accessibility and wording of the project info screen (#492)
+
 ## [0.31.1] - 2026-11-04
 
 ### Chores
@@ -780,7 +795,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/enzoblain/Palabre/compare/v0.31.1...v0.32.0
 [0.31.1]: https://github.com/enzoblain/Palabre/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/enzoblain/Palabre/compare/v0.30.5...v0.31.0
 [0.30.5]: https://github.com/enzoblain/Palabre/compare/v0.30.4...v0.30.5

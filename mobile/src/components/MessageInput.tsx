@@ -10,13 +10,22 @@ const INPUT_LINE_HEIGHT = 22;
 const INPUT_PADDING_VERTICAL = 8;
 const SEND_HIT_SLOP = (MIN_TOUCH_TARGET - SEND_BUTTON_SIZE) / 2;
 
-type Props = { onSend: (content: string) => void };
+/** A name to insert as "@Name"; `nonce` changes on every request so the same name can be inserted twice. */
+export type MentionRequest = { name: string; nonce: number };
+type Props = { placeholder: string; mention?: MentionRequest | null; onSend: (content: string) => void };
 
 /** Multiline field (up to 5 lines) and the round send button, disabled while the field is empty. */
-export function MessageInput({ onSend }: Props) {
+export function MessageInput({ placeholder, mention, onSend }: Props) {
   const colors = useColors();
   const [text, setText] = useState("");
   const content = text.trim();
+
+  // A new request is applied while rendering (not in an effect) so the field updates in the same pass.
+  const [appliedNonce, setAppliedNonce] = useState(mention?.nonce);
+  if (mention && mention.nonce !== appliedNonce) {
+    setAppliedNonce(mention.nonce);
+    setText(`${text}${text && !text.endsWith(" ") ? " " : ""}@${mention.name} `);
+  }
 
   const submit = () => {
     if (!content) return;
@@ -28,7 +37,7 @@ export function MessageInput({ onSend }: Props) {
     <View style={[styles.bar, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
       <TextInput
         accessibilityLabel={translate("conversation.input")}
-        placeholder={translate("conversation.input")}
+        placeholder={placeholder}
         placeholderTextColor={colors.secondaryText}
         value={text}
         onChangeText={setText}

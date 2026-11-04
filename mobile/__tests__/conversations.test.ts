@@ -1,5 +1,5 @@
 import type { ProjectListItem } from "../src/api";
-import { avatarColor, filterConversations, formatListTime, initials, sortByActivity } from "../src/format/conversations";
+import { avatarColor, filterConversations, formatListTime, initials, lastOpenedFirst, sortByActivity } from "../src/format/conversations";
 
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
 
@@ -73,5 +73,16 @@ describe("formatListTime", () => {
   });
   it("shows the short date beyond a week", () => {
     expect(formatListTime(new Date(2026, 4, 1, 12, 0).toISOString(), now, "fr-FR")).toBe("01/05/26");
+  });
+});
+
+describe("lastOpenedFirst", () => {
+  const items = [{ id: 1 }, { id: 2 }, { id: 3 }] as ProjectListItem[];
+  it("moves the last opened project to the top and keeps the others in order", () => {
+    expect(lastOpenedFirst(items, 3).map((i) => i.id)).toEqual([3, 1, 2]);
+  });
+  it("keeps the order when there is none, or when it no longer exists", () => {
+    expect(lastOpenedFirst(items, null)).toBe(items);
+    expect(lastOpenedFirst(items, 9)).toBe(items);
   });
 });

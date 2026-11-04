@@ -23,12 +23,12 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | Batch | Content | Priority | Depends on |
 |---|---|---|---|
 | 1 | Conversation screen basics: info sheet, typing indicator (done), scroll behavior (pending) | P1 | none |
-| 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages | P1 | batch 1 (same screen) |
-| 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name | P1 | none |
-| 4 | Settings screen: name, language, connected devices, Claude accounts, server | P2 | batch 3 (tab bar) |
-| 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
-| 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
-| 7 | New project: form, automatic or manual team, team editor | P3 | batch 3, shares the pickers of batch 6 |
+| 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages (done) | P1 | batch 1 (same screen) |
+| 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name (done) | P1 | none |
+| 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
+| 5 | Project info screen: name, branch, description, git link, deletion (done) | P2 | batch 3 |
+| 6 | Team management of a project: members, jobs, personalities (done) | P3 | batch 5 |
+| 7 | New project: form, automatic or manual team, team editor (done) | P3 | batch 3, shares the pickers of batch 6 |
 
 Batches 1 and 3 are independent. 6 and 7 share the job and personality pickers: build them once, in whichever of the two
 comes first, as shared components.
@@ -46,113 +46,113 @@ Web source: `ConversationView.tsx`, `ConversationTeam.tsx`, `MessageBubble.tsx` 
 | Open on the latest message, stay at the bottom after sending or on a new message, do not force down when the user scrolled up | in progress | Message list scroll behavior | P1 |
 | Info sheet refreshed while open (objective and summary are read once) | partial | Re-read the room with the message poll | P3 |
 
-## Batch 2: message content and actions
+## Batch 2: message content and actions (delivered)
 
 Web source: `MessageBubble.tsx`, `Markdown.tsx`, `ConversationView.tsx` (composer, `MessageList`), `util.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Message body rendered as Markdown (lists, code, links, tables via GFM, line breaks) | absent (plain text) | Native rendering of the same Markdown subset inside the bubble | P1 |
-| `@Name` mentions highlighted, and a different style when the boss is mentioned (`bossNames`, `mention-me`) | absent | Colored span in the bubble; bubble tinted when it mentions the boss | P1 |
-| Links open outside the app, only `http(s)` and `mailto` | absent | Open with the system browser, same allow-list | P1 |
-| Author name and job title above a bubble | partial (name only, no title) | Title next to the name, from the project employees | P2 |
+| Message body rendered as Markdown (lists, code, links, tables via GFM, line breaks) | present | Native rendering of the same Markdown subset inside the bubble | P1 |
+| `@Name` mentions highlighted, and a different style when the boss is mentioned (`bossNames`, `mention-me`) | present | Colored span in the bubble; bubble tinted when it mentions the boss | P1 |
+| Links open outside the app, only `http(s)` and `mailto` | present | Open with the system browser, same allow-list | P1 |
+| Author name and job title above a bubble | present | Title next to the name, from the project employees | P2 |
 | Grouping of consecutive messages from one author | present | none | |
-| Messages from the platform (`is_system`) labelled "Platform" | partial (no label) | Centered system line with the label | P2 |
-| Copy a message (long press, context menu, "⋯" button) with copied or failed feedback | absent | Long press opens an action sheet with Copy | P1 |
-| Info action: full date and time of sending | absent | Second entry of the same action sheet | P2 |
-| Composer placeholder naming the project and the boss, and a different one in an empty conversation | partial (fixed text) | Same placeholders | P3 |
-| Empty conversation intro (project name, lead name and title) | absent | Intro text in the list's empty state | P2 |
+| Messages from the platform (`is_system`) labelled "Platform" | present | Centered system line with the label | P2 |
+| Copy a message (long press, context menu, "⋯" button) with copied or failed feedback | present | Long press opens an action sheet with Copy | P1 |
+| Info action: full date and time of sending | present | Second entry of the same action sheet | P2 |
+| Composer placeholder naming the project and the boss, and a different one in an empty conversation | present | Same placeholders | P3 |
+| Empty conversation intro (project name, lead name and title) | present | Intro text in the list's empty state | P2 |
 | Initial loading state of the list | present (skeleton) | none | |
-| Send error shown under the composer, draft kept on failure | partial (failed bubble with retry; the draft is cleared on send) | Keep the retry bubble, no change needed unless the draft must survive | P3 |
-| Tap a teammate to insert `@Name` in the composer | absent (the web does it from the desktop team column) | Tap a member in the info sheet inserts the mention | P2 |
+| Send error shown under the composer, draft kept on failure | present (the failed bubble keeps the text and retries it, the field is cleared on send) | Retry bubble | P3 |
+| Tap a teammate to insert `@Name` in the composer | present | Tap a member in the info sheet inserts the mention | P2 |
 | Enter inserts a newline on touch screens, the button sends | present (multiline field and send button) | none | |
 | Read marker: opening the direction room marks it read, and each new message while open | present | none | |
-| "Lift the limit" button (restarts the anti-loop window of the conversation) | absent | Action in the info sheet, with the result message | P2 |
+| "Lift the limit" button (restarts the anti-loop window of the conversation) | present | Action in the info sheet, with the result message | P2 |
 
-## Batch 3: app shell and project list
+## Batch 3: app shell and project list (delivered, except the deliberate language difference)
 
 Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `ProjectsEditing.tsx`, `navigation.ts`,
 `router.ts`, `layout.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Bottom bar with Projects, New project, Settings | present (three tabs; New project and Settings show a placeholder until batches 4 and 7) | none | |
+| Bottom bar with Projects, New project, Settings | present (three tabs) | none | |
 | Project list: avatar, name, last message preview, unread badge | present | none | |
-| Loading skeleton, error with retry, empty state with a "create project" button | partial (skeleton, error banner and empty text; no create button) | Create button in the empty state, leads to batch 7 | P2 |
+| Loading skeleton, error with retry, empty state with a "create project" button | present (skeleton, error banner, empty text and a create button) | none | P2 |
 | Search field (web: only above 8 projects) | present (always shown, matches on the name) | none | |
-| Most recently opened project first | absent | Remember the last opened id in the app storage | P3 |
-| Edit mode: tick several projects, delete them after a confirmation, error message | absent | "Edit" button in the list header, row selection circles, destructive confirmation sheet | P2 |
+| Most recently opened project first | present (last opened id kept in secure storage) | none | P3 |
+| Edit mode: tick several projects, delete them after a confirmation, error message | present (Edit/Done in the list header, selection circles, labelled delete button of 48 dp, then a destructive confirmation alert; no swipe) | none | P2 |
 | Opening a project lands in the conversation with the lead (direction room) | present (the list opens the direction conversation directly) | none | |
 | Back arrow leading to the parent screen | present | none | |
-| Credits banner: Claude accounts out of credits, when they come back, per account if several | absent | Banner at the top of the root screens, polled every 15 s | P1 |
-| First run: no boss name yet opens Settings | absent | Redirect to the name field of batch 4 | P2 |
+| Credits banner: Claude accounts out of credits, when they come back, per account if several | present (root screens, polled every 15 s) | none | P1 |
+| First run: no boss name yet opens Settings | present (opens the Settings tab, which is still a placeholder until batch 4) | none | P2 |
 | Team language drives the interface language | absent (the app follows the phone language) | Keep the phone language, a deliberate difference; revisit with batch 4 | P3 |
 | Polling of the project list every 5 s | present | none | |
 | Unauthorized answer sends back to the sign-in screen | present | none | |
 | Sign-in: server URL, token, error and busy state | present (pairs the phone and stores a device token) | none | |
 | Server field hidden when the page is served by the backend | n/a (web only) | none | |
 
-## Batch 4: settings screen
+## Batch 4: settings screen (done)
 
 Web source: `Settings.tsx`, `ConnectedDevices.tsx`, `ConfirmDialog.tsx`, `AccountSelect.tsx`, `devices.ts`, `jobs.ts`
 (`spreadAccounts`).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Settings screen reachable from the navigation | absent | Third tab of the bar (batch 3) | P2 |
-| Boss name: edit, save, success and error messages, required hint | absent | Grouped form row, save in the navigation bar | P2 |
-| Team language: pick among the server languages, saved on change | absent | Picker row | P3 |
-| Connected devices: list with name, added, last used, expires; "never used" | absent (the API client already has `listDevices` and `revokeDevice`) | List section | P2 |
-| Revoke a device after a confirmation, status message, focus handling | absent | Swipe or button then a confirmation alert; the current phone should warn it signs out | P2 |
-| Loading, error with retry and empty state of the devices list | absent | Same three states | P2 |
-| Claude accounts: count explanation, and per employee account choice per project when there are several | absent | One section per project, picker per employee | P3 |
-| Automatic account spreading shown as the effective account | absent | Label of the picker's first option | P3 |
-| Server: connected URL and a disconnect button | partial (sign-out exists in the session but has no screen) | Button in the Server section, with confirmation | P1 |
+| Settings screen reachable from the navigation | present | Third tab of the bar (batch 3) | P2 |
+| Boss name: edit, save, success and error messages, required hint | present | Grouped form row, save in the navigation bar | P2 |
+| Team language: pick among the server languages, saved on change | present | Picker row | P3 |
+| Connected devices: list with name, added, last used, expires; "never used" | present | List section | P2 |
+| Revoke a device after a confirmation, status message, focus handling | present (button then a confirmation alert, no swipe; the alert warns that revoking the phone in hand signs it out) | Button then a confirmation alert | P2 |
+| Loading, error with retry and empty state of the devices list | present | Same three states | P2 |
+| Claude accounts: count explanation, and per employee account choice per project when there are several | present | One section per project, picker per employee | P3 |
+| Automatic account spreading shown as the effective account | present | Label of the picker's first option | P3 |
+| Server: connected URL and a disconnect button | present (button with a confirmation alert) | Button in the Server section, with confirmation | P1 |
 
-## Batch 5: project info screen
+## Batch 5: project info screen (done)
 
 Web source: `ProjectInfo.tsx` (`ProjectBar`, `ProjectForm`, `DeleteProject`).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Project screen reachable from a conversation (info icon) | partial (the conversation info sheet exists, not the project page) | Link at the bottom of the info sheet, or a pushed screen | P2 |
-| Edit name (100 characters) and main branch, saved together, backend warning shown | absent | Form with a save button, inline status | P2 |
-| Unsaved-change detection that enables the save button | absent | same | P2 |
-| Description (the direction room objective) with a hint to change it by asking the lead | absent (objective shown read-only in the conversation info sheet) | Text block on the page | P3 |
-| Git link opened in a new tab, or "no git" text | absent | Opens with the system browser | P3 |
-| Delete the project after a confirmation, with error and busy state | absent | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
-| Loading and load error of the project | partial (conversation screen only) | Same states | P2 |
+| Project screen reachable from a conversation (info icon) | present | Link at the bottom of the info sheet opening a pushed screen | P2 |
+| Edit name (100 characters) and main branch, saved together, backend warning shown | present | Form with a save button, inline status | P2 |
+| Unsaved-change detection that enables the save button | present | same | P2 |
+| Description (the direction room objective) with a hint to change it by asking the lead | present (read-only, with the hint) | Text block on the page | P3 |
+| Git link opened in a new tab, or "no git" text | present | Opens with the system browser | P3 |
+| Delete the project after a confirmation, with error and busy state | present | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
+| Loading and load error of the project | present | Same states | P2 |
 
-## Batch 6: team management of a project
+## Batch 6: team management of a project (done)
 
 Web source: `TeamSection.tsx`, `JobPicker.tsx`, `PersonalityPicker.tsx`, `presets.ts`, `jobs.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Team list sorted by name: avatar, name, job title, quirks | partial (members shown in the conversation info sheet, without quirks) | Section of the project page (batch 5) | P3 |
-| Lead badge, the lead cannot be edited or removed | absent | same | P3 |
-| Edit a member: jobs and personality, hint about what changes | absent | Pushed form screen | P3 |
-| Remove a member after a confirmation | absent | Swipe action with a confirmation alert | P3 |
-| Add a member: jobs and personality | absent | Pushed form screen | P3 |
-| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | absent | Searchable list, details in a sheet | P3 |
-| Personality picker: radio list, search without accents, "random" option, empty and no-match messages | absent | Searchable single-choice list | P3 |
-| Catalog loading and failure of the team section | absent | Loading and retry states | P3 |
-| `/catalog` calls: roles, personalities, limits, names | absent in `src/api` | Add the typed calls to the client | P3 |
+| Team list sorted by name: avatar, name, job title, quirks | present (name, job title and quirks) | Section of the project page (batch 5) | P3 |
+| Lead badge, the lead cannot be edited or removed | present | same | P3 |
+| Edit a member: jobs and personality, hint about what changes | present | Sheet with the jobs and personality pickers | P3 |
+| Remove a member after a confirmation | present | Labelled button then a confirmation alert, no swipe | P3 |
+| Add a member: jobs and personality | present | Sheet with the jobs and personality pickers | P3 |
+| Job picker: grouped by category (collapsible), search, several jobs per member, details (mission, responsibilities, forbidden, deliverables, tools), model and effort | present (shared with batch 7) | Searchable list, details in a sheet | P3 |
+| Personality picker: radio list, search without accents, "random" option, empty and no-match messages | present (built for batch 7) | Searchable single-choice list | P3 |
+| Catalog loading and failure of the team section | present | Loading and retry states | P3 |
+| `/catalog` calls: roles, personalities, limits, names | present | Add the typed calls to the client | P3 |
 
-## Batch 7: new project
+## Batch 7: new project (done)
 
 Web source: `NewProject.tsx`, `CompanyTeamSection.tsx`, `TeamEditor.tsx`, `AccountSelect.tsx`, `presets.ts`, `jobs.ts`.
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| New project screen | absent | Second tab of the bar, or a "+" in the list header (decision for batch 3) | P3 |
-| Name (200 characters) and GitHub repository URL with live validation | absent | Form with inline error | P3 |
-| Team by description (automatic): description text and head count within the server limits | absent | Segmented control "Automatic / Manual" | P3 |
-| Team by hand (manual): lead locked first, name per member with a random free name button, jobs, personality, model, Claude account | absent | List of member rows opening a form (shares batch 6 pickers) | P3 |
-| Team size limit warning and help, minimum size, problems list (no lead, duplicate or invalid name, no job) | absent | Inline messages above the submit button | P3 |
-| Presets failing to load with retry; manual tab disabled until the catalog is loaded | absent | same | P3 |
-| Submit, busy state, API error, opens the new project | absent | Navigate to the new project's conversation | P3 |
-| Cancel | absent | Back button | P3 |
+| New project screen | present | Second tab of the bar, or a "+" in the list header (decision for batch 3) | P3 |
+| Name (200 characters) and GitHub repository URL with live validation | present | Form with inline error | P3 |
+| Team by description (automatic): description text and head count within the server limits | present | Segmented control "Automatic / Manual" | P3 |
+| Team by hand (manual): lead locked first, name per member with a random free name button, jobs, personality, model, Claude account | present | List of member rows opening a form (shares batch 6 pickers) | P3 |
+| Team size limit warning and help, minimum size, problems list (no lead, duplicate or invalid name, no job) | present | Inline messages above the submit button | P3 |
+| Presets failing to load with retry; manual tab disabled until the catalog is loaded | present | same | P3 |
+| Submit, busy state, API error, opens the new project | present | Navigate to the new project's conversation | P3 |
+| Cancel | present | Back button | P3 |
 
 ## Cross-cutting differences
 
@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages and read marker. Missing for the batches: settings, update and delete project, employees, catalog, orchestrator status, rate limit lift, accounts | Add calls batch by batch, keeping the client shared with the web app | P1 |
+| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: employees, orchestrator status (catalog and project creation are there) | Add calls batch by batch, keeping the client shared with the web app | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |
