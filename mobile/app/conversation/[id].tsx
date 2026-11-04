@@ -14,12 +14,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../../src/api";
+import { ConversationInfo } from "../../src/components/ConversationInfo";
 import { ConversationHeader } from "../../src/components/ConversationHeader";
 import { ErrorBanner } from "../../src/components/ErrorBanner";
 import { MessageBubble } from "../../src/components/MessageBubble";
 import { MessageInput } from "../../src/components/MessageInput";
 import { MessageSkeleton } from "../../src/components/MessageSkeleton";
+import { TypingDots } from "../../src/components/TypingDots";
 import { buildChatItems, type ChatItem, type DisplayMessage, toDisplayMessage } from "../../src/format/messages";
+import { useLeadWriting } from "../../src/hooks/useLeadWriting";
 import { useMessages } from "../../src/hooks/useMessages";
 import { translate } from "../../src/i18n";
 import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../../src/theme";
@@ -33,7 +36,9 @@ export default function ConversationScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = Number(id);
-  const { name, messages, pending, failed, reload, send, retry } = useMessages(projectId);
+  const { name, info, messages, pending, failed, reload, send, retry } = useMessages(projectId);
+  const leadWriting = useLeadWriting(projectId);
+  const [infoOpen, setInfoOpen] = useState(false);
   const list = useRef<FlatList<ChatItem>>(null);
   const atBottom = useRef(true);
   const [unseen, setUnseen] = useState(false);
@@ -102,10 +107,12 @@ export default function ConversationScreen() {
     );
   };
 
+  const typing = leadWriting && info?.room.kind === "direction";
   const loading = messages === null && !failed;
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ConversationHeader name={name} onBack={() => router.back()} />
+      <ConversationHeader name={name} onBack={() => router.back()} onInfo={info ? () => setInfoOpen(true) : undefined} />
+      {info ? <ConversationInfo room={info.room} visible={infoOpen} onClose={() => setInfoOpen(false)} /> : null}
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {failed ? <ErrorBanner message={translate("conversation.unavailable")} onRetry={reload} /> : null}
         {loading ? (
@@ -124,6 +131,7 @@ export default function ConversationScreen() {
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.content}
+              ListFooterComponent={typing && info?.leadName ? <TypingDots name={info.leadName} /> : undefined}
               ListEmptyComponent={
                 messages === null ? undefined : (
                   <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.empty, { color: colors.secondaryText }]}>

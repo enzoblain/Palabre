@@ -29,7 +29,7 @@ const message = (id: number, content = "Salut", employeeId: number | null = 5): 
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mocked.getProject.mockResolvedValue({ name: "Alpha", rooms: [{ id: 3, kind: "team" }, { id: 4, kind: "direction" }] });
+  mocked.getProject.mockResolvedValue({ name: "Alpha", employees: [], rooms: [{ id: 3, kind: "team" }, { id: 4, kind: "direction" }] });
   mocked.listConversations.mockResolvedValue([{ id: 9 }]);
 });
 
