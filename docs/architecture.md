@@ -19,4 +19,5 @@
   server whose tools depend on their role: only a lead can merge, only reviewers, QA and
   security can approve a pull request.
 - **Apps** (`frontend/`): React and TypeScript, served by nginx for the browser.
+- **Shared contract** (`shared/`): the API types and error codes used by both apps, types and constants only (no runtime dependency). See [Mobile app](mobile.md#sharing-code-with-the-web-app).
 - **Mobile app** (`mobile/`): Expo (React Native) and TypeScript; talks to the same `/api`. See [Mobile app](mobile.md).

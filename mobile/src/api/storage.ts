@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import type { Connection } from "./types";
+import type { Connection } from "@palabre/shared";
 
 // Secure storage only (iOS Keychain, Android Keystore): never AsyncStorage for a token
 const STORAGE_KEY = "palabre.connection";

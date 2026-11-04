@@ -52,7 +52,10 @@ services:
   web:
     # The app in a browser (phone...): the interface, with /api passed on to the backend
     image: ghcr.io/enzoblain/palabre-web:${PALABRE_VERSION:-0.30.5}
-    build: ./frontend
+    build:
+      # Repo root: the image also needs shared/
+      context: .
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     depends_on:
       - backend
