@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ProjectListItem } from "../api";
 import { avatarColor, formatListTime, initials } from "../format/conversations";
@@ -9,24 +10,36 @@ export const ROW_MIN_HEIGHT = 76;
 export const SEPARATOR_INSET = 76;
 const UNREAD_DOT_SIZE = 10;
 const PREVIEW_FONT_SIZE = 15;
+const SELECT_ICON_SIZE = 28;
 
-type Props = { item: ProjectListItem; onPress: (item: ProjectListItem) => void };
+/** In edit mode the row shows a selection circle; `selected` says whether it is ticked. */
+type Props = { item: ProjectListItem; onPress: (item: ProjectListItem) => void; selected?: boolean };
 
 /** One conversation: avatar, name, two-line preview, time and the unread dot. */
-export function ConversationRow({ item, onPress }: Props) {
+export function ConversationRow({ item, onPress, selected }: Props) {
   const colors = useColors();
   const unread = item.unread_count > 0;
   const preview = item.last_message?.content ?? translate("list.noMessage");
   const time = item.last_message ? formatListTime(item.last_message.created_at) : "";
+  const editing = selected !== undefined;
   const label = [item.name, preview, time, unread ? translate("list.unread") : ""].filter(Boolean).join(", ");
 
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityRole={editing ? "checkbox" : "button"}
+      accessibilityLabel={editing ? translate("list.select", { name: item.name }) : label}
+      accessibilityState={editing ? { checked: selected } : undefined}
       onPress={() => onPress(item)}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.secondaryBackground }]}
     >
+      {editing ? (
+        <Ionicons
+          accessible={false}
+          name={selected ? "checkmark-circle" : "ellipse-outline"}
+          size={SELECT_ICON_SIZE}
+          color={selected ? colors.link : colors.secondaryText}
+        />
+      ) : null}
       <View style={[styles.avatar, { backgroundColor: avatarColor(item.name) }]}>
         <Text maxFontSizeMultiplier={AVATAR_INITIALS_MAX_FONT_SCALE} style={[styles.initials, { color: colors.avatarText }]}>
           {initials(item.name)}

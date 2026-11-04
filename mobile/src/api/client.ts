@@ -9,6 +9,7 @@ import type {
   DevicePaired,
   Employee,
   Message,
+  OrchestratorStatus,
   ProjectDetail,
   ProjectListItem,
 } from "@palabre/shared";
@@ -128,6 +129,10 @@ export const api = {
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
+
+  getSettings: () => call<AppSettings>("/settings"),
+  orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),
 
   listConversations: (roomId: number) => call<Conversation[]>(`/rooms/${roomId}/conversations`),
   listMessages: (conversationId: number, sinceId?: number) =>

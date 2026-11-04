@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { AppShellProvider } from "../../src/hooks/useAppShell";
 import { translate, type Key } from "../../src/i18n";
 import { MIN_TOUCH_TARGET, useColors } from "../../src/theme";
 
@@ -16,35 +17,37 @@ const TABS = [
 export default function TabsLayout() {
   const colors = useColors();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.link,
-        tabBarInactiveTintColor: colors.secondaryText,
-        tabBarAllowFontScaling: true,
-        tabBarItemStyle: { minHeight: MIN_TOUCH_TARGET },
-        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.separator },
-        sceneStyle: { backgroundColor: colors.background },
-      }}
-    >
-      {TABS.map(({ name, label, icon }) => (
-        <Tabs.Screen
-          key={name}
-          name={name}
-          options={{
-            title: translate(label),
-            tabBarAccessibilityLabel: translate(label),
-            tabBarIcon: ({ size, focused }) => (
-              <Ionicons
-                accessible={false}
-                name={focused ? icon : (`${icon}-outline` as IconName)}
-                size={size}
-                color={focused ? colors.link : colors.secondaryText}
-              />
-            ),
-          }}
-        />
-      ))}
-    </Tabs>
+    <AppShellProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.link,
+          tabBarInactiveTintColor: colors.secondaryText,
+          tabBarAllowFontScaling: true,
+          tabBarItemStyle: { minHeight: MIN_TOUCH_TARGET },
+          tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.separator },
+          sceneStyle: { backgroundColor: colors.background },
+        }}
+      >
+        {TABS.map(({ name, label, icon }) => (
+          <Tabs.Screen
+            key={name}
+            name={name}
+            options={{
+              title: translate(label),
+              tabBarAccessibilityLabel: translate(label),
+              tabBarIcon: ({ size, focused }) => (
+                <Ionicons
+                  accessible={false}
+                  name={focused ? icon : (`${icon}-outline` as IconName)}
+                  size={size}
+                  color={focused ? colors.link : colors.secondaryText}
+                />
+              ),
+            }}
+          />
+        ))}
+      </Tabs>
+    </AppShellProvider>
   );
 }
