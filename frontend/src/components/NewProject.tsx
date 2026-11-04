@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, type MemberIn, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type Role, api } from "../api";
+import { ApiError, type MemberIn, type ProjectPlatform, type PersonalityPreset, type ProjectDetail, type CatalogLimits, type Role, api } from "../api";
 import { useI18n } from "../i18n";
 import { go } from "../router";
 import { autoTeamProblems, teamProblems } from "../jobs";
 import { CompanyTeamSection, type CreationMode } from "./CompanyTeamSection";
+import { ConnectMacLink, ProjectTypeChoice } from "./ProjectTypeChoice";
 import { mandatoryMember, problemMessages } from "./TeamEditor";
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
@@ -26,7 +27,8 @@ export function NewProject({ claudeAccounts, onCreated }: {
   const [roles, setRoles] = useState<Record<string, Role> | null>(null);
   const [names, setNames] = useState<string[]>([]);
   const [limits, setLimits] = useState<CatalogLimits | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [platform, setPlatform] = useState<ProjectPlatform>("generic");
+  const [error, setError] = useState<{ text: string; macMissing: boolean } | null>(null);
   const [presetsFailed, setPresetsFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   // Identifies the latest presets request: a late answer from an earlier one is ignored
@@ -77,6 +79,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
       const project = await api.createProject({
         name: name.trim(),
         mode: DEFAULT_MODE,
+        platform,
         repo_url: repoUrl.trim(),
         creation_mode: creation,
         ...(creation === "auto" ? { description: description.trim(), employee_count: headCount } : {}),
@@ -84,7 +87,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
       });
       onCreated(project);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
+      setError({ text: err instanceof ApiError ? err.message : String(err), macMissing: err instanceof ApiError && err.code === "apple_host_required" });
       setBusy(false);
     }
   }
@@ -104,6 +107,7 @@ export function NewProject({ claudeAccounts, onCreated }: {
             placeholder="https://github.com/you/your-repo" autoCapitalize="off" />
         </label>
         {repoUrl && !repoValid && <p className="error">{t("new.repoInvalid")}</p>}
+        <ProjectTypeChoice platform={platform} onChange={setPlatform} />
       </section>
 
       <CompanyTeamSection creation={creation} onCreationChange={chooseCreation} description={description}
@@ -112,7 +116,9 @@ export function NewProject({ claudeAccounts, onCreated }: {
         limits={limits} names={names} claudeAccounts={claudeAccounts} presetsFailed={presetsFailed}
         onRetryPresets={loadPresets} problems={problems} />
 
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p role="alert" className="error">{error.text}{error.macMissing && <>{" "}<ConnectMacLink /></>}</p>
+      )}
       <div className="row actions">
         <button type="button" className="btn" onClick={() => go("/")}>{t("common.cancel")}</button>
         <button className="btn btn-primary" disabled={busy || !teamReady || !name.trim() || !repoValid || (creation === "auto" && !description.trim()) || problems.length > 0}>

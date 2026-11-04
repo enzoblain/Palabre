@@ -33,3 +33,10 @@ export const ProjectsIcon = (p: Props) => (
 export const TeamIcon = (p: Props) => (
   <Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2.3.7 4 2.5 4 5.6" /></Svg>
 );
+export const CheckIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="m8 12.5 3 3 5-6" /></Svg>;
+export const CrossIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6M15 9l-6 6" /></Svg>;
+export const WarningIcon = (p: Props) => <Svg {...p}><path d="M12 3 2 20h20z" /><path d="M12 10v5M12 18h.01" /></Svg>;
+export const ClockIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>;
+export const SpinnerIcon = (p: Props) => <Svg {...p}><path d="M12 3a9 9 0 1 0 9 9" /></Svg>;
+export const DotFilledIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="6" fill="currentColor" /></Svg>;
+export const DotEmptyIcon = (p: Props) => <Svg {...p}><circle cx="12" cy="12" r="6" /></Svg>;

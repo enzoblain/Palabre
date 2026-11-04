@@ -9,6 +9,38 @@ export type Device = {
   expires_at: string;
 };
 
+/** A Mac builder (mirrors AppleHostOut); `connected` is the server's own verdict, never guessed from `last_seen_at`. */
+export type AppleHost = {
+  id: number;
+  name: string;
+  created_at: string;
+  expires_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  connected: boolean;
+};
+
+/** The one-time code a Mac enrolls with (mirrors AppleEnrollmentCodeOut); it is returned only once. */
+export type AppleEnrollmentCode = { code: string; expires_at: string; ttl_seconds: number };
+
+export type AppleBuildStatus = "queued" | "running" | "passed" | "failed" | "error";
+
+/** The newest Swift build of a task (mirrors AppleBuildOut); `errors` is untrusted log text. */
+export type AppleBuild = {
+  job_id: number;
+  status: AppleBuildStatus;
+  commit_sha: string;
+  infra_error: boolean;
+  summary: string;
+  errors: string[];
+  finished_at: string | null;
+};
+
+/** What the front reads of a task detail: only its Swift build, null until one is queued (or for a standard project). */
+export type TaskBuild = { apple_build: AppleBuild | null };
+
+export type ProjectPlatform = "generic" | "apple";
+
 export type Project = {
   id: number;
   name: string;

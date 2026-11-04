@@ -1,4 +1,4 @@
-import { type Connection, type ErrorCode, isErrorCode, type CatalogLimits, type AppSettings, type OrchestratorStatus, type PersonalityPreset, type Role, type Device, type ProjectListItem, type ProjectDetail, type ProjectUpdated, type Employee, type MemberIn, type Conversation, type Message } from "@palabre/shared";
+import { type Connection, type ErrorCode, isErrorCode, type CatalogLimits, type AppSettings, type OrchestratorStatus, type PersonalityPreset, type Role, type Device, type AppleHost, type AppleEnrollmentCode, type TaskBuild, type ProjectPlatform, type ProjectListItem, type ProjectDetail, type ProjectUpdated, type Employee, type MemberIn, type Conversation, type Message } from "@palabre/shared";
 import { translate } from "./i18n";
 
 // Opened from the server's web port: the API is on the page's own address
@@ -136,6 +136,13 @@ export const api = {
   listDevices: () => call<Device[]>("/auth/devices"),
   revokeDevice: (id: number) => call<void>(`/auth/devices/${id}`, "DELETE"),
 
+  // Apple mode: these answer 404 while the mode is off on the server
+  listAppleHosts: () => call<AppleHost[]>("/apple-hosts"),
+  revokeAppleHost: (id: number) => call<void>(`/apple-hosts/${id}`, "DELETE"),
+  createAppleEnrollmentCode: () => call<AppleEnrollmentCode>("/apple-enrollment-codes", "POST"),
+  getTaskBuild: (taskId: number) => call<TaskBuild>(`/tasks/${taskId}`),
+  retryAppleBuild: (taskId: number) => call<TaskBuild>(`/tasks/${taskId}/apple-build/retry`, "POST"),
+
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
@@ -150,6 +157,7 @@ export const api = {
     description?: string;
     employee_count?: number;
     employees?: MemberIn[];
+    platform?: ProjectPlatform;
   }) => call<ProjectDetail>("/projects", "POST", body),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),

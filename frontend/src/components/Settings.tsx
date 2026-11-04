@@ -7,6 +7,7 @@ import { spreadAccounts } from "../util";
 import { AccountSelect } from "./AccountSelect";
 import { Avatar } from "./Avatar";
 import { ConnectedDevices } from "./ConnectedDevices";
+import { MacBuilders } from "./MacBuilders";
 
 export function Settings({ settings, projects, onSaved, onDisconnect }: {
   settings: AppSettings;
@@ -49,6 +50,7 @@ export function Settings({ settings, projects, onSaved, onDisconnect }: {
       </form>
       <TeamLanguage settings={settings} onSaved={onSaved} />
       <ConnectedDevices />
+      <MacBuilders />
       <ClaudeAccounts count={settings.claude_accounts} projects={projects} />
       <section className="panel">
         <h2>{t("settings.server")}</h2>
