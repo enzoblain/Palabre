@@ -98,6 +98,7 @@ export const fr: Messages = {
   "error.device_not_found": "Cet appareil n’existe pas",
   "error.apple_job_token_used": "Ce jeton de job de build a déjà été utilisé",
   "error.apple_enrollment_rate_limited": "Trop de tentatives d'enrôlement, réessayez dans un instant",
+  "error.apple_host_required": "Aucun Mac builder n'est connecté : connectez-en un pour créer un projet Swift",
   "error.mode_not_found": "Ce mode n’existe pas",
   "error.unknown_mode": "Mode inconnu",
   "error.invalid_repository": "Dépôt invalide",

@@ -10,7 +10,7 @@ from app.api import conversations
 from app.api.schemas import MessageIn
 from app.company.catalog import load_catalog
 from app.errors import WorkflowError
-from app.models import Conversation, Event, Message, Project, Room
+from app.models import Conversation, Event, Message, Project, ProjectPlatform, Room
 from app.orchestrator.prompts import reason_for
 
 from .conftest import make_employee
@@ -330,7 +330,7 @@ def test_project_detail_only_lists_direction():
     from app.models import Project
 
     now = datetime(2026, 1, 1)
-    project = Project(id=1, name="p", repo_url="", default_branch="main", mode="startup", seed=1, created_at=now)
+    project = Project(id=1, name="p", repo_url="", default_branch="main", mode="startup", seed=1, platform=ProjectPlatform.generic, created_at=now)
     project.employees = []
     project.rooms = [
         Room(id=i, project_id=1, name=str(i), kind=kind, objective="", summary="", created_at=now, updated_at=now, members=[])

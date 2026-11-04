@@ -105,6 +105,12 @@ def is_connected(host: AppleHost, now: datetime | None = None) -> bool:
     return host.revoked_at is None and host.last_seen_at is not None and now - as_utc(host.last_seen_at) < window
 
 
+async def has_connected_host(s: AsyncSession, now: datetime | None = None) -> bool:
+    """Whether at least one live Mac builder has answered within the heartbeat window."""
+    hosts = await s.scalars(select(AppleHost).where(AppleHost.revoked_at.is_(None)))
+    return any(is_connected(host, now) for host in hosts)
+
+
 async def enqueue_job(s: AsyncSession, project_id: int, branch: str, commit_sha: str) -> AppleJob:
     job = AppleJob(project_id=project_id, branch=branch, commit_sha=commit_sha)
     s.add(job)

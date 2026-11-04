@@ -107,6 +107,13 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
+class ProjectPlatform(str, enum.Enum):
+    """What the project's code is: `apple` is a Swift project built on the Mac builder (see docs/apple-mode.md)."""
+
+    generic = "generic"
+    apple = "apple"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -117,6 +124,9 @@ class Project(Base):
     # Mode (catalog.toml) and the seed the team was drawn with
     mode: Mapped[str] = mapped_column(String(50))
     seed: Mapped[int] = mapped_column(BigInteger)
+    platform: Mapped[ProjectPlatform] = mapped_column(
+        str_enum(ProjectPlatform), default=ProjectPlatform.generic, server_default=ProjectPlatform.generic.value
+    )
     # Release CI the lead was already told about: head SHA of the release PR, and of production
     # (main_ci_watch: a release was just merged, its CI on production is still to be announced)
     release_ci_sha: Mapped[str | None] = mapped_column(String(64))
