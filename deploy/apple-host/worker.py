@@ -10,7 +10,7 @@ import time
 import tomllib
 import urllib.error
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -29,6 +29,9 @@ HTTP_TIMEOUT_SECONDS = 30
 RESULT_ATTEMPTS = 5
 BOOT_ATTEMPTS = 60  # one try every 5 s: a macOS guest needs a while before `tart exec` answers
 BOOT_RETRY_SECONDS = 5
+DEFAULT_JOB_TIMEOUT_SECONDS = 1800
+DEFAULT_POLL_INTERVAL_SECONDS = 5
+GUEST_PROBE_COMMAND = ["/usr/bin/true"]  # answers 0 once the guest agent is up, whatever the job is
 IMAGE_PATTERN = re.compile(r"^[\w./-]+@sha256:[0-9a-f]{64}$")
 
 
@@ -38,8 +41,8 @@ class Config:
     token_file: Path
     image: str
     max_vms: int = APPLE_MAX_VMS
-    job_timeout_seconds: int = 1800
-    poll_interval_seconds: int = 5
+    job_timeout_seconds: int = DEFAULT_JOB_TIMEOUT_SECONDS
+    poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS
     net_args: tuple[str, ...] = ()
 
 
@@ -54,8 +57,8 @@ def load_config(path: Path) -> Config:
         raise ValueError(f"max_vms must be between 1 and {APPLE_MAX_VMS}")
     return Config(
         backend_url=str(raw["backend_url"]).rstrip("/"), token_file=Path(raw["token_file"]), image=image,
-        max_vms=max_vms, job_timeout_seconds=int(raw.get("job_timeout_seconds", 1800)),
-        poll_interval_seconds=int(raw.get("poll_interval_seconds", 5)),
+        max_vms=max_vms, job_timeout_seconds=int(raw.get("job_timeout_seconds", DEFAULT_JOB_TIMEOUT_SECONDS)),
+        poll_interval_seconds=int(raw.get("poll_interval_seconds", DEFAULT_POLL_INTERVAL_SECONDS)),
         net_args=tuple(str(arg) for arg in raw.get("net_args", [])),
     )  # fmt: skip
 
@@ -65,6 +68,15 @@ def read_host_token(path: Path) -> str:
     if path.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
         raise PermissionError(f"{path} must be readable by its owner only (chmod 600)")
     return path.read_text().strip()
+
+
+class Vm(Protocol):
+    def clone(self, image: str, name: str) -> None: ...
+    def start(self, name: str) -> None: ...
+    def is_alive(self, name: str) -> bool: ...
+    def exec(self, name: str, command: Sequence[str], stdin: str, timeout: float, max_output: int) -> ExecResult: ...
+    def delete(self, name: str) -> None: ...
+    def list(self) -> list[str]: ...
 
 
 class Backend(Protocol):
@@ -130,7 +142,7 @@ def verdict(result: ExecResult) -> str:
 
 
 class Worker:
-    def __init__(self, config: Config, backend: Backend, vm: TartVm, sleep: Callable[[float], None] = time.sleep) -> None:
+    def __init__(self, config: Config, backend: Backend, vm: Vm, sleep: Callable[[float], None] = time.sleep) -> None:
         self._config = config
         self._backend = backend
         self._vm = vm
@@ -217,25 +229,27 @@ class Worker:
         return verdict(result), result.output
 
     def _exec_when_booted(self, name: str, command: list[str], token: str, deadline: float) -> ExecResult:
-        """`tart exec` fails until the guest agent answers; retry within the job's time limit."""
-        result = ExecResult(-1, "VM did not become ready", False)
+        """Probes the guest until it answers, then runs the job once, all within the job's time limit.
+
+        The probe is a command of ours, so a job that fails never looks like a guest that is not ready
+        and is never run twice.
+        """
         for _ in range(BOOT_ATTEMPTS):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                return ExecResult(-1, result.output, True)
+                return ExecResult(-1, "VM did not become ready in time", True)
             if not self._vm.is_alive(name):
                 return ExecResult(-1, "The VM stopped while booting", False)
-            result = self._vm.exec(name, command, token + "\n", remaining, LOG_MAX_BYTES)
-            if result.timed_out or result.returncode in (EXIT_PASSED, EXIT_FAILED):
-                return result
-            if not self._guest_not_ready(result):
-                return result
+            probe = self._vm.exec(name, GUEST_PROBE_COMMAND, "", remaining, LOG_MAX_BYTES)
+            if probe.timed_out:
+                return probe
+            if probe.returncode == EXIT_PASSED:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return ExecResult(-1, "", True)
+                return self._vm.exec(name, command, token + "\n", remaining, LOG_MAX_BYTES)
             self._sleep(BOOT_RETRY_SECONDS)
-        return result
-
-    @staticmethod
-    def _guest_not_ready(result: ExecResult) -> bool:
-        return "unable to connect" in result.output.lower() or "connection refused" in result.output.lower()
+        return ExecResult(-1, "VM did not become ready", False)
 
     def _destroy(self, name: str) -> None:
         try:

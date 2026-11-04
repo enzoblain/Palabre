@@ -1,6 +1,7 @@
 """Unit tests of the Mac worker logic with a fake VM tool and a fake backend: no Mac, no Tart."""
 
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -12,7 +13,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent))
 
 import worker  # noqa: E402
-from vm import ExecResult  # noqa: E402
+from vm import ExecResult, TartVm  # noqa: E402
 
 DIGEST = "ghcr.io/example/macos-xcode@sha256:" + "a" * 64
 
@@ -43,6 +44,8 @@ class FakeVm:
         self.deleted: list[str] = []
         self.stdin: list[str] = []
         self.dead = False
+        self.probes = 0
+        self.probe_failures = 0
 
     def clone(self, image: str, name: str) -> None:
         if self.fail_clone:
@@ -59,6 +62,9 @@ class FakeVm:
         return not self.dead
 
     def exec(self, name: str, command: Any, stdin: str, timeout: float, max_output: int) -> ExecResult:
+        if list(command) == worker.GUEST_PROBE_COMMAND:
+            self.probes += 1
+            return ExecResult(1, "unable to connect", False) if self.probes <= self.probe_failures else ExecResult(0, "", False)
         self.stdin.append(stdin)
         time.sleep(self.hold)
         return self.exec_result
@@ -95,7 +101,7 @@ class FakeBackend:
 
 
 def make_worker(vm: FakeVm, backend: FakeBackend, **config: Any) -> worker.Worker:
-    return worker.Worker(make_config(**config), backend, vm, sleep=lambda _: None)  # type: ignore[arg-type]
+    return worker.Worker(make_config(**config), backend, vm, sleep=lambda _: None)
 
 
 class VerdictTest(unittest.TestCase):
@@ -150,6 +156,36 @@ class ProcessTest(unittest.TestCase):
         backend = self.run_job(vm)
         self.assertEqual(backend.results[0][1], "error")
         self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_guest_not_ready_is_retried_then_job_runs_once(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 3
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results, [(7, "passed", "ok")])
+        self.assertEqual(vm.probes, 4)
+        self.assertEqual(vm.stdin, ["pjob_secret7\n"])
+
+    def test_job_output_saying_connection_refused_is_not_retried(self) -> None:
+        vm = FakeVm(ExecResult(255, "connection refused", False))
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(len(vm.stdin), 1)
+
+    def test_deadline_reached_while_booting_is_a_timeout(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 10**6
+        backend = self.run_job(vm, job_timeout_seconds=0)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertIn("Time limit", backend.results[0][2])
+        self.assertEqual(vm.deleted, ["job-7"])
+
+    def test_boot_attempts_exhausted_is_an_error(self) -> None:
+        vm = FakeVm()
+        vm.probe_failures = 10**6
+        backend = self.run_job(vm)
+        self.assertEqual(backend.results[0][1], "error")
+        self.assertEqual(vm.probes, worker.BOOT_ATTEMPTS)
+        self.assertEqual(vm.stdin, [])
 
     def test_token_is_redacted_from_the_log(self) -> None:
         backend = self.run_job(FakeVm(ExecResult(0, "token pjob_secret7 leaked", False)))
@@ -222,6 +258,23 @@ class ConfigTest(unittest.TestCase):
                 worker.read_host_token(token)
             os.chmod(token, 0o600)
             self.assertEqual(worker.read_host_token(token), "pmac_x")
+
+
+class TartVmDeleteTest(unittest.TestCase):
+    def test_delete_is_attempted_even_when_stop_times_out(self) -> None:
+        calls: list[str] = []
+        tart = TartVm()
+
+        def fake_run(*args: str, timeout: float = 0) -> subprocess.CompletedProcess[str]:
+            calls.append(args[0])
+            if args[0] == "stop":
+                raise subprocess.TimeoutExpired("tart", timeout)
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        tart._run = fake_run  # type: ignore[method-assign]
+        with self.assertRaises(RuntimeError):
+            tart.delete("job-7")
+        self.assertEqual(calls, ["stop", "delete"])
 
 
 if __name__ == "__main__":

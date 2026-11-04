@@ -15,6 +15,10 @@ The worker (`worker.py`, standard library only) polls the backend (`POST /api/ap
 3. deletes the VM, in every case (error, crash, time limit), then posts the verdict: `0` is `passed`, `10` is `failed`,
    a time limit, a crashed VM, a failed clone or any other exit code is `error` (infra).
 
+Before the job, the worker probes the guest with a harmless command (`/usr/bin/true`) until `tart exec` answers, so a job
+that fails is never mistaken for a guest that is not ready and never runs twice. `job_timeout_seconds` covers the probe
+and the job, not `tart clone` and the VM start. The VM is always deleted: if `tart stop` hangs, `tart delete` still runs.
+
 At most `max_vms` jobs run at once (2 at most, Apple's limit); a free slot is needed before a job is claimed, so
 the next jobs wait in the backend's queue. At start, every leftover `job-*` VM is deleted. The log sent back is the
 tail of the output, with the job token removed. VM calls are all in `vm.py`, so changing the tool (plan B: UTM) means rewriting that file only.
@@ -53,6 +57,13 @@ Upgrade the worker: pull the repository and run `sudo ./install.sh` again (it is
 
 `cd deploy/apple-host && python3 -m unittest test_worker` : the queue limit, timeouts, cleanup and verdicts, with a
 fake VM tool and a fake backend (no Mac needed).
+
+## Known limit: no GUI session
+
+Virtualization.framework may refuse to boot macOS guests without a logged-in GUI session, and a LaunchDaemon has none.
+Not validated on the real Mac yet. If `tart run` fails from the daemon, use a LaunchAgent instead: put the plist in
+`/Users/palabre/Library/LaunchAgents/`, enable automatic login for `palabre`, and load it with
+`launchctl bootstrap gui/<uid> <plist>`. Roll back the same way with `launchctl bootout gui/<uid> <plist>`.
 
 ## Roll back
 

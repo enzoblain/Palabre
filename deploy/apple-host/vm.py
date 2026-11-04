@@ -6,6 +6,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 VM_PREFIX = "job-"
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 600
+CLONE_TIMEOUT_SECONDS = 1800
+STOP_GRACE_SECONDS = 5
+STOP_TIMEOUT_SECONDS = 30
+PROCESS_WAIT_SECONDS = 30
+DELETE_TIMEOUT_SECONDS = 120
+LIST_TIMEOUT_SECONDS = 60
+ERROR_TAIL_CHARS = 300
 
 
 @dataclass(frozen=True)
@@ -23,13 +31,13 @@ class TartVm:
         self._net_args = list(net_args)
         self._running: dict[str, subprocess.Popen[bytes]] = {}
 
-    def _run(self, *args: str, timeout: float = 600) -> subprocess.CompletedProcess[str]:
+    def _run(self, *args: str, timeout: float = DEFAULT_COMMAND_TIMEOUT_SECONDS) -> subprocess.CompletedProcess[str]:
         return subprocess.run([self._binary, *args], capture_output=True, text=True, timeout=timeout, check=False)
 
     def clone(self, image: str, name: str) -> None:
-        result = self._run("clone", image, name, timeout=1800)
+        result = self._run("clone", image, name, timeout=CLONE_TIMEOUT_SECONDS)
         if result.returncode != 0:
-            raise RuntimeError(f"tart clone failed: {result.stderr.strip()[-300:]}")
+            raise RuntimeError(f"tart clone failed: {result.stderr.strip()[-ERROR_TAIL_CHARS:]}")
 
     def start(self, name: str) -> None:
         """Boots the VM without a window, in the background; no shared folder is ever passed."""
@@ -55,18 +63,29 @@ class TartVm:
         return ExecResult(process.returncode, (output or "")[-max_output:], False)
 
     def delete(self, name: str) -> None:
-        """Stops and removes the VM; never raises, the caller logs a leftover."""
+        """Stops and removes the VM; every step is tried even if the previous one failed, so `delete` always runs.
+
+        Raises the last error only after all steps ran, so the caller can log a leftover.
+        """
         process = self._running.pop(name, None)
-        self._run("stop", name, "--timeout", "5")
+        errors: list[Exception] = []
+        try:
+            self._run("stop", name, "--timeout", str(STOP_GRACE_SECONDS), timeout=STOP_TIMEOUT_SECONDS)
+        except (subprocess.SubprocessError, OSError) as error:
+            errors.append(error)
         if process is not None:
             try:
-                process.wait(timeout=30)
+                process.wait(timeout=PROCESS_WAIT_SECONDS)
             except subprocess.TimeoutExpired:
                 process.kill()
-        self._run("delete", name)
-
+        try:
+            self._run("delete", name, timeout=DELETE_TIMEOUT_SECONDS)
+        except (subprocess.SubprocessError, OSError) as error:
+            errors.append(error)
+        if errors:
+            raise RuntimeError(f"tart cleanup of {name} incomplete: {errors[-1]}")
     def list(self) -> list[str]:
-        result = self._run("list", "--source", "local", "--format", "json", timeout=60)
+        result = self._run("list", "--source", "local", "--format", "json", timeout=LIST_TIMEOUT_SECONDS)
         if result.returncode != 0:
-            raise RuntimeError(f"tart list failed: {result.stderr.strip()[-300:]}")
+            raise RuntimeError(f"tart list failed: {result.stderr.strip()[-ERROR_TAIL_CHARS:]}")
         return [str(vm["Name"]) for vm in json.loads(result.stdout or "[]")]
