@@ -34,6 +34,8 @@ mobile/
 `npm run check` in `mobile/` runs the type check (`tsc --noEmit`), the tests and an i18n key check, like the
 web app. CI gets one job for it that skips while `mobile/` does not exist, like the other jobs of `ci.yml`.
 
+See [Mobile parity](mobile-parity.md) for the list of features the web app has and the app still lacks, in batches.
+
 ## Sharing code with the web app
 
 The API client (`frontend/src/api.ts`) mixes pure parts (types, `ApiError`, `ERROR_CODES`, error mapping) with
