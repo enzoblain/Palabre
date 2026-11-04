@@ -28,6 +28,12 @@ describe("TaskList", () => {
     expect(links.map((l) => l.getAttribute("href"))).toEqual(["#/p/1/tasks/2", "#/p/1/tasks/1"]);
   });
 
+  it("shows the translated status", async () => {
+    listTasks.mockResolvedValue([{ ...task(1, "A"), status: "changes_requested" }]);
+    renderList();
+    expect(await screen.findByText("Changes requested")).toBeTruthy();
+  });
+
   it("shows the empty and error states", async () => {
     listTasks.mockResolvedValueOnce([]);
     renderList();

@@ -57,7 +57,7 @@ export function AppleBuild({ taskId }: { taskId: number }) {
 
   return (
     <section className="panel apple-build" aria-labelledby={`build-title-${taskId}`}>
-      <h2 id={`build-title-${taskId}`} className="section-label">{t("build.title")}</h2>
+      <h3 id={`build-title-${taskId}`} className="section-label">{t("build.title")}</h3>
       {build === undefined && !loadFailed && <p className="muted">{t("build.loading")}</p>}
       {loadFailed && (
         <div className="row">
