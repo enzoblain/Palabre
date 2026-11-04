@@ -20,6 +20,7 @@ export const ERROR_CODES = [
   "apple_job_token_used",
   "apple_enrollment_rate_limited",
   "apple_host_required",
+  "apple_build_not_retryable",
   "mode_not_found",
   "unknown_mode",
   "invalid_repository",

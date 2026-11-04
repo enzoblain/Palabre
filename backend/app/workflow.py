@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app import github
+from app import apple, github
 from app.company.catalog import LEAD_KEY, QA_KEY, REVIEWER_KEY, SECURITY_KEY, Role, held_role_keys, load_catalog
 from app.config import settings
 from app.diff_view import render_diff
@@ -158,8 +158,13 @@ async def task_detail(s: AsyncSession, project_id: int, task_id: int) -> dict:
     reviews = await s.scalars(
         select(Review).where(Review.task_id == task.id).options(selectinload(Review.reviewer)).order_by(Review.id)
     )
+    project = await s.get(Project, project_id)
+    build = {}
+    if apple.is_apple_project(project):
+        build = {"apple_build": apple.build_detail(await apple.latest_task_job(s, task.id))}
     return {
         **task_summary(task),
+        **build,
         "description": task.description,
         "acceptance_criteria": task.acceptance_criteria,
         "severity": task.severity,
@@ -518,6 +523,8 @@ async def submit_for_review(
         await github.comment_pull_request(repo, task.pr_number, f"**Updated by {author.name}**\n\n{summary}")
 
     head = await _pushed_head(project, task)
+    if head and apple.is_apple_project(project):
+        await apple.queue_task_build(s, project, task, head)
     # The gate is derived from the changed files; the author's flag can only add it, never remove it
     sensitive_now = task.sensitive or sensitive or touches_sensitive_paths(changed_files)
     # Same content as the reviewed round, nobody asked for changes and no new gate: only the base
@@ -753,6 +760,10 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
     if process["ci_required"] and task.pr_number is not None:
         if ci := await github.checks_status(github.repo_slug(project.repo_url), task.pr_number, sha=ci_head):
             blockers.append(ci)
+    if apple.is_apple_project(project) and task.pr_number is not None:
+        # Without a given head, the newest build is the one of the PR's current head (queued at each submission)
+        if blocker := apple.build_blocker(await apple.latest_task_job(s, task.id, ci_head)):
+            blockers.append(blocker)
     if process["docs_required"]:
         repo, head = _task_checkout(project, task)
         files = (
@@ -762,6 +773,18 @@ async def merge_blockers(s: AsyncSession, project: Project, task: Task, ci_head:
         if not any(PurePosixPath(f).name.upper().startswith("README") or "docs" in PurePosixPath(f).parts[:-1] for f in files):
             blockers.append("the README or docs/ were not updated")
     return blockers
+
+
+async def retry_apple_build(s: AsyncSession, project_id: int, task_id: int) -> Task:
+    """Relaunches the Swift build of a task's PR head after an infra error."""
+    project = await s.get(Project, project_id)
+    task = await get_task(s, project_id, task_id)
+    if not apple.is_apple_project(project):
+        raise WorkflowError("This is not an Apple project", code=ErrorCode.APPLE_BUILD_NOT_RETRYABLE)
+    if task.status != TaskStatus.review or task.pr_number is None:
+        raise WorkflowError(f"Task #{task.id} has no pull request waiting to be built", code=ErrorCode.TASK_NO_PULL_REQUEST)
+    await apple.retry_task_build(s, project, task)
+    return task
 
 
 def is_task_branch(project: Project, branch: str | None) -> bool:

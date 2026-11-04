@@ -162,6 +162,15 @@ async def get_task(ctx: Context, task_id: int) -> dict:
 
 
 @tool
+async def retry_apple_build(ctx: Context, task_id: int) -> dict:
+    """Relaunch the Swift build of a task's PR after an infra error (not after a failing build)."""
+    c = current_caller(ctx)
+    async with SessionLocal() as s:
+        await workflow.retry_apple_build(s, c.project_id, task_id)
+        return await workflow.task_detail(s, c.project_id, task_id)
+
+
+@tool
 async def add_question(ctx: Context, question: str) -> dict:
     """Add an open question to the room document."""
     c = current_caller(ctx)

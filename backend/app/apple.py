@@ -11,8 +11,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ApiError, ErrorCode
 from app.config import settings
-from app.models import AppleEnrollmentCode, AppleHost, AppleJob, AppleJobStatus
+from app.errors import WorkflowError
+from app.models import (
+    AppleEnrollmentCode,
+    AppleHost,
+    AppleJob,
+    AppleJobStatus,
+    Project,
+    ProjectPlatform,
+    Task,
+)
 
+# What a task shows of its build: the lines of the log that look like errors, most recent last
+ERROR_LINE_MARKERS = ("error:", "failed", "fatal")
+MAX_ERROR_LINES = 20
+MAX_ERROR_LINE_CHARS = 300
 HOST_TOKEN_PREFIX = "pmac_"
 JOB_TOKEN_PREFIX = "pjob_"
 ENROLLMENT_CODE_PREFIX = "penr_"
@@ -111,8 +124,10 @@ async def has_connected_host(s: AsyncSession, now: datetime | None = None) -> bo
     return any(is_connected(host, now) for host in hosts)
 
 
-async def enqueue_job(s: AsyncSession, project_id: int, branch: str, commit_sha: str) -> AppleJob:
-    job = AppleJob(project_id=project_id, branch=branch, commit_sha=commit_sha)
+async def enqueue_job(
+    s: AsyncSession, project_id: int, branch: str, commit_sha: str, task_id: int | None = None
+) -> AppleJob:
+    job = AppleJob(project_id=project_id, branch=branch, commit_sha=commit_sha, task_id=task_id)
     s.add(job)
     await s.commit()
     return job
@@ -228,3 +243,67 @@ async def record_result(
     await s.commit()
     if recorded.rowcount == 0:
         raise _token_spent()
+
+
+def is_apple_project(project: Project) -> bool:
+    return project.platform == ProjectPlatform.apple
+
+
+async def latest_task_job(s: AsyncSession, task_id: int, commit_sha: str | None = None) -> AppleJob | None:
+    """The newest build of the task, of this commit only when one is given."""
+    query = select(AppleJob).where(AppleJob.task_id == task_id).order_by(AppleJob.id.desc()).limit(1)
+    if commit_sha is not None:
+        query = query.where(AppleJob.commit_sha == commit_sha)
+    return await s.scalar(query)
+
+
+async def queue_task_build(s: AsyncSession, project: Project, task: Task, commit_sha: str) -> AppleJob:
+    """Queues the build of the task's PR head, once per commit unless the previous one ended in an infra error."""
+    existing = await latest_task_job(s, task.id, commit_sha)
+    if existing is not None and existing.status != AppleJobStatus.error:
+        return existing
+    return await enqueue_job(s, project.id, task.branch, commit_sha, task.id)
+
+
+async def retry_task_build(s: AsyncSession, project: Project, task: Task) -> AppleJob:
+    """Relaunches the newest build after an infra error; a build that failed or is still going stays as it is."""
+    job = await latest_task_job(s, task.id)
+    if job is None or job.status != AppleJobStatus.error:
+        raise WorkflowError(
+            "Only a build that ended in an infra error can be retried", code=ErrorCode.APPLE_BUILD_NOT_RETRYABLE
+        )
+    return await enqueue_job(s, project.id, task.branch, job.commit_sha, task.id)
+
+
+def build_blocker(job: AppleJob | None) -> str | None:
+    """Why this build (of the head about to be merged, or None if there is none) prevents the merge."""
+    if job is None:
+        return "no Swift build for the PR head yet"
+    return {
+        AppleJobStatus.queued: "Swift build queued",
+        AppleJobStatus.running: "Swift build still running",
+        AppleJobStatus.failed: "Swift build failed: fix the errors and submit again",
+        AppleJobStatus.error: "Swift build hit an infra error, not a test failure: relaunch it with retry_apple_build",
+    }.get(job.status)
+
+
+def error_lines(log_excerpt: str) -> list[str]:
+    """The last lines of the log that look like errors; the log is untrusted text, shown as plain text."""
+    lines = [line.strip() for line in log_excerpt.splitlines()]
+    matching = [line for line in lines if any(marker in line.lower() for marker in ERROR_LINE_MARKERS)]
+    return [line[:MAX_ERROR_LINE_CHARS] for line in matching[-MAX_ERROR_LINES:]]
+
+
+def build_detail(job: AppleJob | None) -> dict | None:
+    """A task's build as the API and get_task show it."""
+    if job is None:
+        return None
+    return {
+        "job_id": job.id,
+        "status": job.status.value,
+        "commit_sha": job.commit_sha,
+        "infra_error": job.status == AppleJobStatus.error,
+        "summary": job.summary,
+        "errors": error_lines(job.log_excerpt),
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+    }

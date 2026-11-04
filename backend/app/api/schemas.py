@@ -432,7 +432,21 @@ class ReviewOut(ORM):
     _reviewer_name = field_validator("reviewer", mode="before")(_name_of)
 
 
+class AppleBuildOut(BaseModel):
+    job_id: int
+    status: Literal["queued", "running", "passed", "failed", "error"]
+    commit_sha: str
+    # An infra error (timeout, lost Mac) is not a failing build: it can be retried
+    infra_error: bool
+    summary: str
+    # Lines of the build log that look like errors: untrusted text, to be shown as plain text
+    errors: list[str]
+    finished_at: str | None
+
+
 class TaskDetail(TaskOut):
+    # Only for an Apple project: its newest build (null until one is queued)
+    apple_build: AppleBuildOut | None = None
     description: str
     acceptance_criteria: list[str]
     depends_on: list[int]

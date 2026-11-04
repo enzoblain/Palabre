@@ -47,9 +47,9 @@ def make_review(reviewer, verdict: Verdict, round: int = 1, head_sha: str | None
     )  # fmt: skip
 
 
-def make_project(mode: str = "enterprise") -> SimpleNamespace:
+def make_project(mode: str = "enterprise", platform: str = "generic") -> SimpleNamespace:
     return SimpleNamespace(
-        id=next(_ids), mode=mode, repo_url="https://github.com/acme/app", default_branch="main"
+        id=next(_ids), mode=mode, repo_url="https://github.com/acme/app", default_branch="main", platform=platform
     )
 
 

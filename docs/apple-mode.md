@@ -217,7 +217,7 @@ Behind `APPLE_MODE_ENABLED` (otherwise `404`). Tokens are random and stored as a
 An invalid, unknown or revoked token is `401`. Running jobs past `APPLE_JOB_TIMEOUT_SECONDS`, or whose Mac went
 silent, are ended as `error` (summary says which) and their job token is revoked; this is checked on every claim.
 The tables are `apple_hosts` and `apple_jobs`, created at startup like the others. Queuing a job from the agents'
-tools (`apple.enqueue_job` has no caller until they land), renewal and the cancel/wait limits of this page are not built yet.
+tools (`apple_build` / `apple_test`), renewal and the cancel/wait limits of this page are not built yet.
 Enrollment codes live in `apple_enrollment_codes` (hash, expiry, consumption date). They last
 `APPLE_ENROLLMENT_CODE_TTL_SECONDS` (15 minutes by default) and are spent by one conditional update in the same
 transaction as the Mac's registration, so of two simultaneous exchanges only one succeeds. Every exchange attempt counts
@@ -240,6 +240,23 @@ concurrent calls with the same token, only one wins and the other gets `403 appl
 serialised with a Postgres advisory lock, so two Macs cannot exceed `APPLE_MAX_VMS`. The source is marked as downloaded
 before the bundle is built: if that fails (the branch moved), the token is spent and the Mac reports `error`.
 Overdue jobs are only swept on a claim, so a dead Mac's job stays `running` until the next claim.
+
+## Build result on the task
+
+Each submission of an `apple` project's PR (`submit_for_review`, a rebase included) queues one job for the PR head,
+tied to the task (`apple_jobs.task_id`). A head already built is not queued again, unless its build ended as an
+infra error. Projects of any other platform queue nothing and keep their API unchanged.
+
+- `get_task` and `GET /api/tasks/{id}` (and `apple_build` in the task detail) show the newest build of an Apple
+  project: `job_id`, `status`, `commit_sha`, `infra_error`, `summary`, `errors` and `finished_at`. `errors` holds the
+  last lines of the log that look like errors (`error:`, `failed`, `fatal`; at most 20 lines of 300 characters),
+  untrusted text to render as plain text. `infra_error` is true for the `error` status (timeout, lost or revoked
+  Mac): it is not a failing test.
+- **Merge gate**: `merge_task` and `merge_blockers` refuse the merge unless the build of the head about to be merged
+  is `passed`. The blocker says whether there is no build yet, it is queued or running, it failed (fix and submit
+  again) or it hit an infra error (retry). The boss's `force` skips it like the other rules.
+- **Retry**: `POST /api/tasks/{id}/apple-build/retry` (and the lead's `retry_apple_build` tool) queues the same commit
+  again, only when the newest build ended as an infra error; any other state is `409 apple_build_not_retryable`.
 
 ## Configuration
 

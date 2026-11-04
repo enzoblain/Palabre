@@ -24,6 +24,7 @@ class ErrorCode(StrEnum):
     APPLE_JOB_TOKEN_USED = "apple_job_token_used"
     APPLE_ENROLLMENT_RATE_LIMITED = "apple_enrollment_rate_limited"
     APPLE_HOST_REQUIRED = "apple_host_required"
+    APPLE_BUILD_NOT_RETRYABLE = "apple_build_not_retryable"
     MODE_NOT_FOUND = "mode_not_found"
     UNKNOWN_MODE = "unknown_mode"
     INVALID_REPOSITORY = "invalid_repository"
