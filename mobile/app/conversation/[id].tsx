@@ -149,6 +149,11 @@ export default function ConversationScreen() {
     setMention((previous) => ({ name, nonce: (previous?.nonce ?? 0) + 1 }));
   };
 
+  const openProject = () => {
+    setInfoOpen(false);
+    router.push({ pathname: "/project/[id]", params: { id: String(projectId) } });
+  };
+
   const renderItem = ({ item }: { item: ChatItem }) => {
     if (item.kind === "bubble") {
       const { employeeId } = item.message;
@@ -187,6 +192,7 @@ export default function ConversationScreen() {
           visible={infoOpen}
           onClose={() => setInfoOpen(false)}
           onMention={insertMention}
+          onOpenProject={openProject}
         />
       ) : null}
       <MessageActions message={menuMessage} onCopy={copyMessage} onClose={() => setMenuMessage(null)} />

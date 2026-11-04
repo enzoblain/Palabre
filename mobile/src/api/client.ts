@@ -16,6 +16,7 @@ import type {
   ProjectDetail,
   ProjectListItem,
   Role,
+  ProjectUpdated,
 } from "@palabre/shared";
 
 const MESSAGES_PAGE_SIZE = 200;
@@ -143,6 +144,9 @@ export const api = {
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
+  updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
+    call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
+  deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
 
   orchestratorStatus: () => call<OrchestratorStatus>("/orchestrator"),

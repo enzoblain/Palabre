@@ -11,6 +11,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onMention: (name: string) => void; // tapping a member writes "@Name" in the composer
+  onOpenProject: () => void; // leads to the project page (name, branch, deletion)
 };
 
 type Feedback = { ok: boolean; text: string };
@@ -62,7 +63,7 @@ function LiftLimit({ conversationId }: { conversationId: number }) {
 }
 
 /** The room document (objective, summary) and its members, as the web conversation info. */
-export function ConversationInfo({ room, conversationId, visible, onClose, onMention }: Props) {
+export function ConversationInfo({ room, conversationId, visible, onClose, onMention, onOpenProject }: Props) {
   const colors = useColors();
   const sections = [
     { title: translate("conversation.objective"), body: room.objective },
@@ -115,6 +116,11 @@ export function ConversationInfo({ room, conversationId, visible, onClose, onMen
             </Pressable>
           ))}
           <LiftLimit conversationId={conversationId} />
+          <Pressable accessibilityRole="link" onPress={onOpenProject} style={styles.member}>
+            <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.body, { color: colors.link }]}>
+              {translate("conversation.openProject")}
+            </Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </Modal>
