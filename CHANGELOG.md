@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.5] - 2026-11-04
+
+### Fixed
+
+- mobile: archive the iOS app on macos-26 with Xcode 26.6 (#472)
+
 ## [0.30.4] - 2026-11-03
 
 ### Fixed
@@ -751,7 +757,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.4...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.30.5...HEAD
+[0.30.5]: https://github.com/enzoblain/Palabre/compare/v0.30.4...v0.30.5
 [0.30.4]: https://github.com/enzoblain/Palabre/compare/v0.30.3...v0.30.4
 [0.30.3]: https://github.com/enzoblain/Palabre/compare/v0.30.2...v0.30.3
 [0.30.2]: https://github.com/enzoblain/Palabre/compare/v0.30.1...v0.30.2
