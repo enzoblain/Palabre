@@ -29,6 +29,7 @@ const detail = (over: Partial<ProjectDetail> = {}): ProjectDetail => ({
   default_branch: "main",
   mode: "enterprise",
   seed: 1,
+  platform: "generic",
   created_at: "2026-01-01T10:00:00",
   employees: [],
   rooms: [{ id: 4, kind: "direction", objective: "Ship the app", summary: "", members: [] } as unknown as ProjectDetail["rooms"][number]],

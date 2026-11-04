@@ -10,6 +10,7 @@ const item = (over: Partial<ProjectListItem>): ProjectListItem => ({
   default_branch: "main",
   mode: "enterprise",
   seed: 1,
+  platform: "generic",
   created_at: "2026-01-01T10:00:00",
   unread_count: 0,
   lead_writing: false,
