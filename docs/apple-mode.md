@@ -3,6 +3,7 @@
 Apple mode lets the team build iPhone apps in Swift. The agents stay on our Linux servers; a dedicated
 Apple-silicon Mac only **compiles and tests** inside throw-away macOS virtual machines (VMs). This page
 fixes the structure; nothing described here is implemented yet (see [Task breakdown](#task-breakdown)).
+The screens (project type choice, Mac state, build result) are specified in [Apple mode UI](apple-mode-ui.md).
 
 Rules set by the boss (decision 80), each one is enforced by a mechanism below:
 
@@ -60,9 +61,9 @@ Agents never talk to the Mac. They use MCP tools (listed in the catalog and `per
 |---|---|---|
 | `apple_build` | dev, QA | Queues a build of the task's branch (current head); returns a job id |
 | `apple_test` | dev, QA | Same, then runs the tests (`xcodebuild test`, optional `test_plan`, optional screenshots) |
-| `apple_job` | dev, QA, reviewer | Status (`queued` with its position, `running`, `passed`, `failed`, `error`, `timeout`, `cancelled`), summary and failed tests |
+| `apple_job` | dev, QA, reviewer | Status (`queued` with its position, `running`, `passed`, `failed`, `error`), summary and failed tests |
 | `apple_job_logs` | dev, QA, reviewer | A page of the log (the tail by default), so a run never loads a huge log |
-| `apple_cancel` | dev, QA | Cancels a queued or running job of the caller's own task |
+| `apple_cancel` | dev, QA | Planned, not in the first backend: cancels a queued or running job of the caller's own task (it will add a `cancelled` status) |
 
 Jobs are asynchronous: an agent run is not kept waiting for a queue slot. The tool returns at once; when
 the job ends, the backend posts a short system message in the task room and wakes the agent that queued
@@ -93,10 +94,10 @@ from the apps' API, with their own auth):
    itself (`xcodebuild`) runs as a separate unprivileged guest user that cannot read the runner's
    environment, so build code (SwiftPM plugin, Run Script phase) never sees the token.
 4. The worker sends `POST /api/apple-host/jobs/{id}/finish` (exit status) and runs `tart delete`. If the
-   VM exceeds `APPLE_JOB_TIMEOUT_SECONDS`, the worker kills and deletes it, and the job ends as `timeout`.
+   VM exceeds `APPLE_JOB_TIMEOUT_SECONDS`, the worker kills and deletes it, and the job ends as `error` with a summary saying the time limit was reached.
 5. The worker sends a heartbeat every 15 s. A job whose worker went silent for `APPLE_HEARTBEAT_TIMEOUT_SECONDS`
    is marked `error`, its job token is revoked at that moment (the VM may still be running until the worker
-   restarts) and its slot freed. The same revocation applies when the backend ends a job as `timeout`. (The VM is deleted at the worker's next start, which wipes every
+   restarts) and its slot freed. The same revocation applies when the backend ends a job on the time limit. (The VM is deleted at the worker's next start, which wipes every
    VM that is not in its list of live jobs).
 
 ### Authentication, with no long-term secret on the VM
@@ -177,7 +178,7 @@ time, and by default Tart's NAT lets a VM reach the host and the LAN. So:
 
 ### Queue
 
-The queue is the `apple_jobs` table (`queued → running → passed|failed|error|timeout|cancelled`), no
+The queue is the `apple_jobs` table (`queued → running → passed|failed|error`), no
 extra broker. A job is claimed with `SELECT ... FOR UPDATE SKIP LOCKED`, only if fewer than
 `APPLE_MAX_VMS` jobs run. Order: first in, first out, with at most `APPLE_MAX_QUEUED_PER_PROJECT` waiting
 jobs per project and a newer job on the same task replacing a still-queued one (an old SHA is useless).
@@ -236,7 +237,7 @@ One-time, by hand or with a script in `deploy/apple-host/` (idempotent, `set -eu
 - No Claude, GitHub or Apple credential, no Apple ID signed in, no Xcode account.
 
 Rollback: stop the worker (`launchctl bootout`), set `APPLE_MODE_ENABLED=false`. Queued jobs end as
-`cancelled`; existing projects keep working as generic projects. Changing an image back is changing
+`error` with a summary; existing projects keep working as generic projects. Changing an image back is changing
 `APPLE_IMAGE` to the previous digest.
 
 ## Security review points
