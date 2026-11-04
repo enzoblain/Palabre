@@ -171,6 +171,18 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 | Desktop breakpoint, hover, keyboard shortcuts (Escape closes, Tab trap, Enter sends) | n/a | Replaced by gestures and the system keyboard | |
 | Version display, service worker, favicon | n/a | none | |
 
+## Accessibility rules
+
+These rules apply to every batch above. The theme tokens (colors) are described in [Mobile app](mobile.md); text size scaling is listed in the inventory above.
+
+- **Destructive actions** (delete, revoke, sign out) are never reachable by swipe alone. Always provide a labelled
+  button with a touch target of at least 44 pt on iOS and 48 dp on Android, then the confirmation. A swipe action may exist as a shortcut on top.
+- **Long press to copy** always has an equivalent custom VoiceOver / TalkBack action ("Copy"), so the feature does not
+  depend on a gesture screen reader users cannot perform.
+- **Mentions and the tinted bubble** (message mentioning the boss) never rely on color alone: add bold or underline to
+  the mention, and a non-color cue on the bubble, so they stay visible in grayscale and for color-blind users. The non-color cue must have a contrast ratio of at
+  least 3:1 against its background (WCAG 1.4.11).
+
 ## Already covered by other tasks
 
 - Task 519 (done, merged): conversation info sheet, typing indicator. Its review notes that the bottom tab bar was
