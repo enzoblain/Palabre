@@ -18,10 +18,10 @@ from app.models import (
     AppleJob,
     AppleJobStatus,
     Project,
+    ProjectPlatform,
     Task,
 )
 
-APPLE_PLATFORM = "apple"
 # What a task shows of its build: the lines of the log that look like errors, most recent last
 ERROR_LINE_MARKERS = ("error:", "failed", "fatal")
 MAX_ERROR_LINES = 20
@@ -246,7 +246,7 @@ async def record_result(
 
 
 def is_apple_project(project: Project) -> bool:
-    return project.platform == APPLE_PLATFORM
+    return project.platform == ProjectPlatform.apple
 
 
 async def latest_task_job(s: AsyncSession, task_id: int, commit_sha: str | None = None) -> AppleJob | None:
