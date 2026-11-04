@@ -9,11 +9,15 @@ see an Apple key. The App Store submission stays manual.
 1. In the web app, the "Publish to TestFlight" button on the info page of a Swift project (it shows the version sent or the translated error) starts the publication for the latest release: `POST /api/projects/{id}/testflight` (admin
    token, Apple mode on). Palabre takes the latest `vX.Y.Z` tag, refuses if the checks of its commit are red or still running
    (`apple_publish_build_not_green`), then starts the workflow `swift-testflight.yml` on that tag. The answer is `202` with the version.
-2. The workflow has three jobs. `verify` (no secret) checks the run is on the tag `vX.Y.Z` of the version asked. `test` (no secret)
-   runs `xcodebuild test`. `testflight` needs `test`: it is the only job with the environment `testflight`, so
+2. The workflow has four jobs. `verify` (no secret) checks the run is on the tag `vX.Y.Z` of the version asked. `test` (no secret)
+   runs `xcodebuild test`. `archive` (no secret) builds an unsigned archive with the version of the release as
+   marketing version (`MARKETING_VERSION`) and the run number as build number, and passes it on as a one-day artifact.
+   `testflight` needs `archive`: it is the only job with the environment `testflight`, so
    a red build or test ends the run before any key is read.
-3. `testflight` imports the certificate and the profile into a temporary keychain, archives with the version of the release as
-   marketing version (`MARKETING_VERSION`) and the run number as build number, exports the IPA and uploads it with the App Store Connect key.
+3. `testflight` does not check out the repository: no project code (build phases, package scripts) runs next to the keys.
+   It downloads the archive, imports the certificate (usable by `codesign` only) and the profile into a temporary keychain,
+   signs and exports the IPA with `xcodebuild -exportArchive`, and uploads it with the App Store Connect key.
+   If the export does not sign an unsigned archive correctly for a given project, re-sign the `.app` with `codesign` in this same job, still without a checkout.
    The keychain and the decoded keys are deleted in a last step, even on failure.
 
 Errors are annotations in French on the run (certificate expired or unreadable, profile expired, key or account refused,

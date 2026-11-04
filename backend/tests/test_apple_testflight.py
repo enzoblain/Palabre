@@ -98,8 +98,17 @@ def test_template_reads_the_apple_secrets_only_in_the_protected_signing_job():
         holds_secrets = "secrets." in yaml.safe_dump(job)
         assert holds_secrets == (name == "testflight")
     assert jobs["testflight"]["environment"] == "testflight"
-    assert jobs["testflight"]["needs"] == "test"
+    assert jobs["testflight"]["needs"] == "archive"
+    assert jobs["archive"]["needs"] == "test"
     assert jobs["test"]["needs"] == "verify"
+
+
+def test_template_runs_no_repository_code_in_the_job_that_holds_the_keys():
+    steps = _workflow()["jobs"]["testflight"]["steps"]
+    assert not any(step.get("uses", "").startswith("actions/checkout") for step in steps)
+    script = "\n".join(step.get("run", "") for step in steps)
+    assert "xcodebuild archive" not in script and "xcodebuild test" not in script
+    assert " -A " not in script  # the key is usable by codesign only
 
 
 def test_template_is_manual_only_with_read_permissions_and_pinned_actions():
