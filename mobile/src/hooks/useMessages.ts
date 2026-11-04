@@ -15,6 +15,7 @@ export type MessagesState = {
   pending: PendingMessage[];
   failed: boolean;
   reload: () => Promise<void>;
+  refreshInfo: () => Promise<void>; // re-reads the project, room and team; the known ones stay shown meanwhile and on failure
   send: (content: string) => Promise<void>;
   retry: (key: string) => Promise<void>;
 };
@@ -87,6 +88,18 @@ export function useMessages(projectId: number): MessagesState {
     }
   }, [projectId, append]);
 
+  const refreshInfo = useCallback(async () => {
+    try {
+      const fresh = await findTarget(projectId);
+      if (!mounted.current) return;
+      target.current = fresh;
+      setName(fresh.name);
+      setInfo(fresh.info);
+    } catch {
+      // Keep what is already shown: the info sheet is never emptied by a failed refresh
+    }
+  }, [projectId]);
+
   usePolling(reload, MESSAGES_POLL_MS);
 
   const setStatus = useCallback((key: string, status: PendingMessage["status"]) => {
@@ -130,5 +143,5 @@ export function useMessages(projectId: number): MessagesState {
     [pending, post, setStatus],
   );
 
-  return { name, info, messages, pending, failed, reload, send, retry };
+  return { name, info, messages, pending, failed, reload, refreshInfo, send, retry };
 }
