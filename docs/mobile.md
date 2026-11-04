@@ -88,6 +88,9 @@ The backend has no WebSocket or server-sent events. The web app polls (`Conversa
 - Conversation open and app in the foreground: poll messages every 2 s with `sinceId`.
 - Conversation list in the foreground: poll `GET /projects` at a slower rhythm (about 5 s) for unread counts and the
   typing indicator.
+- Typing indicator: the conversation screen also reads `lead_writing` from `GET /projects` every 5 s and shows
+  three dots in the direction conversation while the lead writes. The header "Info" button opens a sheet with the
+  room objective, summary and members, like the web conversation info.
 - App in the background: stop polling, refresh once on return to the foreground (`AppState`).
 
 Polling cannot notify a user whose app is closed. That is the main gap for an iMessage-like app. **Push
