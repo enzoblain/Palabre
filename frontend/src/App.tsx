@@ -147,7 +147,7 @@ function Shell({ onDisconnect }: { onDisconnect: () => void }) {
   } else if (route.name === "tasks") {
     main = <TaskList projectId={route.projectId} />;
   } else if (route.name === "task") {
-    main = project ? <TaskPage taskId={route.taskId} platform={project.detail.platform} />
+    main = project ? <TaskPage taskId={route.taskId} platform={project.detail.platform ?? "generic"} />
       : <p className="muted center">{t("common.loading")}</p>;
   } else if (route.name === "project") {
     const room = project?.detail.rooms.find((r) => project.conversations[r.id]?.some((c) => c.id === conversationId));
