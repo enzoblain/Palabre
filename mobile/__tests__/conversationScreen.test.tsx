@@ -106,6 +106,26 @@ describe("conversation screen", () => {
     expect(screen.getByText("1 membre")).toBeTruthy();
   });
 
+  it("re-reads the room each time the info sheet opens", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    await render(<ConversationScreen />);
+    const loaded = mocked.getProject.mock.calls.length;
+    const fresh = await mocked.getProject();
+    mocked.getProject.mockResolvedValue({ ...fresh, rooms: [{ ...fresh.rooms[0], objective: "New objective" }] });
+    fireEvent.press(await screen.findByText("Infos"));
+    expect(await screen.findByText("New objective")).toBeTruthy();
+    expect(mocked.getProject.mock.calls.length).toBeGreaterThan(loaded);
+  });
+
+  it("keeps the known info when the refresh on open fails", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    await render(<ConversationScreen />);
+    const infos = await screen.findByText("Infos");
+    mocked.getProject.mockRejectedValue(new Error("down"));
+    fireEvent.press(infos);
+    expect(await screen.findByText("Ship the app")).toBeTruthy();
+  });
+
   it("opens the project page from the info sheet", async () => {
     mocked.listMessages.mockResolvedValue([]);
     await render(<ConversationScreen />);

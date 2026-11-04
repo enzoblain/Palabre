@@ -44,7 +44,7 @@ Web source: `ConversationView.tsx`, `ConversationTeam.tsx`, `MessageBubble.tsx` 
 | Room objective and summary | present | Same info sheet | P1 |
 | Typing dots while the lead writes (direction room only) | present | Dots at the end of the message list | P1 |
 | Open on the latest message, stay at the bottom after sending or on a new message, do not force down when the user scrolled up | in progress | Message list scroll behavior | P1 |
-| Info sheet refreshed while open (objective and summary are read once) | partial | Re-read the room with the message poll | P3 |
+| Info sheet refreshed (the room is re-read each time the sheet opens) | present | Re-read the room when the sheet opens | P3 |
 
 ## Batch 2: message content and actions (delivered)
 
@@ -160,7 +160,7 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Typed API client | partial: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings and rate limit lift. Missing for the batches: employees, orchestrator status (catalog and project creation are there) | Add calls batch by batch, keeping the client shared with the web app | P1 |
+| Typed API client | present: `src/api` covers sign-in, devices, projects (list and detail), conversations, messages, read marker, settings, rate limit lift, employees, orchestrator status, catalog and project creation | Add calls batch by batch, keeping the client shared with the web app | P1 |
 | French and English interface | present (phone language) | Same keys to add per batch, with the key check | P1 |
 | Avatar with color from the name | present (initials and color) | none | |
 | Dark and light themes | present | none | |
