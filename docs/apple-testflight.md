@@ -54,7 +54,7 @@ VM, on an agent's machine or in a chat: they go only in the protected GitHub env
    it to install it.
 3. In Keychain Access, export that certificate with its private key as a `.p12`, with a strong password.
 4. Developer portal > Profiles > "+" > **App Store Connect** (distribution): pick the app of step 2 and the certificate of
-   step 2, then download the `.mobileprovision`.
+   step 4.2, then download the `.mobileprovision`.
 
 ### 5. Put everything in GitHub
 
@@ -113,5 +113,5 @@ Actions > Swift TestFlight > Run workflow, pick the **tag** `vX.Y.Z` and type `X
 
 - A bad build: expire it in App Store Connect > TestFlight. Nothing is published automatically.
 - Stop the pipeline: disable the workflow in Actions or delete the `testflight` environment.
-- Leaked or lost secret: revoke the key or certificate at Apple, create a new one, replace the secret.
+- Leaked or lost secret: revoke the API key in App Store Connect and the certificate in the developer portal, create new ones (steps 3 and 4), then replace the secrets in the protected `testflight` environment.
 - Revert this feature: remove the workflow file from the project; the endpoint then answers `apple_publish_workflow_missing`.
