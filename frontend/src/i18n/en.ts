@@ -137,6 +137,8 @@ export const en = {
   "tasks.loadError": "Could not load the tasks.",
   "tasks.empty": "No task yet.",
   "task.loadError": "Could not load the task.",
+  "task.notFound": "This task no longer exists.",
+  "task.back": "Back to tasks",
   "task.status": "Status",
   "task.assignee": "Assignee",
   "task.unassigned": "Nobody yet",

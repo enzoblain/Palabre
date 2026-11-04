@@ -19,7 +19,7 @@ const task = (extra: Partial<TaskDetail> = {}): TaskDetail => ({
   review_round: 0, created_at: "2026-11-04T10:00:00Z", updated_at: "2026-11-04T10:00:00Z", apple_build: null,
   description: "", acceptance_criteria: ["It works"], branch: "task/7", ...extra,
 });
-const renderPage = (platform: ProjectPlatform) => render(<I18nProvider><TaskPage taskId={7} platform={platform} /></I18nProvider>);
+const renderPage = (platform: ProjectPlatform) => render(<I18nProvider><TaskPage projectId={1} taskId={7} platform={platform} /></I18nProvider>);
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
@@ -31,6 +31,7 @@ describe("TaskPage", () => {
     expect(screen.getByText("In progress")).toBeTruthy();
     expect(screen.getByText("Salomé")).toBeTruthy();
     expect(screen.getByRole("link", { name: "View pull request (opens in a new tab)" }).getAttribute("href")).toBe("https://github.com/a/b/pull/9");
+    expect(screen.getByRole("link", { name: "Back to tasks" }).getAttribute("href")).toBe("#/p/1/tasks");
     expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1, name: "Add login" }));
   });
 
@@ -38,7 +39,7 @@ describe("TaskPage", () => {
     getTask.mockResolvedValue(task());
     getTaskBuild.mockResolvedValue({ apple_build: null });
     renderPage("apple");
-    expect(await screen.findByRole("heading", { name: "Swift build" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 3, name: "Swift build" })).toBeTruthy();
     cleanup();
     renderPage("generic");
     await screen.findByText("Add login");
@@ -50,12 +51,27 @@ describe("TaskPage", () => {
     renderPage("generic");
     expect(await screen.findByText("Nobody yet")).toBeTruthy();
     expect(screen.getByText("No pull request yet")).toBeTruthy();
-    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("link", { name: /pull request/i })).toBeNull();
   });
 
   it("shows the error state", async () => {
     getTask.mockRejectedValue(new ApiError(500, "boom"));
     renderPage("generic");
     expect((await screen.findByRole("alert")).textContent).toBe("Could not load the task.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("says the task no longer exists on a 404, without a retry", async () => {
+    getTask.mockRejectedValue(new ApiError(404, "not found"));
+    renderPage("generic");
+    expect(await screen.findByText("This task no longer exists.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Back to tasks" })).toBeTruthy();
+  });
+
+  it("announces the loading state", () => {
+    getTask.mockReturnValue(new Promise(() => {}));
+    renderPage("generic");
+    expect(screen.getByRole("status").textContent).toBe("Loading…");
   });
 });

@@ -138,6 +138,8 @@ export const fr: Messages = {
   "tasks.loadError": "Impossible de charger les tâches.",
   "tasks.empty": "Aucune tâche pour l’instant.",
   "task.loadError": "Impossible de charger la tâche.",
+  "task.notFound": "Cette tâche n’existe plus.",
+  "task.back": "Retour aux tâches",
   "task.status": "Statut",
   "task.assignee": "Assignée à",
   "task.unassigned": "Personne pour l’instant",

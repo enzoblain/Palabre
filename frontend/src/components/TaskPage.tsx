@@ -1,27 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ProjectPlatform, type TaskDetail, api } from "../api";
+import { ApiError, type ProjectPlatform, type TaskDetail, api } from "../api";
 import { useI18n } from "../i18n";
 import { taskStatusLabel } from "../taskStatus";
 import { AppleBuild } from "./AppleBuild";
 
+const HTTP_NOT_FOUND = 404;
+
 /** Detail of a task: title, status, assignee, PR link and, on an Apple project, its Swift build. */
-export function TaskPage({ taskId, platform }: { taskId: number; platform: ProjectPlatform }) {
+export function TaskPage({ projectId, taskId, platform }: { projectId: number; taskId: number; platform: ProjectPlatform }) {
   const { t } = useI18n();
   const [task, setTask] = useState<TaskDetail | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<"missing" | "error" | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const load = useCallback(() => {
-    setFailed(false);
-    api.getTask(taskId).then(setTask).catch(() => setFailed(true));
+    setFailure(null);
+    api.getTask(taskId).then(setTask).catch((err: unknown) => {
+      setFailure(err instanceof ApiError && err.status === HTTP_NOT_FOUND ? "missing" : "error");
+    });
   }, [taskId]);
   useEffect(() => {
     setTask(null);
     load();
   }, [load]);
 
-  useEffect(() => { titleRef.current?.focus(); }, [task?.id]);
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, [task?.id]);
 
-  if (failed) {
+  if (failure === "missing") {
+    return (
+      <div className="page">
+        <BackToTasks projectId={projectId} />
+        <p className="muted">{t("task.notFound")}</p>
+      </div>
+    );
+  }
+  if (failure === "error") {
     return (
       <div className="page row">
         <p role="alert" className="error">{t("task.loadError")}</p>
@@ -29,9 +43,10 @@ export function TaskPage({ taskId, platform }: { taskId: number; platform: Proje
       </div>
     );
   }
-  if (!task) return <p className="muted center">{t("common.loading")}</p>;
+  if (!task) return <p role="status" className="muted center">{t("common.loading")}</p>;
   return (
     <div className="page task-page">
+      <BackToTasks projectId={projectId} />
       <h1 className="task-title" ref={titleRef} tabIndex={-1}>{task.title}</h1>
       <dl className="task-facts">
         <dt>{t("task.status")}</dt>
@@ -53,6 +68,11 @@ export function TaskPage({ taskId, platform }: { taskId: number; platform: Proje
       {platform === "apple" && <AppleBuild key={task.id} taskId={task.id} />}
     </div>
   );
+}
+
+function BackToTasks({ projectId }: { projectId: number }) {
+  const { t } = useI18n();
+  return <a className="task-back" href={`#/p/${projectId}/tasks`}>{t("task.back")}</a>;
 }
 
 /** A PR link comes from the server's data: only http(s) is ever put in an href. */
