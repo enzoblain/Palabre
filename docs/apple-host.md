@@ -24,7 +24,7 @@ Replace `https://palabre.example.com` with your Palabre address everywhere. Valu
    ```
    Expected: a JSON answer with a `token` starting with `pmac_`. Copy it, it is shown once. If it fails (error or `rate limited`):
    check the code is complete and not expired, wait a minute, generate a new code.
-5. Save the token in a protected file (paste it when `cat` waits, then press Return and Control-D):
+5. Save the token in a protected file (the command waits: paste the token, press Return, then Control-D):
    ```sh
    sudo install -m 600 -o palabre /dev/null /etc/palabre-apple-worker.token && sudo tee /etc/palabre-apple-worker.token > /dev/null
    ```
