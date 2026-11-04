@@ -96,6 +96,17 @@ async def _sync_repo(project: Project) -> Path:
     return repo
 
 
+async def bundle_branch(project: Project, branch: str, commit_sha: str, destination: Path) -> None:
+    """Writes a git bundle of `branch` to `destination`, if the branch still points at `commit_sha`.
+    The Mac gets the code from the backend, so it never needs a GitHub token."""
+    async with _repo_locks[project.id]:
+        repo = await _sync_repo(project)
+        ref = f"refs/remotes/origin/{branch}"
+        if not await _has_ref(repo, ref) or (await git(repo, "rev-parse", ref)).strip() != commit_sha:
+            raise GitHubError(f"Branch {branch} no longer points at {commit_sha}")
+        await git(repo, "bundle", "create", str(destination), ref)
+
+
 async def follow_main_branch(project: Project, branch: str) -> None:
     """Point the reference clone's `origin/HEAD` at the repository's new default branch."""
     repo = await sync_repo(project)

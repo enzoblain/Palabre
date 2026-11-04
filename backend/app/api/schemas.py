@@ -527,3 +527,49 @@ class DeviceTokenOut(DeviceOut):
     """Returned once, when the device is paired: the token cannot be read again."""
 
     token: str
+
+
+class AppleHostCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def _strip_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+
+class AppleHostOut(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    expires_at: datetime
+    last_seen_at: datetime | None
+    revoked_at: datetime | None
+    connected: bool
+
+
+class AppleHostTokenOut(AppleHostOut):
+    """Returned once, when the Mac is registered: the token cannot be read again."""
+
+    token: str
+
+
+class AppleJobClaim(BaseModel):
+    """What the Mac gets when it claims a job: the job token is shown once and only valid for this job."""
+
+    id: int
+    project_id: int
+    branch: str
+    commit_sha: str
+    job_token: str
+    source_url: str
+
+
+class AppleJobResult(BaseModel):
+    """The Mac's verdict: `error` is an infra failure, not a failing build."""
+
+    status: Literal["passed", "failed", "error"]
+    log_excerpt: str = ""

@@ -21,6 +21,7 @@ class ErrorCode(StrEnum):
     MESSAGE_NOT_FOUND = "message_not_found"
     QUESTION_NOT_FOUND = "question_not_found"
     DEVICE_NOT_FOUND = "device_not_found"
+    APPLE_JOB_TOKEN_USED = "apple_job_token_used"
     MODE_NOT_FOUND = "mode_not_found"
     UNKNOWN_MODE = "unknown_mode"
     INVALID_REPOSITORY = "invalid_repository"

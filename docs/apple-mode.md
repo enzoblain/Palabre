@@ -2,7 +2,7 @@
 
 Apple mode lets the team build iPhone apps in Swift. The agents stay on our Linux servers; a dedicated
 Apple-silicon Mac only **compiles and tests** inside throw-away macOS virtual machines (VMs). This page
-fixes the structure; nothing described here is implemented yet (see [Task breakdown](#task-breakdown)).
+fixes the structure; only the Mac builder registration and the job queue ([Implemented API](#implemented-api)) exist so far (see [Task breakdown](#task-breakdown)).
 The screens (project type choice, Mac state, build result) are specified in [Apple mode UI](apple-mode-ui.md).
 
 Rules set by the boss (decision 80), each one is enforced by a mechanism below:
@@ -200,6 +200,25 @@ wait time are shown in monitoring, so the boss can see when 2 VMs are not enough
   in that environment's secrets, never in the repository, a VM or the Mac. The workflow archives, signs
   and uploads to TestFlight. The simulator build used by the VMs needs no signing.
 - The agents never see signing secrets. Releasing stays the lead's `merge_release` step.
+
+## Implemented API
+
+Behind `APPLE_MODE_ENABLED` (otherwise `404`). Tokens are random and stored as a SHA-256 only, never logged.
+
+| Route | Auth | What |
+|---|---|---|
+| `POST /api/apple-hosts` `{name}` | raw `ADMIN_TOKEN` | Registers a Mac; `201` with its `pmac_` token, shown once |
+| `GET /api/apple-hosts` | admin | Macs with `last_seen_at` and `connected` (seen within `APPLE_HEARTBEAT_TIMEOUT_SECONDS`) |
+| `DELETE /api/apple-hosts/{id}` | admin | Revokes the token: the Mac's next call is `401` |
+| `POST /api/apple-host/heartbeat` | host token | `204`, records the Mac as seen |
+| `POST /api/apple-host/claim` | host token | Next job (`id`, `branch`, `commit_sha`, `job_token`, `source_url`) or `204` (no job, or `APPLE_MAX_VMS` running). Plain request, no long poll yet |
+| `GET /api/apple-host/jobs/{id}/source` | job token | The branch as a git bundle, once; `403 apple_job_token_used` the second time |
+| `POST /api/apple-host/jobs/{id}/result` `{status, log_excerpt}` | job token | `status` is `passed`, `failed` or `error` (infra); `204`. The token is then spent: a second call is `403 apple_job_token_used` |
+
+An invalid, unknown or revoked token is `401`. Running jobs past `APPLE_JOB_TIMEOUT_SECONDS`, or whose Mac went
+silent, are ended as `error` (summary says which) and their job token is revoked; this is checked on every claim.
+The tables are `apple_hosts` and `apple_jobs`, created at startup like the others. Queuing a job from the agents'
+tools, enrollment codes, renewal and the cancel/wait limits of this page are not built yet.
 
 ## Configuration
 
