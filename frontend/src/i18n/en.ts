@@ -42,6 +42,7 @@ export const en = {
   "error.apple_publish_build_not_green": "The build or tests of this version are not green: nothing is sent to TestFlight",
   "error.apple_publish_workflow_missing": "The TestFlight workflow is missing from the repository or cannot be started: see the setup doc",
   "error.apple_publish_not_apple": "TestFlight publishing only exists for a Swift project",
+  "error.apple_build_not_apple_project": "This is not an Apple project: there is no Swift build to retry",
   "error.mode_not_found": "This mode does not exist",
   "error.unknown_mode": "Unknown mode",
   "error.invalid_repository": "Invalid repository",

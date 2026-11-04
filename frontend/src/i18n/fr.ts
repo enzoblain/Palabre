@@ -43,6 +43,7 @@ export const fr: Messages = {
   "error.apple_publish_build_not_green": "Le build ou les tests de cette version ne sont pas verts : rien n'est envoyé à TestFlight",
   "error.apple_publish_workflow_missing": "Le workflow de publication TestFlight est absent du dépôt ou ne peut pas être lancé : voir la doc de mise en place",
   "error.apple_publish_not_apple": "La publication TestFlight n'existe que pour un projet Swift",
+  "error.apple_build_not_apple_project": "Ce n'est pas un projet Apple : il n'y a pas de build Swift à relancer",
   "error.mode_not_found": "Ce mode n’existe pas",
   "error.unknown_mode": "Mode inconnu",
   "error.invalid_repository": "Dépôt invalide",

@@ -780,7 +780,7 @@ async def retry_apple_build(s: AsyncSession, project_id: int, task_id: int) -> T
     project = await s.get(Project, project_id)
     task = await get_task(s, project_id, task_id)
     if not apple.is_apple_project(project):
-        raise WorkflowError("This is not an Apple project", code=ErrorCode.APPLE_BUILD_NOT_RETRYABLE)
+        raise WorkflowError("This is not an Apple project", code=ErrorCode.APPLE_BUILD_NOT_APPLE_PROJECT)
     if task.status != TaskStatus.review or task.pr_number is None:
         raise WorkflowError(f"Task #{task.id} has no pull request waiting to be built", code=ErrorCode.TASK_NO_PULL_REQUEST)
     await apple.retry_task_build(s, project, task)
