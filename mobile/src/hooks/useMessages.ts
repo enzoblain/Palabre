@@ -37,14 +37,14 @@ async function findTarget(projectId: number): Promise<Target> {
   const conversation = room ? (await api.listConversations(room.id))[0] : undefined;
   if (!conversation) throw new Error("no conversation");
   const lead = project.employees.find((employee) => employee.roles.includes("lead"));
-  return { name: project.name, conversationId: conversation.id, info: {
-      room,
-      leadName: lead?.name ?? null,
-      leadTitle: lead?.title ?? null,
-      conversationId: conversation.id,
-      employees: project.employees,
-    },
+  const info: ConversationInfo = {
+    room,
+    leadName: lead?.name ?? null,
+    leadTitle: lead?.title ?? null,
+    conversationId: conversation.id,
+    employees: project.employees,
   };
+  return { name: project.name, conversationId: conversation.id, info };
 }
 
 /** The messages of a project's conversation: polled with since_id, with optimistic sends. */

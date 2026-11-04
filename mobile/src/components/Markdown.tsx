@@ -3,6 +3,8 @@ import { type Block, type Inline, isOpenableLink, parseMarkdown } from "../markd
 import { FONT_SIZE, MAX_FONT_SCALE, SPACING, useColors } from "../theme";
 
 const CODE_FONT = Platform.select({ ios: "Menlo", default: "monospace" });
+const CODE_SIZE_REDUCTION = 2; // inline code is set slightly smaller than the body text
+const QUOTE_BORDER_WIDTH = 3;
 const HEADING_SCALE = [1.3, 1.2, 1.1, 1, 1, 1]; // by level 1..6, relative to the body size
 const TABLE_CELL_MIN_WIDTH = 80;
 
@@ -77,7 +79,7 @@ function BlockView({ block, style, size }: { block: Block; style: Style; size: n
     case "code":
       return (
         <View style={[styles.codeBlock, { backgroundColor: style.codeBackground }]}>
-          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.code, { color: style.color, fontSize: size - 2 }]}>
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.code, { color: style.color, fontSize: size - CODE_SIZE_REDUCTION }]}>
             {block.value}
           </Text>
         </View>
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
   link: { textDecorationLine: "underline" },
   code: { fontFamily: CODE_FONT },
   codeBlock: { padding: SPACING.sm, borderRadius: SPACING.sm, marginVertical: SPACING.xs },
-  quote: { borderLeftWidth: 3, paddingLeft: SPACING.sm, marginVertical: SPACING.xs },
+  quote: { borderLeftWidth: QUOTE_BORDER_WIDTH, paddingLeft: SPACING.sm, marginVertical: SPACING.xs },
   list: { marginVertical: SPACING.xs },
   table: { borderWidth: StyleSheet.hairlineWidth, marginVertical: SPACING.xs },
   row: { flexDirection: "row" },

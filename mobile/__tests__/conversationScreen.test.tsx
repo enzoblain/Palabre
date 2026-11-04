@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import * as Clipboard from "expo-clipboard";
 import { Linking, StyleSheet } from "react-native";
 import ConversationScreen from "../app/conversation/[id]";
 import { api, ApiError, type Message } from "../src/api";
+import { COPIED_FEEDBACK_MS } from "../src/components/MessageActions";
 import { MAX_FONT_SCALE } from "../src/theme";
 import { COLORS } from "../src/theme/tokens";
 
@@ -264,6 +265,39 @@ describe("conversation message content and actions", () => {
     expect(await screen.findByRole("button", { name: "Copie impossible" })).toBeTruthy();
   });
 
+  it("closes the sheet after a successful copy, once the feedback delay has passed", async () => {
+    jest.useFakeTimers();
+    try {
+      mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+      await render(<ConversationScreen />);
+      await screen.findByText("Salut");
+      await fireEvent(screen.getByLabelText(/^Élise, Salut/), "longPress");
+      await fireEvent.press(await screen.findByRole("button", { name: "Copier" }));
+      expect(await screen.findByRole("button", { name: "Copié" })).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(COPIED_FEEDBACK_MS); });
+      expect(screen.queryByRole("button", { name: "Copié" })).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("keeps the sheet open after a failed copy", async () => {
+    jest.useFakeTimers();
+    try {
+      (Clipboard.setStringAsync as jest.Mock).mockRejectedValue(new Error("denied"));
+      mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+      await render(<ConversationScreen />);
+      await screen.findByText("Salut");
+      await fireEvent(screen.getByLabelText(/^Élise, Salut/), "longPress");
+      await fireEvent.press(await screen.findByRole("button", { name: "Copier" }));
+      expect(await screen.findByRole("button", { name: "Copie impossible" })).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(COPIED_FEEDBACK_MS * 2); });
+      expect(screen.getByRole("button", { name: "Copie impossible" })).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("offers Copy as a screen reader action without the gesture", async () => {
     mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
     await render(<ConversationScreen />);
@@ -298,6 +332,19 @@ describe("conversation message content and actions", () => {
     await fireEvent.press(await screen.findByText("Infos"));
     await fireEvent.press(await screen.findByRole("button", { name: "Élise, Lead / CTO" }));
     expect(screen.getByLabelText("Message").props.value).toBe("@Élise ");
+  });
+
+  it("appends a mention after typed text with a separating space, and inserts the same member twice", async () => {
+    mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+    await render(<ConversationScreen />);
+    await screen.findByText("Salut");
+    await fireEvent.changeText(screen.getByLabelText("Message"), "Salut");
+    await fireEvent.press(await screen.findByText("Infos"));
+    await fireEvent.press(await screen.findByRole("button", { name: "Élise, Lead / CTO" }));
+    expect(screen.getByLabelText("Message").props.value).toBe("Salut @Élise ");
+    await fireEvent.press(await screen.findByText("Infos"));
+    await fireEvent.press(await screen.findByRole("button", { name: "Élise, Lead / CTO" }));
+    expect(screen.getByLabelText("Message").props.value).toBe("Salut @Élise @Élise ");
   });
 
   it("lifts the loop limit from the info sheet and reports the result", async () => {
