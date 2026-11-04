@@ -60,7 +60,7 @@ export const COLORS: Record<ColorScheme, Colors> = {
 
 export const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 export const RADIUS = { bubble: 18, input: 18, button: 14 } as const;
-export const FONT_SIZE = { body: 17, caption: 12, largeTitle: 34 } as const;
+export const FONT_SIZE = { body: 17, caption: 12, largeTitle: 34, secondary: 15, meta: 13, glyph: 21 } as const;
 export const MAX_FONT_SCALE = 2; // Dynamic Type cap on text that can wrap or grow
 export const AVATAR_INITIALS_MAX_FONT_SCALE = 1.2; // initials must stay inside the avatar circle
 export const CHECKMARK_ICON_SIZE = 22;

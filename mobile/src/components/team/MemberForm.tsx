@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", alignItems: "center", padding: SPACING.md, gap: SPACING.sm },
   input: { flex: 1, minHeight: MIN_TOUCH_TARGET, paddingHorizontal: SPACING.md, borderRadius: RADIUS.input, fontSize: FONT_SIZE.body },
   shuffle: { minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
-  shuffleIcon: { fontSize: FONT_SIZE.body + 4 },
+  shuffleIcon: { fontSize: FONT_SIZE.glyph },
   field: {
     minHeight: MIN_TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     gap: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: StyleSheet.hairlineWidth,

@@ -199,4 +199,34 @@ describe("new project screen, manual team", () => {
     await fireEvent.press(screen.getByRole("radio", { name: "Random. A personality is drawn at random." }));
     expect(screen.getByRole("button", { name: "Personality" }).props.accessibilityValue.text).toBe("Random");
   });
+
+  it("sends the model and the Claude account picked for an agent", async () => {
+    mocked.getSettings.mockResolvedValue({ boss_name: "Enzo", language: "en", languages: {}, claude_accounts: 3 });
+    await openManual();
+    await fillProject();
+    await fireEvent.press(screen.getByRole("button", { name: "+ Add an agent" }));
+    await fireEvent.changeText(await screen.findByLabelText("Agent name"), "Bob");
+    await fireEvent.press(screen.getByRole("button", { name: "Jobs" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Developer" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Done" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Model" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "haiku" }));
+    expect(screen.getByRole("button", { name: "Model" }).props.accessibilityValue.text).toBe("haiku");
+    await fireEvent.press(screen.getByRole("button", { name: "Claude account" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Account 2" }));
+    expect(screen.getByRole("button", { name: "Claude account" }).props.accessibilityValue.text).toBe("Account 2");
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(create().props.accessibilityState.disabled).toBe(false));
+    await fireEvent.press(create());
+    expect(mocked.createProject).toHaveBeenCalledWith(expect.objectContaining({
+      employees: expect.arrayContaining([expect.objectContaining({ name: "Bob", model: "haiku", account: 2 })]),
+    }));
+  });
+
+  it("hides the account row when there is a single Claude account", async () => {
+    await openManual();
+    await fireEvent.press(screen.getByRole("button", { name: "+ Add an agent" }));
+    expect(await screen.findByRole("button", { name: "Model" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Claude account" })).toBeNull();
+  });
 });

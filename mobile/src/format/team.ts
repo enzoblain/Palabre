@@ -26,7 +26,7 @@ export const DESCRIPTION_MAX_LENGTH = 10000;
 export const MEMBER_NAME_MAX_LENGTH = 40;
 
 const GITHUB_URL = /^(https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/[\w.-]+?(\.git)?\/?$/;
-const MEMBER_NAME = /^[\p{L}\p{N}_-]{1,40}$/u;
+const MEMBER_NAME = new RegExp(`^[\\p{L}\\p{N}_-]{1,${MEMBER_NAME_MAX_LENGTH}}$`, "u");
 
 export type TeamProblem = "none" | "tooSmall" | "tooBig" | "noLead" | "duplicate" | "noName" | "badName" | "noRole";
 

@@ -56,9 +56,9 @@ export function PersonalityPicker({ presets, selected, onSelect }: Props) {
 
 const styles = StyleSheet.create({
   row: { minHeight: MIN_TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACING.md, padding: SPACING.lg, borderBottomWidth: StyleSheet.hairlineWidth },
-  radio: { fontSize: FONT_SIZE.body + 4 },
+  radio: { fontSize: FONT_SIZE.glyph },
   text: { flex: 1 },
   label: { fontSize: FONT_SIZE.body, fontWeight: "600" },
-  description: { fontSize: 15 },
+  description: { fontSize: FONT_SIZE.secondary },
   status: { fontSize: FONT_SIZE.body, padding: SPACING.lg },
 });

@@ -104,13 +104,16 @@ export function CompanyTeamSection(props: Props) {
   );
 }
 
+const SEGMENT_INSET = 2;
+const DESCRIPTION_MIN_HEIGHT = 120;
+
 const styles = StyleSheet.create({
-  segmented: { flexDirection: "row", borderRadius: RADIUS.button, padding: 2 },
-  segment: { flex: 1, minHeight: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.button - 2 },
+  segmented: { flexDirection: "row", borderRadius: RADIUS.button, padding: SEGMENT_INSET },
+  segment: { flex: 1, minHeight: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.button - SEGMENT_INSET },
   segmentText: { fontSize: FONT_SIZE.body, fontWeight: "600" },
   disabled: { opacity: 0.4 },
   text: { fontSize: FONT_SIZE.body },
   retry: { minHeight: MIN_TOUCH_TARGET, justifyContent: "center", alignSelf: "flex-start" },
   input: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: SPACING.md, borderRadius: RADIUS.input, fontSize: FONT_SIZE.body },
-  multiline: { minHeight: 120, paddingTop: SPACING.sm, textAlignVertical: "top" },
+  multiline: { minHeight: DESCRIPTION_MIN_HEIGHT, paddingTop: SPACING.sm, textAlignVertical: "top" },
 });
