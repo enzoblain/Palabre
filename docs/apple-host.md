@@ -3,6 +3,78 @@
 The small program that runs on the Mac and builds the Apple jobs. The structure and the security rules are in
 [Apple mode](apple-mode.md); this page is how to install, run and roll back the worker. Code: `deploy/apple-host/`.
 
+## Quick start (Mac owner)
+
+For the person who sets up the Mac, no development knowledge needed. Apple silicon Mac, macOS administrator account, Terminal open.
+One action per step. If a step does not show what is expected, stop and read "If it fails": do not continue.
+Replace `https://palabre.example.com` with your Palabre address everywhere. Values in `<angle brackets>` are given by whoever runs the server.
+
+1. Install Homebrew if `brew --version` fails (see https://brew.sh), then install Tart:
+   ```sh
+   brew install cirruslabs/cli/tart
+   ```
+   Expected: `tart --version` prints `2.16.0` or higher. If it fails: update Homebrew (`brew update`) and retry.
+2. Create the `palabre` user (standard, not admin): System Settings, Users & Groups, Add User. Then System Settings, Energy: turn off
+   automatic sleep. Expected: the user appears in the list.
+3. In the Palabre app, open "Build Mac" and click "Generate a connection code". Expected: a code starting with `penr_`, valid 15 minutes.
+   If it fails: ask the server admin; the code is shown once, generate a new one if it expired.
+4. Register the Mac with that code (do steps 4 to 5 within the 15 minutes):
+   ```sh
+   curl -sS -X POST https://palabre.example.com/api/apple-host/enroll -H 'Content-Type: application/json' -d '{"name": "mac-enzo", "code": "penr_PASTE_THE_CODE"}'
+   ```
+   Expected: a JSON answer with a `token` starting with `pmac_`. Copy it, it is shown once. If it fails (error or `rate limited`):
+   check the code is complete and not expired, wait a minute, generate a new code.
+5. Save the token in a protected file (paste it when `cat` waits, then press Return and Control-D):
+   ```sh
+   sudo install -m 600 -o palabre /dev/null /etc/palabre-apple-worker.token && sudo tee /etc/palabre-apple-worker.token > /dev/null
+   ```
+   Expected: no message. Check with `sudo wc -c /etc/palabre-apple-worker.token`: about 40 characters or more, not 0.
+6. Download the build image, with the exact name `<image@sha256:...>` given by the server admin (it is the server's `APPLE_IMAGE`). This is large and takes a while:
+   ```sh
+   sudo -u palabre tart pull <image@sha256:...>
+   ```
+   Expected: a progress bar, then it ends without error. Check with `sudo -u palabre tart list`: the image is listed.
+   If it fails: check the Internet connection and the free disk space (tens of GB needed).
+7. Create the settings file (no secret in it). Put the same image name as in step 6:
+   ```sh
+   sudo tee /etc/palabre-apple-worker.toml > /dev/null <<'EOF'
+   backend_url = "https://palabre.example.com"
+   token_file = "/etc/palabre-apple-worker.token"
+   image = "<image@sha256:...>"
+   max_vms = 2
+   job_timeout_seconds = 1800
+   EOF
+   ```
+   Expected: no message. If the server is on a private address (not on the Internet), stop and ask the admin: see "Install, step by step", step 6.
+8. Get the repository and install the worker:
+   ```sh
+   git clone <repository url> palabre && cd palabre/deploy/apple-host && sudo ./install.sh
+   ```
+   Expected: the script ends without error and says the daemon is started. If it fails: send the last lines to the team; to undo, see "Roll back".
+9. Check the worker is running:
+   ```sh
+   tail -n 20 /var/log/palabre-apple-worker.log
+   ```
+   Expected: lines showing the worker started and polls the server, with no `error` or `pf` complaint. If you see that the anchor is not loaded,
+   run `sudo ./install.sh` again.
+10. Final check, in the Palabre app, "Build Mac": your Mac (`mac-enzo`) must show as **Connected**.
+    - Connected: the Mac is enrolled and ready. Done.
+    - Still "Offline" after 2 minutes, or not listed: it is not enrolled. Redo step 9 and read the log; if the log says the token is refused,
+      redo steps 3 to 5 with a new code.
+
+Before the first real build, the team must also run the isolation check ("Commissioning check" below).
+
+### Known untested points
+
+These have never been run on a real Mac. The code and the tests pass, but the real Mac is the only proof.
+
+- Network isolation (softnet and the `pf` anchor): the rules are only syntax-checked. If it breaks, the symptom is either the isolation check
+  failing in "Commissioning check" (a LAN address answers: stop the worker, do not run jobs), or builds failing with `error` because the VM
+  has no network or cannot resolve names (see the DNS note in "Install, step by step").
+- Start without a logged-in session: the worker runs as a boot daemon, and macOS may refuse to start virtual machines without a session on screen.
+  If it breaks, the symptom is that the Mac shows Connected but every job ends in `error` right after the start, with a `tart run`
+  failure in `/var/log/palabre-apple-worker.log`. The fix is in "Known limit: no GUI session".
+
 ## What it does
 
 The worker (`worker.py`, standard library only) polls the backend (`POST /api/apple-host/claim`). For each job it:
