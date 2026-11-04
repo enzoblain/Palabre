@@ -199,6 +199,7 @@ wait time are shown in monitoring, so the boss can see when 2 VMs are not enough
   [Mobile release](mobile-release.md)): certificate, provisioning profile and App Store Connect key live
   in that environment's secrets, never in the repository, a VM or the Mac. The workflow archives, signs
   and uploads to TestFlight. The simulator build used by the VMs needs no signing.
+- Starting it, the version, the secrets and the error messages: [TestFlight](apple-testflight.md).
 - The agents never see signing secrets. Releasing stays the lead's `merge_release` step.
 
 ## Implemented API
@@ -209,6 +210,7 @@ Behind `APPLE_MODE_ENABLED` (otherwise `404`). Tokens are random and stored as a
 |---|---|---|
 | `POST /api/apple-enrollment-codes` | admin | Generates a one-time code (`penr_...`); `201` with `{code, expires_at, ttl_seconds}`, the code is shown once, only its SHA-256 is stored |
 | `POST /api/apple-host/enroll` `{name, code}` | the code | Spends the code and registers the Mac; `201` with its `pmac_` token, shown once. An unknown, expired or spent code is `401`; more than `APPLE_ENROLL_MAX_ATTEMPTS` attempts per IP in the window is `429 apple_enrollment_rate_limited` with `Retry-After` |
+| `POST /api/projects/{id}/testflight` | admin | Starts the TestFlight workflow on the latest release tag, refused if its checks are not green (`202` with the version), see [TestFlight](apple-testflight.md) |
 | `GET /api/apple-hosts` | admin | Macs with `last_seen_at` and `connected` (seen within `APPLE_HEARTBEAT_TIMEOUT_SECONDS`) |
 | `DELETE /api/apple-hosts/{id}` | admin | Revokes the token: the Mac's next call is `401` |
 | `POST /api/apple-host/heartbeat` | host token | `204`, records the Mac as seen |

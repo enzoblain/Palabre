@@ -602,3 +602,9 @@ class AppleJobResult(BaseModel):
 
     status: Literal["passed", "failed", "error"]
     log_excerpt: str = ""
+
+
+class AppleTestflightOut(BaseModel):
+    """The version whose TestFlight publication was started."""
+
+    version: str
