@@ -157,7 +157,7 @@ async def test_no_build_blocks_the_merge(db, apple_project, fake_github):
         (AppleJobStatus.queued, "Swift build queued"),
         (AppleJobStatus.running, "Swift build still running"),
         (AppleJobStatus.failed, "Swift build failed: fix the errors and submit again"),
-        (AppleJobStatus.error, "Swift build hit an infra error, not a test failure: retry it"),
+        (AppleJobStatus.error, "Swift build hit an infra error, not a test failure: relaunch it with retry_apple_build"),
     ],
 )
 async def test_an_unfinished_or_red_build_blocks_the_merge(db, apple_project, fake_github, build_status, expected):
