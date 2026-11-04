@@ -332,7 +332,7 @@ export const fr: Messages = {
   "task.todo": "À faire",
   "task.in_progress": "En cours",
   "task.review": "En revue",
-  "task.changes_requested": "Modifs demandées",
+  "task.changes_requested": "Modifications demandées",
   "task.done": "Terminée",
   "task.cancelled": "Annulée",
   "new.type": "Type de projet",
