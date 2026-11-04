@@ -2,7 +2,7 @@
 
 - Security review is not self-declared: in the modes with a security gate, a pull request
   that changes a path listed in `backend/app/sensitive_paths.py` (dependency manifests and
-  lockfiles, Dockerfiles, entrypoints, sudoers, `runner.py`, `config.py`, `mcp_server/`,
+  lockfiles including Swift's `Package.swift` and `Package.resolved`, Xcode `*.pbxproj` and `*.xcconfig` files, Dockerfiles, entrypoints, sudoers, `runner.py`, `config.py`, `mcp_server/`,
   scripts, secrets and CI files) needs security's approval, whatever the author flags. The
   files come from the pushed branch; the author's flag can only add the gate.
 - The lead can also mark a task `sensitive` (`create_task` / `update_task`, lead only: others get
