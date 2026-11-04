@@ -9,7 +9,7 @@ import type {
   Message,
   ProjectDetail,
   ProjectListItem,
-} from "./types";
+} from "@palabre/shared";
 
 const MESSAGES_PAGE_SIZE = 200;
 const PAIRING_DEVICE_NAME_MAX = 100;

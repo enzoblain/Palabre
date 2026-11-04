@@ -12,7 +12,7 @@ UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-sto
 | Expo SDK | The latest stable SDK on the day the app is scaffolded, pinned exactly in `package.json` (`expo`, `react-native`) | Expo ties each SDK to one React Native version; mixing them breaks native modules. Upgrading is a deliberate task per SDK, never a Dependabot major (see [Dependencies](dependencies.md)). |
 | Language | TypeScript in strict mode, no `any` | Same rule as the web app. |
 | Navigation | `expo-router` (file-based) | Standard with Expo, native stack and tab navigators, deep links for free. |
-| Location | `mobile/` at the repo root, next to `backend/` and `frontend/` | Same release train and same PR flow; the web `frontend/` is not a workspace member, the two apps do not import each other's build. |
+| Location | `mobile/` at the repo root, next to `backend/` and `frontend/` | Same release train and same PR flow; the web `frontend/` is not a workspace member, the two apps do not import each other's build; they only share the types in `shared/`. |
 | Server state | Plain `fetch` plus a small hook layer (no query library at first) | The web app does the same with `api.ts`; add a library only if the polling code grows. |
 | Storage of secrets | `expo-secure-store` (iOS Keychain, Android Keystore) | The web app uses `sessionStorage`, which does not exist on a phone. |
 
@@ -21,7 +21,7 @@ UI spec of the mobile tasks, not from here (see the [v1 user stories](mobile-sto
 ```
 mobile/
   app/              expo-router screens (conversation list, conversation, project info, team, settings, login)
-  src/api/          typed client, ported from frontend/src/api.ts
+  src/api/          typed client, ported from frontend/src/api.ts; types and error codes come from ../shared
   src/components/   bubbles, composer, list rows, typing dots
   src/i18n/         same keys as the web app
   src/format/       pure helpers: list sort, search, initials, avatar color, iMessage-style time; bubble series and time separators
@@ -34,19 +34,22 @@ mobile/
 `npm run check` in `mobile/` runs the type check (`tsc --noEmit`), the tests and an i18n key check, like the
 web app. CI gets one job for it that skips while `mobile/` does not exist, like the other jobs of `ci.yml`.
 
+See [Mobile parity](mobile-parity.md) for the list of features the web app has and the app still lacks, in batches.
+
 ## Sharing code with the web app
 
-The API client (`frontend/src/api.ts`) mixes pure parts (types, `ApiError`, `ERROR_CODES`, error mapping) with
-browser parts (`sessionStorage`, `localStorage`, `translate`). Two options:
+`shared/` at the repo root holds what both apps exchange with the backend: the API data types (`types.ts`, mirroring
+`backend/app/api/schemas.py`) and the error codes (`errors.ts`, mirroring `backend/app/errors.py`). It has types and
+constants only: no React, no runtime dependency, no browser or phone API. The screens, the clients (`fetch`, storage,
+`translate`) and `ApiError` stay in each app.
 
-1. Copy the file into `mobile/src/api/` and swap the storage and translation for the phone's.
-2. Extract the pure parts into a shared package and import it from both apps.
+Both apps import it as `@palabre/shared`. The alias is set in `frontend/tsconfig.json` and `frontend/vite.config.ts`,
+and in `mobile/tsconfig.json`, `mobile/jest.config.js` and `mobile/metro.config.js` (Metro also watches `shared/`).
+A new type or error code goes in `shared/` only, never copied into an app. The i18n checks of both apps read
+`ERROR_CODES` from `shared/errors.ts`.
 
-Recommended: start with a **copy** (option 1), with a test that fails when the copied `ERROR_CODES` and types drift
-from `frontend/src/api.ts`, the same idea as the existing `ERROR_CODES`/`ErrorCode` backend test. The two apps ship
-on different cycles (the phone one is gated by the App Store), and a shared package means a workspace, Metro
-configuration and a second build path for the web Dockerfile. Revisit once the client is stable; then the pure
-types are the first thing to extract.
+The web image is built from the repo root (`docker build -f frontend/Dockerfile .`, see `docker-compose.yml`, `ci.yml` and
+`release.yml`) so that `shared/` is in the build context; `frontend/Dockerfile.dockerignore` keeps the context small.
 
 ## Connecting to the backend
 
@@ -77,6 +80,12 @@ Management, behind a valid session (a device token or the web session): `GET /ap
 
 Security: the database stores only an HMAC-SHA256 of the token, keyed by a key derived from the `ADMIN_TOKEN`, so changing the `ADMIN_TOKEN` revokes every phone. A wrong token, at pairing or later, feeds the same per-IP failure counter as the rest of the API (`429` once locked). The database is read only for tokens starting with `pdev_`.
 
+## Navigation
+
+The root screens live in the `app/(tabs)` group, shown with a bottom tab bar (expo-router `Tabs`) that mirrors the web bottom bar, in the same order: Projects (the conversation list, `index`), New project (`new`) and Settings (`settings`). The bar sits above the iPhone home indicator and the Android gesture bar (the tab screens only take the top and side safe areas). Labels come from the `nav.*` messages. New project and Settings show a placeholder until their screens are built (see [Mobile parity](mobile-parity.md)).
+
+`conversation/[id]` is pushed on the root stack, above the tabs: going back returns to the tab it was opened from. The login screen is outside the tab group, so signed-out users never see the bar.
+
 Out of scope for v1: pairing by QR code or one-time code, push tokens, the web screen to revoke devices (separate task).
 
 ### Real time
@@ -88,6 +97,9 @@ The backend has no WebSocket or server-sent events. The web app polls (`Conversa
 - Conversation open and app in the foreground: poll messages every 2 s with `sinceId`.
 - Conversation list in the foreground: poll `GET /projects` at a slower rhythm (about 5 s) for unread counts and the
   typing indicator.
+- Typing indicator: the conversation screen also reads `lead_writing` from `GET /projects` every 5 s and shows
+  three dots in the direction conversation while the lead writes. The header "Info" button opens a sheet with the
+  room objective, summary and members, like the web conversation info.
 - App in the background: stop polling, refresh once on return to the foreground (`AppState`).
 
 Polling cannot notify a user whose app is closed. That is the main gap for an iMessage-like app. **Push
@@ -134,7 +146,7 @@ TestFlight is impossible. This is a blocking question for the CEO (open question
 ## Task breakdown
 
 1. Scaffold `mobile/` (Expo, strict TypeScript, expo-router, `npm run check`, CI job, `docs/develop.md` entry). Front.
-2. Typed API client port and the drift test; secure storage of the connection. Front.
+2. Typed API client shared with the web app; secure storage of the connection. Front.
 3. Login screen: server URL, token, session, `401` handling. Front. Depends on 1 and 2.
 4. Conversation list with unread counts and the typing indicator (polling). Front.
 5. Conversation: bubbles, composer, sending with retry, polling with `sinceId`. Front.

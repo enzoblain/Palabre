@@ -11,7 +11,9 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": { "@palabre/shared": ["../shared/index.ts"] }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "../shared", "vite.config.ts"]
 }

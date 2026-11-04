@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Message } from "../api";
+import { api, type Message, type Room } from "../api";
 import { mergeMessages } from "../format/messages";
 import { usePolling } from "./usePolling";
 
@@ -10,6 +10,7 @@ export type PendingMessage = { key: string; content: string; createdAt: string; 
 
 export type MessagesState = {
   name: string | null; // the project name, once known
+  info: ConversationInfo | null; // room and lead, once known
   messages: Message[] | null; // null until the first load; kept across errors as a cache
   pending: PendingMessage[];
   failed: boolean;
@@ -18,7 +19,10 @@ export type MessagesState = {
   retry: (key: string) => Promise<void>;
 };
 
-type Target = { name: string; conversationId: number };
+/** What the conversation info panel and the typing indicator need. */
+export type ConversationInfo = { room: Room; leadName: string | null };
+
+type Target = { name: string; conversationId: number; info: ConversationInfo };
 
 /** The boss talks in the direction room: its first conversation (as on the web). */
 async function findTarget(projectId: number): Promise<Target> {
@@ -26,12 +30,14 @@ async function findTarget(projectId: number): Promise<Target> {
   const room = project.rooms.find((candidate) => candidate.kind === "direction") ?? project.rooms[0];
   const conversation = room ? (await api.listConversations(room.id))[0] : undefined;
   if (!conversation) throw new Error("no conversation");
-  return { name: project.name, conversationId: conversation.id };
+  const lead = project.employees.find((employee) => employee.roles.includes("lead"));
+  return { name: project.name, conversationId: conversation.id, info: { room, leadName: lead?.name ?? null } };
 }
 
 /** The messages of a project's conversation: polled with since_id, with optimistic sends. */
 export function useMessages(projectId: number): MessagesState {
   const [name, setName] = useState<string | null>(null);
+  const [info, setInfo] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const retrying = useRef(new Set<string>()); // keys being re-sent: guards a fast double tap
@@ -58,6 +64,7 @@ export function useMessages(projectId: number): MessagesState {
       const batch = await api.listMessages(target.current.conversationId, lastId.current);
       if (!mounted.current) return;
       setName(target.current.name);
+      setInfo(target.current.info);
       // Only polls move the cursor: a sent message's id can skip ones the team posted meanwhile.
       if (batch.length > 0) lastId.current = Math.max(...batch.map((message) => message.id));
       append(batch);
@@ -110,5 +117,5 @@ export function useMessages(projectId: number): MessagesState {
     [pending, post, setStatus],
   );
 
-  return { name, messages, pending, failed, reload, send, retry };
+  return { name, info, messages, pending, failed, reload, send, retry };
 }

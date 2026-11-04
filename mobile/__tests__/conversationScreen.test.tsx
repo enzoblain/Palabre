@@ -27,6 +27,7 @@ jest.mock("../src/api", () => ({
   ...jest.requireActual("../src/api"),
   api: {
     getProject: jest.fn(),
+    listProjects: jest.fn(),
     listConversations: jest.fn(),
     listMessages: jest.fn(),
     postMessage: jest.fn(),
@@ -54,12 +55,48 @@ const message = (id: number, content: string, employeeId: number | null): Messag
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mocked.getProject.mockResolvedValue({ name: "Alpha", rooms: [{ id: 4, kind: "direction" }] });
+  mocked.getProject.mockResolvedValue({
+    name: "Alpha",
+    employees: [{ id: 5, name: "Élise", roles: ["lead"] }],
+    rooms: [
+      {
+        id: 4,
+        kind: "direction",
+        objective: "Ship the app",
+        summary: "",
+        members: [{ id: 5, name: "Élise", title: "Lead / CTO" }],
+      },
+    ],
+  });
+  mocked.listProjects.mockResolvedValue([{ id: 1, lead_writing: false }]);
   mocked.listConversations.mockResolvedValue([{ id: 9 }]);
   mocked.markDirectionRead.mockResolvedValue({});
 });
 
 describe("conversation screen", () => {
+  it("shows the typing indicator while the lead is writing", async () => {
+    mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+    mocked.listProjects.mockResolvedValue([{ id: 1, lead_writing: true }]);
+    await render(<ConversationScreen />);
+    expect(await screen.findByLabelText("Élise est en train d’écrire…")).toBeTruthy();
+  });
+
+  it("hides the typing indicator when the lead is not writing", async () => {
+    mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+    await render(<ConversationScreen />);
+    await screen.findByText("Salut");
+    expect(screen.queryByLabelText("Élise est en train d’écrire…")).toBeNull();
+  });
+
+  it("opens the conversation info with the objective and the members", async () => {
+    mocked.listMessages.mockResolvedValue([]);
+    await render(<ConversationScreen />);
+    fireEvent.press(await screen.findByText("Infos"));
+    expect(await screen.findByText("Ship the app")).toBeTruthy();
+    expect(screen.getByText("Élise · Lead / CTO")).toBeTruthy();
+    expect(screen.getByText("1 membre")).toBeTruthy();
+  });
+
   it("shows skeleton bubbles while loading", async () => {
     mocked.listMessages.mockReturnValue(new Promise(() => {}));
     await render(<ConversationScreen />);
@@ -152,5 +189,31 @@ describe("conversation screen", () => {
     await screen.findByRole("button", { name: /Non envoyé/ });
     expect(screen.getByText(/Non envoyé/, { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
     expect(screen.queryByText(/Non envoyé/)).toBeNull();
+  });
+});
+
+describe("conversation scrolling", () => {
+  const metrics = (offsetY: number) => ({
+    nativeEvent: {
+      contentOffset: { x: 0, y: offsetY },
+      contentSize: { width: 300, height: 2000 },
+      layoutMeasurement: { width: 300, height: 600 },
+    },
+  });
+
+  it("stays at the bottom on layout events, then flags new messages once the user scrolled up", async () => {
+    mocked.listMessages.mockResolvedValue([message(1, "Salut", 5)]);
+    await render(<ConversationScreen />);
+    await screen.findByText("Salut");
+    const list = screen.getByTestId("message-list");
+    fireEvent.scroll(list, metrics(0));
+    fireEvent(list, "contentSizeChange", 300, 2000);
+    expect(screen.queryByRole("button", { name: /nouveau/i })).toBeNull();
+
+    fireEvent(list, "scrollBeginDrag", metrics(0));
+    fireEvent.scroll(list, metrics(0));
+    fireEvent(list, "momentumScrollEnd", metrics(0));
+    fireEvent(list, "contentSizeChange", 300, 2100);
+    expect(await screen.findByRole("button", { name: /nouveau/i })).toBeTruthy();
   });
 });

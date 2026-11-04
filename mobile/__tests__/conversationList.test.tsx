@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
-import ConversationListScreen from "../app/index";
+import ConversationListScreen from "../app/(tabs)/index";
 import { api, type ProjectListItem } from "../src/api";
 
 const mockPush = jest.fn();
