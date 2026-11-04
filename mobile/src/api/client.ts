@@ -139,6 +139,11 @@ export const api = {
 
   getSettings: () => call<AppSettings>("/settings"),
   saveSettings: (changes: { boss_name?: string; language?: string }) => call<AppSettings>("/settings", "PUT", changes),
+  addEmployee: (projectId: number, body: { roles: string[]; personality: string | null }) =>
+    call<Employee>(`/projects/${projectId}/employees`, "POST", body),
+  updateEmployee: (employeeId: number, changes: { roles?: string[]; personality?: string }) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", changes),
+  removeEmployee: (employeeId: number) => call<void>(`/employees/${employeeId}`, "DELETE"),
   setAccount: (employeeId: number, account: number | null) =>
     call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
 

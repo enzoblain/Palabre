@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { TeamSection } from "../../src/components/project/TeamSection";
 import { DeleteProject } from "../../src/components/project/DeleteProject";
 import { ProjectForm } from "../../src/components/project/ProjectForm";
 import { ErrorBanner } from "../../src/components/ErrorBanner";
@@ -66,6 +67,7 @@ export default function ProjectScreen() {
                 </Text>
               )}
             </SettingsSection>
+            <TeamSection projectId={detail.id} members={detail.employees} onChanged={() => void reload()} />
             <DeleteProject detail={detail} onDeleted={() => router.replace("/")} />
           </>
         ) : null}

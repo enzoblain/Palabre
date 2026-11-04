@@ -13,7 +13,9 @@ jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" 
 jest.mock("expo-secure-store", () => ({}));
 jest.mock("../src/api", () => ({
   ...jest.requireActual("../src/api"),
-  api: { getProject: jest.fn(), updateProject: jest.fn(), deleteProject: jest.fn() },
+  api: {
+    getProject: jest.fn(), updateProject: jest.fn(), deleteProject: jest.fn(), roles: jest.fn(), personalities: jest.fn(), limits: jest.fn(),
+  },
 }));
 
 const mocked = api as unknown as Record<string, jest.Mock>;
@@ -43,6 +45,9 @@ const confirmAlert = async (label: string) => {
 beforeEach(() => {
   jest.clearAllMocks();
   mocked.getProject.mockResolvedValue(detail());
+  mocked.roles.mockResolvedValue({});
+  mocked.personalities.mockResolvedValue({});
+  mocked.limits.mockResolvedValue({ models: [], max_agents: 5, min_team_size: 2, mandatory_role: "lead" });
 });
 
 describe("project screen", () => {
