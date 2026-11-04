@@ -28,8 +28,29 @@ expect_blocked() {
     echo "blocked: $1"
 }
 
+# IPv6: pf drops all of it on the VM bridge. Wake the link's neighbours, then probe every link-local neighbour
+# (the gateway's among them); none must answer. Without any neighbour there is nothing to probe: say so.
+guest_if=$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')
+if [ -n "$guest_if" ]; then
+    ping6 -c1 "ff02::1%$guest_if" >/dev/null 2>&1 || true
+    neighbours=$(ndp -an 2>/dev/null | awk -v i="$guest_if" '$1 ~ /^fe80:/ && $3 == i {sub(/%.*/, "", $1); print $1}')
+    for neighbour in $neighbours; do
+        for port in 22 80 443 5432; do
+            if nc -6 -z -G "$TIMEOUT" "$neighbour%$guest_if" "$port" >/dev/null 2>&1; then
+                echo "FAIL: [$neighbour%$guest_if]:$port is reachable over IPv6 from the VM" >&2
+                failed=1
+            fi
+        done
+        echo "blocked (IPv6): $neighbour"
+    done
+    [ -n "$neighbours" ] || echo "note: no IPv6 neighbour answered, nothing to probe over IPv6"
+fi
+
+# The VM's own default gateway is always probed, on top of the given addresses.
+gateway=$(route -n get default 2>/dev/null | awk '/gateway:/{print $2}')
+
 # Probes on the Mac and each given LAN address, plus one address of each private range and the link-local one.
-for target in "$@" 10.0.0.1 172.16.0.1 192.168.1.1 169.254.169.254; do
+for target in "$@" $gateway 10.0.0.1 172.16.0.1 192.168.1.1 169.254.169.254; do
     expect_blocked "$target"
 done
 

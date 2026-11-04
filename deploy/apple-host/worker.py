@@ -37,7 +37,7 @@ GUEST_PROBE_COMMAND = ["/usr/bin/true"]  # answers 0 once the guest agent is up,
 BLOCKED_NETWORKS = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16")
 ISOLATION_NET_ARGS = ("--net-softnet", *(f"--net-softnet-block={network}" for network in BLOCKED_NETWORKS))
 PF_ANCHOR = "palabre/apple-vm"
-PF_ANCHOR_LABELS = ("palabre-apple-vm-dns", "palabre-apple-vm-private", "palabre-apple-vm-mac")
+PF_ANCHOR_LABELS = ("palabre-apple-vm-dns", "palabre-apple-vm-private", "palabre-apple-vm-mac", "palabre-apple-vm-ipv6")
 PF_READ_COMMAND = ("sudo", "-n", "/sbin/pfctl", "-a", PF_ANCHOR, "-s", "rules")  # the one command sudoers allows
 PF_INFO_COMMAND = ("sudo", "-n", "/sbin/pfctl", "-s", "info")  # the second command sudoers allows
 PF_READ_TIMEOUT_SECONDS = 10

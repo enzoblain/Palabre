@@ -165,7 +165,7 @@ time, and by default Tart's NAT lets a VM reach the host and the LAN. So:
   the private ranges and the Mac's own addresses from the VM subnet, DNS to the gateway excepted. A softnet bug must not be
   enough to reach the LAN. The worker refuses to start if the anchor is not loaded, and `check-isolation.sh`, run inside a
   VM, proves it (install, check and rollback: [Mac builder](apple-host.md)).
-- The VM uses a public DNS resolver, not the host's.
+- The VM only gets DNS from its gateway (the one destination the anchor lets through on the private ranges); IPv6 is dropped on the VM bridge.
 - Outbound internet is allowed because SwiftPM, CocoaPods, Homebrew and Apple's downloads need it; it is
   limited by the rules above, not by a host allow-list that would break packages. To tighten it later,
   `APPLE_EGRESS_ALLOW` can list domains (resolved to a `pf` table by the worker).

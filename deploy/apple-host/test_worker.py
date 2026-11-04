@@ -295,6 +295,10 @@ class PfAnchorTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-mac"):
             worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-mac", "other"), lambda: self.ENABLED)
 
+    def test_anchor_without_ipv6_block_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-ipv6"):
+            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-ipv6", "other"), lambda: self.ENABLED)
+
     def test_unreadable_anchor_refuses_to_start(self) -> None:
         def unreadable() -> str:
             raise OSError("sudo: a password is required")

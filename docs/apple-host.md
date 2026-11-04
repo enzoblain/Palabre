@@ -73,9 +73,9 @@ Upgrade the worker: pull the repository and run `sudo ./install.sh` again (it is
 
 Tart's softnet is the first barrier; the anchor is the second, on the host. `install.sh` fills
 `com.palabre.apple-vm.pf.conf` and loads it as the anchor `palabre/apple-vm`. From the VM subnet (`192.168.64.0/24`, Tart's
-default, change it with `VM_NET=... VM_GATEWAY=... sudo -E ./install.sh`) it blocks `10.0.0.0/8`, `172.16.0.0/12`,
+default, change it with `VM_NET=... VM_GATEWAY=... VM_IF=... sudo -E ./install.sh`) it blocks `10.0.0.0/8`, `172.16.0.0/12`,
 `192.168.0.0/16`, `169.254.0.0/16` and every IP address the Mac has, with one exception: DNS (port 53) to the gateway only.
-Internet stays open. It is idempotent: it adds one `anchor` line to `/etc/pf.conf` (copy kept in `/etc/pf.conf.palabre-backup`), installs the
+All IPv6 traffic coming in from the VM bridge (`bridge100` by default, `VM_IF`) is dropped too, so a guest cannot reach the Mac by its `fe80::` address. Internet stays open over IPv4. It is idempotent: it adds one `anchor` line to `/etc/pf.conf` (copy kept in `/etc/pf.conf.palabre-backup`), installs the
 `com.palabre.apple-pf` daemon that enables `pf` at boot, and a sudoers entry that lets `palabre` run only
 `pfctl -a palabre/apple-vm -s rules`, which is how the worker proves the anchor is loaded before it starts. Run `install.sh`
 again after the Mac's IP changes or after a macOS update that resets `/etc/pf.conf`.
@@ -91,7 +91,7 @@ Inside a VM (`tart run` a clone of the image, then `tart exec`), copy `check-iso
 tart exec <vm> /bin/sh -s -- <mac_ip> <router_ip> < deploy/apple-host/check-isolation.sh
 ```
 
-It fails if the Mac, a LAN address, one address of each private range or `169.254.169.254` accepts or refuses a connection
+It also probes the VM's default gateway and the link-local IPv6 neighbours of the VM's link, which must not answer. It fails if the Mac, a LAN address, one address of each private range or `169.254.169.254` accepts or refuses a connection
 (only a dropped packet counts as blocked), or if `github.com` or `swiftpackageindex.com` is not reachable. Run it again after
 every change of network, of image or of `pf`. With softnet on, the check also passes if softnet alone works, so it does not
 prove the anchor by itself: run it once more in a VM started without the softnet flags (plain `tart run`, no

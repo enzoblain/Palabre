@@ -12,9 +12,10 @@ PF_PLIST=/Library/LaunchDaemons/$PF_LABEL.plist
 PF_ANCHOR=palabre/apple-vm
 PF_ANCHOR_FILE=/etc/pf.anchors/palabre-apple-vm
 SUDOERS=/etc/sudoers.d/palabre-apple-pf
-# Tart's default shared network; override for another one: VM_NET=... VM_GATEWAY=... sudo -E ./install.sh
+# Tart's default shared network; override for another one: VM_NET=... VM_GATEWAY=... VM_IF=... sudo -E ./install.sh
 VM_NET=${VM_NET:-192.168.64.0/24}
 VM_GATEWAY=${VM_GATEWAY:-192.168.64.1}
+VM_IF=${VM_IF:-bridge100}
 HERE=$(cd "$(dirname "$0")" && pwd)
 
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
@@ -36,7 +37,7 @@ chmod 600 "$TOKEN_FILE"
 # from the VM subnet. The Mac's addresses are written into the anchor now, so run this again if one changes.
 MAC_IPS=$(ifconfig | awk '/^[[:space:]]inet /{print $2}' | grep -v '^127\.' | paste -sd, - | sed 's/,/, /g')
 [ -n "$MAC_IPS" ] || { echo "could not find the Mac's IP addresses" >&2; exit 1; }
-sed -e "s|\$vm_net|$VM_NET|g" -e "s|\$vm_gateway|$VM_GATEWAY|g" -e "s|\$mac_ips|{ $MAC_IPS }|g" \
+sed -e "s|\$vm_net|$VM_NET|g" -e "s|\$vm_gateway|$VM_GATEWAY|g" -e "s|\$vm_if|$VM_IF|g" -e "s|\$mac_ips|{ $MAC_IPS }|g" \
     "$HERE/com.palabre.apple-vm.pf.conf" > "$PF_ANCHOR_FILE.new"
 chmod 644 "$PF_ANCHOR_FILE.new"
 /sbin/pfctl -n -a "$PF_ANCHOR" -f "$PF_ANCHOR_FILE.new" || { rm -f "$PF_ANCHOR_FILE.new"; echo "invalid pf anchor, nothing changed" >&2; exit 1; }
