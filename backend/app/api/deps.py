@@ -109,6 +109,16 @@ async def _authenticate(request: Request, cred: HTTPAuthorizationCredentials | N
     raise _reject(ip, now)
 
 
+async def check_lockout_for(request: Request) -> None:
+    """429 when the caller's IP failed too many authentications (for guards other than the admin token's)."""
+    _check_lockout(await client_ip(request), time.monotonic())
+
+
+async def authentication_failure(request: Request) -> ApiError:
+    """Counts a failed authentication of the caller and returns the 401 to raise."""
+    return _reject(await client_ip(request), time.monotonic())
+
+
 async def _is_session_credential(token: str) -> bool:
     """A device token (database, only when it has the prefix) or a signed web session token."""
     if devices.looks_like_device_token(token):

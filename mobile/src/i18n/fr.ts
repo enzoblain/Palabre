@@ -96,6 +96,7 @@ export const fr: Messages = {
   "error.message_not_found": "Ce message n’existe pas",
   "error.question_not_found": "Cette question n’existe pas",
   "error.device_not_found": "Cet appareil n’existe pas",
+  "error.apple_job_token_used": "Ce jeton de job de build a déjà été utilisé",
   "error.mode_not_found": "Ce mode n’existe pas",
   "error.unknown_mode": "Mode inconnu",
   "error.invalid_repository": "Dépôt invalide",

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app import models  # noqa: F401 (registers tables)
 from app import agent_pool, anthropic_proxy, egress_proxy, services
 from app.projects import backfill_relayed_escalations, drop_generic_rooms, ensure_all_directions, migrate_inbox, normalize_repo_urls, refresh_permissions
-from app.api import auth, catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
+from app.api import apple as apple_api, auth, catalog, conversations, monitoring, projects, rooms, settings as app_settings, tasks
 from app.api.deps import require_admin
 from app.api.errors import ApiError, api_error, validation_error
 from app.company.catalog import load_catalog
@@ -125,6 +125,10 @@ async def github_error(_: Request, exc: GitHubError) -> JSONResponse:
 
 # Login: guarded by its own raw-token-only dependency, so it is mounted apart from the routers below
 app.include_router(auth.router, prefix="/api")
+
+# Mac builder: its own bearer tokens guard the host routes, the admin ones carry their own guards
+app.include_router(apple_api.admin_router, prefix="/api")
+app.include_router(apple_api.host_router, prefix="/api")
 
 # REST API for the boss
 for router in (

@@ -440,6 +440,52 @@ class AgentRun(Base):
     employee: Mapped[Employee] = relationship()
 
 
+class AppleJobStatus(str, enum.Enum):
+    """Where a build job of the Mac builder stands; `error` is an infra failure (timeout, lost Mac)."""
+
+    queued = "queued"
+    running = "running"
+    passed = "passed"
+    failed = "failed"
+    error = "error"
+
+
+class AppleHost(Base):
+    """A Mac builder: only the SHA-256 of its bearer token is stored; revoking sets revoked_at (see apple.py)."""
+
+    __tablename__ = "apple_hosts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = created_at_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class AppleJob(Base):
+    """A build of a project's branch at one commit, queued for the Mac builder (see apple.py)."""
+
+    __tablename__ = "apple_jobs"
+    __table_args__ = (Index("ix_apple_jobs_status_id", "status", "id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    branch: Mapped[str] = mapped_column(String(300))
+    commit_sha: Mapped[str] = mapped_column(String(40))
+    status: Mapped[AppleJobStatus] = mapped_column(str_enum(AppleJobStatus), default=AppleJobStatus.queued)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("apple_hosts.id", ondelete="SET NULL"), default=None)
+    # SHA-256 of the job token, cleared when the job ends in error (revoked); the token itself is never stored
+    job_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
+    source_downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    log_excerpt: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = created_at_column()
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
 class DeviceSession(Base):
     """A paired phone: only the HMAC of its token is stored; revoking deletes the row (see devices.py)."""
 
