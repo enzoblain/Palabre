@@ -19,7 +19,7 @@ function Screens() {
   return (
     <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={signedIn}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="conversation/[id]" options={{ headerShown: false }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>

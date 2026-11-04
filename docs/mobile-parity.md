@@ -76,7 +76,7 @@ Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `Proj
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Bottom bar with Projects, New project, Settings | absent (the app has one list screen and one conversation screen) | Tab navigator (expo-router tabs) above the safe area, on the root screens only | P1 |
+| Bottom bar with Projects, New project, Settings | present (three tabs; New project and Settings show a placeholder until batches 4 and 7) | none | |
 | Project list: avatar, name, last message preview, unread badge | present | none | |
 | Loading skeleton, error with retry, empty state with a "create project" button | partial (skeleton, error banner and empty text; no create button) | Create button in the empty state, leads to batch 7 | P2 |
 | Search field (web: only above 8 projects) | present (always shown, matches on the name) | none | |
