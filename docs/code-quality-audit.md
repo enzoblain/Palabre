@@ -8,7 +8,7 @@ H1. WorkflowError lives in services.py:64 while app/errors.py holds the error co
 H2. HTTP status parsed from error strings: github.py:207, :247, :284 test `" 404 " in str(exc)`; _api (:167-168) only puts the status in the message. Fix: GitHubError.status set by _api; callers test exc.status == 404. S.
 H3. Stringly typed kinds: Project.kind (~25 literal "company"/"research" comparisons in projects.py, dispatcher.py, merge_watch.py, team.py, api/), Room.kind ("team" literal at services.py:289, projects.py:243 next to DIRECTION/DM constants), Wakeup/AgentRun.kind (events.py:92, dispatcher.py:293/319, retries.py:26), Message.request_kind/request_status (models.py:250-251, plain String although RequestStatus exists). Fix: StrEnum per field (ProjectKind, RoomKind, RunKind, RequestKind) via str_enum, same values, no migration. M.
 H4. projects.py (860 lines) does five jobs: creation/teams, channels, startup data fixes (:228-325, :844-860), releases (:454-704), boss requests/decisions (:754-843). Fix: move release helpers (:625-654) into release.py, requests/decisions into requests.py, startup fixes into startup.py called by main.py. M.
-H5. Error codes mirrored by hand: frontend/src/api.ts:242-295 repeats ErrorCode. Fix: a backend test comparing api.ts ERROR_CODES with ErrorCode (no codegen, no dependency). S.
+H5. Error codes mirrored by hand: shared/errors.ts repeats ErrorCode. Fix: a backend test comparing shared/errors.ts ERROR_CODES with ErrorCode (no codegen, no dependency). S.
 
 ## Medium
 M1. services.py (678 lines) mixes app settings (:73-115), chat validation (:118), boss requests (:269-420), channels/DMs (:421-556), room document, notes. Fix: app_settings.py, requests.py (with H4); services.py keeps what CLAUDE.md says. M.
