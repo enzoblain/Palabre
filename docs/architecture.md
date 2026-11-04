@@ -21,3 +21,4 @@
 - **Apps** (`frontend/`): React and TypeScript, served by nginx for the browser.
 - **Shared contract** (`shared/`): the API types and error codes used by both apps, types and constants only (no runtime dependency). See [Mobile app](mobile.md#sharing-code-with-the-web-app).
 - **Mobile app** (`mobile/`): Expo (React Native) and TypeScript; talks to the same `/api`. See [Mobile app](mobile.md).
+- **Apple mode** (planned): a dedicated Mac builds and tests Swift projects in throw-away VMs, agents stay on Linux. See [Apple mode](apple-mode.md).
