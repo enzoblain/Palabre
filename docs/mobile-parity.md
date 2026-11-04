@@ -24,7 +24,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 |---|---|---|---|
 | 1 | Conversation screen basics: info sheet, typing indicator (done), scroll behavior (pending) | P1 | none |
 | 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages | P1 | batch 1 (same screen) |
-| 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name | P1 | none |
+| 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name (done) | P1 | none |
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server (done) | P2 | batch 3 (tab bar) |
 | 5 | Project info screen: name, branch, description, git link, deletion | P2 | batch 3 |
 | 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
@@ -69,7 +69,7 @@ Web source: `MessageBubble.tsx`, `Markdown.tsx`, `ConversationView.tsx` (compose
 | Read marker: opening the direction room marks it read, and each new message while open | present | none | |
 | "Lift the limit" button (restarts the anti-loop window of the conversation) | absent | Action in the info sheet, with the result message | P2 |
 
-## Batch 3: app shell and project list
+## Batch 3: app shell and project list (delivered, except the deliberate language difference)
 
 Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `ProjectsEditing.tsx`, `navigation.ts`,
 `router.ts`, `layout.ts`.
@@ -78,14 +78,14 @@ Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `Proj
 |---|---|---|---|
 | Bottom bar with Projects, New project, Settings | present (three tabs; New project and Settings show a placeholder until batches 4 and 7) | none | |
 | Project list: avatar, name, last message preview, unread badge | present | none | |
-| Loading skeleton, error with retry, empty state with a "create project" button | partial (skeleton, error banner and empty text; no create button) | Create button in the empty state, leads to batch 7 | P2 |
+| Loading skeleton, error with retry, empty state with a "create project" button | present (skeleton, error banner, empty text and a create button) | none | P2 |
 | Search field (web: only above 8 projects) | present (always shown, matches on the name) | none | |
-| Most recently opened project first | absent | Remember the last opened id in the app storage | P3 |
-| Edit mode: tick several projects, delete them after a confirmation, error message | absent | "Edit" button in the list header, row selection circles, destructive confirmation sheet | P2 |
+| Most recently opened project first | present (last opened id kept in secure storage) | none | P3 |
+| Edit mode: tick several projects, delete them after a confirmation, error message | present (Edit/Done in the list header, selection circles, labelled delete button of 48 dp, then a destructive confirmation alert; no swipe) | none | P2 |
 | Opening a project lands in the conversation with the lead (direction room) | present (the list opens the direction conversation directly) | none | |
 | Back arrow leading to the parent screen | present | none | |
-| Credits banner: Claude accounts out of credits, when they come back, per account if several | absent | Banner at the top of the root screens, polled every 15 s | P1 |
-| First run: no boss name yet opens Settings | absent | Redirect to the name field of batch 4 | P2 |
+| Credits banner: Claude accounts out of credits, when they come back, per account if several | present (root screens, polled every 15 s) | none | P1 |
+| First run: no boss name yet opens Settings | present (opens the Settings tab, which is still a placeholder until batch 4) | none | P2 |
 | Team language drives the interface language | absent (the app follows the phone language) | Keep the phone language, a deliberate difference; revisit with batch 4 | P3 |
 | Polling of the project list every 5 s | present | none | |
 | Unauthorized answer sends back to the sign-in screen | present | none | |

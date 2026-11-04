@@ -1,12 +1,20 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { Alert } from "react-native";
 import ConversationListScreen from "../app/(tabs)/index";
 import { api, type ProjectListItem } from "../src/api";
 
 const mockPush = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockNavigate = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush, navigate: mockNavigate }) }));
+jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
-jest.mock("expo-secure-store", () => ({}));
-jest.mock("../src/api", () => ({ ...jest.requireActual("../src/api"), api: { listProjects: jest.fn() } }));
+const mockStore = new Map<string, string>();
+jest.mock("expo-secure-store", () => ({
+  getItemAsync: async (key: string) => mockStore.get(key) ?? null,
+  setItemAsync: async (key: string, value: string) => void mockStore.set(key, value),
+}));
+jest.mock("../src/api", () => ({ ...jest.requireActual("../src/api"), api: { listProjects: jest.fn(), deleteProjects: jest.fn(), orchestratorStatus: jest.fn(), getSettings: jest.fn() },
+}));
 
 const listProjects = api.listProjects as jest.Mock;
 
@@ -29,7 +37,10 @@ const pullToRefresh = () =>
     await screen.getByTestId("conversation-list").props.refreshControl.props.onRefresh();
   });
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockStore.clear();
+});
 
 describe("conversation list screen", () => {
   it("shows skeletons while loading", async () => {
@@ -86,5 +97,82 @@ describe("conversation list screen", () => {
     listProjects.mockResolvedValue([project({ name: "Alpha" }), project({ id: 2, name: "Beta" })]);
     await pullToRefresh();
     expect(await screen.findByText("Beta")).toBeTruthy();
+  });
+
+  it("offers to create a project when there is none", async () => {
+    listProjects.mockResolvedValue([]);
+    await render(<ConversationListScreen />);
+    await fireEvent.press(await screen.findByRole("button", { name: "Créer un projet" }));
+    expect(mockNavigate).toHaveBeenCalledWith("/new");
+  });
+
+  it("lists the most recently opened project first, and remembers the one just opened", async () => {
+    mockStore.set("palabre.lastOpenedProject", "2");
+    listProjects.mockResolvedValue([project({ id: 1, name: "Alpha" }), project({ id: 2, name: "Beta" })]);
+    await render(<ConversationListScreen />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^(Alpha|Beta)/ })[0]).toHaveAccessibleName(/^Beta/));
+    await fireEvent.press(screen.getByRole("button", { name: /^Alpha/ }));
+    expect(mockStore.get("palabre.lastOpenedProject")).toBe("1");
+  });
+
+  describe("edit mode", () => {
+    const confirmDeletion = () => {
+      const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { text: string; onPress?: () => void }[];
+      return buttons.find((b) => b.text === "Supprimer définitivement")!.onPress!();
+    };
+    beforeEach(() => {
+      jest.spyOn(Alert, "alert").mockImplementation(() => {});
+      listProjects.mockResolvedValue([project({ id: 1, name: "Alpha" }), project({ id: 2, name: "Beta" })]);
+    });
+
+    it("ticks projects instead of opening them, then deletes them after a confirmation", async () => {
+      (api.deleteProjects as jest.Mock).mockResolvedValue(undefined);
+      await render(<ConversationListScreen />);
+      await screen.findByText("Beta");
+      await fireEvent.press(screen.getByRole("button", { name: "Modifier" }));
+      expect(screen.getByRole("button", { name: "Supprimer (0)" })).toBeDisabled();
+      await fireEvent.press(screen.getByRole("checkbox", { name: "Sélectionner Beta" }));
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(screen.getByRole("checkbox", { name: "Sélectionner Beta" })).toBeChecked();
+      await fireEvent.press(screen.getByRole("button", { name: "Supprimer (1)" }));
+      expect(api.deleteProjects).not.toHaveBeenCalled();
+      await act(async () => confirmDeletion());
+      expect(api.deleteProjects).toHaveBeenCalledWith([2]);
+      await waitFor(() => expect(screen.queryByRole("button", { name: /^Supprimer/ })).toBeNull());
+    });
+
+    it("labels the delete button while the deletion is pending", async () => {
+      (api.deleteProjects as jest.Mock).mockReturnValue(new Promise(() => {}));
+      await render(<ConversationListScreen />);
+      await screen.findByText("Beta");
+      await fireEvent.press(screen.getByRole("button", { name: "Modifier" }));
+      await fireEvent.press(screen.getByRole("checkbox", { name: "Sélectionner Alpha" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Supprimer (1)" }));
+      await act(async () => {
+        confirmDeletion();
+      });
+      expect(screen.getByRole("button", { name: "Suppression…" })).toBeBusy();
+    });
+
+    it("shows the error and stays in edit mode when the deletion fails", async () => {
+      (api.deleteProjects as jest.Mock).mockRejectedValue(new Error("boom"));
+      await render(<ConversationListScreen />);
+      await screen.findByText("Beta");
+      await fireEvent.press(screen.getByRole("button", { name: "Modifier" }));
+      await fireEvent.press(screen.getByRole("checkbox", { name: "Sélectionner Alpha" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Supprimer (1)" }));
+      await act(async () => confirmDeletion());
+      expect(await screen.findByText("Impossible de supprimer les projets.")).toBeTruthy();
+      expect(screen.getByRole("checkbox", { name: "Sélectionner Alpha" })).toBeChecked();
+    });
+
+    it("leaves edit mode with Done and clears the selection", async () => {
+      await render(<ConversationListScreen />);
+      await screen.findByText("Beta");
+      await fireEvent.press(screen.getByRole("button", { name: "Modifier" }));
+      await fireEvent.press(screen.getByRole("checkbox", { name: "Sélectionner Alpha" }));
+      await fireEvent.press(screen.getByRole("button", { name: "OK" }));
+      expect(screen.queryByRole("checkbox")).toBeNull();
+    });
   });
 });

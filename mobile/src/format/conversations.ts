@@ -23,6 +23,12 @@ export function sortByActivity(items: ProjectListItem[]): ProjectListItem[] {
   return [...items].sort((a, b) => parseDate(lastActivity(b)).getTime() - parseDate(lastActivity(a)).getTime());
 }
 
+/** The most recently opened project first, the others keep their order. */
+export function lastOpenedFirst(items: ProjectListItem[], lastOpenedId: number | null): ProjectListItem[] {
+  const last = items.find((item) => item.id === lastOpenedId);
+  return last ? [last, ...items.filter((item) => item !== last)] : items;
+}
+
 /** Case-insensitive match on the name and the last message; an empty query keeps everything. */
 export function filterConversations(items: ProjectListItem[], query: string): ProjectListItem[] {
   const needle = query.trim().toLowerCase();
@@ -61,4 +67,12 @@ export function formatListTime(iso: string, now: Date = new Date(), locale?: str
   if (days === 1) return translate("list.yesterday");
   if (days < WEEK_DAYS) return date.toLocaleDateString(locale, { weekday: "long" });
   return date.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+/** When credits come back: the time today, else the short date and time. */
+export function formatResetTime(iso: string, now: Date = new Date(), locale?: string): string {
+  const date = parseDate(iso);
+  const time = { hour: "2-digit", minute: "2-digit" } as const;
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString(locale, time);
+  return date.toLocaleString(locale, { day: "numeric", month: "short", ...time });
 }

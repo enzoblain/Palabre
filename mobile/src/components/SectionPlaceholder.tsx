@@ -1,5 +1,6 @@
 import { StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CreditsBanner } from "./CreditsBanner";
 import { translate } from "../i18n";
 import { FONT_SIZE, MAX_FONT_SCALE, SPACING, useColors } from "../theme";
 
@@ -13,6 +14,7 @@ export function SectionPlaceholder({ title }: { title: "nav.newProject" }) {
       <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.title, { color: colors.text }]}>
         {translate(title)}
       </Text>
+      <CreditsBanner />
       <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.notice, { color: colors.secondaryText }]}>
         {translate("section.soon")}
       </Text>

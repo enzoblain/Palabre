@@ -1,15 +1,18 @@
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { ProjectListItem } from "../../src/api";
+import { readLastOpenedProject, writeLastOpenedProject, type ProjectListItem } from "../../src/api";
 import { ConversationRow, SEPARATOR_INSET } from "../../src/components/ConversationRow";
 import { ConversationSkeleton } from "../../src/components/ConversationSkeleton";
+import { CreditsBanner } from "../../src/components/CreditsBanner";
+import { DeleteBar } from "../../src/components/DeleteBar";
 import { ErrorBanner } from "../../src/components/ErrorBanner";
-import { filterConversations } from "../../src/format/conversations";
+import { filterConversations, lastOpenedFirst } from "../../src/format/conversations";
 import { useConversations } from "../../src/hooks/useConversations";
+import { useProjectsEditing } from "../../src/hooks/useProjectsEditing";
 import { translate } from "../../src/i18n";
-import { FONT_SIZE, MAX_FONT_SCALE, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../../src/theme";
+import { FONT_SIZE, MAX_FONT_SCALE, DESTRUCTIVE_TOUCH_TARGET, MIN_TOUCH_TARGET, RADIUS, SPACING, useColors } from "../../src/theme";
 
 const SCREEN_EDGES = ["top", "left", "right"] as const; // the tab bar owns the bottom safe area
 
@@ -19,19 +22,50 @@ export default function ConversationListScreen() {
   const router = useRouter();
   const { items, failed, refreshing, refresh, reload } = useConversations();
   const [query, setQuery] = useState("");
-  const visible = useMemo(() => filterConversations(items ?? [], query), [items, query]);
-  const open = (item: ProjectListItem) =>
+  const [lastOpenedId, setLastOpenedId] = useState<number | null>(null);
+  const editing = useProjectsEditing(reload);
+  useEffect(() => {
+    void readLastOpenedProject().then(setLastOpenedId);
+  }, []);
+  const visible = useMemo(
+    () => filterConversations(lastOpenedFirst(items ?? [], lastOpenedId), query),
+    [items, lastOpenedId, query],
+  );
+  const open = (item: ProjectListItem) => {
+    setLastOpenedId(item.id);
+    void writeLastOpenedProject(item.id);
     router.push({ pathname: "/conversation/[id]", params: { id: String(item.id) } });
+  };
+  const confirmDelete = useCallback(() => {
+    Alert.alert(translate("list.deleteConfirm", { count: editing.checkedIds.size }), undefined, [
+      { text: translate("common.cancel"), style: "cancel" },
+      { text: translate("list.deleteForGood"), style: "destructive", onPress: () => void editing.deleteChecked() },
+    ]);
+  }, [editing]);
 
   const header = (
     <View>
-      <Text
-        accessibilityRole="header"
-        maxFontSizeMultiplier={MAX_FONT_SCALE}
-        style={[styles.title, { color: colors.text }]}
-      >
-        {translate("list.title")}
-      </Text>
+      <View style={styles.titleRow}>
+        <Text
+          accessibilityRole="header"
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          style={[styles.title, { color: colors.text }]}
+        >
+          {translate("list.title")}
+        </Text>
+        {items?.length ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: editing.editing }}
+            onPress={editing.toggleEditing}
+            style={styles.editButton}
+          >
+            <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.editLabel, { color: colors.link }]}>
+              {translate(editing.editing ? "list.done" : "list.edit")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
       <TextInput
         accessibilityLabel={translate("list.search")}
         placeholder={translate("list.search")}
@@ -44,6 +78,7 @@ export default function ConversationListScreen() {
         maxFontSizeMultiplier={MAX_FONT_SCALE}
         style={[styles.search, { backgroundColor: colors.secondaryBackground, color: colors.text }]}
       />
+      <CreditsBanner />
       {failed ? <ErrorBanner message={translate("list.error")} onRetry={reload} /> : null}
     </View>
   );
@@ -54,7 +89,13 @@ export default function ConversationListScreen() {
         testID="conversation-list"
         data={visible}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <ConversationRow item={item} onPress={open} />}
+        renderItem={({ item }) => (
+          <ConversationRow
+            item={item}
+            onPress={editing.editing ? editing.toggle : open}
+            selected={editing.editing ? editing.checkedIds.has(item.id) : undefined}
+          />
+        )}
         ItemSeparatorComponent={() => (
           <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         )}
@@ -65,9 +106,22 @@ export default function ConversationListScreen() {
               <ConversationSkeleton />
             )
           ) : (
-            <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.empty, { color: colors.secondaryText }]}>
-              {items.length === 0 ? translate("list.empty") : translate("list.noResults")}
-            </Text>
+            <View>
+              <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.empty, { color: colors.secondaryText }]}>
+                {items.length === 0 ? translate("list.empty") : translate("list.noResults")}
+              </Text>
+              {items.length === 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.navigate("/new")}
+                  style={[styles.create, { backgroundColor: colors.link }]}
+                >
+                  <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.createLabel, { color: colors.sentBubbleText }]}>
+                    {translate("list.create")}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           )
         }
         refreshing={refreshing}
@@ -75,13 +129,26 @@ export default function ConversationListScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       />
+      {editing.editing ? (
+        <DeleteBar
+          count={editing.checkedIds.size}
+          busy={editing.deleting}
+          error={editing.error}
+          onDelete={confirmDelete}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingRight: SPACING.sm },
   title: { fontSize: FONT_SIZE.largeTitle, fontWeight: "700", paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
+  editButton: { minHeight: DESTRUCTIVE_TOUCH_TARGET, minWidth: DESTRUCTIVE_TOUCH_TARGET, justifyContent: "center", alignItems: "center", paddingHorizontal: SPACING.md },
+  editLabel: { fontSize: FONT_SIZE.body, fontWeight: "600" },
+  create: { minHeight: DESTRUCTIVE_TOUCH_TARGET, marginHorizontal: SPACING.lg, borderRadius: RADIUS.button, alignItems: "center", justifyContent: "center" },
+  createLabel: { fontSize: FONT_SIZE.body, fontWeight: "600" },
   search: {
     minHeight: MIN_TOUCH_TARGET,
     marginHorizontal: SPACING.lg,
