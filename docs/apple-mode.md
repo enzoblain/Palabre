@@ -256,7 +256,7 @@ infra error. Projects of any other platform queue nothing and keep their API unc
   is `passed`. The blocker says whether there is no build yet, it is queued or running, it failed (fix and submit
   again) or it hit an infra error (retry). The boss's `force` skips it like the other rules.
 - **Retry**: `POST /api/tasks/{id}/apple-build/retry` (and the lead's `retry_apple_build` tool) queues the same commit
-  again, only when the newest build ended as an infra error; any other state is `422 apple_build_not_retryable`.
+  again, only when the newest build ended as an infra error; any other state is `409 apple_build_not_retryable`.
 
 ## Configuration
 
