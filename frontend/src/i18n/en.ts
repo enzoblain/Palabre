@@ -37,6 +37,7 @@ export const en = {
   "error.apple_job_token_used": "This build job token was already used",
   "error.apple_enrollment_rate_limited": "Too many enrollment attempts, try again shortly",
   "error.apple_host_required": "No Mac builder is connected: connect one to create a Swift project",
+  "error.apple_build_not_retryable": "Only a build that ended in an infra error can be retried",
   "error.mode_not_found": "This mode does not exist",
   "error.unknown_mode": "Unknown mode",
   "error.invalid_repository": "Invalid repository",

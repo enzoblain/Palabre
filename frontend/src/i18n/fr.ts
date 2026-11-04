@@ -38,6 +38,7 @@ export const fr: Messages = {
   "error.apple_job_token_used": "Ce jeton de job de build a déjà été utilisé",
   "error.apple_enrollment_rate_limited": "Trop de tentatives d'enrôlement, réessayez dans un instant",
   "error.apple_host_required": "Aucun Mac builder n'est connecté : connectez-en un pour créer un projet Swift",
+  "error.apple_build_not_retryable": "Seul un build terminé par une erreur d'infrastructure peut être relancé",
   "error.mode_not_found": "Ce mode n’existe pas",
   "error.unknown_mode": "Mode inconnu",
   "error.invalid_repository": "Dépôt invalide",

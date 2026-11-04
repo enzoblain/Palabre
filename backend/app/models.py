@@ -496,6 +496,8 @@ class AppleJob(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     branch: Mapped[str] = mapped_column(String(300))
     commit_sha: Mapped[str] = mapped_column(String(40))
+    # The task whose PR head this job builds (NULL for a job queued by hand)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), index=True, default=None)
     status: Mapped[AppleJobStatus] = mapped_column(str_enum(AppleJobStatus), default=AppleJobStatus.queued)
     host_id: Mapped[int | None] = mapped_column(ForeignKey("apple_hosts.id", ondelete="SET NULL"), default=None)
     # SHA-256 of the job token, cleared when the job ends in error (revoked); the token itself is never stored
