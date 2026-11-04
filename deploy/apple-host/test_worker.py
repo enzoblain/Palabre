@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -100,8 +101,10 @@ class FakeBackend:
         self.results.append((job["id"], status, log_excerpt))
 
 
-def make_worker(vm: FakeVm, backend: FakeBackend, **config: Any) -> worker.Worker:
-    return worker.Worker(make_config(**config), backend, vm, sleep=lambda _: None)
+def make_worker(
+    vm: FakeVm, backend: FakeBackend, check_network: Callable[[], None] = lambda: None, **config: Any
+) -> worker.Worker:
+    return worker.Worker(make_config(**config), backend, vm, sleep=lambda _: None, check_network=check_network)
 
 
 class VerdictTest(unittest.TestCase):
@@ -196,6 +199,35 @@ class ProcessTest(unittest.TestCase):
         backend.fail_results = 2
         make_worker(FakeVm(), backend).process(make_job(7))
         self.assertEqual(len(backend.results), 1)
+
+
+class PfRecheckTest(unittest.TestCase):
+    def pf_checker(self, state: dict[str, str]) -> Callable[[], None]:
+        labels = "\n".join(f'label "{label}"' for label in worker.PF_ANCHOR_LABELS)
+        return lambda: worker.require_pf_anchor(
+            lambda: labels if state["anchor"] == "loaded" else "", lambda: state["info"]
+        )
+
+    def test_pf_disabled_while_running_refuses_the_job(self) -> None:
+        state = {"anchor": "loaded", "info": "Status: Enabled"}
+        vm, backend = FakeVm(), FakeBackend([])
+        make_worker(vm, backend, self.pf_checker(state)).process(make_job(1))
+        state["info"] = "Status: Disabled"
+        make_worker(vm, backend, self.pf_checker(state)).process(make_job(2))
+        self.assertEqual([r[:2] for r in backend.results], [(1, "passed"), (2, "error")])
+        self.assertIn("run install.sh again", backend.results[1][2])
+        self.assertEqual(vm.created, ["job-1"])
+
+    def test_anchor_emptied_between_two_jobs_refuses_the_second(self) -> None:
+        state = {"anchor": "loaded", "info": "Status: Enabled"}
+        vm, backend = FakeVm(), FakeBackend([])
+        w = make_worker(vm, backend, self.pf_checker(state))
+        w.process(make_job(1))
+        state["anchor"] = "empty"
+        w.process(make_job(2))
+        self.assertEqual([r[:2] for r in backend.results], [(1, "passed"), (2, "error")])
+        self.assertIn("missing rules", backend.results[1][2])
+        self.assertEqual(vm.created, ["job-1"])
 
 
 class QueueTest(unittest.TestCase):

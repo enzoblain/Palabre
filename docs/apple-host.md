@@ -100,7 +100,8 @@ It also probes the VM's default gateway and the link-local IPv6 neighbours of th
 every change of network, of image or of `pf`. With softnet on, the check also passes if softnet alone works, so it does not
 prove the anchor by itself: run it once more in a VM started without the softnet flags (plain `tart run`, no
 `--net-softnet`), where it must also pass; that proves the second barrier alone. The worker checks that pf is enabled and the
-anchor is loaded only at startup, so restart it after any `pfctl -d` or macOS update. Not run on the real Mac yet: the rules are checked by `pfctl -n` only
+anchor is loaded at startup and again before every job: if the check fails (`pfctl -d`, macOS update, emptied anchor), the job is
+not started, no VM is created, and it is reported as an error asking to run `install.sh` again. Not run on the real Mac yet: the rules are checked by `pfctl -n` only
 at install time, so this step is the real proof.
 
 ## Tests

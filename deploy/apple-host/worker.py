@@ -197,8 +197,16 @@ def verdict(result: ExecResult) -> str:
 
 
 class Worker:
-    def __init__(self, config: Config, backend: Backend, vm: Vm, sleep: Callable[[float], None] = time.sleep) -> None:
+    def __init__(
+        self,
+        config: Config,
+        backend: Backend,
+        vm: Vm,
+        sleep: Callable[[float], None] = time.sleep,
+        check_network: Callable[[], None] = require_pf_anchor,
+    ) -> None:
         self._config = config
+        self._check_network = check_network
         self._backend = backend
         self._vm = vm
         self._sleep = sleep
@@ -259,8 +267,14 @@ class Worker:
             self._slots.release()
 
     def process(self, job: dict[str, Any]) -> None:
-        """One job: fresh VM, build, delete the VM whatever happened, then report."""
+        """One job: check the pf barrier, fresh VM, build, delete the VM whatever happened, then report."""
         name = f"{VM_PREFIX}{int(job['id'])}"
+        try:
+            self._check_network()
+        except RuntimeError as error:
+            log.error("job %s refused: %s", name, error)
+            self._report(job, "error", f"Job refused, network barrier not in place: {error}")
+            return
         status, excerpt = "error", "Mac builder failed before the build started"
         try:
             status, excerpt = self._build(job, name)
