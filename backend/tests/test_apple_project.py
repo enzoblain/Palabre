@@ -5,14 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app import apple, apple_template, worktrees
+from app import apple, apple_template, github, projects, worktrees
 from app.api import projects as api_projects
 from app.api.errors import ApiError
 from app.api.schemas import ProjectIn
 from app.config import settings
-from app.models import AppleHost, Base, ProjectPlatform
+from app.models import AppleHost, Base, Project, ProjectPlatform
 
 NOW = datetime(2030, 1, 1, tzinfo=UTC)
 
@@ -107,3 +108,52 @@ def test_initial_files_of_an_apple_project_add_the_package():
 def test_initial_files_of_a_generic_project_are_unchanged():
     project = SimpleNamespace(name="App", platform=ProjectPlatform.generic)
     assert set(worktrees._initial_files(project)) == {"README.md", ".gitignore"}
+
+
+async def test_initial_commit_writes_and_adds_the_starter_package(monkeypatch, tmp_path):
+    calls = []
+
+    async def git(_cwd, *args, **_kwargs):
+        calls.append(args)
+        if args[0] == "rev-parse":
+            raise github.GitHubError("no ref")
+        return ""
+
+    async def resolve_branch(_repo, _branch):
+        return "main"
+
+    monkeypatch.setattr(worktrees, "git", git)
+    monkeypatch.setattr(worktrees, "resolve_branch", resolve_branch)
+    project = SimpleNamespace(
+        name="My App", repo_url="https://github.com/acme/app", default_branch="main", platform=ProjectPlatform.apple,
+    )
+    await worktrees._initial_commit(project, tmp_path)
+    starter = ("Package.swift", "Sources/MyApp/MyApp.swift", "Tests/MyAppTests/MyAppTests.swift")
+    for path in starter:
+        assert (tmp_path / path).is_file()
+    added = next(args for args in calls if args[0] == "add")
+    assert set(starter) <= set(added)
+
+
+async def test_create_project_stores_the_apple_platform(db, monkeypatch):
+    monkeypatch.setattr(settings, "apple_mode_enabled", True)
+    add_host(db, last_seen_at=datetime.now(UTC))
+    await db.commit()
+
+    async def resolve_branch(_repo, _branch):
+        return "main"
+
+    async def no_channels(*_args):
+        pass
+
+    monkeypatch.setattr(github, "resolve_branch", resolve_branch)
+    async def working_branch(_repo_url):
+        return "dev"
+
+    monkeypatch.setattr(projects, "working_branch", working_branch)
+    monkeypatch.setattr(projects, "open_channels", no_channels)
+    monkeypatch.setattr(projects, "plan_custom_channels_later", lambda _project_id: None)
+    body = ProjectIn(name="App", repo_url="https://github.com/acme/app", mode="enterprise", platform="apple")
+    await api_projects.create_project(body, db)
+    stored = (await db.execute(select(Project))).scalar_one()
+    assert stored.platform == ProjectPlatform.apple

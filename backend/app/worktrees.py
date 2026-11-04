@@ -190,7 +190,6 @@ async def _initial_commit(project: Project, repo: Path) -> None:
     # Already made by an attempt whose push failed: only the pushes are left
     if not await _has_ref(repo, f"refs/heads/{production}"):
         await git(repo, "checkout", "--quiet", "--orphan", production)
-        (repo / "README.md").write_text(initial_readme(project))
         files = _initial_files(project)
         for path, content in files.items():
             (repo / path).parent.mkdir(parents=True, exist_ok=True)
