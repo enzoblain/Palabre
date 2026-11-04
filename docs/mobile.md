@@ -140,7 +140,7 @@ TestFlight is impossible. This is a blocking question for the CEO (open question
 ## Task breakdown
 
 1. Scaffold `mobile/` (Expo, strict TypeScript, expo-router, `npm run check`, CI job, `docs/develop.md` entry). Front.
-2. Typed API client port and the drift test; secure storage of the connection. Front.
+2. Typed API client on the shared contract; secure storage of the connection. Front.
 3. Login screen: server URL, token, session, `401` handling. Front. Depends on 1 and 2.
 4. Conversation list with unread counts and the typing indicator (polling). Front.
 5. Conversation: bubbles, composer, sending with retry, polling with `sinceId`. Front.
