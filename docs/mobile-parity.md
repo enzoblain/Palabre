@@ -3,7 +3,7 @@
 The CEO wants the [mobile app](mobile.md) to do everything the web app does. This file is the exhaustive list of the
 differences between `frontend/src` and `mobile/app` + `mobile/src`, grouped in **batches**: each batch can be delivered
 on its own and is meant to become one task (or a few). It was written from a read of every file of `frontend/src`
-(screens, components and helper modules) against the mobile code at version 0.30.5 plus task 519.
+(screens, components and helper modules) against the mobile code at version 0.30.5.
 
 The web app has no screen for tasks, decisions, monitoring, the catalog or releases (they exist only in the API and the
 agents' tools), so there is nothing to port for them.
@@ -14,7 +14,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 ## How to read the tables
 
 - **State**: `present` (same behavior), `partial` (exists, something is missing), `absent`, or `in progress` (covered by
-  a running task: 519 or 520, batch 1).
+  a running task, see the last section).
 - **Priority**: P1 = the CEO sees the gap on every use, P2 = regular use, P3 = rare or setup-time use.
 - **Web source** names the file in `frontend/src`.
 
@@ -22,7 +22,7 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 
 | Batch | Content | Priority | Depends on |
 |---|---|---|---|
-| 1 | Conversation screen basics: info, typing indicator, scroll (tasks 519 and 520) | P1 | none |
+| 1 | Conversation screen basics: info sheet, typing indicator (done), scroll behavior (pending) | P1 | none |
 | 2 | Message content and actions: Markdown, mentions, copy, sent time, system messages | P1 | batch 1 (same screen) |
 | 3 | App shell and project list: tab bar, edit mode and deletion, credits banner, first-run name | P1 | none |
 | 4 | Settings screen: name, language, connected devices, Claude accounts, server | P2 | batch 3 (tab bar) |
@@ -30,21 +30,21 @@ layout. Keyboard shortcuts, hover states, the desktop team column and URL routin
 | 6 | Team management of a project: members, jobs, personalities | P3 | batch 5 |
 | 7 | New project: form, automatic or manual team, team editor | P3 | batch 3, shares the pickers of batch 6 |
 
-Batches 1, 3 are independent. 6 and 7 share the job and personality pickers: build them once, in whichever of the two
+Batches 1 and 3 are independent. 6 and 7 share the job and personality pickers: build them once, in whichever of the two
 comes first, as shared components.
 
-## Batch 1: conversation screen basics (in progress)
+## Batch 1: conversation screen basics (only the scroll behavior is pending)
 
 Web source: `ConversationView.tsx`, `ConversationTeam.tsx`, `MessageBubble.tsx` (typing dots).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Conversation header: title (hidden in the direction room) and member count | in progress (519: info button and sheet) | Header "Info" button opening a bottom sheet | P1 |
-| Team column: members sorted lead first, avatar, name, title | in progress (519: members in the info sheet) | Members list inside the info sheet (no side column on a phone) | P1 |
-| Room objective and summary | in progress (519) | Same info sheet | P1 |
-| Typing dots while the lead writes (direction room only) | in progress (519) | Dots at the end of the message list | P1 |
-| Open on the latest message, stay at the bottom after sending or on a new message, do not force down when the user scrolled up | in progress (520) | Message list scroll behavior | P1 |
-| Info sheet refreshed while open (objective and summary are read once) | partial (follow-up of the 519 review) | Re-read the room with the message poll | P3 |
+| Conversation header: title (hidden in the direction room) and member count | present | Header "Info" button opening a bottom sheet | P1 |
+| Team column: members sorted lead first, avatar, name, title | present | Members list inside the info sheet (no side column on a phone) | P1 |
+| Room objective and summary | present | Same info sheet | P1 |
+| Typing dots while the lead writes (direction room only) | present | Dots at the end of the message list | P1 |
+| Open on the latest message, stay at the bottom after sending or on a new message, do not force down when the user scrolled up | in progress | Message list scroll behavior | P1 |
+| Info sheet refreshed while open (objective and summary are read once) | partial | Re-read the room with the message poll | P3 |
 
 ## Batch 2: message content and actions
 
@@ -76,7 +76,7 @@ Web source: `App.tsx`, `BottomBar.tsx`, `Projects.tsx`, `ProjectList.tsx`, `Proj
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Bottom bar with Projects, New project, Settings | absent (the app has one list screen and one conversation screen; 519 did not add it) | Tab navigator (expo-router tabs) above the safe area, on the root screens only | P1 |
+| Bottom bar with Projects, New project, Settings | absent (the app has one list screen and one conversation screen) | Tab navigator (expo-router tabs) above the safe area, on the root screens only | P1 |
 | Project list: avatar, name, last message preview, unread badge | present | none | |
 | Loading skeleton, error with retry, empty state with a "create project" button | partial (skeleton, error banner and empty text; no create button) | Create button in the empty state, leads to batch 7 | P2 |
 | Search field (web: only above 8 projects) | present (always shown, matches on the name) | none | |
@@ -115,10 +115,10 @@ Web source: `ProjectInfo.tsx` (`ProjectBar`, `ProjectForm`, `DeleteProject`).
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Project screen reachable from a conversation (info icon) | partial (519 adds the conversation info sheet, not the project page) | Link at the bottom of the info sheet, or a pushed screen | P2 |
+| Project screen reachable from a conversation (info icon) | partial (the conversation info sheet exists, not the project page) | Link at the bottom of the info sheet, or a pushed screen | P2 |
 | Edit name (100 characters) and main branch, saved together, backend warning shown | absent | Form with a save button, inline status | P2 |
 | Unsaved-change detection that enables the save button | absent | same | P2 |
-| Description (the direction room objective) with a hint to change it by asking the lead | absent (objective shown read-only by 519) | Text block on the page | P3 |
+| Description (the direction room objective) with a hint to change it by asking the lead | absent (objective shown read-only in the conversation info sheet) | Text block on the page | P3 |
 | Git link opened in a new tab, or "no git" text | absent | Opens with the system browser | P3 |
 | Delete the project after a confirmation, with error and busy state | absent | Destructive button at the bottom with a confirmation alert, then back to the list | P2 |
 | Loading and load error of the project | partial (conversation screen only) | Same states | P2 |
@@ -129,7 +129,7 @@ Web source: `TeamSection.tsx`, `JobPicker.tsx`, `PersonalityPicker.tsx`, `preset
 
 | Web feature | State in the app | Planned place on mobile | Priority |
 |---|---|---|---|
-| Team list sorted by name: avatar, name, job title, quirks | partial (members shown in the 519 info sheet, without quirks) | Section of the project page (batch 5) | P3 |
+| Team list sorted by name: avatar, name, job title, quirks | partial (members shown in the conversation info sheet, without quirks) | Section of the project page (batch 5) | P3 |
 | Lead badge, the lead cannot be edited or removed | absent | same | P3 |
 | Edit a member: jobs and personality, hint about what changes | absent | Pushed form screen | P3 |
 | Remove a member after a confirmation | absent | Swipe action with a confirmation alert | P3 |
@@ -171,11 +171,11 @@ Web source: `api.ts`, `i18n/`, `util.ts`, `main.tsx`, `styles.css`, `Icons.tsx`,
 | Desktop breakpoint, hover, keyboard shortcuts (Escape closes, Tab trap, Enter sends) | n/a | Replaced by gestures and the system keyboard | |
 | Version display, service worker, favicon | n/a | none | |
 
-## Already covered by running tasks
+## Already covered by other tasks
 
 - Task 519 (done, merged): conversation info sheet, typing indicator. Its review notes that the bottom tab bar was
   not delivered: it is listed in batch 3.
-- Task 520 (to do): scroll behavior of the conversation (batch 1).
+- Task 520 (in progress): scroll behavior of the conversation (batch 1).
 
 ## Suggested order
 
