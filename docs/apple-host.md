@@ -93,7 +93,10 @@ tart exec <vm> /bin/sh -s -- <mac_ip> <router_ip> < deploy/apple-host/check-isol
 
 It fails if the Mac, a LAN address, one address of each private range or `169.254.169.254` accepts or refuses a connection
 (only a dropped packet counts as blocked), or if `github.com` or `swiftpackageindex.com` is not reachable. Run it again after
-every change of network, of image or of `pf`. Not run on the real Mac yet: the rules are checked by `pfctl -n` only
+every change of network, of image or of `pf`. With softnet on, the check also passes if softnet alone works, so it does not
+prove the anchor by itself: run it once more in a VM started without the softnet flags (plain `tart run`, no
+`--net-softnet`), where it must also pass; that proves the second barrier alone. The worker checks that pf is enabled and the
+anchor is loaded only at startup, so restart it after any `pfctl -d` or macOS update. Not run on the real Mac yet: the rules are checked by `pfctl -n` only
 at install time, so this step is the real proof.
 
 ## Tests

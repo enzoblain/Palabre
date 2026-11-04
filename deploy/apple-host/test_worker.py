@@ -278,23 +278,29 @@ class ConfigTest(unittest.TestCase):
 class PfAnchorTest(unittest.TestCase):
     ACTIVE = "\n".join(f'block drop quick ... label "{label}"' for label in worker.PF_ANCHOR_LABELS)
 
+    ENABLED = "Status: Enabled for 0 days 00:01:00"
+
     def test_active_anchor_is_accepted(self) -> None:
-        worker.require_pf_anchor(lambda: self.ACTIVE)
+        worker.require_pf_anchor(lambda: self.ACTIVE, lambda: self.ENABLED)
+
+    def test_rules_loaded_but_pf_disabled_refuses_to_start(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "pf is disabled"):
+            worker.require_pf_anchor(lambda: self.ACTIVE, lambda: "Status: Disabled")
 
     def test_empty_anchor_refuses_to_start(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "not active"):
-            worker.require_pf_anchor(lambda: "")
+            worker.require_pf_anchor(lambda: "", lambda: self.ENABLED)
 
     def test_partial_anchor_refuses_to_start(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "palabre-apple-vm-mac"):
-            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-mac", "other"))
+            worker.require_pf_anchor(lambda: self.ACTIVE.replace("palabre-apple-vm-mac", "other"), lambda: self.ENABLED)
 
     def test_unreadable_anchor_refuses_to_start(self) -> None:
         def unreadable() -> str:
             raise OSError("sudo: a password is required")
 
         with self.assertRaisesRegex(RuntimeError, "run install.sh again"):
-            worker.require_pf_anchor(unreadable)
+            worker.require_pf_anchor(unreadable, lambda: self.ENABLED)
 
 
 class TartVmDeleteTest(unittest.TestCase):

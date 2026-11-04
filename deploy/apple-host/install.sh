@@ -48,15 +48,19 @@ if ! grep -q "anchor \"$PF_ANCHOR\"" /etc/pf.conf; then
 fi
 /sbin/pfctl -n -f /etc/pf.conf || { echo "invalid /etc/pf.conf; restore /etc/pf.conf.palabre-backup" >&2; exit 1; }
 install -m 644 -o root -g wheel "$HERE/$PF_LABEL.plist" "$PF_PLIST"
+# Load and enable pf now, synchronously; the daemon below only reloads it at each boot.
+/sbin/pfctl -E -f /etc/pf.conf
 launchctl bootout system "$PF_PLIST" 2>/dev/null || true
 launchctl bootstrap system "$PF_PLIST"
-# The worker (user palabre) may only read this anchor to prove it is loaded, nothing else.
-printf 'palabre ALL=(root) NOPASSWD: /sbin/pfctl -a %s -s rules\n' "$PF_ANCHOR" > "$SUDOERS.new"
+# The worker (user palabre) may only read this anchor and the pf status to prove they are active, nothing else.
+printf 'palabre ALL=(root) NOPASSWD: /sbin/pfctl -a %s -s rules, /sbin/pfctl -s info\n' "$PF_ANCHOR" > "$SUDOERS.new"
 /usr/sbin/visudo -cf "$SUDOERS.new" >/dev/null || { rm -f "$SUDOERS.new"; echo "invalid sudoers entry" >&2; exit 1; }
 chmod 440 "$SUDOERS.new"
 mv "$SUDOERS.new" "$SUDOERS"
 sudo -u palabre sudo -n /sbin/pfctl -a "$PF_ANCHOR" -s rules | grep -q palabre-apple-vm-private \
     || { echo "the pf anchor is not active after loading" >&2; exit 1; }
+sudo -u palabre sudo -n /sbin/pfctl -s info | grep -q "Status: Enabled" \
+    || { echo "pf is not enabled after loading" >&2; exit 1; }
 echo "pf anchor $PF_ANCHOR active for $VM_NET (Mac addresses: $MAC_IPS)"
 
 mkdir -p "$LIB"
