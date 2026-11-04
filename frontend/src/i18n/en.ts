@@ -129,7 +129,7 @@ export const en = {
   "info.testflightHint": "Sends the latest release to TestFlight. Only possible when its build and tests are green.",
   "info.testflightPublish": "Publish to TestFlight",
   "info.testflightSending": "Sending…",
-  "info.testflightStarted": "Version {version} sent to TestFlight",
+  "info.testflightStarted": "Sending version {version} to TestFlight started",
   "info.testflightConfirmTitle": "Publish to TestFlight?",
   "info.testflightConfirmBody": "The latest release will be sent to TestFlight. This cannot be undone.",
   "app.conversationMissing": "This conversation does not exist.",
