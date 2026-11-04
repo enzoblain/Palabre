@@ -147,6 +147,7 @@ export const api = {
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
   updateProject: (id: number, fields: { name?: string; main_branch?: string }) =>
     call<ProjectUpdated>(`/projects/${id}`, "PATCH", fields),
+  publishTestflight: (id: number) => call<{ version: string }>(`/projects/${id}/testflight`, "POST"),
   deleteProject: (id: number) => call<void>(`/projects/${id}`, "DELETE"),
   deleteProjects: (ids: number[]) => call<void>("/projects/delete", "POST", { ids }),
   createProject: (body: {

@@ -14,7 +14,7 @@ from app import apple, worktrees
 from app.api.deps import SessionDep, authentication_failure, check_lockout_for, client_ip, get_or_404, require_admin
 from app.api.errors import ApiError, ErrorCode
 from app.api.schemas import (
-    AppleEnroll, AppleEnrollmentCodeOut, AppleHostOut, AppleHostTokenOut, AppleJobClaim, AppleJobResult,
+    AppleEnroll, AppleEnrollmentCodeOut, AppleHostOut, AppleHostTokenOut, AppleJobClaim, AppleJobResult, AppleTestflightOut,
 )
 from app.config import settings
 from app.models import AppleHost, AppleJob, AppleJobStatus, Project
@@ -89,6 +89,15 @@ async def revoke_host(host_id: int, s: SessionDep) -> Response:
     host = await get_or_404(s, AppleHost, host_id)
     await apple.revoke_host(s, host)
     return Response(status_code=204)
+
+
+@admin_router.post(
+    "/projects/{project_id}/testflight", response_model=AppleTestflightOut, status_code=202, dependencies=[Depends(require_admin)]
+)
+async def publish_testflight(project_id: int, s: SessionDep) -> AppleTestflightOut:
+    """Starts the TestFlight publication of the latest release: refused unless its build and tests are green."""
+    project = await get_or_404(s, Project, project_id)
+    return AppleTestflightOut(version=await apple.publish_testflight(project))
 
 
 async def _token(request: Request, cred: HTTPAuthorizationCredentials | None) -> str:

@@ -9,6 +9,7 @@ from fastapi import status
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import github
 from app.api.errors import ApiError, ErrorCode
 from app.config import settings
 from app.errors import WorkflowError
@@ -307,3 +308,31 @@ def build_detail(job: AppleJob | None) -> dict | None:
         "errors": error_lines(job.log_excerpt),
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
     }
+
+
+TESTFLIGHT_WORKFLOW_FILE = "swift-testflight.yml"
+# GitHub answers these when the workflow file is absent or has no workflow_dispatch trigger
+WORKFLOW_UNUSABLE_STATUSES = (github.HTTP_NOT_FOUND, github.HTTP_UNPROCESSABLE)
+
+
+async def publish_testflight(project: Project) -> str:
+    """Starts the TestFlight workflow of the project on the tag of its latest release and returns the version.
+    The signing and the upload run in GitHub Actions only: this never touches an Apple key."""
+    if project.platform != ProjectPlatform.apple:
+        raise WorkflowError("TestFlight publishing needs a Swift project", code=ErrorCode.APPLE_PUBLISH_NOT_APPLE)
+    repo = github.repo_slug(project.repo_url)
+    tag = await github.latest_version_tag(repo)
+    if tag is None:
+        raise WorkflowError("No version tag to publish", code=ErrorCode.APPLE_PUBLISH_NO_RELEASE)
+    reason = await github.commit_checks(repo, await github.tag_commit(repo, tag))
+    # A repository whose CI does not run on the tag still has the workflow's own build and test job as a gate
+    if reason not in (None, github.NO_CHECKS_REASON):
+        raise WorkflowError(reason, code=ErrorCode.APPLE_PUBLISH_BUILD_NOT_GREEN)
+    version = tag.removeprefix("v")
+    try:
+        await github.dispatch_workflow(repo, TESTFLIGHT_WORKFLOW_FILE, tag, {"version": version})
+    except github.GitHubError as error:
+        if error.status in WORKFLOW_UNUSABLE_STATUSES:
+            raise WorkflowError(str(error), code=ErrorCode.APPLE_PUBLISH_WORKFLOW_MISSING) from error
+        raise
+    return version
