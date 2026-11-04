@@ -6,7 +6,7 @@ import { FONT_SIZE, MAX_FONT_SCALE, SPACING, useColors } from "../theme";
 const SCREEN_EDGES = ["top", "left", "right"] as const; // the tab bar owns the bottom safe area
 
 /** Root section whose content is not built yet: a title and a short notice, so its tab already works. */
-export function SectionPlaceholder({ title }: { title: "nav.newProject" | "nav.settings" }) {
+export function SectionPlaceholder({ title }: { title: "nav.newProject" }) {
   const colors = useColors();
   return (
     <SafeAreaView edges={SCREEN_EDGES} style={[styles.screen, { backgroundColor: colors.background }]}>

@@ -55,5 +55,7 @@ export const RADIUS = { bubble: 18, input: 18, button: 14 } as const;
 export const FONT_SIZE = { body: 17, caption: 12, largeTitle: 34 } as const;
 export const MAX_FONT_SCALE = 2; // Dynamic Type cap on text that can wrap or grow
 export const AVATAR_INITIALS_MAX_FONT_SCALE = 1.2; // initials must stay inside the avatar circle
+export const CHECKMARK_ICON_SIZE = 22;
 export const MIN_TOUCH_TARGET = 44;
 export const BUTTON_HEIGHT = 50;
+export const DESTRUCTIVE_TOUCH_TARGET = 48; // dp on Android, above the 44 pt of iOS: one size for both

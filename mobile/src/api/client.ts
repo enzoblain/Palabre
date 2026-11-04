@@ -2,10 +2,12 @@ import { translate } from "../i18n";
 import { ApiError, errorMessage, readErrorCode } from "./errors";
 import { deleteStoredConnection, readStoredConnection, writeStoredConnection } from "./storage";
 import type {
+  AppSettings,
   Connection,
   Conversation,
   Device,
   DevicePaired,
+  Employee,
   Message,
   ProjectDetail,
   ProjectListItem,
@@ -118,6 +120,11 @@ export async function pairDevice(server: string, adminToken: string, deviceName:
 export const api = {
   listDevices: () => call<Device[]>("/auth/devices"),
   revokeDevice: (id: number) => call<void>(`/auth/devices/${id}`, "DELETE"),
+
+  getSettings: () => call<AppSettings>("/settings"),
+  saveSettings: (changes: { boss_name?: string; language?: string }) => call<AppSettings>("/settings", "PUT", changes),
+  setAccount: (employeeId: number, account: number | null) =>
+    call<Employee>(`/employees/${employeeId}`, "PATCH", { account }),
 
   listProjects: () => call<ProjectListItem[]>("/projects"),
   getProject: (id: number) => call<ProjectDetail>(`/projects/${id}`),
