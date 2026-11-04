@@ -109,6 +109,17 @@ def test_template_runs_no_repository_code_in_the_job_that_holds_the_keys():
     script = "\n".join(step.get("run", "") for step in steps)
     assert "xcodebuild archive" not in script and "xcodebuild test" not in script
     assert " -A " not in script  # the key is usable by codesign only
+    assert "-T /usr/bin/codesign" in script
+    assert not any(step.get("uses", "").startswith("./") for step in steps)  # no local action from the repository
+    assert any(step.get("uses", "").startswith("actions/download-artifact") for step in steps)
+
+
+def test_template_archives_unsigned_in_a_job_without_secrets():
+    job = _workflow()["jobs"]["archive"]
+    assert "environment" not in job
+    script = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "xcodebuild archive" in script and "CODE_SIGNING_ALLOWED=NO" in script
+    assert any(step.get("uses", "").startswith("actions/upload-artifact") for step in job["steps"])
 
 
 def test_template_is_manual_only_with_read_permissions_and_pinned_actions():
