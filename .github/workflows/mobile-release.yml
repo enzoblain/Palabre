@@ -19,7 +19,7 @@ concurrency:
 env:
   NODE_VERSION: "22"
   # Pinned: the default Xcode of the runner image changes without notice
-  XCODE_VERSION: "26.3"
+  XCODE_VERSION: "26.6"
 
 jobs:
   # Skips the signing jobs while the app or the tag does not allow a release build
@@ -61,7 +61,7 @@ jobs:
     name: iOS to TestFlight
     needs: detect
     if: needs.detect.outputs.run == 'true'
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     environment: mobile-release
     env:
