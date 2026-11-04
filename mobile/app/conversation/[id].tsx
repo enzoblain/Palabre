@@ -49,7 +49,7 @@ export default function ConversationScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = Number(id);
-  const { name, info, messages, pending, failed, reload, send, retry } = useMessages(projectId);
+  const { name, info, messages, pending, failed, reload, refreshInfo, send, retry } = useMessages(projectId);
   const leadWriting = useLeadWriting(projectId);
   const bossName = useBossName();
   const selfNames = useMemo(() => bossNames(bossName), [bossName]);
@@ -144,6 +144,12 @@ export default function ConversationScreen() {
     }
   };
 
+  // The room is read once by the poll: re-read it each time the sheet opens, as the web does
+  const openInfo = () => {
+    setInfoOpen(true);
+    void refreshInfo();
+  };
+
   const insertMention = (name: string) => {
     setInfoOpen(false);
     setMention((previous) => ({ name, nonce: (previous?.nonce ?? 0) + 1 }));
@@ -184,7 +190,7 @@ export default function ConversationScreen() {
   const loading = messages === null && !failed;
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ConversationHeader name={name} onBack={() => router.back()} onInfo={info ? () => setInfoOpen(true) : undefined} />
+      <ConversationHeader name={name} onBack={() => router.back()} onInfo={info ? openInfo : undefined} />
       {info ? (
         <ConversationInfo
           room={info.room}
