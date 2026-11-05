@@ -1,4 +1,4 @@
-# Keeps the SHA-pinned GitHub Actions up to date. Other ecosystems come back with the Rust code.
+# Keeps the SHA-pinned GitHub Actions up to date. Cargo dependencies are kept up to date too.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,5 +8,14 @@ updates:
       interval: weekly
     groups:
       github-actions:
+        patterns:
+          - "*"
+  - package-ecosystem: cargo
+    directory: /
+    target-branch: rust-rewrite
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
         patterns:
           - "*"
