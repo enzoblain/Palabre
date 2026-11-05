@@ -1,9 +1,0 @@
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "paths": { "@palabre/shared": ["../shared/index.ts"] }
-  },
-  "include": ["../shared", "**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
-}

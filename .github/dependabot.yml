@@ -1,66 +1,12 @@
-# Keeps the SHA-pinned GitHub Actions, the Docker base images, the frontend npm packages and the
-# backend pip locks up to date (weekly pull requests against dev, one grouped PR per ecosystem).
-# Security updates are not grouped (no applies-to): separate PRs.
+# Keeps the SHA-pinned GitHub Actions up to date. Other ecosystems come back with the Rust code.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    target-branch: dev
+    target-branch: rust-rewrite
     schedule:
       interval: weekly
     groups:
       github-actions:
-        patterns:
-          - "*"
-  # Base images pinned by digest in the Dockerfiles and in docker-compose.yml.
-  - package-ecosystem: docker
-    directories:
-      - /backend
-      - /frontend
-    target-branch: dev
-    schedule:
-      interval: weekly
-    groups:
-      docker-images:
-        patterns:
-          - "*"
-    # Exceptions of docs/dependencies.md: Python 3.12 and Node majors move by hand.
-    ignore:
-      - dependency-name: python
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: node
-        update-types: ["version-update:semver-major"]
-  - package-ecosystem: docker-compose
-    directory: /
-    target-branch: dev
-    schedule:
-      interval: weekly
-    groups:
-      docker-compose-images:
-        patterns:
-          - "*"
-    # Exception of docs/dependencies.md: a PostgreSQL major is a data migration.
-    ignore:
-      - dependency-name: postgres
-        update-types: ["version-update:semver-major"]
-  - package-ecosystem: npm
-    directory: /frontend
-    target-branch: dev
-    schedule:
-      interval: weekly
-    groups:
-      frontend-npm:
-        patterns:
-          - "*"
-  # Backend locks: Dependabot recognizes the pip-compile headers and re-runs pip-compile.
-  # The group puts both locks in one PR; CI installs them together, so a PR where they
-  # disagree fails.
-  - package-ecosystem: pip
-    directory: /backend
-    target-branch: dev
-    schedule:
-      interval: weekly
-    groups:
-      backend-locks:
         patterns:
           - "*"
