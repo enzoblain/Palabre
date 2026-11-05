@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type ProjectPlatform, type TaskDetail, api } from "../api";
 import { I18nProvider } from "../i18n";
@@ -32,7 +32,8 @@ describe("TaskPage", () => {
     expect(screen.getByText("Salomé")).toBeTruthy();
     expect(screen.getByRole("link", { name: "View pull request (opens in a new tab)" }).getAttribute("href")).toBe("https://github.com/a/b/pull/9");
     expect(screen.getByRole("link", { name: "Back to tasks" }).getAttribute("href")).toBe("#/p/1/tasks");
-    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1, name: "Add login" }));
+    const title = screen.getByRole("heading", { level: 1, name: "Add login" });
+    await waitFor(() => expect(document.activeElement).toBe(title));
   });
 
   it("shows the Swift build on an Apple project only", async () => {

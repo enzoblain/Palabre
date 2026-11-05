@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-05
+
+### Chores
+
+- apple-host: add a step-by-step quick start for the Mac owner (#528)
+- frontend: make the task page focus test deterministic (#529)
+- frontend: fix flaky TaskPage title focus assertion (#530)
+- apple: add Apple account, signing keys and checks to the TestFlight guide (#527)
+- apple: fix TestFlight step reference and add key leak procedure (#531)
+
 ## [0.33.0] - 2026-11-04
 
 ### Added
@@ -832,7 +842,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release.
 
-[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/enzoblain/Palabre/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/enzoblain/Palabre/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/enzoblain/Palabre/compare/v0.32.2...v0.33.0
 [0.32.2]: https://github.com/enzoblain/Palabre/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/enzoblain/Palabre/compare/v0.32.0...v0.32.1
