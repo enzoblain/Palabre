@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   check:
+    # Keeps the "CI" check name required by the branch protection.
+    name: CI
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
