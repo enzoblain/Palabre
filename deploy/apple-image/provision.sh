@@ -5,15 +5,18 @@ set -eu
 
 BUILD_USER=builder
 RUNNER=/usr/local/bin/palabre-job-runner
+WORK_ROOT=/private/tmp/palabre-work # must match the runner default
 
 if ! id "$BUILD_USER" >/dev/null 2>&1; then
     sudo sysadminctl -addUser "$BUILD_USER" -password "$(openssl rand -base64 24)" -home "/Users/$BUILD_USER" >/dev/null
 fi
-sudo mkdir -p "/Users/$BUILD_USER/work"
 sudo chown -R "$BUILD_USER" "/Users/$BUILD_USER"
 sudo chmod 700 "/Users/$BUILD_USER"
+# The runner (admin) owns the work root; the build user only traverses it and gets its own job folder by chown.
+mkdir -p "$WORK_ROOT"
+chmod 755 "$WORK_ROOT"
 
-# Versions follow the pinned base image; the image itself is pinned by digest in APPLE_IMAGE.
+# Not pinned: these tools follow Homebrew at build time, so two builds of the image can differ; the base image is pinned by digest.
 brew install swiftlint xcbeautify
 
 sudo install -m 755 -o root -g wheel /tmp/palabre-job-runner "$RUNNER"

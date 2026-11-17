@@ -33,7 +33,7 @@ Publish it where the Macs pull it (`tart push palabre-macos <registry>/<name>:<t
 1. Reads the job token from the standard input and downloads the source bundle with curl (HTTPS only, 300 s limit). The token goes
    to curl through its standard input, never in an argument, so it does not show in a process list. The bundle is served once per
    token, so there is no retry.
-2. Clones the bundle and checks out the commit, in `/Users/builder/work/job-<id>`, owned by `builder`.
+2. Clones the bundle and checks out the commit, in `/private/tmp/palabre-work/job-<id>`, owned by `builder`.
 3. Runs `swift build` then `swift test` as `builder`, with an empty environment: build code (plugins, scripts) never sees the token.
 4. Removes its work folder, whatever the result.
 

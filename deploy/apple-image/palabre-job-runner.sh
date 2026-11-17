@@ -7,7 +7,7 @@ set -eu
 EXIT_FAILED=10
 EXIT_INFRA=20
 BUILD_USER="${PALABRE_BUILD_USER-builder}" # empty means "run as the current user" (tests only)
-WORK_ROOT="${PALABRE_WORK_ROOT:-/Users/builder/work}"
+WORK_ROOT="${PALABRE_WORK_ROOT:-/private/tmp/palabre-work}"
 DOWNLOAD_TIMEOUT_SECONDS=300
 
 infra_error() {

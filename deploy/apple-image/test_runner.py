@@ -45,6 +45,7 @@ class RunnerTest(unittest.TestCase):
     def test_build_failure_exits_ten(self) -> None:
         fake(self.bin, "swift", "exit 1")
         self.assertEqual(self.run_runner().returncode, 10)
+        self.assertFalse((self.work / "job-7").exists())
 
     def test_download_failure_is_an_infra_error(self) -> None:
         fake(self.bin, "curl", "cat > /dev/null; exit 22")
@@ -59,6 +60,11 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(self.run_runner(args=["http://x", "7", "/s", "abc"]).returncode, 20)
         self.assertEqual(self.run_runner(args=["https://x", "7;rm", "/s", "abc"]).returncode, 20)
         self.assertEqual(self.run_runner(args=["https://x"]).returncode, 20)
+
+    def test_refuses_an_invalid_commit_sha(self) -> None:
+        for sha in ("xyz;", "ABC123", ""):
+            args = ["https://x", "7", "/s", sha]
+            self.assertEqual(self.run_runner(args=args).returncode, 20, sha)
 
 
 if __name__ == "__main__":
