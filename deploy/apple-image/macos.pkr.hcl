@@ -13,6 +13,11 @@ packer {
 variable "base_image" {
   type        = string
   description = "Pinned base macOS image with the Xcode to build with (name@sha256:digest, admin user with passwordless sudo)"
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.base_image))
+    error_message = "The base_image must be pinned by digest (name@sha256:<64 hex characters>)."
+  }
 }
 
 variable "vm_name" {

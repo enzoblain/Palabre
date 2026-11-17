@@ -26,3 +26,7 @@ rm -f /tmp/palabre-job-runner
 rm -f "$HOME/.zsh_history" "$HOME/.bash_history" "$HOME/.git-credentials"
 sudo -u "$BUILD_USER" -H git config --global --list 2>/dev/null | grep -qi 'credential\|token' && exit 1
 "$RUNNER" 2>&1 | grep -q usage
+
+# Last step: the admin account gets a random password nobody keeps. Packer's SSH session (admin/admin) is already open and the
+# image build needs no other login; tart exec does not use the password, and sudo stays passwordless for the runner.
+sudo dscl . -passwd "/Users/$(id -un)" "$(openssl rand -base64 24)"

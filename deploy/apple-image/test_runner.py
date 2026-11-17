@@ -61,6 +61,18 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(self.run_runner(args=["https://x", "7;rm", "/s", "abc"]).returncode, 20)
         self.assertEqual(self.run_runner(args=["https://x"]).returncode, 20)
 
+    def test_refuses_a_source_url_that_is_not_a_path(self) -> None:
+        for source in ("https://evil.example.com/x", "api/source", ""):
+            result = self.run_runner(args=["https://x", "7", source, "abc"])
+            self.assertEqual(result.returncode, 20, source)
+            self.assertFalse(self.args_log.exists())
+
+    def test_refuses_a_token_outside_the_allowed_characters(self) -> None:
+        for token in ('abc"\nurl = "https://evil.example.com', "abc def", "abc;x", "ab\\c"):
+            result = self.run_runner(stdin=token + "\n")
+            self.assertEqual(result.returncode, 20, token)
+            self.assertFalse(self.args_log.exists())
+
     def test_refuses_an_invalid_commit_sha(self) -> None:
         for sha in ("xyz;", "ABC123", ""):
             args = ["https://x", "7", "/s", sha]

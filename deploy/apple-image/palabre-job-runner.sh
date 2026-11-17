@@ -27,6 +27,8 @@ case "$backend_url" in https://*) ;; *) infra_error "the backend url must use ht
 
 IFS= read -r job_token || infra_error "no job token on standard input"
 [ -n "$job_token" ] || infra_error "empty job token"
+# The token is written into a curl config line: a quote or a newline in it would inject curl options.
+case "$job_token" in *[!A-Za-z0-9_-]*) infra_error "invalid job token" ;; esac
 
 work="$WORK_ROOT/job-$job_id"
 rm -rf "$work"
