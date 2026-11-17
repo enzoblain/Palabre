@@ -22,6 +22,7 @@ source_url="$3"
 commit_sha="$4"
 case "$job_id" in '' | *[!0-9]*) infra_error "invalid job id" ;; esac
 case "$commit_sha" in '' | *[!0-9a-f]*) infra_error "invalid commit sha" ;; esac
+case "$source_url" in /*) ;; *) infra_error "the source url must be a path" ;; esac
 case "$backend_url" in https://*) ;; *) infra_error "the backend url must use https" ;; esac
 
 IFS= read -r job_token || infra_error "no job token on standard input"
@@ -31,7 +32,12 @@ work="$WORK_ROOT/job-$job_id"
 rm -rf "$work"
 mkdir -p "$work"
 bundle="$work.bundle"
-trap 'rm -rf "$work" "$bundle"' EXIT
+cleanup() {
+    rm -rf "$bundle"
+    # After the chown the build user owns the content, so the admin needs sudo to remove it.
+    if [ -n "$BUILD_USER" ]; then sudo rm -rf "$work"; else rm -rf "$work"; fi
+}
+trap cleanup EXIT
 
 # The token goes to curl through a config on standard input, never in the arguments. The source is served once
 # per token, so there is no retry: a failed download is an infra error and the job is queued again.
