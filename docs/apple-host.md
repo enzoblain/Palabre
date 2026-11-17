@@ -1,7 +1,7 @@
 # Mac builder
 
 The small program that runs on the Mac and builds the Apple jobs. The structure and the security rules are in
-[Apple mode](apple-mode.md); this page is how to install, run and roll back the worker. Code: `deploy/apple-host/`.
+[Apple mode](apple-mode.md); the image it clones is built as in [macOS build image](apple-image.md); this page is how to install, run and roll back the worker. Code: `deploy/apple-host/`.
 
 ## Quick start (Mac owner)
 
