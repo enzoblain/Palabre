@@ -11,6 +11,10 @@ Prerequisites:
 - an Apple project exists (created with "Swift / iPhone app") and the lead has given you one small Apple task on it, with its pull request
   branch. Ask the lead if you have none.
 
+A build is not queued by a plain `git push` or by opening the pull request on GitHub: it is queued each time the lead **submits the
+task** (a new submission of the pull request). So after every push below, ask the lead: "please submit task <number> again", then check
+the build. Always send back the commit you pushed (`git rev-parse --short HEAD`) so the build can be matched to it.
+
 Each step has three parts: what to do, what to observe, what to send back. Send everything in one report at the end (see "Report"). Never
 send tokens, enrollment codes or any password, only the words "ok" or "refused".
 
@@ -48,10 +52,11 @@ What to do:
    EOF
    git add -A && git commit -m "test: add trial package" && git push
    ```
-   If the project has no `.palabre/apple.toml` yet, ask the lead for its content and add it in the same commit.
-3. Open the pull request for the branch (GitHub, "Compare & pull request"), or ask the lead to submit the task.
+   If the project has no `.palabre/apple.toml` yet, ask the lead for its content and add it in the same commit, before the first
+   submission: the build reads it from the task branch.
+3. Ask the lead to submit the task (opening the pull request on GitHub is not enough). Send them the commit (`git rev-parse --short HEAD`).
 
-What to observe, without pressing anything:
+What to observe, without pressing anything else:
 
 - On the task page in the web app, and in the mobile app, a build appears as **queued**, then **running**, then **passed** (green).
 - While it is **running**, in a second Terminal window run `sudo -u palabre tart list`. You must see one VM named `job-<number>`. The VM
@@ -71,44 +76,49 @@ git commit -am "test: break the trial test on purpose" && git push
 
 What to observe:
 
-- A new build is queued by itself for the new commit and ends **failed** (red).
+- After the lead submits the task again, a new build is queued for the new commit and ends **failed** (red).
 - The task page, in the web app and in the mobile app, shows the error: the failed test name `testAdd` and a message like
   `XCTAssertEqual failed: ("5") is not equal to ("6")`.
-- The merge is blocked: on the task page the merge button is disabled (or refuses with a message that says the Apple build failed and to fix
-  and push again). Try to merge once, to see the message.
+- The merge is blocked. The task page has no merge button: the merge is done by the lead (or by you through the lead). Ask the lead to
+  try to merge the task and to copy you the blocker text. It must say the Apple build failed (fix and submit again).
 
-What to send back: screenshots of the red build with its error on web and on mobile, and of the blocked merge (button or message).
+What to send back: screenshots of the red build with its error on web and on mobile, the commit you pushed, and the blocker text the
+lead copied.
 
 ## Step 3: fix the test, the build turns green and the merge is unblocked
 
-What to do:
+What to do: fix the test, push, then ask the lead to submit the task again:
 ```sh
 sed -i '' 's/XCTAssertEqual(add(2, 3), 6)/XCTAssertEqual(add(2, 3), 5)/' Tests/TrialTests/TrialTests.swift
 git commit -am "test: fix the trial test" && git push
 ```
 
-What to observe: a new build runs and ends **passed** (green), and the merge is no longer blocked by the Apple build (do not merge: the
-lead decides). The old red build stays in the history.
+What to observe: a new build runs and ends **passed** (green). Ask the lead to try the merge again (the lead must not go through with it,
+or must cancel): the Apple build must no longer be listed as a blocker. The old red build stays in the history.
 
-What to send back: a screenshot of the green build and of the merge no longer blocked.
+What to send back: a screenshot of the green build, the commit, and the lead's new merge answer.
 
 ## Step 4: an infra error (worker stopped), then retry
 
 What to do:
 
-1. Push an empty commit to queue a new build: `git commit --allow-empty -m "test: infra trial" && git push`.
+1. Push an empty commit, then ask the lead to submit the task again to queue a new build:
+   `git commit --allow-empty -m "test: infra trial" && git push`.
 2. As soon as the build shows **running**, stop the worker:
    ```sh
    sudo launchctl bootout system /Library/LaunchDaemons/com.palabre.apple-worker.plist
    ```
 3. Wait about 2 minutes. The server declares the Mac lost after 60 seconds of silence (`APPLE_HEARTBEAT_TIMEOUT_SECONDS`, default `60`).
+   Overdue builds are only noticed when something asks for work, so the build may stay **running** for a while. If it is still
+   **running** after 5 minutes, ask the lead to check; do not restart the worker yet.
 
 What to observe:
 
 - In "Build Mac", the Mac turns **Disconnected**.
-- The build ends as an **infra error** (status `error`, flagged as an infrastructure problem), clearly not a red build: no test failure is
-  shown. On the task page a **retry** button appears.
-- Put the worker back first (next command), wait until "Build Mac" shows **Connected** again, then press the retry button on the task page.
+- The build ends as **Erreur d'infrastructure** (a warning, clearly not a red build: no test failure is shown). On the task page a
+  **Relancer** button appears next to it.
+- Put the worker back first (next command), wait until "Build Mac" shows **Connected** again, then press **Relancer** on the task page
+  (it only works on the newest build, when it ended as an infrastructure error).
   The build is queued again for the same commit and ends **passed**.
 
 Put the worker back in service:
@@ -119,7 +129,7 @@ tail -n 20 /var/log/palabre-apple-worker.log
 Expected: the log shows the worker starting without an error, and the Mac is **Connected** again in "Build Mac" within a few seconds. If
 `tart list` shows a leftover `job-<number>` VM from the stopped build, run `sudo -u palabre tart delete job-<number>`.
 
-What to send back: screenshots of the infra error (with the retry button), of the green build after the retry, of "Build Mac" showing
+What to send back: screenshots of "Erreur d'infrastructure" (with the **Relancer** button), of the green build after the retry, of "Build Mac" showing
 Connected, and the output of the `tail` command.
 
 ## Step 5: the image's admin password was changed
